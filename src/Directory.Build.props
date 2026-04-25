@@ -59,8 +59,10 @@
   <PropertyGroup Condition="'$(IsTestProject)' != 'true'">
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageOutputPath>$(MSBuildThisFileDirectory)..\artifacts\packages</PackageOutputPath>
-    <IncludeSymbols>true</IncludeSymbols>
-    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <!-- PDBs are embedded directly into the assembly (DebugType=Embedded above)
+         so the .nupkg ships with full symbols without a sidecar .snupkg —
+         the SSL.com signer doesn't accept the symbols package format. -->
+    <IncludeSymbols>false</IncludeSymbols>
     <!-- The walker depends on Roslyn + ICSharpCode.Decompiler, both reflection-heavy.
          Mark explicitly so consumers attempting an AOT publish get NETSDK1207 at
          build time rather than a runtime surprise. -->
@@ -72,6 +74,12 @@
     <PackageReference Include="stylecop.analyzers" PrivateAssets="all" />
     <PackageReference Include="Roslynator.Analyzers" PrivateAssets="All" />
     <PackageReference Include="Blazor.Common.Analyzers" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(IsTestProject)' != 'true'">
+    <!-- Embeds the source-link map into the assembly's PDB so consumers
+         can step into the package source on GitHub during debugging. -->
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup>
