@@ -376,27 +376,33 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                 continue;
             }
 
-            using var entryStream = entry.Open();
-
-            // Pre-size to the entry's known uncompressed length so the
-            // backing byte[] is allocated once at the correct size — the
-            // default MemoryStream doubles its buffer on every Write,
-            // which dominated the deflate-extract allocation profile.
-            using var memStream = new MemoryStream(checked((int)entry.Length));
-            entryStream.CopyTo(memStream);
-
-            memStream.Position = 0;
-            if (!IsManagedAssembly(memStream))
+            // Stream the zip entry straight to disk and reopen the file
+            // for the IsManagedAssembly check. The previous in-memory
+            // buffer was a MemoryStream sized to entry.Length — fine on
+            // small assemblies but ~half a gig of byte[] across a slim
+            // fixture once you sum every reference DLL. Two file ops vs
+            // a buffered round-trip is the better trade.
+            var destPath = Path.Combine(tfmRefsDir, entry.Name);
+            using (var entryStream = entry.Open())
+            using (var fileStream = new FileStream(destPath, FileMode.Create))
             {
-                LogSkippingNativeDll(logger, entry.Name);
-                continue;
+                entryStream.CopyTo(fileStream);
             }
 
-            memStream.Position = 0;
-            var destPath = Path.Combine(tfmRefsDir, entry.Name);
-            using var fileStream = new FileStream(destPath, FileMode.Create);
-            memStream.CopyTo(fileStream);
-            count++;
+            using (var probeStream = new FileStream(destPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                if (!IsManagedAssembly(probeStream))
+                {
+                    LogSkippingNativeDll(logger, entry.Name);
+                }
+                else
+                {
+                    count++;
+                    continue;
+                }
+            }
+
+            File.Delete(destPath);
         }
 
         LogExtractedRefs(logger, count, packageId, pathPrefix);

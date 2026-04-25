@@ -34,7 +34,13 @@ internal static class SourceUrlRewriter
                     var sha = ownerRepoSha[(lastSlash + 1)..];
                     var path = afterHost[(slashAfterRepo + 1)..];
 
-                    return AppendAnchor($"https://github.com/{owner}/{repo}/blob/{sha}/{path}", line, "#L");
+                    // Fuse base URL + anchor into a single interpolation
+                    // so the interpolated-string handler appends the
+                    // ReadOnlySpan parts directly to its internal buffer
+                    // — one string allocation total instead of two.
+                    return line > 0
+                        ? $"https://github.com/{owner}/{repo}/blob/{sha}/{path}#L{line}"
+                        : $"https://github.com/{owner}/{repo}/blob/{sha}/{path}";
                 }
             }
         }
@@ -42,13 +48,15 @@ internal static class SourceUrlRewriter
         if (rawUrl.Contains("/-/raw/", StringComparison.OrdinalIgnoreCase))
         {
             var rewritten = rawUrl.Replace("/-/raw/", "/-/blob/", StringComparison.OrdinalIgnoreCase);
-            return AppendAnchor(rewritten, line, "#L");
+            return line > 0 ? $"{rewritten}#L{line}" : rewritten;
         }
 
         if (rawUrl.StartsWith("https://api.bitbucket.org/2.0/repositories/", StringComparison.OrdinalIgnoreCase))
         {
             var afterHost = rawUrl.AsSpan("https://api.bitbucket.org/2.0/repositories/".Length);
-            return AppendAnchor($"https://bitbucket.org/{afterHost}", line, "#lines-");
+            return line > 0
+                ? $"https://bitbucket.org/{afterHost}#lines-{line}"
+                : $"https://bitbucket.org/{afterHost}";
         }
 
         if (rawUrl.StartsWith("https://dev.azure.com/", StringComparison.OrdinalIgnoreCase)
@@ -57,7 +65,7 @@ internal static class SourceUrlRewriter
             return azureBlob;
         }
 
-        return AppendAnchor(rawUrl, line, "#L");
+        return line > 0 ? $"{rawUrl}#L{line}" : rawUrl;
     }
 
     /// <summary>
@@ -70,16 +78,6 @@ internal static class SourceUrlRewriter
         var hashIdx = blobUrl.IndexOf('#', StringComparison.Ordinal);
         return hashIdx < 0 ? blobUrl : blobUrl[..hashIdx];
     }
-
-    /// <summary>
-    /// Appends a line anchor to a URL.
-    /// </summary>
-    /// <param name="url">URL to append to.</param>
-    /// <param name="line">Source line number.</param>
-    /// <param name="anchorPrefix">Provider-specific anchor prefix.</param>
-    /// <returns>The URL with the anchor appended if applicable.</returns>
-    private static string AppendAnchor(string url, int line, string anchorPrefix) =>
-        line > 0 ? $"{url}{anchorPrefix}{line}" : url;
 
     /// <summary>
     /// Skips a specific number of path segments in a span.

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Text;
+
 namespace SourceDocParser;
 
 /// <summary>
@@ -13,29 +15,47 @@ namespace SourceDocParser;
 /// </summary>
 /// <remarks>
 /// Uses a hand-rolled forward scanner over the file's text rather than
-/// XmlReader.ReadOuterXml per member. The XmlReader path allocated a
-/// fresh StringWriter + XmlTextWriter + StringBuilder per element,
-/// which dominated the doc-load allocation profile (~10% of the
-/// LoadAndWalk budget). The scanner only allocates one string per
-/// member (the captured element substring) plus the up-front
-/// File.ReadAllText call.
+/// XmlReader.ReadOuterXml per member. Stores per-member offset/length
+/// ranges instead of materialising the element substring at load time
+/// — the substring is only allocated when a consumer asks for it via
+/// Get(). Keeps peak memory bounded to one source string plus a small
+/// Range entry per member, instead of thousands of small per-member
+/// strings hanging off the dictionary.
+///
+/// Thread safety: build-once-then-read-many. Both factories build the
+/// internal dictionary and return; nothing writes after that. Get() is
+/// safe to call from multiple threads concurrently — the parallel
+/// walker fans out symbol lookups across worker threads that share a
+/// compilation, and Roslyn routes those into this source via the
+/// FileXmlDocumentationProvider hook.
 /// </remarks>
 public sealed class XmlDocSource : IXmlDocSource
 {
     /// <summary>Initial capacity hint for the per-file member dictionary.</summary>
     private const int InitialMemberCapacity = 1024;
 
-    /// <summary>Member ID → full member outer-XML lookup.</summary>
-    private readonly Dictionary<string, string> _byMemberId;
+    /// <summary>UTF-8 byte order mark prefix to strip from raw file content.</summary>
+    private static readonly byte[] _utf8Bom = [0xEF, 0xBB, 0xBF];
+
+    /// <summary>Raw .xml file content; member ranges index into this string.</summary>
+    private readonly string _content;
+
+    /// <summary>Member ID → (start offset, exclusive end) into <see cref="_content"/>.</summary>
+    private readonly Dictionary<string, MemberRange> _ranges;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="XmlDocSource"/> class.
     /// </summary>
-    /// <param name="byMemberId">Pre-built member-id → element-XML map.</param>
-    internal XmlDocSource(Dictionary<string, string> byMemberId) => _byMemberId = byMemberId;
+    /// <param name="content">Raw .xml file text the ranges index into.</param>
+    /// <param name="ranges">Member-id → range map.</param>
+    internal XmlDocSource(string content, Dictionary<string, MemberRange> ranges)
+    {
+        _content = content;
+        _ranges = ranges;
+    }
 
     /// <inheritdoc />
-    public int Count => _byMemberId.Count;
+    public int Count => _ranges.Count;
 
     /// <summary>
     /// Loads <paramref name="xmlPath"/> and indexes every
@@ -46,7 +66,21 @@ public sealed class XmlDocSource : IXmlDocSource
     public static XmlDocSource Load(string xmlPath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(xmlPath);
-        return new(BuildIndex(File.ReadAllText(xmlPath)));
+
+        // ReadAllBytes + GetString allocates one byte[] sized to the
+        // file plus one string. The default ReadAllText path goes via
+        // StreamReader which grows a StringBuilder in 1KB increments
+        // and then ToStrings it — several extra MB of transient
+        // allocation per assembly.
+        var bytes = File.ReadAllBytes(xmlPath);
+        var bytesSpan = bytes.AsSpan();
+        if (bytesSpan.StartsWith(_utf8Bom))
+        {
+            bytesSpan = bytesSpan[_utf8Bom.Length..];
+        }
+
+        var content = Encoding.UTF8.GetString(bytesSpan);
+        return new(content, BuildIndex(content));
     }
 
     /// <summary>
@@ -59,11 +93,12 @@ public sealed class XmlDocSource : IXmlDocSource
     public static XmlDocSource FromString(string content)
     {
         ArgumentNullException.ThrowIfNull(content);
-        return new(BuildIndex(content));
+        return new(content, BuildIndex(content));
     }
 
     /// <inheritdoc />
-    public string? Get(string memberId) => _byMemberId.GetValueOrDefault(memberId);
+    public string? Get(string memberId) =>
+        _ranges.TryGetValue(memberId, out var range) ? _content[range.Start..range.End] : null;
 
     /// <summary>
     /// Walks <paramref name="content"/> looking for
@@ -74,10 +109,10 @@ public sealed class XmlDocSource : IXmlDocSource
     /// produces.
     /// </summary>
     /// <param name="content">Raw file text.</param>
-    /// <returns>The populated member-id → element-XML map.</returns>
-    private static Dictionary<string, string> BuildIndex(string content)
+    /// <returns>The populated member-id → range map.</returns>
+    private static Dictionary<string, MemberRange> BuildIndex(string content)
     {
-        var byMemberId = new Dictionary<string, string>(InitialMemberCapacity, StringComparer.Ordinal);
+        var ranges = new Dictionary<string, MemberRange>(InitialMemberCapacity, StringComparer.Ordinal);
         const string OpenTag = "<member";
         const string NameAttr = "name=\"";
         const string CloseTag = "</member>";
@@ -94,16 +129,14 @@ public sealed class XmlDocSource : IXmlDocSource
 
             var elementStart = pos + openOffset;
 
-            // Find the closing > of the start tag (could be self-closing /> or full >).
             var startTagEnd = span[elementStart..].IndexOf('>');
             if (startTagEnd < 0)
             {
                 break;
             }
 
-            var startTagSpan = span.Slice(elementStart, startTagEnd + 1);
+            var startTagSpan = span[elementStart..(elementStart + startTagEnd + 1)];
 
-            // Pull name="..." out of the start tag.
             var nameMarker = startTagSpan.IndexOf(NameAttr, StringComparison.Ordinal);
             if (nameMarker < 0)
             {
@@ -119,12 +152,12 @@ public sealed class XmlDocSource : IXmlDocSource
                 continue;
             }
 
-            var memberId = startTagSpan.Slice(nameStart, nameEnd).ToString();
+            var memberId = startTagSpan[nameStart..(nameStart + nameEnd)].ToString();
 
             int elementEnd;
             if (startTagSpan.Length >= 2 && startTagSpan[^2] == '/')
             {
-                // Self-closing <member name="X"/>.
+                // Self-closing element form.
                 elementEnd = elementStart + startTagSpan.Length;
             }
             else
@@ -138,10 +171,15 @@ public sealed class XmlDocSource : IXmlDocSource
                 elementEnd = elementStart + startTagSpan.Length + closeOffset + CloseTag.Length;
             }
 
-            byMemberId[memberId] = span[elementStart..elementEnd].ToString();
+            ranges[memberId] = new(elementStart, elementEnd);
             pos = elementEnd;
         }
 
-        return byMemberId;
+        return ranges;
     }
+
+    /// <summary>Range into the source content for one member element.</summary>
+    /// <param name="Start">Inclusive start index.</param>
+    /// <param name="End">Exclusive end index.</param>
+    internal readonly record struct MemberRange(int Start, int End);
 }
