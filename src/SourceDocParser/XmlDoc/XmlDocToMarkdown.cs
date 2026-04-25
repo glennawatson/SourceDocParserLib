@@ -24,6 +24,15 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
     /// <summary>Initial StringBuilder capacity for tagged conversions; trimmed back as needed.</summary>
     private const int InitialBuilderCapacity = 256;
 
+    /// <summary>
+    /// Pooled StringBuilder reused across top-level Convert calls so each
+    /// per-symbol render doesn't allocate a fresh one. Convert() calls are
+    /// always sequential within a single converter instance because each
+    /// DocResolver creates its own (DocResolver itself is per-walk and
+    /// single-threaded), so no synchronisation is needed.
+    /// </summary>
+    private readonly StringBuilder _builder = new(InitialBuilderCapacity);
+
     /// <inheritdoc />
     public string Convert(string xmlFragment) => Convert(xmlFragment.AsSpan());
 
@@ -52,17 +61,17 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
             return string.Empty;
         }
 
+        var sb = _builder;
+        sb.Clear();
+
         // Plain-text fast path: no '<' means no inline tags to render,
-        // just decode standard entities into a StringBuilder. Skips
-        // even the scanner's overhead.
+        // just decode standard entities. Skips even the scanner overhead.
         if (innerXml.IndexOf('<') < 0)
         {
-            var plain = new StringBuilder(innerXml.Length);
-            DocXmlScanner.AppendDecoded(plain, innerXml);
-            return plain.ToString();
+            DocXmlScanner.AppendDecoded(sb, innerXml);
+            return sb.ToString();
         }
 
-        var sb = new StringBuilder(InitialBuilderCapacity);
         var scanner = new DocXmlScanner(innerXml);
         WriteFragment(ref scanner, sb, ListContext.None);
         return CollapseWhitespace(sb).ToString();
