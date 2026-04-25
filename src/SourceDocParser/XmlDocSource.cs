@@ -2,87 +2,146 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Xml;
-
 namespace SourceDocParser;
 
 /// <summary>
 /// Parses a NuGet-shipped XML doc file once and indexes its member
-/// entries by Roslyn member ID (e.g. <c>T:Foo.Bar</c>,
-/// <c>M:Foo.Bar.Baz(System.Int32)</c>) so the matching paragraph of
-/// XML can be returned in O(1) when Roslyn asks for it via the
-/// DocumentationProvider hook on a MetadataReference.
-///
-/// Built around XmlReader rather than XDocument so a 1+ MB doc file
-/// (ReactiveUI.xml is on that order) doesn't materialise the whole DOM
-/// in memory before we extract what we need. Each member element gets
-/// captured by its outer XML, so consumers see the full
-/// <c>member name="..."</c> envelope just like
-/// Roslyn's own <c>ISymbol.GetDocumentationCommentXml()</c> contract.
+/// entries by Roslyn member ID (e.g. T:Foo.Bar,
+/// M:Foo.Bar.Baz(System.Int32)) so the matching paragraph of XML can
+/// be returned in O(1) when Roslyn asks for it via the
+/// FileXmlDocumentationProvider hook on a MetadataReference.
 /// </summary>
-internal sealed class XmlDocSource(Dictionary<string, string> byMemberId)
+/// <remarks>
+/// Uses a hand-rolled forward scanner over the file's text rather than
+/// XmlReader.ReadOuterXml per member. The XmlReader path allocated a
+/// fresh StringWriter + XmlTextWriter + StringBuilder per element,
+/// which dominated the doc-load allocation profile (~10% of the
+/// LoadAndWalk budget). The scanner only allocates one string per
+/// member (the captured element substring) plus the up-front
+/// File.ReadAllText call.
+/// </remarks>
+public sealed class XmlDocSource : IXmlDocSource
 {
-    /// <summary>
-    /// Initial capacity hint for the per-file member dictionary.
-    /// </summary>
+    /// <summary>Initial capacity hint for the per-file member dictionary.</summary>
     private const int InitialMemberCapacity = 1024;
 
-    /// <summary>
-    /// Member ID to full member outer XML lookup.
-    /// </summary>
-    private readonly Dictionary<string, string> _byMemberId = byMemberId;
+    /// <summary>Member ID → full member outer-XML lookup.</summary>
+    private readonly Dictionary<string, string> _byMemberId;
 
     /// <summary>
-    /// Gets the number of indexed entries.
+    /// Initializes a new instance of the <see cref="XmlDocSource"/> class.
     /// </summary>
+    /// <param name="byMemberId">Pre-built member-id → element-XML map.</param>
+    internal XmlDocSource(Dictionary<string, string> byMemberId) => _byMemberId = byMemberId;
+
+    /// <inheritdoc />
     public int Count => _byMemberId.Count;
 
     /// <summary>
-    /// Parses an XML file and returns an indexed source.
+    /// Loads <paramref name="xmlPath"/> and indexes every
+    /// member element by its <c>name</c> attribute.
     /// </summary>
     /// <param name="xmlPath">Absolute path to the .xml file.</param>
-    /// <returns>An indexed XmlDocSource.</returns>
-    /// <remarks>
-    /// Expected to follow the standard .NET XML doc shape with a top-level doc
-    /// containing members, each having a member name attribute.
-    /// </remarks>
+    /// <returns>An indexed source over the file's contents.</returns>
     public static XmlDocSource Load(string xmlPath)
     {
-        var byMemberId = new Dictionary<string, string>(capacity: InitialMemberCapacity, StringComparer.Ordinal);
-        var settings = new XmlReaderSettings
-        {
-            IgnoreWhitespace = false,
-            IgnoreComments = true,
-            IgnoreProcessingInstructions = true,
-            DtdProcessing = DtdProcessing.Ignore,
-        };
-
-        using var stream = File.OpenRead(xmlPath);
-        using var reader = XmlReader.Create(stream, settings);
-        while (reader.Read())
-        {
-            if (reader is not { NodeType: XmlNodeType.Element, Name: "member" })
-            {
-                continue;
-            }
-
-            if (reader.GetAttribute("name") is not { Length: > 0 } memberId)
-            {
-                continue;
-            }
-
-            // ReadOuterXml advances the reader past the element.
-            byMemberId[memberId] = reader.ReadOuterXml();
-        }
-
-        return new(byMemberId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(xmlPath);
+        return new(BuildIndex(File.ReadAllText(xmlPath)));
     }
 
     /// <summary>
-    /// Returns the full member XML for the supplied Roslyn member ID.
+    /// Indexes <paramref name="content"/> directly without going
+    /// through disk; used by tests and benchmarks that want to feed
+    /// in synthetic doc text.
     /// </summary>
-    /// <param name="memberId">Roslyn member ID, e.g. T:Foo.Bar.</param>
-    /// <returns>Matching XML string or null if not found.</returns>
-    public string? Get(string memberId) =>
-        _byMemberId.GetValueOrDefault(memberId);
+    /// <param name="content">Raw .xml file text.</param>
+    /// <returns>An indexed source over <paramref name="content"/>.</returns>
+    public static XmlDocSource FromString(string content)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        return new(BuildIndex(content));
+    }
+
+    /// <inheritdoc />
+    public string? Get(string memberId) => _byMemberId.GetValueOrDefault(memberId);
+
+    /// <summary>
+    /// Walks <paramref name="content"/> looking for
+    /// member elements (with their name attribute and nested content).
+    /// XML doc files always emit <c>name="..."</c> with double quotes
+    /// and never nest member elements, so a forward
+    /// substring scan is correct for every file the .NET tooling
+    /// produces.
+    /// </summary>
+    /// <param name="content">Raw file text.</param>
+    /// <returns>The populated member-id → element-XML map.</returns>
+    private static Dictionary<string, string> BuildIndex(string content)
+    {
+        var byMemberId = new Dictionary<string, string>(InitialMemberCapacity, StringComparer.Ordinal);
+        const string OpenTag = "<member";
+        const string NameAttr = "name=\"";
+        const string CloseTag = "</member>";
+        var span = content.AsSpan();
+        var pos = 0;
+
+        while (pos < span.Length)
+        {
+            var openOffset = span[pos..].IndexOf(OpenTag, StringComparison.Ordinal);
+            if (openOffset < 0)
+            {
+                break;
+            }
+
+            var elementStart = pos + openOffset;
+
+            // Find the closing > of the start tag (could be self-closing /> or full >).
+            var startTagEnd = span[elementStart..].IndexOf('>');
+            if (startTagEnd < 0)
+            {
+                break;
+            }
+
+            var startTagSpan = span.Slice(elementStart, startTagEnd + 1);
+
+            // Pull name="..." out of the start tag.
+            var nameMarker = startTagSpan.IndexOf(NameAttr, StringComparison.Ordinal);
+            if (nameMarker < 0)
+            {
+                pos = elementStart + startTagSpan.Length;
+                continue;
+            }
+
+            var nameStart = nameMarker + NameAttr.Length;
+            var nameEnd = startTagSpan[nameStart..].IndexOf('"');
+            if (nameEnd < 0)
+            {
+                pos = elementStart + startTagSpan.Length;
+                continue;
+            }
+
+            var memberId = startTagSpan.Slice(nameStart, nameEnd).ToString();
+
+            int elementEnd;
+            if (startTagSpan.Length >= 2 && startTagSpan[^2] == '/')
+            {
+                // Self-closing <member name="X"/>.
+                elementEnd = elementStart + startTagSpan.Length;
+            }
+            else
+            {
+                var closeOffset = span[(elementStart + startTagSpan.Length)..].IndexOf(CloseTag, StringComparison.Ordinal);
+                if (closeOffset < 0)
+                {
+                    break;
+                }
+
+                elementEnd = elementStart + startTagSpan.Length + closeOffset + CloseTag.Length;
+            }
+
+            byMemberId[memberId] = span[elementStart..elementEnd].ToString();
+            pos = elementEnd;
+        }
+
+        return byMemberId;
+    }
 }

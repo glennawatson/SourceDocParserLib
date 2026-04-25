@@ -1,0 +1,507 @@
+// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Glenn Watson and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
+
+using System.Text;
+
+namespace SourceDocParser;
+
+/// <summary>
+/// Forward-only scanner over a span of XML doc text. Replaces XmlReader
+/// on the doc-parse hot path — every XmlReader.Create instantiated an
+/// XmlTextReaderImpl with multi-KB internal buffers (NodeData arrays,
+/// NamespaceManager, char buffers, Entry arrays) per symbol, which
+/// dominated the post-streaming allocation profile (~18% of the
+/// LoadAndWalk budget).
+/// </summary>
+/// <remarks>
+/// Implements only the slice of the XML grammar that .NET XML doc files
+/// actually use: element start/end tags (with optional self-closing
+/// suffix), attributes with double-quoted values, text content with the
+/// five standard entities (lt, gt, amp, quot, apos) and numeric
+/// character references in decimal or hex form, comments and
+/// processing instructions (skipped), and CDATA sections (surfaced as
+/// text). Single-quoted attributes, DTDs, internal subsets, mixed
+/// encodings, and other production-XML edge cases are out of scope —
+/// the .NET XML doc emitter never produces them.
+/// </remarks>
+internal ref struct DocXmlScanner
+{
+    /// <summary>Opening delimiter for an XML comment.</summary>
+    private const string CommentOpen = "<!--";
+
+    /// <summary>Closing delimiter for an XML comment.</summary>
+    private const string CommentClose = "-->";
+
+    /// <summary>Opening delimiter for a CDATA section.</summary>
+    private const string CdataOpen = "<![CDATA[";
+
+    /// <summary>Closing delimiter for a CDATA section.</summary>
+    private const string CdataClose = "]]>";
+
+    /// <summary>Closing delimiter for a processing instruction.</summary>
+    private const string PiClose = "?>";
+
+    /// <summary>Standard XML entity name for the less-than sign.</summary>
+    private const string EntityLt = "lt";
+
+    /// <summary>Standard XML entity name for the greater-than sign.</summary>
+    private const string EntityGt = "gt";
+
+    /// <summary>Standard XML entity name for the ampersand.</summary>
+    private const string EntityAmp = "amp";
+
+    /// <summary>Standard XML entity name for the double-quote.</summary>
+    private const string EntityQuot = "quot";
+
+    /// <summary>Standard XML entity name for the apostrophe.</summary>
+    private const string EntityApos = "apos";
+
+    /// <summary>Raw text being scanned.</summary>
+    private readonly ReadOnlySpan<char> _input;
+
+    /// <summary>Current read position into the input.</summary>
+    private int _pos;
+
+    /// <summary>Element name surfaced by the most recent start or end element token.</summary>
+    private ReadOnlySpan<char> _name;
+
+    /// <summary>Slice of the start tag's attribute area (between the element name and the tag closer).</summary>
+    private ReadOnlySpan<char> _attrArea;
+
+    /// <summary>Raw text for the current Text token (still entity-encoded).</summary>
+    private ReadOnlySpan<char> _text;
+
+    /// <summary>Initializes a new instance of the <see cref="DocXmlScanner"/> struct.</summary>
+    /// <param name="input">XML text to scan.</param>
+    public DocXmlScanner(ReadOnlySpan<char> input)
+    {
+        _input = input;
+        _pos = 0;
+        Kind = DocTokenKind.None;
+        Depth = 0;
+        IsEmptyElement = false;
+        TokenStart = 0;
+    }
+
+    /// <summary>Gets the start position of the most recent token in the input span (the offset of the opening character for markup, or the first character for text).</summary>
+    public int TokenStart { get; private set; }
+
+    /// <summary>Gets the kind of the most recent token.</summary>
+    public DocTokenKind Kind { get; private set; }
+
+    /// <summary>Gets the depth of the current element (root start element is at depth 1).</summary>
+    public int Depth { get; private set; }
+
+    /// <summary>Gets a value indicating whether the most recent start element was self-closing.</summary>
+    public bool IsEmptyElement { get; private set; }
+
+    /// <summary>Gets the element name for the current start/end token. Caller-side SequenceEqual against literals avoids allocating per check.</summary>
+    public readonly ReadOnlySpan<char> Name => _name;
+
+    /// <summary>Gets the raw text slice for the current text token (entity-encoded).</summary>
+    public readonly ReadOnlySpan<char> RawText => _text;
+
+    /// <summary>Decodes the five standard entities + numeric character references into <paramref name="dest"/>.</summary>
+    /// <param name="dest">Destination buffer (appended to).</param>
+    /// <param name="text">Raw text slice (entity-encoded).</param>
+    public static void AppendDecoded(StringBuilder dest, ReadOnlySpan<char> text)
+    {
+        ArgumentNullException.ThrowIfNull(dest);
+        var i = 0;
+        while (i < text.Length)
+        {
+            var amp = text[i..].IndexOf('&');
+            if (amp < 0)
+            {
+                dest.Append(text[i..]);
+                return;
+            }
+
+            dest.Append(text[i..(i + amp)]);
+            var entityStart = i + amp;
+            var semi = text[entityStart..].IndexOf(';');
+            if (semi < 0)
+            {
+                // Malformed; append the rest verbatim.
+                dest.Append(text[entityStart..]);
+                return;
+            }
+
+            var entity = text[(entityStart + 1)..(entityStart + semi)];
+            if (entity.SequenceEqual(EntityLt))
+            {
+                dest.Append('<');
+            }
+            else if (entity.SequenceEqual(EntityGt))
+            {
+                dest.Append('>');
+            }
+            else if (entity.SequenceEqual(EntityAmp))
+            {
+                dest.Append('&');
+            }
+            else if (entity.SequenceEqual(EntityQuot))
+            {
+                dest.Append('"');
+            }
+            else if (entity.SequenceEqual(EntityApos))
+            {
+                dest.Append('\'');
+            }
+            else if (entity.Length > 1 && entity[0] == '#' && TryParseNumericRef(entity[1..], out var rune))
+            {
+                dest.Append(rune);
+            }
+
+            // Unknown entity → silently dropped (matches XmlReader's behaviour for undefined entities).
+            i = entityStart + semi + 1;
+        }
+    }
+
+    /// <summary>
+    /// Advances to the next significant token. Returns false when the
+    /// input is exhausted. Comments and processing instructions are
+    /// silently consumed.
+    /// </summary>
+    /// <returns>True when a new token is available.</returns>
+    public bool Read()
+    {
+        IsEmptyElement = false;
+
+        while (_pos < _input.Length)
+        {
+            var ch = _input[_pos];
+            if (ch == '<')
+            {
+                TokenStart = _pos;
+                return ReadMarkup();
+            }
+
+            // Text run up to the next '<'.
+            TokenStart = _pos;
+            var nextLt = _input[_pos..].IndexOf('<');
+            var end = nextLt < 0 ? _input.Length : _pos + nextLt;
+            _text = _input[_pos..end];
+            _pos = end;
+            Kind = DocTokenKind.Text;
+            return true;
+        }
+
+        Kind = DocTokenKind.None;
+        return false;
+    }
+
+    /// <summary>
+    /// Captures the raw inner XML span of the current element (the
+    /// content between its start tag and the matching end tag) and
+    /// advances the scanner past the end element. Must be called when
+    /// positioned on a start element.
+    /// </summary>
+    /// <returns>The inner XML span (still entity-encoded, may contain nested elements). Empty for self-closing elements.</returns>
+    public ReadOnlySpan<char> ReadInnerSpan()
+    {
+        if (IsEmptyElement)
+        {
+            return default;
+        }
+
+        var startDepth = Depth;
+        var innerStart = _pos;
+        while (Read())
+        {
+            if (Kind == DocTokenKind.EndElement && Depth < startDepth)
+            {
+                return _input[innerStart..TokenStart];
+            }
+        }
+
+        return default;
+    }
+
+    /// <summary>
+    /// Returns the value of <paramref name="attributeName"/> on the
+    /// current start tag, or an empty span when not present. Only
+    /// double-quoted values are supported (matches every .NET XML doc
+    /// emitter).
+    /// </summary>
+    /// <param name="attributeName">Attribute name to look up.</param>
+    /// <returns>The attribute value as a span over the source, or empty.</returns>
+    public readonly ReadOnlySpan<char> GetAttribute(ReadOnlySpan<char> attributeName)
+    {
+        if (_attrArea.IsEmpty)
+        {
+            return default;
+        }
+
+        var area = _attrArea;
+        var i = 0;
+        while (i < area.Length)
+        {
+            // Skip leading whitespace.
+            while (i < area.Length && IsWhitespace(area[i]))
+            {
+                i++;
+            }
+
+            if (i >= area.Length)
+            {
+                break;
+            }
+
+            // Capture name up to '='.
+            var nameStart = i;
+            while (i < area.Length && area[i] != '=' && !IsWhitespace(area[i]))
+            {
+                i++;
+            }
+
+            var name = area[nameStart..i];
+
+            // Skip past '=' and any whitespace.
+            while (i < area.Length && (area[i] == '=' || IsWhitespace(area[i])))
+            {
+                i++;
+            }
+
+            if (i >= area.Length || area[i] != '"')
+            {
+                break;
+            }
+
+            i++; // past opening quote.
+            var valueStart = i;
+            var closing = area[i..].IndexOf('"');
+            if (closing < 0)
+            {
+                break;
+            }
+
+            var value = area[valueStart..(valueStart + closing)];
+            i = valueStart + closing + 1;
+
+            if (name.SequenceEqual(attributeName))
+            {
+                return value;
+            }
+        }
+
+        return default;
+    }
+
+    /// <summary>
+    /// Reads the inner text of the current element into a string. The
+    /// scanner must be positioned on a start element;
+    /// on return the scanner is positioned on the matching end element
+    /// (or just past the start tag for self-closing elements).
+    /// </summary>
+    /// <param name="builder">Reusable buffer the scanner writes into; cleared at entry, returned filled with decoded text.</param>
+    /// <returns>The decoded inner text.</returns>
+    public string ReadInnerText(StringBuilder builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        builder.Clear();
+        if (IsEmptyElement)
+        {
+            return string.Empty;
+        }
+
+        var startDepth = Depth;
+        while (Read())
+        {
+            if (Kind == DocTokenKind.EndElement && Depth < startDepth)
+            {
+                break;
+            }
+
+            if (Kind == DocTokenKind.Text)
+            {
+                AppendDecoded(builder, _text);
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>
+    /// Advances the scanner past the current element, ignoring its
+    /// children. The scanner must be positioned on a start element;
+    /// on return it is positioned on the matching end element (or
+    /// stays put for self-closing elements).
+    /// </summary>
+    public void SkipElement()
+    {
+        if (IsEmptyElement)
+        {
+            return;
+        }
+
+        var startDepth = Depth;
+        while (Read())
+        {
+            if (Kind == DocTokenKind.EndElement && Depth < startDepth)
+            {
+                return;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Parses a numeric character reference body — decimal digits or
+    /// the hex form (leading x/X prefix). The leading hash sign is
+    /// stripped by the caller.
+    /// </summary>
+    /// <param name="body">Numeric reference body.</param>
+    /// <param name="rune">Decoded code point.</param>
+    /// <returns>True when the reference parsed.</returns>
+    private static bool TryParseNumericRef(ReadOnlySpan<char> body, out char rune)
+    {
+        rune = '\0';
+        if (body.Length == 0)
+        {
+            return false;
+        }
+
+        int code;
+        if (body[0] is 'x' or 'X')
+        {
+            if (!int.TryParse(body[1..], System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out code))
+            {
+                return false;
+            }
+        }
+        else if (!int.TryParse(body, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out code))
+        {
+            return false;
+        }
+
+        if (code is < 0 or > 0xFFFF)
+        {
+            return false;
+        }
+
+        rune = (char)code;
+        return true;
+    }
+
+    /// <summary>True for the four whitespace characters allowed inside an XML start tag.</summary>
+    /// <param name="ch">Character to test.</param>
+    /// <returns>True when whitespace.</returns>
+    private static bool IsWhitespace(char ch) => ch is ' ' or '\t' or '\r' or '\n';
+
+    /// <summary>
+    /// Consumes a markup token starting at the current opening character.
+    /// Returns false on truncated input.
+    /// </summary>
+    /// <returns>True when a token is produced.</returns>
+    private bool ReadMarkup()
+    {
+        // Length-1 marker (just the leading '<') used by all start/end-tag scans.
+        const int LtLen = 1;
+
+        // '</' end-element prefix length.
+        const int EndElementPrefixLen = 2;
+
+        // Comment <!-- … -->.
+        if (_pos + CommentOpen.Length <= _input.Length && _input[_pos..(_pos + CommentOpen.Length)].SequenceEqual(CommentOpen))
+        {
+            var afterOpen = _pos + CommentOpen.Length;
+            var end = _input[afterOpen..].IndexOf(CommentClose, StringComparison.Ordinal);
+            if (end < 0)
+            {
+                _pos = _input.Length;
+                Kind = DocTokenKind.None;
+                return false;
+            }
+
+            _pos = afterOpen + end + CommentClose.Length;
+            return Read();
+        }
+
+        // CDATA <![CDATA[ … ]]>.
+        if (_pos + CdataOpen.Length <= _input.Length && _input[_pos..(_pos + CdataOpen.Length)].SequenceEqual(CdataOpen))
+        {
+            var afterOpen = _pos + CdataOpen.Length;
+            var end = _input[afterOpen..].IndexOf(CdataClose, StringComparison.Ordinal);
+            if (end < 0)
+            {
+                _pos = _input.Length;
+                Kind = DocTokenKind.None;
+                return false;
+            }
+
+            _text = _input[afterOpen..(afterOpen + end)];
+            _pos = afterOpen + end + CdataClose.Length;
+            Kind = DocTokenKind.Text;
+            return true;
+        }
+
+        // Processing instruction <? … ?>.
+        if (_pos + LtLen + 1 <= _input.Length && _input[_pos + LtLen] == '?')
+        {
+            var afterOpen = _pos + LtLen + 1;
+            var end = _input[afterOpen..].IndexOf(PiClose, StringComparison.Ordinal);
+            if (end < 0)
+            {
+                _pos = _input.Length;
+                Kind = DocTokenKind.None;
+                return false;
+            }
+
+            _pos = afterOpen + end + PiClose.Length;
+            return Read();
+        }
+
+        // End element </name>.
+        if (_pos + EndElementPrefixLen <= _input.Length && _input[_pos + LtLen] == '/')
+        {
+            var nameStart = _pos + EndElementPrefixLen;
+            var end = _input[nameStart..].IndexOf('>');
+            if (end < 0)
+            {
+                _pos = _input.Length;
+                Kind = DocTokenKind.None;
+                return false;
+            }
+
+            _name = _input[nameStart..(nameStart + end)].Trim();
+            _pos = nameStart + end + 1;
+            Kind = DocTokenKind.EndElement;
+            Depth--;
+            return true;
+        }
+
+        // Start element <name attr="…" …> or <name … />.
+        var tagEnd = _input[_pos..].IndexOf('>');
+        if (tagEnd < 0)
+        {
+            _pos = _input.Length;
+            Kind = DocTokenKind.None;
+            return false;
+        }
+
+        var tagBody = _input[(_pos + LtLen)..(_pos + tagEnd)];
+        IsEmptyElement = tagBody.Length > 0 && tagBody[^1] == '/';
+        if (IsEmptyElement)
+        {
+            tagBody = tagBody[..^1];
+        }
+
+        // Split element name vs attribute area at first whitespace.
+        var nameEnd = 0;
+        while (nameEnd < tagBody.Length && !IsWhitespace(tagBody[nameEnd]))
+        {
+            nameEnd++;
+        }
+
+        _name = tagBody[..nameEnd];
+        _attrArea = tagBody[nameEnd..];
+        _pos += tagEnd + 1;
+        Kind = DocTokenKind.StartElement;
+
+        // Self-closing elements don't change net depth on the calling
+        // side, so only bump for full start tags.
+        Depth += IsEmptyElement ? 0 : 1;
+        return true;
+    }
+}

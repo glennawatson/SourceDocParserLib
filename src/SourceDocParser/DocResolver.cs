@@ -2,7 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Xml;
 using Microsoft.CodeAnalysis;
 
 namespace SourceDocParser;
@@ -15,19 +14,6 @@ namespace SourceDocParser;
 /// </summary>
 public sealed class DocResolver : IDocResolver
 {
-    /// <summary>
-    /// Cached XmlReaderSettings used for every per-symbol parse.
-    /// DTD processing is disabled (XML doc files don't use DTDs and
-    /// processing them is a known XXE vector); comments and PIs
-    /// are skipped because doc files don't carry meaningful ones.
-    /// </summary>
-    private static readonly XmlReaderSettings _readerSettings = new()
-    {
-        IgnoreComments = true,
-        IgnoreProcessingInstructions = true,
-        DtdProcessing = DtdProcessing.Ignore,
-    };
-
     /// <summary>Per-resolver state bundle threaded through every static helper.</summary>
     private readonly DocResolveContext _context;
 
@@ -305,15 +291,15 @@ public sealed class DocResolver : IDocResolver
     }
 
     /// <summary>
-    /// Parses one <c>member</c> XML fragment into a
-    /// RawDocumentation. Streams via XmlReader rather than building
-    /// an XDocument so we don't materialise a full DOM per symbol -
-    /// the doc fragment is small but with thousands of symbols the
-    /// allocation savings add up. The single pass also captures
-    /// inheritdoc presence and its optional cref attribute.
+    /// Parses one member XML fragment into a RawDocumentation. Driven
+    /// by DocXmlScanner — a span-based forward scanner — instead of
+    /// XmlReader, so the per-symbol parse no longer allocates an
+    /// XmlTextReaderImpl with its multi-KB buffers and the inner
+    /// element bodies are surfaced as ReadOnlySpan slices rather than
+    /// fresh strings.
     /// </summary>
-    /// <param name="memberXml">Raw <c>member</c> XML.</param>
-    /// <param name="context">Per-resolver state bundle threaded into the per-element ReadInner calls.</param>
+    /// <param name="memberXml">Raw member XML.</param>
+    /// <param name="context">Per-resolver state bundle.</param>
     /// <returns>The parsed raw documentation.</returns>
     private static RawDocumentation Parse(string memberXml, DocResolveContext context)
     {
@@ -329,91 +315,81 @@ public sealed class DocResolver : IDocResolver
         var hasInheritDoc = false;
         string? inheritDocCref = null;
 
-        using var stringReader = new StringReader(memberXml);
-        using var reader = XmlReader.Create(stringReader, _readerSettings);
-
-        while (reader.Read())
+        var scanner = new DocXmlScanner(memberXml.AsSpan());
+        var converter = context.Converter;
+        while (scanner.Read())
         {
-            if (reader.NodeType is not XmlNodeType.Element)
+            if (scanner.Kind != DocTokenKind.StartElement)
             {
                 continue;
             }
 
-            switch (reader.Name)
+            var name = scanner.Name;
+            if (name.SequenceEqual("summary"))
             {
-                case "summary":
-                    {
-                        summary = ReadInner(reader, context);
-                        break;
-                    }
+                summary = converter.Convert(scanner.ReadInnerSpan());
+            }
+            else if (name.SequenceEqual("remarks"))
+            {
+                remarks = converter.Convert(scanner.ReadInnerSpan());
+            }
+            else if (name.SequenceEqual("returns"))
+            {
+                returns = converter.Convert(scanner.ReadInnerSpan());
+            }
+            else if (name.SequenceEqual("value"))
+            {
+                value = converter.Convert(scanner.ReadInnerSpan());
+            }
+            else if (name.SequenceEqual("example"))
+            {
+                examples.Add(converter.Convert(scanner.ReadInnerSpan()));
+            }
+            else if (name.SequenceEqual("param"))
+            {
+                var paramName = scanner.GetAttribute("name");
+                if (paramName.Length > 0)
+                {
+                    parameters.Add(new(paramName.ToString(), converter.Convert(scanner.ReadInnerSpan())));
+                }
+            }
+            else if (name.SequenceEqual("typeparam"))
+            {
+                var typeParamName = scanner.GetAttribute("name");
+                if (typeParamName.Length > 0)
+                {
+                    typeParameters.Add(new(typeParamName.ToString(), converter.Convert(scanner.ReadInnerSpan())));
+                }
+            }
+            else if (name.SequenceEqual("exception"))
+            {
+                var exceptionCref = scanner.GetAttribute("cref");
+                if (exceptionCref.Length > 0)
+                {
+                    exceptions.Add(new(exceptionCref.ToString(), converter.Convert(scanner.ReadInnerSpan())));
+                }
+            }
+            else if (name.SequenceEqual("seealso"))
+            {
+                var seeAlsoCref = scanner.GetAttribute("cref");
+                if (seeAlsoCref.Length > 0)
+                {
+                    seeAlso.Add(seeAlsoCref.ToString());
+                }
+            }
+            else if (name.SequenceEqual("inheritdoc"))
+            {
+                hasInheritDoc = true;
+                var inheritCref = scanner.GetAttribute("cref");
+                if (inheritCref.Length > 0)
+                {
+                    inheritDocCref = inheritCref.ToString();
+                }
 
-                case "remarks":
-                    {
-                        remarks = ReadInner(reader, context);
-                        break;
-                    }
-
-                case "returns":
-                    {
-                        returns = ReadInner(reader, context);
-                        break;
-                    }
-
-                case "value":
-                    {
-                        value = ReadInner(reader, context);
-                        break;
-                    }
-
-                case "example":
-                    {
-                        examples.Add(ReadInner(reader, context));
-                        break;
-                    }
-
-                case "param" when reader.GetAttribute("name") is { Length: > 0 } paramName:
-                    {
-                        parameters.Add(new(paramName, ReadInner(reader, context)));
-                        break;
-                    }
-
-                case "typeparam" when reader.GetAttribute("name") is { Length: > 0 } typeParamName:
-                    {
-                        typeParameters.Add(new(typeParamName, ReadInner(reader, context)));
-                        break;
-                    }
-
-                case "exception" when reader.GetAttribute("cref") is { Length: > 0 } exceptionCref:
-                    {
-                        exceptions.Add(new(exceptionCref, ReadInner(reader, context)));
-                        break;
-                    }
-
-                case "seealso" when reader.GetAttribute("cref") is { Length: > 0 } seeAlsoCref:
-                    {
-                        seeAlso.Add(seeAlsoCref);
-                        break;
-                    }
-
-                case "inheritdoc":
-                    {
-                        hasInheritDoc = true;
-                        if (reader.GetAttribute("cref") is { Length: > 0 } inheritCref)
-                        {
-                            inheritDocCref = inheritCref;
-                        }
-
-                        if (!reader.IsEmptyElement)
-                        {
-                            // <inheritdoc>…</inheritdoc> with content: skip
-                            // to the matching end tag rather than processing
-                            // the body, which is rarely used and not part
-                            // of any standard.
-                            reader.Skip();
-                        }
-
-                        break;
-                    }
+                // <inheritdoc>…</inheritdoc> with content: skip the
+                // body rather than processing it (rarely used and not
+                // part of any standard).
+                scanner.SkipElement();
             }
         }
 
@@ -430,19 +406,6 @@ public sealed class DocResolver : IDocResolver
             HasInheritDoc: hasInheritDoc,
             InheritDocCref: inheritDocCref);
     }
-
-    /// <summary>
-    /// Streams the current element's children straight through the
-    /// converter. Avoids the previous <c>reader.ReadInnerXml()</c> call,
-    /// which materialised an inner-XML string and then required a
-    /// second <see cref="XmlReader"/> in <c>XmlDocToMarkdown.Convert</c>
-    /// — the dominant allocation in the doc-parse profile.
-    /// </summary>
-    /// <param name="reader">Reader positioned on the element's start tag.</param>
-    /// <param name="context">Per-resolver state bundle (provides the converter).</param>
-    /// <returns>The inner content as a Markdown string.</returns>
-    private static string ReadInner(XmlReader reader, DocResolveContext context) =>
-        reader.IsEmptyElement ? string.Empty : context.Converter.Convert(reader);
 
     /// <summary>
     /// Resolves an <c>inheritdoc cref="..."/</c> target via

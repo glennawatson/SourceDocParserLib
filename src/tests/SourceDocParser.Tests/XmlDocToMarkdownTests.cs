@@ -186,4 +186,33 @@ public class XmlDocToMarkdownTests
     [Test]
     public async Task ConvertReaderValidatesArgument() =>
         await Assert.That(() => _converter.Convert((System.Xml.XmlReader)null!)).Throws<System.ArgumentNullException>();
+
+    /// <summary>
+    /// The span overload returns plain decoded text on the no-tag fast
+    /// path (no XmlReader allocated).
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ConvertSpanFastPathDecodesEntities()
+    {
+        var result = _converter.Convert("a &lt;b&gt; c".AsSpan());
+
+        await Assert.That(result).IsEqualTo("a <b> c");
+    }
+
+    /// <summary>The span overload renders inline tags by falling back to the string renderer.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ConvertSpanRendersInlineTags()
+    {
+        var result = _converter.Convert("Use <c>Foo()</c>.".AsSpan());
+
+        await Assert.That(result).Contains("`Foo()`");
+    }
+
+    /// <summary>An empty span yields an empty string without allocation.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ConvertSpanReturnsEmptyForEmptyInput() =>
+        await Assert.That(_converter.Convert(default(System.ReadOnlySpan<char>))).IsEqualTo(string.Empty);
 }

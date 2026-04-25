@@ -178,7 +178,8 @@ public class DocResolverTests
 
         resolver.Resolve(symbol);
 
-        await Assert.That(converter.ReaderCalls).IsGreaterThanOrEqualTo(1);
+        // Span overload is what DocResolver.Parse routes through after the scanner refactor.
+        await Assert.That(converter.SpanCalls).IsGreaterThanOrEqualTo(1);
     }
 
     /// <summary>Null compilation throws on construction.</summary>
@@ -223,11 +224,14 @@ public class DocResolverTests
     /// </summary>
     private sealed class RecordingConverter : IXmlDocToMarkdownConverter
     {
-        /// <summary>Gets the count of <see cref="Convert(string)"/> calls.</summary>
+        /// <summary>Gets the count of string-overload Convert calls.</summary>
         public int StringCalls { get; private set; }
 
-        /// <summary>Gets the count of <see cref="Convert(XmlReader)"/> calls.</summary>
+        /// <summary>Gets the count of XmlReader-overload Convert calls.</summary>
         public int ReaderCalls { get; private set; }
+
+        /// <summary>Gets the count of span-overload Convert calls.</summary>
+        public int SpanCalls { get; private set; }
 
         /// <inheritdoc />
         public string Convert(string xmlFragment)
@@ -241,6 +245,13 @@ public class DocResolverTests
         {
             ReaderCalls++;
             return reader.IsEmptyElement ? string.Empty : reader.ReadInnerXml();
+        }
+
+        /// <inheritdoc />
+        public string Convert(ReadOnlySpan<char> innerXml)
+        {
+            SpanCalls++;
+            return innerXml.ToString();
         }
     }
 }

@@ -53,6 +53,29 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
         return CollapseWhitespace(sb).ToString();
     }
 
+    /// <inheritdoc />
+    public string Convert(ReadOnlySpan<char> innerXml)
+    {
+        if (innerXml.IsEmpty)
+        {
+            return string.Empty;
+        }
+
+        // Plain-text fast path: no '<' means no inline tags to render,
+        // just decode standard entities into a StringBuilder. Skips the
+        // XmlReader.Create + XmlTextReaderImpl allocation chain.
+        if (innerXml.IndexOf('<') < 0)
+        {
+            var plain = new StringBuilder(innerXml.Length);
+            DocXmlScanner.AppendDecoded(plain, innerXml);
+            return plain.ToString();
+        }
+
+        // Tagged content: defer to the string-based renderer until the
+        // scanner-native markdown pipeline lands.
+        return ConvertString(innerXml.ToString());
+    }
+
     /// <summary>
     /// Static implementation of <see cref="Convert(string)"/>. Kept
     /// separate so the few internal static helpers that need to convert
