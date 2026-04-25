@@ -75,7 +75,15 @@ jobs:
             dotnet nuget push "$pkg" --source https://api.nuget.org/v3/index.json --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
           done
 
+      - name: Install GitReleaseNoteGenerator
+        run: dotnet tool install -g GitReleaseNoteGenerator
+
+      - name: Generate release notes
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: git-release-notes --release-version "${{ steps.nbgv.outputs.SemVer2 }}" --output-file release-notes.md
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ steps.nbgv.outputs.SemVer2 }}" --repo "${{ github.repository }}" --title "${{ steps.nbgv.outputs.SemVer2 }}" --notes-file CHANGELOG.md --generate-notes
+        run: gh release create "${{ steps.nbgv.outputs.SemVer2 }}" --repo "${{ github.repository }}" --title "${{ steps.nbgv.outputs.SemVer2 }}" --notes-file release-notes.md ./signed/*.nupkg
