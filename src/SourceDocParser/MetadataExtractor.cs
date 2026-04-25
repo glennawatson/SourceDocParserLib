@@ -47,7 +47,7 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
         Directory.CreateDirectory(outputRoot);
 
         var groups = new List<TfmGroup>();
-        await foreach (var group in source.DiscoverAsync(cancellationToken))
+        await foreach (var group in source.DiscoverAsync(cancellationToken).ConfigureAwait(false))
         {
             groups.Add(new(group, new(logger)));
         }
@@ -69,25 +69,28 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
             MaxDegreeOfParallelism = MaxParallelCompilations,
             CancellationToken = cancellationToken,
         };
-        await Parallel.ForEachAsync(workItems, parallelOptions, (work, _) =>
-        {
-            if (LoadAndWalkAssembly(work, logger) is { } catalog)
+        await Parallel.ForEachAsync(
+            workItems,
+            parallelOptions,
+            (work, _) =>
             {
-                catalogs.Add(catalog);
-            }
-            else
-            {
-                Interlocked.Increment(ref loadFailures);
-            }
+                if (LoadAndWalkAssembly(work, logger) is { } catalog)
+                {
+                    catalogs.Add(catalog);
+                }
+                else
+                {
+                    Interlocked.Increment(ref loadFailures);
+                }
 
-            return ValueTask.CompletedTask;
-        });
+                return ValueTask.CompletedTask;
+            }).ConfigureAwait(false);
 
         LogWalkComplete(logger, catalogs.Count);
         var merged = TypeMerger.Merge(catalogs);
 
         LogEmitting(logger, merged.Count, outputRoot, emitter.GetType().Name);
-        var pagesEmitted = await emitter.EmitAsync(merged, outputRoot, cancellationToken);
+        var pagesEmitted = await emitter.EmitAsync(merged, outputRoot, cancellationToken).ConfigureAwait(false);
 
         var sourceLinks = CollectSourceLinks(merged);
         LogEmitComplete(logger, merged.Count, pagesEmitted, sourceLinks.Count, loadFailures);

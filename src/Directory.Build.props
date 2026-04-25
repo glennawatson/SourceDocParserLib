@@ -50,6 +50,10 @@
     <PackageOutputPath>$(MSBuildThisFileDirectory)..\artifacts\packages</PackageOutputPath>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <!-- The walker depends on Roslyn + ICSharpCode.Decompiler, both reflection-heavy.
+         Mark explicitly so consumers attempting an AOT publish get NETSDK1207 at
+         build time rather than a runtime surprise. -->
+    <IsAotCompatible>false</IsAotCompatible>
   </PropertyGroup>
 
   <ItemGroup>

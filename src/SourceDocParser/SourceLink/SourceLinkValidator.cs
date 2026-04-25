@@ -44,42 +44,52 @@ public sealed partial class SourceLinkValidator : ISourceLinkValidator
         var byFileUrl = GroupByFileUrl(entries);
         LogValidating(logger, byFileUrl.Count, entries.Count);
 
-        await using var rateLimiter = BuildRateLimiter();
-        var pipeline = BuildResiliencePipeline(rateLimiter);
-
-        using var http = new HttpClient { Timeout = RequestTimeout };
-        var broken = new ConcurrentBag<BrokenLink>();
-        var checkedCount = 0;
-
-        var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = MaxConcurrentRequests };
-        await Parallel.ForEachAsync(byFileUrl, parallelOptions, async (kvp, ct) =>
+        var rateLimiter = BuildRateLimiter();
+        try
         {
-            Interlocked.Increment(ref checkedCount);
-            var url = kvp.Key;
-            try
-            {
-                using var response = await pipeline.ExecuteAsync(
-                    static async (state, token) =>
-                    {
-                        using var request = new HttpRequestMessage(HttpMethod.Head, state.Url);
-                        return await state.Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
-                    },
-                    state: (Url: url, Http: http),
-                    ct);
+            var pipeline = BuildResiliencePipeline(rateLimiter);
 
-                if (!response.IsSuccessStatusCode)
+            using var http = new HttpClient { Timeout = RequestTimeout };
+            var broken = new ConcurrentBag<BrokenLink>();
+            var checkedCount = 0;
+
+            var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = MaxConcurrentRequests };
+            await Parallel.ForEachAsync(
+                byFileUrl,
+                parallelOptions,
+                async (kvp, ct) =>
                 {
-                    broken.Add(new(url, kvp.Value, $"HTTP {(int)response.StatusCode}"));
-                }
-            }
-            catch (Exception ex)
-            {
-                broken.Add(new(url, kvp.Value, ex.Message));
-            }
-        });
+                    Interlocked.Increment(ref checkedCount);
+                    var url = kvp.Key;
+                    try
+                    {
+                        using var response = await pipeline.ExecuteAsync(
+                            static async (state, token) =>
+                            {
+                                using var request = new HttpRequestMessage(HttpMethod.Head, state.Url);
+                                return await state.Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+                            },
+                            state: (Url: url, Http: http),
+                            ct).ConfigureAwait(false);
 
-        ReportResults(byFileUrl.Count, broken, failOnBroken, logger);
-        return broken.Count;
+                        if (!response.IsSuccessStatusCode)
+                        {
+                            broken.Add(new(url, kvp.Value, $"HTTP {(int)response.StatusCode}"));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        broken.Add(new(url, kvp.Value, ex.Message));
+                    }
+                }).ConfigureAwait(false);
+
+            ReportResults(byFileUrl.Count, broken, failOnBroken, logger);
+            return broken.Count;
+        }
+        finally
+        {
+            await rateLimiter.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     /// <summary>

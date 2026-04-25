@@ -18,6 +18,7 @@ public interface INuGetFetcher
     /// <param name="rootDirectory">Repository root containing <c>nuget-packages.json</c>.</param>
     /// <param name="apiPath">Destination root for extracted package assemblies and the local cache.</param>
     /// <param name="logger">Optional logger; defaults to a no-op logger.</param>
+    /// <param name="cancellationToken">Cancellation token honoured by every HTTP and parallel-walk leg.</param>
     /// <returns>A task representing the asynchronous fetch.</returns>
-    Task FetchPackagesAsync(string rootDirectory, string apiPath, ILogger? logger = null);
+    Task FetchPackagesAsync(string rootDirectory, string apiPath, ILogger? logger = null, CancellationToken cancellationToken = default);
 }

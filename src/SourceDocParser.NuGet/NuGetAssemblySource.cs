@@ -56,7 +56,7 @@ public sealed class NuGetAssemblySource : IAssemblySource
     /// <inheritdoc />
     public async IAsyncEnumerable<AssemblyGroup> DiscoverAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await _fetcher.FetchPackagesAsync(_rootDirectory, _apiPath, _logger);
+        await _fetcher.FetchPackagesAsync(_rootDirectory, _apiPath, _logger, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
 
         var libDir = Path.Combine(_apiPath, LibDirName);

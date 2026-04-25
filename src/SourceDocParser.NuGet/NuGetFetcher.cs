@@ -55,7 +55,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     private static readonly Uri FlatContainerUri = new("https://api.nuget.org/v3-flatcontainer/");
 
     /// <inheritdoc />
-    public async Task FetchPackagesAsync(string rootDirectory, string apiPath, ILogger? logger = null)
+    public async Task FetchPackagesAsync(string rootDirectory, string apiPath, ILogger? logger = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(rootDirectory);
         ArgumentException.ThrowIfNullOrWhiteSpace(apiPath);
@@ -73,10 +73,10 @@ public sealed partial class NuGetFetcher : INuGetFetcher
 
         if (config.ReferencePackages.Length > 0)
         {
-            await FetchReferencePackagesAsync(config.ReferencePackages, refsDir, cacheDir, logger);
+            await FetchReferencePackagesAsync(config.ReferencePackages, refsDir, cacheDir, logger, cancellationToken).ConfigureAwait(false);
         }
 
-        var discoveredIds = await DiscoverAllPackagesAsync(config, logger);
+        var discoveredIds = await DiscoverAllPackagesAsync(config, logger, cancellationToken).ConfigureAwait(false);
 
         // O(1) dedup of additional packages against the discovered set;
         // the prior LINQ Any() scanned the whole list per additional
@@ -108,8 +108,9 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         }
 
         LogFetchingPackages(logger, allPackages.Length);
-        await FetchGroupAsync(libDir, cacheDir, allPackages, config.TfmPreference, logger);
+        await FetchGroupAsync(libDir, cacheDir, allPackages, config.TfmPreference, logger, cancellationToken).ConfigureAwait(false);
 
+        cancellationToken.ThrowIfCancellationRequested();
         CopyRefsIntoLibDirs(libDir, refsDir, logger);
     }
 
@@ -213,22 +214,24 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// </summary>
     /// <param name="config">The parsed package configuration.</param>
     /// <param name="logger">Logger for endpoint discovery and per-owner counts.</param>
+    /// <param name="cancellationToken">Cancellation token honoured between owner queries and per HTTP call.</param>
     /// <returns>A list of (id, version) tuples; versions are <see langword="null"/> at this stage and resolved later.</returns>
     /// <remarks>
     /// Consults the NuGet search service for each owner defined in the configuration.
     /// </remarks>
-    private static async Task<List<(string Id, string? Version)>> DiscoverAllPackagesAsync(PackageConfig config, ILogger logger)
+    private static async Task<List<(string Id, string? Version)>> DiscoverAllPackagesAsync(PackageConfig config, ILogger logger, CancellationToken cancellationToken)
     {
         using var client = new HttpClient();
         var retryPolicy = CreateRetryPolicy();
 
-        var searchEndpoint = await ResolveSearchEndpointAsync(client, retryPolicy);
+        var searchEndpoint = await ResolveSearchEndpointAsync(client, retryPolicy, cancellationToken).ConfigureAwait(false);
         LogUsingSearchEndpoint(logger, searchEndpoint);
 
         List<(string Id, string? Version)> allIds = [];
         foreach (var owner in config.NugetPackageOwners)
         {
-            var ids = await DiscoverPackagesByOwnerAsync(client, retryPolicy, searchEndpoint, owner);
+            cancellationToken.ThrowIfCancellationRequested();
+            var ids = await DiscoverPackagesByOwnerAsync(client, retryPolicy, searchEndpoint, owner, cancellationToken).ConfigureAwait(false);
             LogDiscoveredOwnerPackages(logger, ids.Count, owner);
             foreach (var id in ids)
             {
@@ -246,6 +249,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// <param name="refsDir">Output root for extracted reference assemblies.</param>
     /// <param name="cacheDir">Cache directory for the downloaded <c>.nupkg</c> files.</param>
     /// <param name="logger">Logger for per-package progress and failure messages.</param>
+    /// <param name="cancellationToken">Cancellation token honoured between packages and per HTTP call.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     /// <remarks>
     /// Extracts reference assemblies into per-TFM directories under <c>refs/</c>.
@@ -256,13 +260,15 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         ReferencePackage[] packages,
         string refsDir,
         string cacheDir,
-        ILogger logger)
+        ILogger logger,
+        CancellationToken cancellationToken)
     {
         using var client = new HttpClient();
         var retryPolicy = CreateRetryPolicy();
 
         foreach (var pkg in packages)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 var idLower = pkg.Id.ToLowerInvariant();
@@ -271,7 +277,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                 if (version == null)
                 {
                     LogResolvingRefVersion(logger, pkg.Id);
-                    version = await ResolveLatestStableVersionAsync(client, retryPolicy, idLower);
+                    version = await ResolveLatestStableVersionAsync(client, retryPolicy, idLower, cancellationToken).ConfigureAwait(false);
                     if (version == null)
                     {
                         LogRefVersionUnresolved(logger, pkg.Id);
@@ -286,7 +292,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                 if (!File.Exists(nupkgPath))
                 {
                     LogDownloadingPackage(logger, pkg.Id, version);
-                    await DownloadNupkgAsync(client, retryPolicy, idLower, versionLower, nupkgPath);
+                    await DownloadNupkgAsync(client, retryPolicy, idLower, versionLower, nupkgPath, cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
@@ -394,6 +400,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// </summary>
     /// <param name="client">HTTP client used for the request.</param>
     /// <param name="retryPolicy">Retry policy applied to the request.</param>
+    /// <param name="cancellationToken">Cancellation token honoured by the HTTP request.</param>
     /// <returns>The resolved search endpoint URI.</returns>
     /// <exception cref="InvalidOperationException">Thrown when the service index does not advertise the required search service type.</exception>
     /// <remarks>
@@ -401,33 +408,36 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// </remarks>
     private static async Task<Uri> ResolveSearchEndpointAsync(
         HttpClient client,
-        AsyncRetryPolicy retryPolicy)
+        AsyncRetryPolicy retryPolicy,
+        CancellationToken cancellationToken)
     {
         Uri? endpoint = null;
 
-        await retryPolicy.ExecuteAsync(async () =>
-        {
-            var response = await client.GetAsync(ServiceIndexUri);
-            response.EnsureSuccessStatusCode();
-
-            await using var stream = await response.Content.ReadAsStreamAsync();
-            using var doc = await JsonDocument.ParseAsync(stream);
-
-            foreach (var resource in doc.RootElement.GetProperty("resources").EnumerateArray())
+        await retryPolicy.ExecuteAsync(
+            async ct =>
             {
-                var type = resource.GetProperty("@type").GetString();
-                if (type == SearchQueryServiceType)
-                {
-                    var id = resource.GetProperty("@id").GetString();
-                    if (id != null)
-                    {
-                        endpoint = new(id);
-                    }
+                var response = await client.GetAsync(ServiceIndexUri, ct).ConfigureAwait(false);
+                response.EnsureSuccessStatusCode();
 
-                    break;
+                await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+                using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
+
+                foreach (var resource in doc.RootElement.GetProperty("resources").EnumerateArray())
+                {
+                    var type = resource.GetProperty("@type").GetString();
+                    if (type == SearchQueryServiceType)
+                    {
+                        var id = resource.GetProperty("@id").GetString();
+                        if (id != null)
+                        {
+                            endpoint = new(id);
+                        }
+
+                        break;
+                    }
                 }
-            }
-        });
+            },
+            cancellationToken).ConfigureAwait(false);
 
         return endpoint ?? throw new InvalidOperationException(
             $"Could not find {SearchQueryServiceType} in NuGet service index");
@@ -440,6 +450,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// <param name="retryPolicy">Retry policy applied to each request.</param>
     /// <param name="searchEndpoint">The resolved search service endpoint.</param>
     /// <param name="owner">The NuGet owner account to query.</param>
+    /// <param name="cancellationToken">Cancellation token honoured between pages and per HTTP call.</param>
     /// <returns>A list of discovered package identifiers.</returns>
     /// <remarks>
     /// Packages (including unlisted) are enumerated. Deprecated packages are skipped
@@ -449,7 +460,8 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         HttpClient client,
         AsyncRetryPolicy retryPolicy,
         Uri searchEndpoint,
-        string owner)
+        string owner,
+        CancellationToken cancellationToken)
     {
         List<string> packageIds = [];
         var skip = 0;
@@ -457,6 +469,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
 
         while (true)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var queryBuilder = new UriBuilder(searchEndpoint)
             {
                 Query = $"q=owner:{Uri.EscapeDataString(owner)}&take={take}&skip={skip}&semVerLevel=2.0.0",
@@ -464,40 +477,42 @@ public sealed partial class NuGetFetcher : INuGetFetcher
             var url = queryBuilder.Uri;
             var totalHits = 0;
 
-            await retryPolicy.ExecuteAsync(async () =>
-            {
-                var response = await client.GetAsync(url);
-                response.EnsureSuccessStatusCode();
-
-                await using var stream = await response.Content.ReadAsStreamAsync();
-                using var doc = await JsonDocument.ParseAsync(stream);
-
-                totalHits = doc.RootElement.GetProperty("totalHits").GetInt32();
-
-                foreach (var result in doc.RootElement.GetProperty("data").EnumerateArray())
+            await retryPolicy.ExecuteAsync(
+                async ct =>
                 {
-                    // Skip deprecated packages (still listed but author-flagged).
-                    if (result.TryGetProperty("deprecation", out _))
-                    {
-                        continue;
-                    }
+                    var response = await client.GetAsync(url, ct).ConfigureAwait(false);
+                    response.EnsureSuccessStatusCode();
 
-                    // Skip packages with known vulnerabilities so the docs site
-                    // never advertises a version a consumer should not pull.
-                    if (result.TryGetProperty("vulnerabilities", out var vulns)
-                        && vulns.ValueKind == JsonValueKind.Array
-                        && vulns.GetArrayLength() > 0)
-                    {
-                        continue;
-                    }
+                    await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+                    using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
 
-                    var id = result.GetProperty("id").GetString();
-                    if (id != null)
+                    totalHits = doc.RootElement.GetProperty("totalHits").GetInt32();
+
+                    foreach (var result in doc.RootElement.GetProperty("data").EnumerateArray())
                     {
-                        packageIds.Add(id);
+                        // Skip deprecated packages (still listed but author-flagged).
+                        if (result.TryGetProperty("deprecation", out _))
+                        {
+                            continue;
+                        }
+
+                        // Skip packages with known vulnerabilities so the docs site
+                        // never advertises a version a consumer should not pull.
+                        if (result.TryGetProperty("vulnerabilities", out var vulns)
+                            && vulns.ValueKind == JsonValueKind.Array
+                            && vulns.GetArrayLength() > 0)
+                        {
+                            continue;
+                        }
+
+                        var id = result.GetProperty("id").GetString();
+                        if (id != null)
+                        {
+                            packageIds.Add(id);
+                        }
                     }
-                }
-            });
+                },
+                cancellationToken).ConfigureAwait(false);
 
             skip += take;
             if (skip >= totalHits)
@@ -517,6 +532,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// <param name="packages">Tuples of package identifier, optional pinned version, and optional TFM override.</param>
     /// <param name="tfmPreference">The global TFM preference list.</param>
     /// <param name="logger">Logger for per-package progress and failure messages.</param>
+    /// <param name="cancellationToken">Cancellation token forwarded to <see cref="ParallelOptions.CancellationToken"/> and the per-package HTTP calls.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     /// <remarks>
     /// Downloads are limited to <see cref="MaxParallelDownloads"/>. Cached <c>.nupkg</c> files
@@ -528,7 +544,8 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         string cacheDir,
         (string Id, string? Version, string? Tfm)[] packages,
         string[] tfmPreference,
-        ILogger logger)
+        ILogger logger,
+        CancellationToken cancellationToken)
     {
         using var client = new HttpClient();
         var retryPolicy = CreateRetryPolicy();
@@ -536,48 +553,55 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         // Parallel.ForEachAsync replaces the prior SemaphoreSlim + Select +
         // Task.WhenAll dance. Same concurrency budget, no IDisposable to
         // manage, no analyser flow-analysis ceremony.
-        var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = MaxParallelDownloads };
-        await Parallel.ForEachAsync(packages, parallelOptions, async (pkg, _) =>
+        var parallelOptions = new ParallelOptions
         {
-            try
+            MaxDegreeOfParallelism = MaxParallelDownloads,
+            CancellationToken = cancellationToken,
+        };
+        await Parallel.ForEachAsync(
+            packages,
+            parallelOptions,
+            async (pkg, ct) =>
             {
-                var id = pkg.Id;
-                var idLower = id.ToLowerInvariant();
-
-                var version = pkg.Version;
-                if (version is null)
+                try
                 {
-                    LogResolvingVersion(logger, id);
-                    version = await ResolveLatestStableVersionAsync(client, retryPolicy, idLower);
+                    var id = pkg.Id;
+                    var idLower = id.ToLowerInvariant();
+
+                    var version = pkg.Version;
                     if (version is null)
                     {
-                        LogVersionUnresolved(logger, id);
-                        return;
+                        LogResolvingVersion(logger, id);
+                        version = await ResolveLatestStableVersionAsync(client, retryPolicy, idLower, ct).ConfigureAwait(false);
+                        if (version is null)
+                        {
+                            LogVersionUnresolved(logger, id);
+                            return;
+                        }
                     }
+
+                    LogUsingPackage(logger, id, version);
+
+                    var versionLower = version.ToLowerInvariant();
+                    var nupkgPath = Path.Combine(cacheDir, $"{idLower}.{versionLower}.nupkg");
+                    if (!File.Exists(nupkgPath))
+                    {
+                        LogDownloadingPackage(logger, id, version);
+                        await DownloadNupkgAsync(client, retryPolicy, idLower, versionLower, nupkgPath, ct).ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        LogUsingCachedPackage(logger, id, version);
+                    }
+
+                    ExtractAssemblies(nupkgPath, libDir, id, pkg.Tfm, tfmPreference, logger);
+                    LogExtractedPackage(logger, id, version);
                 }
-
-                LogUsingPackage(logger, id, version);
-
-                var versionLower = version.ToLowerInvariant();
-                var nupkgPath = Path.Combine(cacheDir, $"{idLower}.{versionLower}.nupkg");
-                if (!File.Exists(nupkgPath))
+                catch (Exception ex)
                 {
-                    LogDownloadingPackage(logger, id, version);
-                    await DownloadNupkgAsync(client, retryPolicy, idLower, versionLower, nupkgPath);
+                    LogPackageProcessFailed(logger, ex, pkg.Id);
                 }
-                else
-                {
-                    LogUsingCachedPackage(logger, id, version);
-                }
-
-                ExtractAssemblies(nupkgPath, libDir, id, pkg.Tfm, tfmPreference, logger);
-                LogExtractedPackage(logger, id, version);
-            }
-            catch (Exception ex)
-            {
-                LogPackageProcessFailed(logger, ex, pkg.Id);
-            }
-        });
+            }).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -586,6 +610,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// <param name="client">HTTP client used for the request.</param>
     /// <param name="retryPolicy">Retry policy applied to the request.</param>
     /// <param name="idLower">Lowercased package identifier.</param>
+    /// <param name="cancellationToken">Cancellation token honoured by the HTTP request.</param>
     /// <returns>The resolved version string, or <see langword="null"/> when the package has no stable releases.</returns>
     /// <remarks>
     /// Fetches the version index from the NuGet flat-container endpoint.
@@ -593,41 +618,44 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     private static async Task<string?> ResolveLatestStableVersionAsync(
         HttpClient client,
         AsyncRetryPolicy retryPolicy,
-        string idLower)
+        string idLower,
+        CancellationToken cancellationToken)
     {
         string? result = null;
         var url = new Uri(FlatContainerUri, $"{idLower}/index.json");
 
-        await retryPolicy.ExecuteAsync(async () =>
-        {
-            var response = await client.GetAsync(url);
-            response.EnsureSuccessStatusCode();
-
-            await using var stream = await response.Content.ReadAsStreamAsync();
-            using var doc = await JsonDocument.ParseAsync(stream);
-
-            // Single pass: parse each candidate via NuGetVersion so we honour
-            // SemVer ordering (e.g. 10.0.0 > 9.0.0) and properly skip
-            // prereleases / build metadata, rather than relying on the API's
-            // ascending-string order.
-            NuGetVersion? best = null;
-            foreach (var versionElement in doc.RootElement.GetProperty("versions").EnumerateArray())
+        await retryPolicy.ExecuteAsync(
+            async ct =>
             {
-                if (versionElement.GetString() is not { } raw
-                    || !NuGetVersion.TryParse(raw, out var parsed)
-                    || parsed.IsPrerelease)
+                var response = await client.GetAsync(url, ct).ConfigureAwait(false);
+                response.EnsureSuccessStatusCode();
+
+                await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+                using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
+
+                // Single pass: parse each candidate via NuGetVersion so we honour
+                // SemVer ordering (e.g. 10.0.0 > 9.0.0) and properly skip
+                // prereleases / build metadata, rather than relying on the API's
+                // ascending-string order.
+                NuGetVersion? best = null;
+                foreach (var versionElement in doc.RootElement.GetProperty("versions").EnumerateArray())
                 {
-                    continue;
+                    if (versionElement.GetString() is not { } raw
+                        || !NuGetVersion.TryParse(raw, out var parsed)
+                        || parsed.IsPrerelease)
+                    {
+                        continue;
+                    }
+
+                    if (best is null || parsed > best)
+                    {
+                        best = parsed;
+                    }
                 }
 
-                if (best is null || parsed > best)
-                {
-                    best = parsed;
-                }
-            }
-
-            result = best?.ToNormalizedString();
-        });
+                result = best?.ToNormalizedString();
+            },
+            cancellationToken).ConfigureAwait(false);
 
         return result;
     }
@@ -640,25 +668,29 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// <param name="idLower">Lowercased package identifier.</param>
     /// <param name="versionLower">Lowercased package version.</param>
     /// <param name="outputPath">Destination file path.</param>
+    /// <param name="cancellationToken">Cancellation token honoured by the HTTP request and the streaming copy.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     private static async Task DownloadNupkgAsync(
         HttpClient client,
         AsyncRetryPolicy retryPolicy,
         string idLower,
         string versionLower,
-        string outputPath)
+        string outputPath,
+        CancellationToken cancellationToken)
     {
         var url = new Uri(FlatContainerUri, $"{idLower}/{versionLower}/{idLower}.{versionLower}.nupkg");
 
-        await retryPolicy.ExecuteAsync(async () =>
-        {
-            var response = await client.GetAsync(url);
-            response.EnsureSuccessStatusCode();
+        await retryPolicy.ExecuteAsync(
+            async ct =>
+            {
+                var response = await client.GetAsync(url, ct).ConfigureAwait(false);
+                response.EnsureSuccessStatusCode();
 
-            await using var contentStream = await response.Content.ReadAsStreamAsync();
-            await using var fileStream = new FileStream(outputPath, FileMode.Create);
-            await contentStream.CopyToAsync(fileStream);
-        });
+                await using var contentStream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+                await using var fileStream = new FileStream(outputPath, FileMode.Create);
+                await contentStream.CopyToAsync(fileStream, ct).ConfigureAwait(false);
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
