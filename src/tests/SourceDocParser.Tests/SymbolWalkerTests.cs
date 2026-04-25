@@ -90,6 +90,31 @@ public class SymbolWalkerTests
     }
 
     /// <summary>
+    /// A custom <see cref="IDocResolver"/> factory passed to the walker
+    /// constructor is invoked once per <see cref="SymbolWalker.Walk"/>
+    /// call with the compilation whose symbols are being walked.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task WalkInvokesInjectedDocResolverFactoryPerCall()
+    {
+        var compilation = BuildCompilation("namespace Foo { public class Bar { } }");
+        var factoryCalls = new List<Compilation>();
+        var walker = new SymbolWalker(c =>
+        {
+            factoryCalls.Add(c);
+            return new RecordingDocResolver();
+        });
+        using ISourceLinkResolver resolver = new NullSourceLinkResolver();
+
+        walker.Walk("net10.0", compilation.Assembly, compilation, resolver);
+        walker.Walk("net10.0", compilation.Assembly, compilation, resolver);
+
+        await Assert.That(factoryCalls.Count).IsEqualTo(2);
+        await Assert.That(ReferenceEquals(factoryCalls[0], compilation)).IsTrue();
+    }
+
+    /// <summary>
     /// Builds an in-memory <see cref="CSharpCompilation"/> from <paramref name="source"/>
     /// referencing the runtime assemblies of the currently-loaded BCL.
     /// </summary>
@@ -105,6 +130,16 @@ public class SymbolWalkerTests
                 .Select(a => MetadataReference.CreateFromFile(a.Location)),
         ];
         return CSharpCompilation.Create("Test", [tree], references);
+    }
+
+    /// <summary>
+    /// Recording <see cref="IDocResolver"/> used to verify the walker
+    /// hands resolution to the injected instance.
+    /// </summary>
+    private sealed class RecordingDocResolver : IDocResolver
+    {
+        /// <inheritdoc />
+        public ApiDocumentation Resolve(ISymbol symbol) => ApiDocumentation.Empty;
     }
 
     /// <summary>

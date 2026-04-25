@@ -24,7 +24,7 @@ namespace SourceDocParser;
 internal sealed record SymbolWalkContext(
     string AssemblyName,
     string Tfm,
-    DocResolver Docs,
+    IDocResolver Docs,
     TypeReferenceCache TypeRefs,
     ISourceLinkResolver SourceLinks,
     Dictionary<INamespaceSymbol, string> NamespaceDisplayNames,

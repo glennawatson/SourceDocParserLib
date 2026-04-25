@@ -7,7 +7,7 @@ using BenchmarkDotNet.Attributes;
 namespace SourceDocParser.Benchmarks;
 
 /// <summary>
-/// Micro-benchmarks for <see cref="XmlDocToMarkdown.Convert"/> — the
+/// Micro-benchmarks for <see cref="XmlDocToMarkdown.Convert(string)"/> — the
 /// conversion runs once per documented symbol, so it sits on the hot
 /// path for thousands of pages per build.
 /// </summary>
@@ -34,18 +34,21 @@ public class XmlDocToMarkdownBenchmarks
         </list>
         """;
 
+    /// <summary>Converter under test — class is stateless so one instance is reused across iterations.</summary>
+    private readonly XmlDocToMarkdown _converter = new();
+
     /// <summary>Conversion of a plain summary fragment with no markup.</summary>
     /// <returns>The converted markdown.</returns>
     [Benchmark(Baseline = true)]
-    public string ConvertPlainSummary() => XmlDocToMarkdown.Convert(PlainSummary);
+    public string ConvertPlainSummary() => _converter.Convert(PlainSummary);
 
     /// <summary>Conversion of a typical method summary with see / paramref / c markup.</summary>
     /// <returns>The converted markdown.</returns>
     [Benchmark]
-    public string ConvertTaggedSummary() => XmlDocToMarkdown.Convert(TaggedSummary);
+    public string ConvertTaggedSummary() => _converter.Convert(TaggedSummary);
 
     /// <summary>Conversion of a summary containing a fenced code block + bullet list.</summary>
     /// <returns>The converted markdown.</returns>
     [Benchmark]
-    public string ConvertCodeAndListSummary() => XmlDocToMarkdown.Convert(CodeAndListSummary);
+    public string ConvertCodeAndListSummary() => _converter.Convert(CodeAndListSummary);
 }

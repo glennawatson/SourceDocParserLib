@@ -2,7 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Concurrent;
 using System.Xml;
 using Microsoft.CodeAnalysis;
 
@@ -14,15 +13,8 @@ namespace SourceDocParser;
 /// Results are memoized in a per-resolver cache to ensure efficient
 /// resolution across complex inheritance chains. Created per assembly.
 /// </summary>
-/// <param name="compilation">Compilation used for cref resolution.</param>
-internal sealed class DocResolver(Compilation compilation)
+public sealed class DocResolver : IDocResolver
 {
-    /// <summary>
-    /// Symbol -> resolved documentation. Concurrent so the parallel
-    /// per-DLL walker doesn't need an external lock.
-    /// </summary>
-    private static readonly ConcurrentDictionary<CrefResolutionContext, ApiDocumentation> _cache = new();
-
     /// <summary>
     /// Cached XmlReaderSettings used for every per-symbol parse.
     /// DTD processing is disabled (XML doc files don't use DTDs and
@@ -36,28 +28,35 @@ internal sealed class DocResolver(Compilation compilation)
         DtdProcessing = DtdProcessing.Ignore,
     };
 
-    /// <summary>
-    /// Returns the resolved documentation for a symbol, parsing and
-    /// inheriting on first request and reusing on every subsequent
-    /// call. Returns <see cref="ApiDocumentation.Empty"/> when the
-    /// symbol has no doc text of its own and nothing inheritable.
-    /// </summary>
-    /// <param name="symbol">Symbol whose documentation to resolve.</param>
-    /// <returns>The resolved documentation.</returns>
-    public ApiDocumentation Resolve(ISymbol symbol) =>
-        _cache.GetOrAdd(new(symbol, compilation), static x => ResolveCore(x.Symbol, x.Compilation));
+    /// <summary>Per-resolver state bundle threaded through every static helper.</summary>
+    private readonly DocResolveContext _context;
 
     /// <summary>
-    /// Returns the resolved documentation for a symbol, parsing and
-    /// inheriting on first request and reusing on every subsequent
-    /// call. Returns <see cref="ApiDocumentation.Empty"/> when the
-    /// symbol has no doc text of its own and nothing inheritable.
+    /// Initializes a new instance of the <see cref="DocResolver"/> class.
+    /// </summary>
+    /// <param name="compilation">Compilation used for cref resolution.</param>
+    /// <param name="converter">Converter used to fold inline doc tags into Markdown. Defaults to a fresh <see cref="XmlDocToMarkdown"/> when null.</param>
+    public DocResolver(Compilation compilation, IXmlDocToMarkdownConverter? converter = null)
+    {
+        ArgumentNullException.ThrowIfNull(compilation);
+        _context = new(
+            compilation,
+            converter ?? new XmlDocToMarkdown(),
+            new(SymbolEqualityComparer.Default));
+    }
+
+    /// <inheritdoc />
+    public ApiDocumentation Resolve(ISymbol symbol) => ResolveCached(symbol, _context);
+
+    /// <summary>
+    /// Cache-aware entry point used both by the public seam and by the
+    /// recursive inheritdoc walker so the chain hits the cache.
     /// </summary>
     /// <param name="symbol">Symbol whose documentation to resolve.</param>
-    /// <param name="compilation">Compilation used for cref resolution.</param>
+    /// <param name="context">Per-resolver state bundle.</param>
     /// <returns>The resolved documentation.</returns>
-    private static ApiDocumentation Resolve(ISymbol symbol, Compilation compilation) =>
-        _cache.GetOrAdd(new(symbol, compilation), static x => ResolveCore(x.Symbol, x.Compilation));
+    private static ApiDocumentation ResolveCached(ISymbol symbol, DocResolveContext context) =>
+        context.Cache.GetOrAdd(symbol, static (s, ctx) => ResolveCore(s, ctx), context);
 
     /// <summary>
     /// Resolution body: parse the symbol's own XML, decide whether
@@ -66,18 +65,18 @@ internal sealed class DocResolver(Compilation compilation)
     /// cycle protection, and merge child-wins-per-field.
     /// </summary>
     /// <param name="symbol">Symbol whose XML doc to resolve.</param>
-    /// <param name="compilation">Compilation used for cref resolution.</param>
+    /// <param name="context">Per-resolver state bundle.</param>
     /// <returns>The resolved documentation.</returns>
-    private static ApiDocumentation ResolveCore(ISymbol symbol, Compilation compilation)
+    private static ApiDocumentation ResolveCore(ISymbol symbol, DocResolveContext context)
     {
-        var raw = ParseRaw(symbol);
+        var raw = ParseRaw(symbol, context);
 
         if (raw.HasInheritDoc)
         {
             // Explicit inheritdoc. Walk the chain with cycle protection;
             // child fields beat parent fields.
             var visited = new HashSet<ISymbol>(SymbolEqualityComparer.Default) { symbol };
-            return ResolveExplicitInherit(symbol, raw, visited, compilation);
+            return ResolveExplicitInherit(symbol, raw, visited, context);
         }
 
         if (!raw.IsCompletelyEmpty || FindNaturalInheritedDocSource(symbol) is not { } autoSource)
@@ -88,7 +87,7 @@ internal sealed class DocResolver(Compilation compilation)
         // Auto-inherit: the symbol has no docs but does override
         // or implement something. Surface the parent's docs and
         // tell the emitter where they came from.
-        var parentDoc = Resolve(autoSource, compilation);
+        var parentDoc = ResolveCached(autoSource, context);
         return parentDoc.IsEmpty
             ? ApiDocumentation.Empty
             : parentDoc with { InheritedFrom = ContainingTypeDisplayName(autoSource) };
@@ -103,12 +102,12 @@ internal sealed class DocResolver(Compilation compilation)
     /// <param name="symbol">Symbol being resolved.</param>
     /// <param name="raw">Symbol's parsed own XML.</param>
     /// <param name="visited">Cycle-protection set; the caller seeded it with the original symbol.</param>
-    /// <param name="compilation">Compilation used for cref resolution.</param>
+    /// <param name="context">Per-resolver state bundle.</param>
     /// <returns>The resolved documentation.</returns>
-    private static ApiDocumentation ResolveExplicitInherit(ISymbol symbol, RawDocumentation raw, HashSet<ISymbol> visited, Compilation compilation)
+    private static ApiDocumentation ResolveExplicitInherit(ISymbol symbol, RawDocumentation raw, HashSet<ISymbol> visited, DocResolveContext context)
     {
         var inheritFrom = raw.InheritDocCref is { Length: > 0 } cref
-            ? ResolveCref(cref, compilation)
+            ? ResolveCref(cref, context.Compilation)
             : FindNaturalInheritedDocSource(symbol);
 
         if (inheritFrom is null || !visited.Add(inheritFrom))
@@ -119,7 +118,7 @@ internal sealed class DocResolver(Compilation compilation)
             return ToApiDocumentation(raw, inheritedFrom: null);
         }
 
-        var parentDoc = Resolve(inheritFrom, compilation);
+        var parentDoc = ResolveCached(inheritFrom, context);
         return MergeWithParent(raw, parentDoc, ContainingTypeDisplayName(inheritFrom));
     }
 
@@ -297,11 +296,12 @@ internal sealed class DocResolver(Compilation compilation)
     /// docs were never written).
     /// </summary>
     /// <param name="symbol">Symbol whose XML doc to read.</param>
+    /// <param name="context">Per-resolver state bundle.</param>
     /// <returns>The parsed raw documentation.</returns>
-    private static RawDocumentation ParseRaw(ISymbol symbol)
+    private static RawDocumentation ParseRaw(ISymbol symbol, DocResolveContext context)
     {
         var xml = symbol.GetDocumentationCommentXml();
-        return string.IsNullOrEmpty(xml) ? RawDocumentation.Empty : Parse(xml);
+        return string.IsNullOrEmpty(xml) ? RawDocumentation.Empty : Parse(xml, context);
     }
 
     /// <summary>
@@ -313,8 +313,9 @@ internal sealed class DocResolver(Compilation compilation)
     /// inheritdoc presence and its optional cref attribute.
     /// </summary>
     /// <param name="memberXml">Raw <c>member</c> XML.</param>
+    /// <param name="context">Per-resolver state bundle threaded into the per-element ReadInner calls.</param>
     /// <returns>The parsed raw documentation.</returns>
-    private static RawDocumentation Parse(string memberXml)
+    private static RawDocumentation Parse(string memberXml, DocResolveContext context)
     {
         var summary = string.Empty;
         var remarks = string.Empty;
@@ -342,49 +343,49 @@ internal sealed class DocResolver(Compilation compilation)
             {
                 case "summary":
                     {
-                        summary = ReadInner(reader);
+                        summary = ReadInner(reader, context);
                         break;
                     }
 
                 case "remarks":
                     {
-                        remarks = ReadInner(reader);
+                        remarks = ReadInner(reader, context);
                         break;
                     }
 
                 case "returns":
                     {
-                        returns = ReadInner(reader);
+                        returns = ReadInner(reader, context);
                         break;
                     }
 
                 case "value":
                     {
-                        value = ReadInner(reader);
+                        value = ReadInner(reader, context);
                         break;
                     }
 
                 case "example":
                     {
-                        examples.Add(ReadInner(reader));
+                        examples.Add(ReadInner(reader, context));
                         break;
                     }
 
                 case "param" when reader.GetAttribute("name") is { Length: > 0 } paramName:
                     {
-                        parameters.Add(new(paramName, ReadInner(reader)));
+                        parameters.Add(new(paramName, ReadInner(reader, context)));
                         break;
                     }
 
                 case "typeparam" when reader.GetAttribute("name") is { Length: > 0 } typeParamName:
                     {
-                        typeParameters.Add(new(typeParamName, ReadInner(reader)));
+                        typeParameters.Add(new(typeParamName, ReadInner(reader, context)));
                         break;
                     }
 
                 case "exception" when reader.GetAttribute("cref") is { Length: > 0 } exceptionCref:
                     {
-                        exceptions.Add(new(exceptionCref, ReadInner(reader)));
+                        exceptions.Add(new(exceptionCref, ReadInner(reader, context)));
                         break;
                     }
 
@@ -431,15 +432,17 @@ internal sealed class DocResolver(Compilation compilation)
     }
 
     /// <summary>
-    /// Reads the inner XML of the current element and converts it
-    /// to Markdown via XmlDocToMarkdown. Embedded inline tags like
-    /// <c>see cref="..."/</c> become Zensical autorefs links
-    /// at this point so the emitter can paste the result straight
-    /// into a page without further XML processing.
+    /// Streams the current element's children straight through the
+    /// converter. Avoids the previous <c>reader.ReadInnerXml()</c> call,
+    /// which materialised an inner-XML string and then required a
+    /// second <see cref="XmlReader"/> in <c>XmlDocToMarkdown.Convert</c>
+    /// — the dominant allocation in the doc-parse profile.
     /// </summary>
     /// <param name="reader">Reader positioned on the element's start tag.</param>
-    /// <returns>The inner content as a string.</returns>
-    private static string ReadInner(XmlReader reader) => reader.IsEmptyElement ? string.Empty : XmlDocToMarkdown.Convert(reader.ReadInnerXml());
+    /// <param name="context">Per-resolver state bundle (provides the converter).</param>
+    /// <returns>The inner content as a Markdown string.</returns>
+    private static string ReadInner(XmlReader reader, DocResolveContext context) =>
+        reader.IsEmptyElement ? string.Empty : context.Converter.Convert(reader);
 
     /// <summary>
     /// Resolves an <c>inheritdoc cref="..."/</c> target via
@@ -453,25 +456,4 @@ internal sealed class DocResolver(Compilation compilation)
     /// <returns>The resolved symbol, or null if not found.</returns>
     private static ISymbol? ResolveCref(string cref, Compilation compilation) =>
         DocumentationCommentId.GetFirstSymbolForDeclarationId(cref, compilation);
-
-    /// <summary>
-    /// Cache key for <see cref="ResolveCref"/>.
-    /// </summary>
-    /// <param name="Symbol">The symbol to compare.</param>
-    /// <param name="Compilation">The compilation unit.</param>
-    private sealed record CrefResolutionContext(ISymbol Symbol, Compilation Compilation)
-    {
-        /// <inheritdoc/>
-        public override int GetHashCode() =>
-            HashCode.Combine(SymbolEqualityComparer.Default.GetHashCode(Symbol), Compilation);
-
-        /// <summary>
-        /// Checks to make sure that the two references are equal.
-        /// </summary>
-        /// <param name="other">The other element.</param>
-        /// <returns>True if the two values are equal.</returns>
-        public bool Equals(CrefResolutionContext? other) => other is not null &&
-            SymbolEqualityComparer.Default.Equals(Symbol, other.Symbol) &&
-            Compilation == other.Compilation;
-    }
 }

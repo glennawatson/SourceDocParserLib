@@ -17,7 +17,7 @@ namespace SourceDocParser;
 /// Performance is optimized using a streaming <see cref="XmlReader"/>, single pass,
 /// and minimal allocations. Results are typically memoized by callers.
 /// </remarks>
-public static class XmlDocToMarkdown
+public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
 {
     /// <summary>
     /// Shared XML reader settings.
@@ -31,12 +31,37 @@ public static class XmlDocToMarkdown
         CheckCharacters = false,
     };
 
+    /// <inheritdoc />
+    public string Convert(string xmlFragment) => ConvertString(xmlFragment);
+
+    /// <inheritdoc />
+    public string Convert(XmlReader reader)
+    {
+        ArgumentNullException.ThrowIfNull(reader);
+        if (reader.NodeType != XmlNodeType.Element || reader.IsEmptyElement)
+        {
+            return string.Empty;
+        }
+
+        // Walk only the children of the current element. WriteSubtreeNodes
+        // stops when it sees the matching end element at startDepth, so
+        // the caller's reader is left positioned on that end element —
+        // the same place reader.ReadInnerXml() would have left it.
+        var startDepth = reader.Depth;
+        var sb = new StringBuilder(256);
+        WriteSubtreeNodes(reader, sb, ListContext.None, startDepth);
+        return CollapseWhitespace(sb).ToString();
+    }
+
     /// <summary>
-    /// Converts the supplied XML doc inner content into Markdown.
+    /// Static implementation of <see cref="Convert(string)"/>. Kept
+    /// separate so the few internal static helpers that need to convert
+    /// a captured fragment (e.g. <c>ReadTermAndDescription</c>) can call
+    /// it without going through an instance.
     /// </summary>
     /// <param name="xmlFragment">Inner XML of one doc element.</param>
-    /// <returns>Markdown-formatted doc fragment, or an empty string if nothing to convert.</returns>
-    public static string Convert(string xmlFragment)
+    /// <returns>Markdown-formatted doc fragment, or an empty string.</returns>
+    private static string ConvertString(string xmlFragment)
     {
         if (string.IsNullOrWhiteSpace(xmlFragment))
         {
@@ -50,6 +75,41 @@ public static class XmlDocToMarkdown
         WriteNodes(reader, sb, ListContext.None);
 
         return CollapseWhitespace(sb).ToString();
+    }
+
+    /// <summary>
+    /// Streaming variant of <see cref="WriteNodes"/> that stops at the
+    /// matching end element instead of EOF. Used by <see cref="Convert(XmlReader)"/>
+    /// to consume just the current element's subtree.
+    /// </summary>
+    /// <param name="reader">Active reader positioned on a start element.</param>
+    /// <param name="sb">Destination buffer.</param>
+    /// <param name="listContext">Inherited list context.</param>
+    /// <param name="startDepth">Depth of the parent start element; iteration stops at <see cref="XmlNodeType.EndElement"/> at this depth.</param>
+    private static void WriteSubtreeNodes(XmlReader reader, StringBuilder sb, ListContext listContext, int startDepth)
+    {
+        while (reader.Read())
+        {
+            if (reader.NodeType is XmlNodeType.EndElement && reader.Depth == startDepth)
+            {
+                return;
+            }
+
+            switch (reader.NodeType)
+            {
+                case XmlNodeType.Text or XmlNodeType.SignificantWhitespace or XmlNodeType.Whitespace:
+                    {
+                        sb.Append(reader.Value);
+                        break;
+                    }
+
+                case XmlNodeType.Element:
+                    {
+                        WriteElement(reader, sb, listContext);
+                        break;
+                    }
+            }
+        }
     }
 
     /// <summary>
@@ -397,13 +457,13 @@ public static class XmlDocToMarkdown
             {
                 case "term":
                     {
-                        term = TableEscape(Convert(subtree.ReadInnerXml()));
+                        term = TableEscape(ConvertString(subtree.ReadInnerXml()));
                         break;
                     }
 
                 case "description":
                     {
-                        description = TableEscape(Convert(subtree.ReadInnerXml()));
+                        description = TableEscape(ConvertString(subtree.ReadInnerXml()));
                         break;
                     }
             }

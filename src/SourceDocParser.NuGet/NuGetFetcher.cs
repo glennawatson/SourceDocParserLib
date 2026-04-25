@@ -377,7 +377,12 @@ public sealed partial class NuGetFetcher : INuGetFetcher
             }
 
             using var entryStream = entry.Open();
-            using var memStream = new MemoryStream();
+
+            // Pre-size to the entry's known uncompressed length so the
+            // backing byte[] is allocated once at the correct size — the
+            // default MemoryStream doubles its buffer on every Write,
+            // which dominated the deflate-extract allocation profile.
+            using var memStream = new MemoryStream(checked((int)entry.Length));
             entryStream.CopyTo(memStream);
 
             memStream.Position = 0;

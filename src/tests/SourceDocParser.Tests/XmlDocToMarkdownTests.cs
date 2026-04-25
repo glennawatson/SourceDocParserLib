@@ -11,6 +11,9 @@ namespace SourceDocParser.Tests;
 /// </summary>
 public class XmlDocToMarkdownTests
 {
+    /// <summary>Shared converter instance — class is stateless.</summary>
+    private readonly XmlDocToMarkdown _converter = new();
+
     /// <summary>
     /// A null or whitespace-only fragment converts to an empty string
     /// (so callers don't have to null-guard summaries themselves).
@@ -23,7 +26,7 @@ public class XmlDocToMarkdownTests
     [Arguments("\n\n\t")]
     public async Task ConvertReturnsEmptyForBlankInput(string fragment)
     {
-        var result = XmlDocToMarkdown.Convert(fragment);
+        var result = _converter.Convert(fragment);
 
         await Assert.That(result).IsEqualTo(string.Empty);
     }
@@ -35,7 +38,7 @@ public class XmlDocToMarkdownTests
     [Test]
     public async Task ConvertRendersInlineCode()
     {
-        var result = XmlDocToMarkdown.Convert("Use <c>Foo()</c> to do bar.");
+        var result = _converter.Convert("Use <c>Foo()</c> to do bar.");
 
         await Assert.That(result).Contains("`Foo()`");
     }
@@ -47,7 +50,7 @@ public class XmlDocToMarkdownTests
     [Test]
     public async Task ConvertRendersSeeCrefAsAutorefLink()
     {
-        var result = XmlDocToMarkdown.Convert("""See <see cref="T:Namespace.MyType"/>.""");
+        var result = _converter.Convert("""See <see cref="T:Namespace.MyType"/>.""");
 
         // The output uses the ShortName as the link text and the full
         // cref as the link target — autorefs format used by Zensical.
@@ -61,7 +64,7 @@ public class XmlDocToMarkdownTests
     [Test]
     public async Task ConvertRendersSeeLangwordAsInlineCode()
     {
-        var result = XmlDocToMarkdown.Convert("""Returns <see langword="null"/> when missing.""");
+        var result = _converter.Convert("""Returns <see langword="null"/> when missing.""");
 
         await Assert.That(result).Contains("`null`");
     }
@@ -73,7 +76,7 @@ public class XmlDocToMarkdownTests
     [Test]
     public async Task ConvertRendersParamRefAsInlineCode()
     {
-        var result = XmlDocToMarkdown.Convert("""When <paramref name="value"/> is null.""");
+        var result = _converter.Convert("""When <paramref name="value"/> is null.""");
 
         await Assert.That(result).Contains("`value`");
     }
@@ -85,7 +88,7 @@ public class XmlDocToMarkdownTests
     [Test]
     public async Task ConvertRendersCodeBlockAsFencedCsharp()
     {
-        var result = XmlDocToMarkdown.Convert("<code>var x = 1;</code>");
+        var result = _converter.Convert("<code>var x = 1;</code>");
 
         await Assert.That(result).Contains("```csharp");
         await Assert.That(result).Contains("var x = 1;");
@@ -99,8 +102,8 @@ public class XmlDocToMarkdownTests
     [Test]
     public async Task ConvertRendersBoldAndItalic()
     {
-        var bold = XmlDocToMarkdown.Convert("This is <b>important</b>.");
-        var italic = XmlDocToMarkdown.Convert("This is <i>important</i>.");
+        var bold = _converter.Convert("This is <b>important</b>.");
+        var italic = _converter.Convert("This is <i>important</i>.");
 
         await Assert.That(bold).Contains("**important**");
         await Assert.That(italic).Contains("*important*");
@@ -113,7 +116,7 @@ public class XmlDocToMarkdownTests
     [Test]
     public async Task ConvertRendersBulletListAsDashes()
     {
-        var result = XmlDocToMarkdown.Convert("""
+        var result = _converter.Convert("""
             <list type="bullet">
               <item><description>First</description></item>
               <item><description>Second</description></item>
@@ -123,4 +126,64 @@ public class XmlDocToMarkdownTests
         await Assert.That(result).Contains("- First");
         await Assert.That(result).Contains("- Second");
     }
+
+    /// <summary>
+    /// The streaming <see cref="XmlDocToMarkdown.Convert(System.Xml.XmlReader)"/>
+    /// overload reads the current element's children and produces the
+    /// same Markdown as the string overload — verifying the
+    /// nested-XmlReader allocation fix preserved behaviour.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Performance",
+        "CA1849:Call async methods",
+        Justification = "Test exercises sync XmlReader directly; ReadAsync is unrelated to what's being verified.")]
+    public async Task ConvertReaderProducesSameOutputAsString()
+    {
+        const string fragment = "Use <c>Foo()</c> and pass <paramref name=\"x\"/>.";
+        var expected = _converter.Convert(fragment);
+
+        using var stringReader = new System.IO.StringReader($"<root>{fragment}</root>");
+        using var reader = System.Xml.XmlReader.Create(stringReader);
+
+        // Position on the <root> start element.
+        while (reader.Read() && reader.NodeType != System.Xml.XmlNodeType.Element)
+        {
+        }
+
+        var actual = _converter.Convert(reader);
+
+        await Assert.That(actual).IsEqualTo(expected);
+    }
+
+    /// <summary>
+    /// Calling the reader overload on an empty element yields an empty string.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    [System.Diagnostics.CodeAnalysis.SuppressMessage(
+        "Performance",
+        "CA1849:Call async methods",
+        Justification = "Test exercises sync XmlReader directly; ReadAsync is unrelated to what's being verified.")]
+    public async Task ConvertReaderReturnsEmptyForEmptyElement()
+    {
+        using var stringReader = new System.IO.StringReader("<empty/>");
+        using var reader = System.Xml.XmlReader.Create(stringReader);
+        while (reader.Read() && reader.NodeType != System.Xml.XmlNodeType.Element)
+        {
+        }
+
+        var result = _converter.Convert(reader);
+
+        await Assert.That(result).IsEqualTo(string.Empty);
+    }
+
+    /// <summary>
+    /// A null reader throws <see cref="System.ArgumentNullException"/>.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ConvertReaderValidatesArgument() =>
+        await Assert.That(() => _converter.Convert((System.Xml.XmlReader)null!)).Throws<System.ArgumentNullException>();
 }

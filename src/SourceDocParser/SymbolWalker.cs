@@ -52,6 +52,16 @@ public sealed class SymbolWalker : ISymbolWalker
                               | EscapeKeywordIdentifiers
                               | IncludeNullableReferenceTypeModifier);
 
+    /// <summary>Factory invoked once per <see cref="Walk"/> to create the per-compilation doc resolver.</summary>
+    private readonly Func<Compilation, IDocResolver> _docResolverFactory;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SymbolWalker"/> class.
+    /// </summary>
+    /// <param name="docResolverFactory">Factory invoked once per <see cref="Walk"/> to create the per-compilation doc resolver. Defaults to <c>c =&gt; new DocResolver(c)</c>.</param>
+    public SymbolWalker(Func<Compilation, IDocResolver>? docResolverFactory = null) =>
+        _docResolverFactory = docResolverFactory ?? (static c => new DocResolver(c));
+
     /// <summary>
     /// Walks the public types of one assembly and returns the catalog for the supplied TFM.
     /// </summary>
@@ -66,7 +76,7 @@ public sealed class SymbolWalker : ISymbolWalker
         ArgumentNullException.ThrowIfNull(assembly);
         ArgumentNullException.ThrowIfNull(compilation);
         ArgumentNullException.ThrowIfNull(sourceLinks);
-        return WalkCore(tfm, assembly, compilation, sourceLinks);
+        return WalkCore(tfm, assembly, _docResolverFactory(compilation), sourceLinks);
     }
 
     /// <summary>
@@ -76,15 +86,15 @@ public sealed class SymbolWalker : ISymbolWalker
     /// </summary>
     /// <param name="tfm">TFM the assembly was extracted from.</param>
     /// <param name="assembly">Assembly symbol to walk.</param>
-    /// <param name="compilation">Compilation that produced <paramref name="assembly"/>.</param>
+    /// <param name="docs">Doc resolver scoped to the compilation that produced <paramref name="assembly"/>.</param>
     /// <param name="sourceLinks">Resolver scoped to <paramref name="assembly"/>.</param>
     /// <returns>The generated API catalog.</returns>
-    private static ApiCatalog WalkCore(string tfm, IAssemblySymbol assembly, Compilation compilation, ISourceLinkResolver sourceLinks)
+    private static ApiCatalog WalkCore(string tfm, IAssemblySymbol assembly, IDocResolver docs, ISourceLinkResolver sourceLinks)
     {
         var context = new SymbolWalkContext(
             AssemblyName: assembly.Name,
             Tfm: tfm,
-            Docs: new(compilation),
+            Docs: docs,
             TypeRefs: new(),
             SourceLinks: sourceLinks,
             NamespaceDisplayNames: new(SymbolEqualityComparer.Default),
