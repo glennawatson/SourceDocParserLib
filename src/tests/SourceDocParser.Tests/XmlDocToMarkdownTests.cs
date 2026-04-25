@@ -215,4 +215,110 @@ public class XmlDocToMarkdownTests
     [Test]
     public async Task ConvertSpanReturnsEmptyForEmptyInput() =>
         await Assert.That(_converter.Convert(default(System.ReadOnlySpan<char>))).IsEqualTo(string.Empty);
+
+    /// <summary>A numbered list renders with sequential prefixes.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ConvertRendersNumberedList()
+    {
+        var result = _converter.Convert("""
+            <list type="number">
+              <item><description>One</description></item>
+              <item><description>Two</description></item>
+            </list>
+            """);
+
+        await Assert.That(result).Contains("1. One");
+        await Assert.That(result).Contains("2. Two");
+    }
+
+    /// <summary>A table list renders the header row + separator + body rows.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ConvertRendersTableList()
+    {
+        var result = _converter.Convert("""
+            <list type="table">
+              <listheader><term>Name</term><description>Purpose</description></listheader>
+              <item><term>Foo</term><description>Bars the baz</description></item>
+            </list>
+            """);
+
+        await Assert.That(result).Contains("| Name | Purpose |");
+        await Assert.That(result).Contains("| --- | --- |");
+        await Assert.That(result).Contains("| Foo | Bars the baz |");
+    }
+
+    /// <summary>Code blocks render fenced and decode entities.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ConvertRendersCodeBlockWithEntities()
+    {
+        var result = _converter.Convert("<code>var x = a &amp;&amp; b;</code>");
+
+        await Assert.That(result).Contains("```csharp");
+        await Assert.That(result).Contains("var x = a && b;");
+    }
+
+    /// <summary>Inline c with nested c suppresses the nested tag (text-only).</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ConvertCInlineSuppressesNestedTags()
+    {
+        var result = _converter.Convert("<c>Use <c>Inner</c> here</c>");
+
+        await Assert.That(result).IsEqualTo("`Use Inner here`");
+    }
+
+    /// <summary>br renders as a hard line break.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ConvertBrRendersAsHardLineBreak()
+    {
+        var result = _converter.Convert("first<br/>second");
+
+        await Assert.That(result).Contains("first");
+        await Assert.That(result).Contains("second");
+        await Assert.That(result).Contains("\n");
+    }
+
+    /// <summary>Para wraps content in surrounding blank lines.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ConvertParaSurroundsWithBlankLines()
+    {
+        var result = _converter.Convert("Lead.<para>Body.</para>Tail.");
+
+        await Assert.That(result).Contains("Body.");
+    }
+
+    /// <summary>see href with body renders as a Markdown link.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ConvertSeeHrefWithBodyRendersAsMarkdownLink()
+    {
+        var result = _converter.Convert("""See <see href="https://example.com">the docs</see>.""");
+
+        await Assert.That(result).Contains("[the docs](https://example.com)");
+    }
+
+    /// <summary>see href without body renders as an autolink.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ConvertSeeHrefWithoutBodyRendersAsAutolink()
+    {
+        var result = _converter.Convert("""See <see href="https://example.com"/>.""");
+
+        await Assert.That(result).Contains("<https://example.com>");
+    }
+
+    /// <summary>Unknown tags pass through their inner content.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ConvertUnknownTagPreservesInnerContent()
+    {
+        var result = _converter.Convert("Note <weird>important</weird> stuff.");
+
+        await Assert.That(result).Contains("important");
+    }
 }
