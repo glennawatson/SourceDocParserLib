@@ -13,7 +13,7 @@ namespace SourceDocParser.SourceLink;
 /// One resolver is typically created per assembly. The PDB is opened once at construction.
 /// </remarks>
 /// <param name="assemblyPath">Absolute path to the .dll.</param>
-internal sealed class SourceLinkResolver(string assemblyPath) : IDisposable
+public sealed class SourceLinkResolver(string assemblyPath) : ISourceLinkResolver
 {
     /// <summary>
     /// The underlying PDB reader.

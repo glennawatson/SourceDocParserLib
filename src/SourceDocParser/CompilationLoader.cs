@@ -5,28 +5,30 @@
 using ICSharpCode.Decompiler.Metadata;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.Extensions.Logging.Abstractions;
 using static Microsoft.CodeAnalysis.MetadataImportOptions;
 using static Microsoft.CodeAnalysis.OutputKind;
 
 namespace SourceDocParser;
 
 /// <summary>
-/// Loads a compiled .NET assembly into a Roslyn Compilation.
+/// Loads a compiled .NET assembly into a Roslyn <see cref="CSharpCompilation"/>.
 /// </summary>
 /// <remarks>
 /// <para>
-/// This class handles transitive assembly reference resolution using ICSharpCode.Decompiler's
-/// <c>UniversalAssemblyResolver</c> and attaches XML documentation via a custom provider.
-/// It is optimized for batch processing many assemblies per TFM by allowing callers to share
-/// fallback indexes and metadata reference caches.
+/// Uses ICSharpCode.Decompiler's <c>UniversalAssemblyResolver</c> for transitive
+/// assembly reference resolution and attaches XML documentation via a custom
+/// provider. Each instance owns a <see cref="MetadataReferenceCache"/> so the
+/// BCL ref pack and shared transitive references are only loaded once across a
+/// batch of assemblies in the same TFM group.
 /// </para>
 /// <para>
-/// <b>Thread Safety:</b> This class is static and stateless, making it thread-safe for
-/// concurrent calls from multiple threads. It is designed to be used within parallel
-/// processing pipelines like <c>MetadataExtractor</c>.
+/// <b>Thread Safety:</b> <see cref="Load"/> is safe to call concurrently — the
+/// underlying cache uses a <see cref="System.Collections.Concurrent.ConcurrentDictionary{TKey,TValue}"/>.
+/// <see cref="Dispose"/> must not race with concurrent <see cref="Load"/> calls.
 /// </para>
 /// </remarks>
-internal static partial class CompilationLoader
+public sealed partial class CompilationLoader : ICompilationLoader
 {
     /// <summary>
     /// Gets a bootstrap syntax tree included in every compilation.
@@ -46,31 +48,40 @@ internal static partial class CompilationLoader
             """),
     ];
 
+    /// <summary>Logger for resolver progress and reference-resolution warnings.</summary>
+    private readonly ILogger _logger;
+
+    /// <summary>Cache of <see cref="MetadataReference"/> instances by absolute path. Owned by this loader.</summary>
+    private readonly MetadataReferenceCache _referenceCache;
+
     /// <summary>
-    /// Loads an assembly and its transitive references into a compilation.
+    /// Initializes a new instance of the <see cref="CompilationLoader"/> class.
     /// </summary>
-    /// <param name="assemblyPath">The absolute path to the DLL.</param>
-    /// <param name="fallbackReferences">The fallback lookup for unresolved references.</param>
-    /// <param name="referenceCache">The cache for metadata references.</param>
-    /// <param name="logger">Logger for resolver progress and reference-resolution warnings.</param>
-    /// <param name="includePrivateMembers">Whether to include non-public members.</param>
-    /// <returns>A tuple containing the compilation and the primary assembly symbol.</returns>
-    public static (CSharpCompilation Compilation, IAssemblySymbol Assembly) Load(
+    /// <param name="logger">Logger for resolver progress and reference-resolution warnings; <see cref="NullLogger.Instance"/> when null.</param>
+    public CompilationLoader(ILogger? logger = null)
+    {
+        _logger = logger ?? NullLogger.Instance;
+        _referenceCache = new(_logger);
+    }
+
+    /// <inheritdoc />
+    public (CSharpCompilation Compilation, IAssemblySymbol Assembly) Load(
         string assemblyPath,
         Dictionary<string, string> fallbackReferences,
-        MetadataReferenceCache referenceCache,
-        ILogger logger,
         bool includePrivateMembers = false)
     {
-        var resolved = ResolveTransitiveReferences(assemblyPath, fallbackReferences, logger);
+        ArgumentException.ThrowIfNullOrWhiteSpace(assemblyPath);
+        ArgumentNullException.ThrowIfNull(fallbackReferences);
+
+        var resolved = ResolveTransitiveReferences(assemblyPath, fallbackReferences, _logger);
 
         var references = new List<MetadataReference>(resolved.Count + 1);
         foreach (var path in resolved)
         {
-            references.Add(referenceCache.Get(path));
+            references.Add(_referenceCache.Get(path));
         }
 
-        var primary = referenceCache.Get(assemblyPath);
+        var primary = _referenceCache.Get(assemblyPath);
         references.Add(primary);
 
         var compilation = CSharpCompilation.Create(
@@ -85,46 +96,8 @@ internal static partial class CompilationLoader
         return (compilation, assembly);
     }
 
-    /// <summary>
-    /// Reports compilation diagnostics and checks for errors.
-    /// </summary>
-    /// <param name="compilation">The compilation to inspect.</param>
-    /// <param name="logger">Logger to receive warning and error diagnostics.</param>
-    /// <returns>True if any error-level diagnostics were found; otherwise false.</returns>
-    public static bool ReportDiagnostics(this Compilation compilation, ILogger logger)
-    {
-        var errorCount = 0;
-
-        foreach (var diagnostic in compilation.GetDeclarationDiagnostics())
-        {
-            if (diagnostic.IsSuppressed)
-            {
-                continue;
-            }
-
-            switch (diagnostic.Severity)
-            {
-                case DiagnosticSeverity.Warning:
-                    {
-                        LogDiagnosticWarning(logger, diagnostic.ToString());
-                        break;
-                    }
-
-                case DiagnosticSeverity.Error:
-                    {
-                        LogDiagnosticError(logger, diagnostic.ToString());
-                        if (++errorCount >= 20)
-                        {
-                            return true;
-                        }
-
-                        break;
-                    }
-            }
-        }
-
-        return errorCount > 0;
-    }
+    /// <inheritdoc />
+    public void Dispose() => _referenceCache.Dispose();
 
     /// <summary>
     /// Resolves the closure of assembly references for a DLL.
@@ -203,18 +176,6 @@ internal static partial class CompilationLoader
 
         return results;
     }
-
-    /// <summary>Logs a Roslyn warning-level compilation diagnostic.</summary>
-    /// <param name="logger">Target logger.</param>
-    /// <param name="diagnostic">Pre-formatted diagnostic text.</param>
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Compilation diagnostic (warning): {Diagnostic}")]
-    private static partial void LogDiagnosticWarning(ILogger logger, string diagnostic);
-
-    /// <summary>Logs a Roslyn error-level compilation diagnostic.</summary>
-    /// <param name="logger">Target logger.</param>
-    /// <param name="diagnostic">Pre-formatted diagnostic text.</param>
-    [LoggerMessage(Level = LogLevel.Error, Message = "Compilation diagnostic (error): {Diagnostic}")]
-    private static partial void LogDiagnosticError(ILogger logger, string diagnostic);
 
     /// <summary>Logs an assembly reference the resolver and fallback index could not locate.</summary>
     /// <param name="logger">Target logger.</param>

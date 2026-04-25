@@ -23,7 +23,7 @@ namespace SourceDocParser;
 /// Iteration uses explicit Stacks to avoid closure allocations from recursion,
 /// improving performance across large assemblies.
 /// </summary>
-internal static class SymbolWalker
+public sealed class SymbolWalker : ISymbolWalker
 {
     /// <summary>
     /// Roslyn display format for base-type/interface labels using short names
@@ -66,7 +66,26 @@ internal static class SymbolWalker
     /// <param name="compilation">Compilation that produced the assembly symbol - passed through to the DocResolver for cref resolution on inheritdoc.</param>
     /// <param name="sourceLinks">SourceLink resolver scoped to the assembly being walked. Populates <see cref="ApiMember.SourceUrl"/> and <see cref="ApiType.SourceUrl"/> when PDB + SourceLink data is available; otherwise contributes nothing and the URLs stay null.</param>
     /// <returns>The generated API catalog.</returns>
-    public static ApiCatalog Walk(string tfm, IAssemblySymbol assembly, Compilation compilation, SourceLinkResolver sourceLinks)
+    public ApiCatalog Walk(string tfm, IAssemblySymbol assembly, Compilation compilation, ISourceLinkResolver sourceLinks)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tfm);
+        ArgumentNullException.ThrowIfNull(assembly);
+        ArgumentNullException.ThrowIfNull(compilation);
+        ArgumentNullException.ThrowIfNull(sourceLinks);
+        return WalkCore(tfm, assembly, compilation, sourceLinks);
+    }
+
+    /// <summary>
+    /// Static implementation of <see cref="Walk"/>. Kept separate so the
+    /// instance method is a one-liner and the body remains pure / shareable
+    /// across walker instances without per-instance state.
+    /// </summary>
+    /// <param name="tfm">TFM the assembly was extracted from.</param>
+    /// <param name="assembly">Assembly symbol to walk.</param>
+    /// <param name="compilation">Compilation that produced <paramref name="assembly"/>.</param>
+    /// <param name="sourceLinks">Resolver scoped to <paramref name="assembly"/>.</param>
+    /// <returns>The generated API catalog.</returns>
+    private static ApiCatalog WalkCore(string tfm, IAssemblySymbol assembly, Compilation compilation, ISourceLinkResolver sourceLinks)
     {
         var typeRefs = new TypeReferenceCache();
         var assemblyName = assembly.Name;
@@ -131,7 +150,7 @@ internal static class SymbolWalker
     /// <param name="typeRefs">Cache of typeref records keyed by symbol.</param>
     /// <param name="sourceLinks">SourceLink resolver for the declaring assembly.</param>
     /// <returns>The generated API type, or null if it could not be built.</returns>
-    private static ApiType? TryBuildType(INamedTypeSymbol type, string assemblyName, string tfm, DocResolver docs, TypeReferenceCache typeRefs, SourceLinkResolver sourceLinks)
+    private static ApiType? TryBuildType(INamedTypeSymbol type, string assemblyName, string tfm, DocResolver docs, TypeReferenceCache typeRefs, ISourceLinkResolver sourceLinks)
     {
         if (ClassifyType(type) is not { } kind)
         {
@@ -270,7 +289,7 @@ internal static class SymbolWalker
         string containingTypeUid,
         DocResolver docs,
         TypeReferenceCache typeRefs,
-        SourceLinkResolver sourceLinks)
+        ISourceLinkResolver sourceLinks)
     {
         // Pre-size to the raw member count from Roslyn - we'll filter
         // some out (non-public, implicitly declared, unsupported kinds)

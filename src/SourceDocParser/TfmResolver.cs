@@ -175,6 +175,69 @@ public static class TfmResolver
             return null;
         }
 
+        // Fast path 1: exact string match. Covers the dominant case where
+        // a package's lib/ TFM is also present verbatim under refs/.
+        for (var i = 0; i < refsTfms.Count; i++)
+        {
+            var raw = refsTfms[i];
+            if (string.Equals(raw, libTfm, StringComparison.OrdinalIgnoreCase))
+            {
+                return raw;
+            }
+        }
+
+        // Fast path 2: strip a single platform suffix (net10.0-android36.0
+        // -> net10.0) and look for the base TFM in refs/. Avoids parsing
+        // every entry into NuGetFramework for the common platform-targeted
+        // libraries.
+        var dashIdx = libTfm.IndexOf('-');
+        if (dashIdx > 0)
+        {
+            var stripped = libTfm.AsSpan(0, dashIdx);
+            for (var i = 0; i < refsTfms.Count; i++)
+            {
+                var raw = refsTfms[i];
+                if (stripped.Equals(raw, StringComparison.OrdinalIgnoreCase))
+                {
+                    return raw;
+                }
+            }
+        }
+
+        return FindBestRefsTfmSlow(libTfm, refsTfms);
+    }
+
+    /// <summary>
+    /// Returns the platform classification for a TFM (one of android, ios,
+    /// maccatalyst, windows) used to bucket platform-specific docs output,
+    /// or null for platform-neutral TFMs. Recognises both modern
+    /// (net10.0-android) and legacy (monoandroid, xamarinios, uap) forms.
+    /// </summary>
+    /// <param name="tfm">The TFM to classify.</param>
+    /// <returns>The platform label, or null if not a platform-specific TFM.</returns>
+    public static string? GetPlatformLabel(string tfm) => tfm switch
+    {
+        _ when tfm.Contains("-android", StringComparison.OrdinalIgnoreCase) => "android",
+        _ when tfm.Contains("-ios", StringComparison.OrdinalIgnoreCase) => "ios",
+        _ when tfm.Contains("-maccatalyst", StringComparison.OrdinalIgnoreCase) => "maccatalyst",
+        _ when tfm.Contains("-windows", StringComparison.OrdinalIgnoreCase) => "windows",
+        _ when tfm.StartsWith("monoandroid", StringComparison.OrdinalIgnoreCase) => "android",
+        _ when tfm.StartsWith("xamarinios", StringComparison.OrdinalIgnoreCase) => "ios",
+        _ when tfm.StartsWith("xamarinmac", StringComparison.OrdinalIgnoreCase) => "maccatalyst",
+        _ when tfm.StartsWith("uap", StringComparison.OrdinalIgnoreCase) => "windows",
+        _ => null,
+    };
+
+    /// <summary>
+    /// Slow path for <see cref="FindBestRefsTfm"/>: defers to
+    /// <see cref="FrameworkReducer"/> for cases the string fast paths
+    /// cannot answer (netstandard fallback, version downscaling).
+    /// </summary>
+    /// <param name="libTfm">The TFM under lib/ being resolved.</param>
+    /// <param name="refsTfms">All TFMs present under refs/.</param>
+    /// <returns>The best matching reference TFM, or null if none found.</returns>
+    private static string? FindBestRefsTfmSlow(string libTfm, List<string> refsTfms)
+    {
         var libFramework = NuGetFramework.Parse(libTfm);
         if (libFramework.IsUnsupported)
         {
@@ -214,27 +277,6 @@ public static class TfmResolver
             ? PickHighestModernNetRef(candidates, byFramework)
             : null;
     }
-
-    /// <summary>
-    /// Returns the platform classification for a TFM (one of android, ios,
-    /// maccatalyst, windows) used to bucket platform-specific docs output,
-    /// or null for platform-neutral TFMs. Recognises both modern
-    /// (net10.0-android) and legacy (monoandroid, xamarinios, uap) forms.
-    /// </summary>
-    /// <param name="tfm">The TFM to classify.</param>
-    /// <returns>The platform label, or null if not a platform-specific TFM.</returns>
-    public static string? GetPlatformLabel(string tfm) => tfm switch
-    {
-        _ when tfm.Contains("-android", StringComparison.OrdinalIgnoreCase) => "android",
-        _ when tfm.Contains("-ios", StringComparison.OrdinalIgnoreCase) => "ios",
-        _ when tfm.Contains("-maccatalyst", StringComparison.OrdinalIgnoreCase) => "maccatalyst",
-        _ when tfm.Contains("-windows", StringComparison.OrdinalIgnoreCase) => "windows",
-        _ when tfm.StartsWith("monoandroid", StringComparison.OrdinalIgnoreCase) => "android",
-        _ when tfm.StartsWith("xamarinios", StringComparison.OrdinalIgnoreCase) => "ios",
-        _ when tfm.StartsWith("xamarinmac", StringComparison.OrdinalIgnoreCase) => "maccatalyst",
-        _ when tfm.StartsWith("uap", StringComparison.OrdinalIgnoreCase) => "windows",
-        _ => null,
-    };
 
     /// <summary>
     /// From <paramref name="candidates"/>, returns the original string

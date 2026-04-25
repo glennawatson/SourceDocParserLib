@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging.Abstractions;
 using SourceDocParser.SourceLink;
 
@@ -22,6 +23,34 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
     /// references, so memory grows quickly with parallelism.
     /// </summary>
     private const int MaxParallelCompilations = 3;
+
+    /// <summary>Walker invoked for each loaded assembly.</summary>
+    private readonly ISymbolWalker _symbolWalker;
+
+    /// <summary>Factory invoked once per TFM group to create the loader for that group.</summary>
+    private readonly Func<ILogger, ICompilationLoader> _loaderFactory;
+
+    /// <summary>Factory invoked once per assembly to create its scoped source-link resolver.</summary>
+    private readonly Func<string, ISourceLinkResolver> _sourceLinkResolverFactory;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MetadataExtractor"/> class.
+    /// All collaborators are optional; <c>null</c> falls back to the default
+    /// production implementation. Tests substitute fakes by passing in
+    /// alternative implementations.
+    /// </summary>
+    /// <param name="symbolWalker">Walker invoked for each loaded assembly. Defaults to <see cref="SymbolWalker"/>.</param>
+    /// <param name="loaderFactory">Factory invoked once per TFM group to create the loader for that group; receives the per-run logger. Defaults to <c>logger =&gt; new CompilationLoader(logger)</c>.</param>
+    /// <param name="sourceLinkResolverFactory">Factory invoked once per assembly to create its scoped source-link resolver; receives the absolute assembly path. Defaults to <c>path =&gt; new SourceLinkResolver(path)</c>.</param>
+    public MetadataExtractor(
+        ISymbolWalker? symbolWalker = null,
+        Func<ILogger, ICompilationLoader>? loaderFactory = null,
+        Func<string, ISourceLinkResolver>? sourceLinkResolverFactory = null)
+    {
+        _symbolWalker = symbolWalker ?? new SymbolWalker();
+        _loaderFactory = loaderFactory ?? (logger => new CompilationLoader(logger));
+        _sourceLinkResolverFactory = sourceLinkResolverFactory ?? (path => new SourceLinkResolver(path));
+    }
 
     /// <inheritdoc />
     /// <exception cref="ArgumentNullException">When <paramref name="source"/> or <paramref name="emitter"/> is null.</exception>
@@ -46,12 +75,12 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
 
         Directory.CreateDirectory(outputRoot);
 
-        using var cacheRegistry = new TfmCacheRegistry();
+        using var loaderRegistry = new LoaderRegistry();
         var groups = new List<TfmGroup>();
         await foreach (var group in source.DiscoverAsync(cancellationToken).ConfigureAwait(false))
         {
-            var cache = cacheRegistry.Track(new(logger));
-            groups.Add(new(group, cache));
+            var loader = loaderRegistry.Track(_loaderFactory(logger));
+            groups.Add(new(group, loader));
         }
 
         if (groups.Count == 0)
@@ -61,33 +90,47 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
 
         LogDiscoveredGroups(logger, groups.Count, source.GetType().Name);
 
-        var workItems = BuildAssemblyWorkItems(groups);
+        var catalogs = new ConcurrentBag<ApiCatalog>();
+        var loadFailureBox = new StrongBox<int>();
+        var context = new WalkContext(
+            _symbolWalker,
+            _sourceLinkResolverFactory,
+            logger,
+            catalogs,
+            loadFailureBox);
+
+        var workItems = BuildAssemblyWorkItems(groups, context);
         LogWalking(logger, workItems.Count, groups.Count, MaxParallelCompilations);
 
-        var catalogs = new ConcurrentBag<ApiCatalog>();
-        var loadFailures = 0;
         var parallelOptions = new ParallelOptions
         {
             MaxDegreeOfParallelism = MaxParallelCompilations,
             CancellationToken = cancellationToken,
         };
+
+        // Static lambda — every dependency the body needs is reachable
+        // through the enriched AssemblyWorkItem, so the lambda captures
+        // nothing and Parallel.ForEachAsync doesn't allocate a closure
+        // per dispatch.
         await Parallel.ForEachAsync(
             workItems,
             parallelOptions,
-            (work, _) =>
+            static (work, _) =>
             {
-                if (LoadAndWalkAssembly(work, logger) is { } catalog)
+                var ctx = work.Context;
+                if (LoadAndWalkAssembly(work, ctx.SymbolWalker, ctx.SourceLinkResolverFactory, ctx.Logger) is { } catalog)
                 {
-                    catalogs.Add(catalog);
+                    ctx.Catalogs.Add(catalog);
                 }
                 else
                 {
-                    Interlocked.Increment(ref loadFailures);
+                    Interlocked.Increment(ref ctx.LoadFailures.Value);
                 }
 
                 return ValueTask.CompletedTask;
             }).ConfigureAwait(false);
 
+        var loadFailures = loadFailureBox.Value;
         LogWalkComplete(logger, catalogs.Count);
         var merged = TypeMerger.Merge([.. catalogs]);
 
@@ -142,8 +185,9 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
     /// concurrency budget instead of nesting per-TFM loops.
     /// </summary>
     /// <param name="groups">Per-TFM groups produced by the source.</param>
+    /// <param name="context">Shared walk context attached to every work item so the parallel lambda can stay capture-free.</param>
     /// <returns>One work item per assembly across every group.</returns>
-    private static List<AssemblyWorkItem> BuildAssemblyWorkItems(List<TfmGroup> groups)
+    private static List<AssemblyWorkItem> BuildAssemblyWorkItems(List<TfmGroup> groups, WalkContext context)
     {
         var total = 0;
         for (var i = 0; i < groups.Count; i++)
@@ -154,11 +198,11 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
         var items = new List<AssemblyWorkItem>(total);
         for (var i = 0; i < groups.Count; i++)
         {
-            var ctx = groups[i];
-            var paths = ctx.Group.AssemblyPaths;
+            var owner = groups[i];
+            var paths = owner.Group.AssemblyPaths;
             for (var j = 0; j < paths.Count; j++)
             {
-                items.Add(new(ctx, paths[j]));
+                items.Add(new(owner, paths[j], context));
             }
         }
 
@@ -171,16 +215,22 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
     /// failure so the caller can count failures without aborting.
     /// </summary>
     /// <param name="work">Work item to process.</param>
+    /// <param name="symbolWalker">Walker invoked for the loaded assembly.</param>
+    /// <param name="sourceLinkResolverFactory">Factory that produces the per-assembly source-link resolver.</param>
     /// <param name="logger">Logger for progress and failure messages.</param>
     /// <returns>The walked catalog, or null on load/walk failure.</returns>
-    private static ApiCatalog? LoadAndWalkAssembly(AssemblyWorkItem work, ILogger logger)
+    private static ApiCatalog? LoadAndWalkAssembly(
+        AssemblyWorkItem work,
+        ISymbolWalker symbolWalker,
+        Func<string, ISourceLinkResolver> sourceLinkResolverFactory,
+        ILogger logger)
     {
         var name = Path.GetFileNameWithoutExtension(work.AssemblyPath.AsSpan()).ToString();
         try
         {
-            var (compilation, assembly) = CompilationLoader.Load(work.AssemblyPath, work.Owner.Group.FallbackIndex, work.Owner.ReferenceCache, logger);
-            using var sourceLinks = new SourceLinkResolver(work.AssemblyPath);
-            var catalog = SymbolWalker.Walk(work.Owner.Group.Tfm, assembly, compilation, sourceLinks);
+            var (compilation, assembly) = work.Owner.Loader.Load(work.AssemblyPath, work.Owner.Group.FallbackIndex);
+            using var sourceLinks = sourceLinkResolverFactory(work.AssemblyPath);
+            var catalog = symbolWalker.Walk(work.Owner.Group.Tfm, assembly, compilation, sourceLinks);
             LogAssemblyWalked(logger, work.Owner.Group.Tfm, name, catalog.Types.Count);
             return catalog;
         }
@@ -247,53 +297,75 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
 
     /// <summary>
     /// Pairs an <see cref="AssemblyGroup"/> from the source with the
-    /// per-TFM metadata reference cache so every compilation in the
-    /// group reuses the same loaded BCL ref pack.
+    /// per-TFM compilation loader so every assembly in the group reuses
+    /// the same loaded BCL ref pack.
     /// </summary>
     /// <param name="Group">Source-supplied assembly group.</param>
-    /// <param name="ReferenceCache">Per-TFM metadata reference cache.</param>
-    private sealed record TfmGroup(AssemblyGroup Group, MetadataReferenceCache ReferenceCache);
+    /// <param name="Loader">Per-TFM compilation loader (owns the metadata reference cache for the group).</param>
+    private sealed record TfmGroup(AssemblyGroup Group, ICompilationLoader Loader);
 
     /// <summary>
-    /// One assembly to walk along with the TFM group it belongs to.
+    /// One assembly to walk along with the TFM group it belongs to and
+    /// the shared <see cref="WalkContext"/> the parallel lambda needs.
+    /// Bundling the context onto the item lets the lambda be <c>static</c>
+    /// — no captures, no per-dispatch closure allocation.
     /// </summary>
-    /// <param name="Owner">Owning TFM group (provides fallback index and reference cache).</param>
+    /// <param name="Owner">Owning TFM group (provides fallback index and loader).</param>
     /// <param name="AssemblyPath">Absolute path to the assembly to walk.</param>
-    private sealed record AssemblyWorkItem(TfmGroup Owner, string AssemblyPath);
+    /// <param name="Context">Shared dependencies + result accumulators.</param>
+    private sealed record AssemblyWorkItem(TfmGroup Owner, string AssemblyPath, WalkContext Context);
 
     /// <summary>
-    /// Holds every per-TFM <see cref="MetadataReferenceCache"/> created
-    /// during a single <see cref="RunAsync"/> invocation and disposes
-    /// them on scope exit so the memory-mapped DLL views the BCL ref
-    /// pack pins are released as soon as the run finishes. Wrapped in
-    /// a single <c>using var</c> at the top of <see cref="RunAsync"/>.
+    /// Bundle of every dependency and accumulator the parallel walk
+    /// lambda needs. One instance is built per <see cref="RunAsync"/>
+    /// invocation and attached to every <see cref="AssemblyWorkItem"/>
+    /// so the lambda can stay <c>static</c>.
     /// </summary>
-    private sealed class TfmCacheRegistry : IDisposable
+    /// <param name="SymbolWalker">Walker invoked for each loaded assembly.</param>
+    /// <param name="SourceLinkResolverFactory">Factory producing the per-assembly source-link resolver.</param>
+    /// <param name="Logger">Logger for progress and failure messages.</param>
+    /// <param name="Catalogs">Concurrent destination for successful walks.</param>
+    /// <param name="LoadFailures">Box-wrapped counter so workers can <see cref="Interlocked.Increment(ref int)"/> without capturing a local.</param>
+    private sealed record WalkContext(
+        ISymbolWalker SymbolWalker,
+        Func<string, ISourceLinkResolver> SourceLinkResolverFactory,
+        ILogger Logger,
+        ConcurrentBag<ApiCatalog> Catalogs,
+        StrongBox<int> LoadFailures);
+
+    /// <summary>
+    /// Holds every per-TFM <see cref="ICompilationLoader"/> created during
+    /// a single <see cref="RunAsync"/> invocation and disposes them on
+    /// scope exit so the memory-mapped DLL views the BCL ref pack pins
+    /// are released as soon as the run finishes. Wrapped in a single
+    /// <c>using var</c> at the top of <see cref="RunAsync"/>.
+    /// </summary>
+    private sealed class LoaderRegistry : IDisposable
     {
-        /// <summary>Tracked caches in registration order.</summary>
-        private readonly List<MetadataReferenceCache> _caches = [];
+        /// <summary>Tracked loaders in registration order.</summary>
+        private readonly List<ICompilationLoader> _loaders = [];
 
         /// <summary>
-        /// Registers <paramref name="cache"/> for disposal and returns it
+        /// Registers <paramref name="loader"/> for disposal and returns it
         /// for fluent assignment at the call site.
         /// </summary>
-        /// <param name="cache">Cache to track.</param>
-        /// <returns>The same cache instance.</returns>
-        public MetadataReferenceCache Track(MetadataReferenceCache cache)
+        /// <param name="loader">Loader to track.</param>
+        /// <returns>The same loader instance.</returns>
+        public ICompilationLoader Track(ICompilationLoader loader)
         {
-            _caches.Add(cache);
-            return cache;
+            _loaders.Add(loader);
+            return loader;
         }
 
         /// <inheritdoc />
         public void Dispose()
         {
-            foreach (var cache in _caches)
+            foreach (var loader in _loaders)
             {
-                cache.Dispose();
+                loader.Dispose();
             }
 
-            _caches.Clear();
+            _loaders.Clear();
         }
     }
 }
