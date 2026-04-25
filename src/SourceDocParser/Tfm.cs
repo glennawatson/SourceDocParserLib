@@ -102,19 +102,19 @@ public record Tfm(string Raw, string Family, string Version, string? Platform)
             Tfm result;
             if (baseTfm.StartsWith("netstandard", StringComparison.OrdinalIgnoreCase))
             {
-                result = new Tfm(key, "netstandard", new string(baseTfm[NetStandardPrefixLength..]), platform);
+                result = new(key, "netstandard", new(baseTfm[NetStandardPrefixLength..]), platform);
             }
             else if (baseTfm.StartsWith("net4", StringComparison.OrdinalIgnoreCase))
             {
-                result = new Tfm(key, "net4", new string(baseTfm[NetPrefixLength..]), platform);
+                result = new(key, "net4", new(baseTfm[NetPrefixLength..]), platform);
             }
             else if (baseTfm.StartsWith("net", StringComparison.OrdinalIgnoreCase))
             {
-                result = new Tfm(key, "net", new string(baseTfm[NetPrefixLength..]), platform);
+                result = new(key, "net", new(baseTfm[NetPrefixLength..]), platform);
             }
             else
             {
-                result = new Tfm(key, "unknown", new string(baseTfm), platform);
+                result = new(key, "unknown", new(baseTfm), platform);
             }
 
             return result with { Rank = CalculateRank(result) };
@@ -150,11 +150,6 @@ public record Tfm(string Raw, string Family, string Version, string? Platform)
             };
         }
 
-        if (tfm.IsNetFramework)
-        {
-            return NetFrameworkRank;
-        }
-
-        return DefaultRank;
+        return tfm.IsNetFramework ? NetFrameworkRank : DefaultRank;
     }
 }

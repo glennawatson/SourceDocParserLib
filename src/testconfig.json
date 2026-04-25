@@ -1,0 +1,18 @@
+{
+    "codeCoverage": {
+        "Configuration": {
+            "Format": "cobertura",
+            "SkipAutoProperties": true,
+            "CodeCoverage": {
+                "Attributes": {
+                    "Exclude": [
+                        "^System\\.Diagnostics\\.DebuggerHiddenAttribute$",
+                        "^System\\.Diagnostics\\.DebuggerNonUserCodeAttribute$",
+                        "^System\\.CodeDom\\.Compiler\\.GeneratedCodeAttribute$",
+                        "^System\\.Diagnostics\\.CodeAnalysis\\.ExcludeFromCodeCoverageAttribute$"
+                    ]
+                }
+            }
+        }
+    }
+}

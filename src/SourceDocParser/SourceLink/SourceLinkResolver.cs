@@ -95,11 +95,13 @@ internal sealed class SourceLinkResolver(string assemblyPath) : IDisposable
         IMethodSymbol? found = null;
         foreach (var member in type.GetMembers())
         {
-            if (member is IMethodSymbol { MetadataToken: not 0 } method)
+            if (member is not IMethodSymbol { MetadataToken: not 0 } method)
             {
-                found = method;
-                break;
+                continue;
             }
+
+            found = method;
+            break;
         }
 
         _firstMethodCache[type] = found;

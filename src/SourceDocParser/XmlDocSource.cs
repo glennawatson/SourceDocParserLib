@@ -84,5 +84,5 @@ internal sealed class XmlDocSource(Dictionary<string, string> byMemberId)
     /// <param name="memberId">Roslyn member ID, e.g. T:Foo.Bar.</param>
     /// <returns>Matching XML string or null if not found.</returns>
     public string? Get(string memberId) =>
-        _byMemberId.TryGetValue(memberId, out var xml) ? xml : null;
+        _byMemberId.GetValueOrDefault(memberId);
 }

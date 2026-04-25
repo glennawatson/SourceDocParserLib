@@ -59,7 +59,7 @@ public static class DocfxConfigReader
     /// </summary>
     /// <param name="root">Root JSON object.</param>
     /// <returns>Ordered metadata entries.</returns>
-    private static List<DocfxMetadataEntry> ReadMetadataArray(JsonElement root)
+    private static List<DocfxMetadataEntry> ReadMetadataArray(in JsonElement root)
     {
         if (!root.TryGetProperty("metadata", out var array) || array.ValueKind != JsonValueKind.Array)
         {
@@ -91,7 +91,7 @@ public static class DocfxConfigReader
     /// </summary>
     /// <param name="entry">Metadata entry.</param>
     /// <returns>Ordered source records.</returns>
-    private static List<DocfxMetadataSource> ReadMetadataSources(JsonElement entry)
+    private static List<DocfxMetadataSource> ReadMetadataSources(in JsonElement entry)
     {
         if (!entry.TryGetProperty("src", out var array) || array.ValueKind != JsonValueKind.Array)
         {
@@ -120,7 +120,7 @@ public static class DocfxConfigReader
     /// </summary>
     /// <param name="root">Root JSON object.</param>
     /// <returns>Parsed build section.</returns>
-    private static DocfxBuildSection ReadBuildSection(JsonElement root)
+    private static DocfxBuildSection ReadBuildSection(in JsonElement root)
     {
         if (!root.TryGetProperty("build", out var build) || build.ValueKind != JsonValueKind.Object)
         {
@@ -138,7 +138,7 @@ public static class DocfxConfigReader
     /// </summary>
     /// <param name="build">Build section element.</param>
     /// <returns>Ordered content entries.</returns>
-    private static List<DocfxBuildContent> ReadBuildContent(JsonElement build)
+    private static List<DocfxBuildContent> ReadBuildContent(in JsonElement build)
     {
         if (!build.TryGetProperty("content", out var array) || array.ValueKind != JsonValueKind.Array)
         {
@@ -172,7 +172,7 @@ public static class DocfxConfigReader
     /// <param name="element">Containing object.</param>
     /// <param name="propertyName">Property to read.</param>
     /// <returns>String values in document order.</returns>
-    private static List<string> ReadStringArray(JsonElement element, string propertyName)
+    private static List<string> ReadStringArray(in JsonElement element, string propertyName)
     {
         if (!element.TryGetProperty(propertyName, out var array) || array.ValueKind != JsonValueKind.Array)
         {
@@ -187,7 +187,7 @@ public static class DocfxConfigReader
     /// </summary>
     /// <param name="array">JSON array element.</param>
     /// <returns>String values in document order.</returns>
-    private static List<string> ReadStringList(JsonElement array)
+    private static List<string> ReadStringList(in JsonElement array)
     {
         var values = new List<string>(array.GetArrayLength());
         foreach (var item in array.EnumerateArray())
@@ -206,7 +206,7 @@ public static class DocfxConfigReader
     /// <param name="element">Object whose properties to scan.</param>
     /// <param name="known">Property names that the typed model handles directly.</param>
     /// <returns>The extension data, or null when there is nothing to round-trip.</returns>
-    private static Dictionary<string, JsonElement>? ReadExtra(JsonElement element, HashSet<string> known)
+    private static Dictionary<string, JsonElement>? ReadExtra(in JsonElement element, HashSet<string> known)
     {
         Dictionary<string, JsonElement>? extra = null;
 

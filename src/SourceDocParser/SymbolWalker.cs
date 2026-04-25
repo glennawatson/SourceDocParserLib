@@ -197,16 +197,11 @@ internal static class SymbolWalker
             return null;
         }
 
-        if (baseType.SpecialType is SpecialType.System_Object
-                                  or SpecialType.System_ValueType
-                                  or SpecialType.System_Enum
-                                  or SpecialType.System_MulticastDelegate
-                                  or SpecialType.System_Delegate)
-        {
-            return null;
-        }
-
-        return cache.GetOrAdd(baseType, BuildReference);
+        return baseType.SpecialType is SpecialType.System_Object
+            or SpecialType.System_ValueType
+            or SpecialType.System_Enum
+            or SpecialType.System_MulticastDelegate
+            or SpecialType.System_Delegate ? null : cache.GetOrAdd(baseType, BuildReference);
     }
 
     /// <summary>

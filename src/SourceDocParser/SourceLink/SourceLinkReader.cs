@@ -91,7 +91,7 @@ internal sealed class SourceLinkReader : IDisposable
     /// <returns>The source location, or null if resolution fails.</returns>
     public SourceLocation? GetMethodLocation(int metadataToken)
     {
-        if (_pdbReader is not { } pdb)
+        if (_pdbReader is not { })
         {
             return null;
         }
@@ -105,7 +105,7 @@ internal sealed class SourceLinkReader : IDisposable
             }
 
             var debugHandle = MetadataTokens.MethodDebugInformationHandle(rowNumber);
-            var debugInfo = pdb.GetMethodDebugInformation(debugHandle);
+            var debugInfo = _pdbReader.GetMethodDebugInformation(debugHandle);
 
             foreach (var sp in debugInfo.GetSequencePoints())
             {
@@ -114,8 +114,8 @@ internal sealed class SourceLinkReader : IDisposable
                     continue;
                 }
 
-                var document = pdb.GetDocument(sp.Document);
-                var path = pdb.GetString(document.Name);
+                var document = _pdbReader.GetDocument(sp.Document);
+                var path = _pdbReader.GetString(document.Name);
                 return new SourceLocation(path, sp.StartLine);
             }
         }
@@ -187,19 +187,37 @@ internal sealed class SourceLinkReader : IDisposable
             return false;
         }
 
+        // Hold both the stream and the provider in locals until
+        // ownership transfers — to the provider on success of
+        // FromPortablePdbStream, then to the out parameter on success
+        // of GetMetadataReader. The finally only disposes whatever
+        // ownership we still hold, so a disposed provider never leaks
+        // out to the caller.
+        FileStream? pdbStream = null;
+        MetadataReaderProvider? localProvider = null;
         try
         {
-            var pdbStream = File.OpenRead(pdbPath);
-            provider = MetadataReaderProvider.FromPortablePdbStream(pdbStream, MetadataStreamOptions.PrefetchMetadata, size: 0);
-            reader = provider.GetMetadataReader();
+            pdbStream = File.OpenRead(pdbPath);
+            localProvider = MetadataReaderProvider.FromPortablePdbStream(
+                pdbStream,
+                MetadataStreamOptions.PrefetchMetadata,
+                size: 0);
+            pdbStream = null;
+            reader = localProvider.GetMetadataReader();
+            provider = localProvider;
+            localProvider = null;
             return true;
         }
         catch
         {
-            provider?.Dispose();
             provider = null;
             reader = null;
             return false;
+        }
+        finally
+        {
+            pdbStream?.Dispose();
+            localProvider?.Dispose();
         }
     }
 
@@ -221,8 +239,8 @@ internal sealed class SourceLinkReader : IDisposable
             try
             {
                 var blob = pdb.GetBlobReader(info.Value);
-                var entries = ParseJson(blob.ReadBytes(blob.Length));
-                return entries.Any() ? new SourceLinkMap([.. entries]) : null;
+                List<SourceLinkMapEntry> entries = [.. ParseJson(blob.ReadBytes(blob.Length))];
+                return entries.Count > 0 ? new SourceLinkMap(entries) : null;
             }
             catch
             {

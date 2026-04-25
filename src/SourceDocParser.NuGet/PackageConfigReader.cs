@@ -66,7 +66,7 @@ internal static class PackageConfigReader
     /// <param name="root">Root JSON object.</param>
     /// <param name="propertyName">Property to read.</param>
     /// <returns>The string values, in document order.</returns>
-    private static string[] ReadStringArray(JsonElement root, string propertyName)
+    private static string[] ReadStringArray(in JsonElement root, string propertyName)
     {
         if (!root.TryGetProperty(propertyName, out var element) || element.ValueKind != JsonValueKind.Array)
         {
@@ -88,7 +88,7 @@ internal static class PackageConfigReader
     /// </summary>
     /// <param name="root">Root JSON object.</param>
     /// <returns>The additional packages, in document order.</returns>
-    private static AdditionalPackage[] ReadAdditionalPackages(JsonElement root)
+    private static AdditionalPackage[] ReadAdditionalPackages(in JsonElement root)
     {
         if (!root.TryGetProperty("additionalPackages", out var element) || element.ValueKind != JsonValueKind.Array)
         {
@@ -112,7 +112,7 @@ internal static class PackageConfigReader
     /// </summary>
     /// <param name="root">Root JSON object.</param>
     /// <returns>The reference packages, in document order.</returns>
-    private static ReferencePackage[] ReadReferencePackages(JsonElement root)
+    private static ReferencePackage[] ReadReferencePackages(in JsonElement root)
     {
         if (!root.TryGetProperty("referencePackages", out var element) || element.ValueKind != JsonValueKind.Array)
         {
@@ -139,7 +139,7 @@ internal static class PackageConfigReader
     /// <param name="root">Root JSON object.</param>
     /// <param name="propertyName">Property to read.</param>
     /// <returns>An ordinal dictionary keyed by JSON property name.</returns>
-    private static Dictionary<string, string> ReadStringDictionary(JsonElement root, string propertyName)
+    private static Dictionary<string, string> ReadStringDictionary(in JsonElement root, string propertyName)
     {
         if (!root.TryGetProperty(propertyName, out var element) || element.ValueKind != JsonValueKind.Object)
         {
@@ -163,7 +163,7 @@ internal static class PackageConfigReader
     /// <param name="parentPath">Parent property name, included in the exception message for context.</param>
     /// <returns>The required string value.</returns>
     /// <exception cref="JsonException">When the property is missing, null, or not a string.</exception>
-    private static string GetRequiredString(JsonElement element, string propertyName, string parentPath)
+    private static string GetRequiredString(in JsonElement element, string propertyName, string parentPath)
     {
         if (!element.TryGetProperty(propertyName, out var value) || value.ValueKind != JsonValueKind.String)
         {
@@ -179,7 +179,7 @@ internal static class PackageConfigReader
     /// <param name="element">Object containing the property.</param>
     /// <param name="propertyName">Property to read.</param>
     /// <returns>The string value, or null.</returns>
-    private static string? GetOptionalString(JsonElement element, string propertyName) =>
+    private static string? GetOptionalString(in JsonElement element, string propertyName) =>
         element.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String
             ? value.GetString()
             : null;

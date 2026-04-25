@@ -17,7 +17,7 @@ namespace SourceDocParser;
 /// Performance is optimized using a streaming <see cref="XmlReader"/>, single pass,
 /// and minimal allocations. Results are typically memoized by callers.
 /// </remarks>
-internal static class XmlDocToMarkdown
+public static class XmlDocToMarkdown
 {
     /// <summary>
     /// Shared XML reader settings.
@@ -344,28 +344,34 @@ internal static class XmlDocToMarkdown
                 continue;
             }
 
-            if (reader.Name is "listheader")
+            switch (reader.Name)
             {
-                using var subtree = reader.ReadSubtree();
-                _ = subtree.Read();
-                var (term, description) = ReadTermAndDescription(subtree);
-                sb.Append("| ").Append(term).Append(" | ").Append(description).Append(" |\n")
-                    .Append("| --- | --- |\n");
-                headerWritten = true;
-            }
-            else if (reader.Name is "item")
-            {
-                if (!headerWritten)
-                {
-                    sb.Append("| Term | Description |\n")
-                        .Append("| --- | --- |\n");
-                    headerWritten = true;
-                }
+                case "listheader":
+                    {
+                        using var subtree = reader.ReadSubtree();
+                        _ = subtree.Read();
+                        var (term, description) = ReadTermAndDescription(subtree);
+                        sb.Append("| ").Append(term).Append(" | ").Append(description).Append(" |\n")
+                            .Append("| --- | --- |\n");
+                        headerWritten = true;
+                        break;
+                    }
 
-                using var subtree = reader.ReadSubtree();
-                _ = subtree.Read();
-                var (term, description) = ReadTermAndDescription(subtree);
-                sb.Append("| ").Append(term).Append(" | ").Append(description).Append(" |\n");
+                case "item":
+                    {
+                        if (!headerWritten)
+                        {
+                            sb.Append("| Term | Description |\n")
+                                .Append("| --- | --- |\n");
+                            headerWritten = true;
+                        }
+
+                        using var subtree = reader.ReadSubtree();
+                        _ = subtree.Read();
+                        var (term, description) = ReadTermAndDescription(subtree);
+                        sb.Append("| ").Append(term).Append(" | ").Append(description).Append(" |\n");
+                        break;
+                    }
             }
         }
     }

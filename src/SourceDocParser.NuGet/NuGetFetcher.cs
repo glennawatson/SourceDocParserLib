@@ -156,7 +156,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         Policy.Handle<HttpRequestException>()
             .WaitAndRetryAsync(
                 RetryAttempts,
-                attempt => TimeSpan.FromSeconds(0.1 * Math.Pow(2, attempt)));
+                static attempt => TimeSpan.FromSeconds(0.1 * Math.Pow(2, attempt)));
 
     /// <summary>
     /// Copies extracted reference assemblies from <c>refs/</c> into each <c>lib/</c> TFM directory.
@@ -195,11 +195,13 @@ public sealed partial class NuGetFetcher : INuGetFetcher
             foreach (var refDll in Directory.EnumerateFiles(refDir, "*.dll"))
             {
                 var destPath = Path.Combine(libTfmDir, Path.GetFileName(refDll.AsSpan()).ToString());
-                if (!File.Exists(destPath))
+                if (File.Exists(destPath))
                 {
-                    File.Copy(refDll, destPath);
-                    count++;
+                    continue;
                 }
+
+                File.Copy(refDll, destPath);
+                count++;
             }
 
             if (count > 0)
@@ -425,16 +427,18 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                 foreach (var resource in doc.RootElement.GetProperty("resources").EnumerateArray())
                 {
                     var type = resource.GetProperty("@type").GetString();
-                    if (type == SearchQueryServiceType)
+                    if (type != SearchQueryServiceType)
                     {
-                        var id = resource.GetProperty("@id").GetString();
-                        if (id != null)
-                        {
-                            endpoint = new(id);
-                        }
-
-                        break;
+                        continue;
                     }
+
+                    var id = resource.GetProperty("@id").GetString();
+                    if (id != null)
+                    {
+                        endpoint = new(id);
+                    }
+
+                    break;
                 }
             },
             cancellationToken).ConfigureAwait(false);
@@ -558,48 +562,54 @@ public sealed partial class NuGetFetcher : INuGetFetcher
             MaxDegreeOfParallelism = MaxParallelDownloads,
             CancellationToken = cancellationToken,
         };
+        var states = new FetchState[packages.Length];
+        for (var i = 0; i < packages.Length; i++)
+        {
+            states[i] = new(packages[i], client, retryPolicy, libDir, cacheDir, tfmPreference, logger);
+        }
+
         await Parallel.ForEachAsync(
-            packages,
+            states,
             parallelOptions,
-            async (pkg, ct) =>
+            static async (state, ct) =>
             {
+                var pkg = state.Package;
                 try
                 {
-                    var id = pkg.Id;
-                    var idLower = id.ToLowerInvariant();
+                    var idLower = pkg.Id.ToLowerInvariant();
 
                     var version = pkg.Version;
                     if (version is null)
                     {
-                        LogResolvingVersion(logger, id);
-                        version = await ResolveLatestStableVersionAsync(client, retryPolicy, idLower, ct).ConfigureAwait(false);
+                        LogResolvingVersion(state.Logger, pkg.Id);
+                        version = await ResolveLatestStableVersionAsync(state.Client, state.RetryPolicy, idLower, ct).ConfigureAwait(false);
                         if (version is null)
                         {
-                            LogVersionUnresolved(logger, id);
+                            LogVersionUnresolved(state.Logger, pkg.Id);
                             return;
                         }
                     }
 
-                    LogUsingPackage(logger, id, version);
+                    LogUsingPackage(state.Logger, pkg.Id, version);
 
                     var versionLower = version.ToLowerInvariant();
-                    var nupkgPath = Path.Combine(cacheDir, $"{idLower}.{versionLower}.nupkg");
+                    var nupkgPath = Path.Combine(state.CacheDir, $"{idLower}.{versionLower}.nupkg");
                     if (!File.Exists(nupkgPath))
                     {
-                        LogDownloadingPackage(logger, id, version);
-                        await DownloadNupkgAsync(client, retryPolicy, idLower, versionLower, nupkgPath, ct).ConfigureAwait(false);
+                        LogDownloadingPackage(state.Logger, pkg.Id, version);
+                        await DownloadNupkgAsync(state.Client, state.RetryPolicy, idLower, versionLower, nupkgPath, ct).ConfigureAwait(false);
                     }
                     else
                     {
-                        LogUsingCachedPackage(logger, id, version);
+                        LogUsingCachedPackage(state.Logger, pkg.Id, version);
                     }
 
-                    ExtractAssemblies(nupkgPath, libDir, id, pkg.Tfm, tfmPreference, logger);
-                    LogExtractedPackage(logger, id, version);
+                    ExtractAssemblies(nupkgPath, state.LibDir, pkg.Id, pkg.Tfm, state.TfmPreference, state.Logger);
+                    LogExtractedPackage(state.Logger, pkg.Id, version);
                 }
                 catch (Exception ex)
                 {
-                    LogPackageProcessFailed(logger, ex, pkg.Id);
+                    LogPackageProcessFailed(state.Logger, ex, pkg.Id);
                 }
             }).ConfigureAwait(false);
     }
@@ -775,7 +785,16 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                 LogLevel.Warning,
                 packageId,
                 availableTfms,
-                static (l, id, tfms) => LogNoSupportedTfm(l, id, string.Join(", ", tfms)));
+                static (l, id, tfms) =>
+                {
+                    if (!l.IsEnabled(LogLevel.Warning))
+                    {
+                        return;
+                    }
+
+                    var available = string.Join(", ", tfms);
+                    LogNoSupportedTfm(l, id, available);
+                });
             return;
         }
 
@@ -784,7 +803,16 @@ public sealed partial class NuGetFetcher : INuGetFetcher
             LogLevel.Information,
             packageId,
             selectedTfms,
-            static (l, id, tfms) => LogExtractingTfms(l, id, tfms.Count, string.Join(", ", tfms)));
+            static (l, id, tfms) =>
+            {
+                if (!l.IsEnabled(LogLevel.Information))
+                {
+                    return;
+                }
+
+                var selected = string.Join(", ", tfms);
+                LogExtractingTfms(l, id, tfms.Count, selected);
+            });
 
         for (var i = 0; i < selectedTfms.Count; i++)
         {
@@ -797,11 +825,14 @@ public sealed partial class NuGetFetcher : INuGetFetcher
             {
                 var entry = entries[j];
                 var ext = Path.GetExtension(entry.Name.AsSpan());
-                if (ext.Equals(".dll", StringComparison.OrdinalIgnoreCase) || ext.Equals(".xml", StringComparison.OrdinalIgnoreCase))
+                if (!ext.Equals(".dll", StringComparison.OrdinalIgnoreCase) &&
+                    !ext.Equals(".xml", StringComparison.OrdinalIgnoreCase))
                 {
-                    var destPath = Path.Combine(tfmLibDir, entry.Name);
-                    entry.ExtractToFile(destPath, overwrite: true);
+                    continue;
                 }
+
+                var destPath = Path.Combine(tfmLibDir, entry.Name);
+                entry.ExtractToFile(destPath, overwrite: true);
             }
         }
     }
@@ -940,4 +971,24 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// <param name="selectedTfms">Comma-separated list of selected TFMs.</param>
     [LoggerMessage(Level = LogLevel.Information, Message = "  {PackageId}: extracting {TfmCount} TFM(s) — {SelectedTfms}")]
     private static partial void LogExtractingTfms(ILogger logger, string packageId, int tfmCount, string selectedTfms);
+
+    /// <summary>
+    /// Encapsulates the state required for a single package fetch operation
+    /// inside a parallel loop, avoiding closure captures.
+    /// </summary>
+    /// <param name="Package">The package details (ID, version, and optional TFM override).</param>
+    /// <param name="Client">The shared HTTP client for downloads.</param>
+    /// <param name="RetryPolicy">The resilience policy for transient HTTP failures.</param>
+    /// <param name="LibDir">The root directory where assemblies are extracted.</param>
+    /// <param name="CacheDir">The directory where downloaded <c>.nupkg</c> files are stored.</param>
+    /// <param name="TfmPreference">The global TFM preference order.</param>
+    /// <param name="Logger">The logger for operation progress and errors.</param>
+    private sealed record FetchState(
+        (string Id, string? Version, string? Tfm) Package,
+        HttpClient Client,
+        AsyncRetryPolicy RetryPolicy,
+        string LibDir,
+        string CacheDir,
+        string[] TfmPreference,
+        ILogger Logger);
 }

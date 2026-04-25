@@ -70,6 +70,38 @@ dotnet test --project tests/SourceDocParser.Tests/SourceDocParser.Tests.csproj -
 - Use `--output Detailed` **before** `--` for verbose output.
 - The integration tests touch the network on first run to populate the local NuGet cache; subsequent runs reuse `apiPath/cache/*.nupkg` and complete in ~3 seconds.
 
+### Code Coverage
+
+Coverage uses **Microsoft.Testing.Extensions.CodeCoverage** wired in via `src/Directory.Build.props` (added to every test project). Per-assembly options (format, attribute exclusions) live in `src/testconfig.json` and are linked next to each test binary as `<AssemblyName>.testconfig.json`.
+
+```bash
+cd src
+
+# Run unit tests with coverage
+dotnet test --project tests/SourceDocParser.Tests/SourceDocParser.Tests.csproj -- --coverage --coverage-output-format cobertura
+
+# Generate an HTML report (install once: dotnet tool install -g dotnet-reportgenerator-globaltool)
+reportgenerator \
+  -reports:"**/TestResults/**/*.cobertura.xml" \
+  -targetdir:/tmp/sourcedocparser_coverage \
+  -reporttypes:"Html;TextSummary"
+cat /tmp/sourcedocparser_coverage/Summary.txt
+```
+
+### Benchmarks
+
+`src/benchmarks/SourceDocParser.Benchmarks/` is a BenchmarkDotNet harness covering `MetadataExtractor.RunAsync` end-to-end against the slim debug NuGet fixture (3 owner-discovered packages, 19 TFM groups). The global setup runs one full fetch to warm the local NuGet cache, so per-iteration timings measure the walk + merge + emit pipeline without the network leg.
+
+```bash
+cd src
+
+# Run every benchmark in the assembly
+dotnet run --project benchmarks/SourceDocParser.Benchmarks/SourceDocParser.Benchmarks.csproj --configuration Release
+
+# Filter to a single benchmark via the BenchmarkDotNet switcher
+dotnet run --project benchmarks/SourceDocParser.Benchmarks/SourceDocParser.Benchmarks.csproj --configuration Release -- --filter '*RunAsync*'
+```
+
 ### Zensical render-smoke
 
 `ZensicalRenderSmokeTests` runs the actual `zensical build --strict` against a bundled mock site (`tests/SourceDocParser.IntegrationTests/zensical/mock-site/`) so we catch Zensical/Material rendering bugs that pure-C# tests can't. Self-bootstrapping:

@@ -13,7 +13,7 @@ namespace SourceDocParser;
 /// <see cref="ApiType.AppliesTo"/> list aggregates all TFMs that
 /// contain the type.
 /// </remarks>
-internal static class TypeMerger
+public static class TypeMerger
 {
     /// <summary>
     /// Gets the initial capacity for the per-UID bucket dictionary.
@@ -25,14 +25,15 @@ internal static class TypeMerger
     /// </summary>
     /// <param name="catalogs">The collections of per-TFM catalogs to merge.</param>
     /// <returns>A sorted list of canonical <see cref="ApiType"/>s.</returns>
-    public static List<ApiType> Merge(IReadOnlyCollection<ApiCatalog> catalogs)
+    public static List<ApiType> Merge(List<ApiCatalog> catalogs)
     {
-        var byUid = new Dictionary<string, List<(Tfm Tfm, ApiType Type)>>(InitialBucketCapacity, StringComparer.Ordinal);
+        ArgumentNullException.ThrowIfNull(catalogs);
 
-        foreach (var catalog in catalogs)
+        var byUid = new Dictionary<string, List<TypeVariant>>(InitialBucketCapacity, StringComparer.Ordinal);
+
+        foreach (var (tfmString, types) in catalogs)
         {
-            var tfm = Tfm.Parse(catalog.Tfm);
-            var types = catalog.Types;
+            var tfm = Tfm.Parse(tfmString);
             for (var i = 0; i < types.Count; i++)
             {
                 var type = types[i];
@@ -44,11 +45,11 @@ internal static class TypeMerger
 
                 if (!byUid.TryGetValue(uid, out var bucket))
                 {
-                    bucket = new List<(Tfm Tfm, ApiType Type)>(4);
+                    bucket = new(4);
                     byUid[uid] = bucket;
                 }
 
-                bucket.Add((tfm, type));
+                bucket.Add(new(tfm, type));
             }
         }
 
@@ -74,11 +75,13 @@ internal static class TypeMerger
                 for (var i = 1; i < variants.Count; i++)
                 {
                     var variantUrl = variants[i].Type.SourceUrl;
-                    if (variantUrl is { Length: > 0 })
+                    if (variantUrl is not { Length: > 0 })
                     {
-                        sourceUrl = variantUrl;
-                        break;
+                        continue;
                     }
+
+                    sourceUrl = variantUrl;
+                    break;
                 }
             }
 
@@ -88,4 +91,13 @@ internal static class TypeMerger
         merged.Sort(static (a, b) => string.CompareOrdinal(a.FullName, b.FullName));
         return merged;
     }
+
+    /// <summary>
+    /// One per-TFM occurrence of a type during the merge pass — paired
+    /// so the bucket dictionary holds a stable, named tuple instead of
+    /// an anonymous <c>(Tfm, ApiType)</c>.
+    /// </summary>
+    /// <param name="Tfm">Parsed TFM the variant came from.</param>
+    /// <param name="Type">The per-TFM <see cref="ApiType"/>.</param>
+    private readonly record struct TypeVariant(Tfm Tfm, ApiType Type);
 }

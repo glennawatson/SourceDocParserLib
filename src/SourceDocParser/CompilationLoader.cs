@@ -170,11 +170,13 @@ internal static partial class CompilationLoader
                             continue;
                         }
 
-                        if (resolved.TryAdd(reference.Name, file))
+                        if (!resolved.TryAdd(reference.Name, file))
                         {
-                            LogResolvedReference(logger, reference.Name, file);
-                            pending.Push(new(file));
+                            continue;
                         }
+
+                        LogResolvedReference(logger, reference.Name, file);
+                        pending.Push(new(file));
                     }
                 }
                 finally

@@ -80,22 +80,18 @@ internal sealed class DocResolver(Compilation compilation)
             return ResolveExplicitInherit(symbol, raw, visited, compilation);
         }
 
-        if (raw.IsCompletelyEmpty && FindNaturalInheritedDocSource(symbol) is { } autoSource)
+        if (!raw.IsCompletelyEmpty || FindNaturalInheritedDocSource(symbol) is not { } autoSource)
         {
-            // Auto-inherit: the symbol has no docs but does override
-            // or implement something. Surface the parent's docs and
-            // tell the emitter where they came from.
-            var parentDoc = Resolve(autoSource, compilation);
-            if (parentDoc.IsEmpty)
-            {
-                return ApiDocumentation.Empty;
-            }
-
-            return parentDoc with { InheritedFrom = ContainingTypeDisplayName(autoSource) };
+            return ToApiDocumentation(raw, inheritedFrom: null);
         }
 
-        // Plain own-docs path.
-        return ToApiDocumentation(raw, inheritedFrom: null);
+        // Auto-inherit: the symbol has no docs but does override
+        // or implement something. Surface the parent's docs and
+        // tell the emitter where they came from.
+        var parentDoc = Resolve(autoSource, compilation);
+        return parentDoc.IsEmpty
+            ? ApiDocumentation.Empty
+            : parentDoc with { InheritedFrom = ContainingTypeDisplayName(autoSource) };
     }
 
     /// <summary>
@@ -443,15 +439,7 @@ internal sealed class DocResolver(Compilation compilation)
     /// </summary>
     /// <param name="reader">Reader positioned on the element's start tag.</param>
     /// <returns>The inner content as a string.</returns>
-    private static string ReadInner(XmlReader reader)
-    {
-        if (reader.IsEmptyElement)
-        {
-            return string.Empty;
-        }
-
-        return XmlDocToMarkdown.Convert(reader.ReadInnerXml());
-    }
+    private static string ReadInner(XmlReader reader) => reader.IsEmptyElement ? string.Empty : XmlDocToMarkdown.Convert(reader.ReadInnerXml());
 
     /// <summary>
     /// Resolves an <c>inheritdoc cref="..."/</c> target via

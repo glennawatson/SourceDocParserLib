@@ -87,7 +87,7 @@ internal static class SourceUrlRewriter
     /// <param name="span">The path span.</param>
     /// <param name="segments">Number of segments to skip.</param>
     /// <returns>The index of the slash after the segments, or -1.</returns>
-    private static int SkipPathSegments(ReadOnlySpan<char> span, int segments)
+    private static int SkipPathSegments(in ReadOnlySpan<char> span, int segments)
     {
         var index = -1;
         for (var i = 0; i < segments; i++)

@@ -6,6 +6,7 @@
     <File Path="..\version.json" />
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
+    <File Path="testconfig.json" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="SourceDocParser/SourceDocParser.csproj" />
@@ -16,5 +17,8 @@
   <Folder Name="/tests/">
     <Project Path="tests/SourceDocParser.Tests/SourceDocParser.Tests.csproj" />
     <Project Path="tests/SourceDocParser.IntegrationTests/SourceDocParser.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/SourceDocParser.Benchmarks/SourceDocParser.Benchmarks.csproj" />
   </Folder>
 </Solution>

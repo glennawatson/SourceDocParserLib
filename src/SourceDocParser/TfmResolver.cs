@@ -30,7 +30,7 @@ public static class TfmResolver
     /// <param name="tfmPreference">Ordered list of preferred TFMs.</param>
     /// <returns>The list of supported TFMs.</returns>
     public static List<string> SelectAllSupportedTfms(
-        ICollection<string> availableTfms,
+        List<string> availableTfms,
         string? tfmOverride,
         string[] tfmPreference)
     {
@@ -88,7 +88,7 @@ public static class TfmResolver
     /// 3. Netstandard fallback: if nothing matched but the package ships a netstandard variant, take that.
     /// </remarks>
     public static string? SelectTfm(
-        ICollection<string> availableTfms,
+        List<string> availableTfms,
         string? tfmOverride,
         string[] tfmPreference)
     {
@@ -201,7 +201,7 @@ public static class TfmResolver
         var nearest = _frameworkReducer.GetNearest(libFramework, candidates);
         if (nearest is not null)
         {
-            return byFramework.TryGetValue(nearest, out var pick) ? pick : null;
+            return byFramework.GetValueOrDefault(nearest);
         }
 
         // FrameworkReducer treats netstandard as an abstract target you

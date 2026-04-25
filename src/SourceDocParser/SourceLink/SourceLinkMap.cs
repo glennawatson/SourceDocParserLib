@@ -53,20 +53,23 @@ internal sealed class SourceLinkMap(List<SourceLinkMapEntry> entries)
             var entry = _entries[i];
             if (entry.IsWildcard)
             {
-                if (localPath.StartsWith(entry.LocalPrefix, StringComparison.OrdinalIgnoreCase))
+                if (!localPath.StartsWith(entry.LocalPrefix, StringComparison.OrdinalIgnoreCase))
                 {
-                    var suffix = localPath.AsSpan(entry.LocalPrefix.Length);
-                    var urlSuffix = suffix.ToString().Replace(Path.DirectorySeparatorChar, '/');
-
-                    if (Path.AltDirectorySeparatorChar != Path.DirectorySeparatorChar && Path.AltDirectorySeparatorChar != '/')
-                    {
-                        urlSuffix = urlSuffix.Replace(Path.AltDirectorySeparatorChar, '/');
-                    }
-
-                    return entry.UrlPrefix + urlSuffix;
+                    continue;
                 }
+
+                var suffix = localPath.AsSpan(entry.LocalPrefix.Length);
+                var urlSuffix = suffix.ToString().Replace(Path.DirectorySeparatorChar, '/');
+
+                if (Path.AltDirectorySeparatorChar != Path.DirectorySeparatorChar && Path.AltDirectorySeparatorChar != '/')
+                {
+                    urlSuffix = urlSuffix.Replace(Path.AltDirectorySeparatorChar, '/');
+                }
+
+                return entry.UrlPrefix + urlSuffix;
             }
-            else if (string.Equals(entry.LocalPrefix, localPath, StringComparison.OrdinalIgnoreCase))
+
+            if (string.Equals(entry.LocalPrefix, localPath, StringComparison.OrdinalIgnoreCase))
             {
                 return entry.UrlPrefix;
             }

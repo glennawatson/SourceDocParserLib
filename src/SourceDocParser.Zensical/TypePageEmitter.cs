@@ -393,15 +393,8 @@ internal static class TypePageEmitter
     /// <param name="name">The simple type name.</param>
     /// <param name="arity">The generic arity.</param>
     /// <returns>A Mermaid-safe node name including generic placeholders.</returns>
-    private static string MermaidNodeName(string name, int arity)
-    {
-        if (arity == 0)
-        {
-            return name;
-        }
-
-        return $"{name}~{string.Join(",", GenericPlaceholders(arity))}~";
-    }
+    private static string MermaidNodeName(string name, int arity) =>
+        arity == 0 ? name : $"{name}~{string.Join(",", GenericPlaceholders(arity))}~";
 
     /// <summary>
     /// Builds the page heading text.

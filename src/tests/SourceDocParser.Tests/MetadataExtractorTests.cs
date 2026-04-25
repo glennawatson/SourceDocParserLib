@@ -29,7 +29,7 @@ public class MetadataExtractorTests
         var extractor = new MetadataExtractor();
 
         var path = output.Path;
-        await Assert.That(() => (Task)extractor.RunAsync(source, path, emitter))
+        await Assert.That(Task () => extractor.RunAsync(source, path, emitter))
             .Throws<InvalidOperationException>();
     }
 
@@ -47,11 +47,11 @@ public class MetadataExtractorTests
         var extractor = new MetadataExtractor();
 
         var path = output.Path;
-        await Assert.That(() => (Task)extractor.RunAsync(null!, path, emitter))
+        await Assert.That(Task () => extractor.RunAsync(null!, path, emitter))
             .Throws<ArgumentNullException>();
-        await Assert.That(() => (Task)extractor.RunAsync(source, path, null!))
+        await Assert.That(Task () => extractor.RunAsync(source, path, null!))
             .Throws<ArgumentNullException>();
-        await Assert.That(() => (Task)extractor.RunAsync(source, "   ", emitter))
+        await Assert.That(Task () => extractor.RunAsync(source, "   ", emitter))
             .Throws<ArgumentException>();
     }
 

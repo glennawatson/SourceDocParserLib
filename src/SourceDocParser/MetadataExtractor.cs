@@ -46,10 +46,12 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
 
         Directory.CreateDirectory(outputRoot);
 
+        using var cacheRegistry = new TfmCacheRegistry();
         var groups = new List<TfmGroup>();
         await foreach (var group in source.DiscoverAsync(cancellationToken).ConfigureAwait(false))
         {
-            groups.Add(new(group, new(logger)));
+            var cache = cacheRegistry.Track(new(logger));
+            groups.Add(new(group, cache));
         }
 
         if (groups.Count == 0)
@@ -87,7 +89,7 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
             }).ConfigureAwait(false);
 
         LogWalkComplete(logger, catalogs.Count);
-        var merged = TypeMerger.Merge(catalogs);
+        var merged = TypeMerger.Merge([.. catalogs]);
 
         LogEmitting(logger, merged.Count, outputRoot, emitter.GetType().Name);
         var pagesEmitted = await emitter.EmitAsync(merged, outputRoot, cancellationToken).ConfigureAwait(false);
@@ -258,4 +260,40 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
     /// <param name="Owner">Owning TFM group (provides fallback index and reference cache).</param>
     /// <param name="AssemblyPath">Absolute path to the assembly to walk.</param>
     private sealed record AssemblyWorkItem(TfmGroup Owner, string AssemblyPath);
+
+    /// <summary>
+    /// Holds every per-TFM <see cref="MetadataReferenceCache"/> created
+    /// during a single <see cref="RunAsync"/> invocation and disposes
+    /// them on scope exit so the memory-mapped DLL views the BCL ref
+    /// pack pins are released as soon as the run finishes. Wrapped in
+    /// a single <c>using var</c> at the top of <see cref="RunAsync"/>.
+    /// </summary>
+    private sealed class TfmCacheRegistry : IDisposable
+    {
+        /// <summary>Tracked caches in registration order.</summary>
+        private readonly List<MetadataReferenceCache> _caches = [];
+
+        /// <summary>
+        /// Registers <paramref name="cache"/> for disposal and returns it
+        /// for fluent assignment at the call site.
+        /// </summary>
+        /// <param name="cache">Cache to track.</param>
+        /// <returns>The same cache instance.</returns>
+        public MetadataReferenceCache Track(MetadataReferenceCache cache)
+        {
+            _caches.Add(cache);
+            return cache;
+        }
+
+        /// <inheritdoc />
+        public void Dispose()
+        {
+            foreach (var cache in _caches)
+            {
+                cache.Dispose();
+            }
+
+            _caches.Clear();
+        }
+    }
 }

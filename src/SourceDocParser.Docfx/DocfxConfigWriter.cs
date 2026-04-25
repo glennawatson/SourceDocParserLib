@@ -240,10 +240,7 @@ public static partial class DocfxConfigWriter
             content.Add(new(Files: [$"api-{label}/**.yml", $"api-{label}/index.md"]));
         }
 
-        return new(content)
-        {
-            Extra = template.Extra,
-        };
+        return template with { Content = content };
     }
 
     /// <summary>

@@ -11,7 +11,15 @@ namespace SourceDocParser;
 /// Caches Roslyn <see cref="MetadataReference"/> instances by absolute path per TFM.
 /// Reusing references avoids redundant BCL ref pack loading and handles XML doc attachment.
 /// </summary>
-internal sealed partial class MetadataReferenceCache
+/// <remarks>
+/// Each <see cref="PortableExecutableReference"/> is backed by a memory-mapped
+/// view of the source DLL via <see cref="AssemblyMetadata"/>. The cache holds
+/// onto those views for its lifetime; <see cref="Dispose"/> releases them.
+/// Always wrap the cache in <c>using</c> so consumers (especially anything
+/// that drives the parser repeatedly, like benchmarks) don't accumulate
+/// pinned native memory across runs.
+/// </remarks>
+internal sealed partial class MetadataReferenceCache : IDisposable
 {
     /// <summary>
     /// Map of assembly paths to cached references. Case-insensitive for Windows path variations.
@@ -42,6 +50,26 @@ internal sealed partial class MetadataReferenceCache
                 ? MetadataReference.CreateFromFile(path)
                 : MetadataReference.CreateFromFile(path, documentation: documentation);
         });
+
+    /// <summary>
+    /// Disposes every cached <see cref="MetadataReference"/>'s backing
+    /// <see cref="AssemblyMetadata"/>, releasing the memory-mapped DLL view
+    /// for each entry. Subsequent <see cref="Get"/> calls would re-load
+    /// from disk (callers typically drop the cache itself rather than
+    /// re-using a disposed one).
+    /// </summary>
+    public void Dispose()
+    {
+        foreach (var entry in _byPath)
+        {
+            if (entry.Value is PortableExecutableReference peReference)
+            {
+                peReference.GetMetadata().Dispose();
+            }
+        }
+
+        _byPath.Clear();
+    }
 
     /// <summary>Logs a successful XML doc load alongside an assembly.</summary>
     /// <param name="logger">Target logger.</param>
