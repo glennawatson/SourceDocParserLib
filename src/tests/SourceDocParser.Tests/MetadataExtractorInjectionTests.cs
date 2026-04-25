@@ -61,7 +61,11 @@ public class MetadataExtractorInjectionTests
         await Assert.That(loader.LoadCalls.Count).IsEqualTo(2);
         await Assert.That(walker.WalkCalls.Count).IsEqualTo(2);
         await Assert.That(sourceLinkPaths.Count).IsEqualTo(2);
-        await Assert.That(loader.DisposeCount).IsEqualTo(1);
+
+        // Eager retire + LoaderRegistry safety net both dispose the loader.
+        // CompilationLoader.Dispose is idempotent so this is correct in production;
+        // the mock just counts every call.
+        await Assert.That(loader.DisposeCount).IsGreaterThanOrEqualTo(1);
         await Assert.That(result.LoadFailures).IsEqualTo(0);
     }
 
@@ -97,7 +101,7 @@ public class MetadataExtractorInjectionTests
         await extractor.RunAsync(new FakeAssemblySource(groups), output.Path, new RecordingEmitter());
 
         await Assert.That(loaders.Count).IsEqualTo(2);
-        await Assert.That(loaders.All(l => l.DisposeCount == 1)).IsTrue();
+        await Assert.That(loaders.All(l => l.DisposeCount >= 1)).IsTrue();
     }
 
     /// <summary>

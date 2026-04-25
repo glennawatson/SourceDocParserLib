@@ -2,7 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging.Abstractions;
 using SourceDocParser.SourceLink;
@@ -80,7 +79,7 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
         await foreach (var group in source.DiscoverAsync(cancellationToken).ConfigureAwait(false))
         {
             var loader = loaderRegistry.Track(_loaderFactory(logger));
-            groups.Add(new(group, loader));
+            groups.Add(new(group, loader, group.AssemblyPaths.Count));
         }
 
         if (groups.Count == 0)
@@ -90,13 +89,15 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
 
         LogDiscoveredGroups(logger, groups.Count, source.GetType().Name);
 
-        var catalogs = new ConcurrentBag<ApiCatalog>();
+        var merger = new StreamingTypeMerger();
         var loadFailureBox = new StrongBox<int>();
+        var catalogCount = new StrongBox<int>();
         var context = new WalkContext(
             _symbolWalker,
             _sourceLinkResolverFactory,
             logger,
-            catalogs,
+            merger,
+            catalogCount,
             loadFailureBox);
 
         var workItems = BuildAssemblyWorkItems(groups, context);
@@ -120,19 +121,29 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
                 var ctx = work.Context;
                 if (LoadAndWalkAssembly(work, ctx.SymbolWalker, ctx.SourceLinkResolverFactory, ctx.Logger) is { } catalog)
                 {
-                    ctx.Catalogs.Add(catalog);
+                    // Stream into the merger and drop the catalog reference
+                    // immediately — no ConcurrentBag holding every catalog
+                    // alive until the walk phase finishes.
+                    ctx.Merger.Add(catalog);
+                    Interlocked.Increment(ref ctx.CatalogCount.Value);
                 }
                 else
                 {
                     Interlocked.Increment(ref ctx.LoadFailures.Value);
                 }
 
+                // Eager loader disposal: once this group's last assembly
+                // completes its walk, dispose its CompilationLoader so the
+                // BCL ref-pack memory-mapped views are released
+                // immediately rather than at RunAsync exit.
+                work.Owner.TryRetire();
+
                 return ValueTask.CompletedTask;
             }).ConfigureAwait(false);
 
         var loadFailures = loadFailureBox.Value;
-        LogWalkComplete(logger, catalogs.Count);
-        var merged = TypeMerger.Merge([.. catalogs]);
+        LogWalkComplete(logger, catalogCount.Value);
+        var merged = merger.Build();
 
         LogEmitting(logger, merged.Count, outputRoot, emitter.GetType().Name);
         var pagesEmitted = await emitter.EmitAsync(merged, outputRoot, cancellationToken).ConfigureAwait(false);
@@ -296,13 +307,52 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
     private static partial void LogAssemblyLoadFailed(ILogger logger, Exception exception, string tfm, string assembly);
 
     /// <summary>
-    /// Pairs an <see cref="AssemblyGroup"/> from the source with the
-    /// per-TFM compilation loader so every assembly in the group reuses
-    /// the same loaded BCL ref pack.
+    /// Pairs an <see cref="AssemblyGroup"/> with the per-TFM compilation
+    /// loader and an outstanding-work counter. <see cref="TryRetire"/> is
+    /// called by every parallel worker as it finishes an assembly; the
+    /// last caller (when the counter hits zero) disposes the loader so
+    /// the group's memory-mapped BCL ref pack views are released as soon
+    /// as that group has no more pending walks.
     /// </summary>
-    /// <param name="Group">Source-supplied assembly group.</param>
-    /// <param name="Loader">Per-TFM compilation loader (owns the metadata reference cache for the group).</param>
-    private sealed record TfmGroup(AssemblyGroup Group, ICompilationLoader Loader);
+    private sealed class TfmGroup
+    {
+        /// <summary>Outstanding-walk counter; written via <see cref="Interlocked.Decrement(ref int)"/>.</summary>
+        private int _remaining;
+
+        /// <summary>Initializes a new instance of the <see cref="TfmGroup"/> class.</summary>
+        /// <param name="group">Source-supplied assembly group.</param>
+        /// <param name="loader">Per-TFM compilation loader (owns the metadata reference cache for the group).</param>
+        /// <param name="totalWalks">Number of assemblies the parallel walker will process for this group.</param>
+        public TfmGroup(AssemblyGroup group, ICompilationLoader loader, int totalWalks)
+        {
+            Group = group;
+            Loader = loader;
+            _remaining = totalWalks;
+        }
+
+        /// <summary>Gets the source-supplied assembly group.</summary>
+        public AssemblyGroup Group { get; }
+
+        /// <summary>Gets the compilation loader scoped to this group.</summary>
+        public ICompilationLoader Loader { get; }
+
+        /// <summary>
+        /// Decrements the outstanding-walk counter. When the counter hits
+        /// zero this is the last walk in the group, so the loader is
+        /// disposed immediately. Subsequent loader-dispose calls (e.g.
+        /// from <see cref="LoaderRegistry"/>) are idempotent so the
+        /// safety-net path stays correct.
+        /// </summary>
+        public void TryRetire()
+        {
+            if (Interlocked.Decrement(ref _remaining) != 0)
+            {
+                return;
+            }
+
+            Loader.Dispose();
+        }
+    }
 
     /// <summary>
     /// One assembly to walk along with the TFM group it belongs to and
@@ -324,13 +374,15 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
     /// <param name="SymbolWalker">Walker invoked for each loaded assembly.</param>
     /// <param name="SourceLinkResolverFactory">Factory producing the per-assembly source-link resolver.</param>
     /// <param name="Logger">Logger for progress and failure messages.</param>
-    /// <param name="Catalogs">Concurrent destination for successful walks.</param>
+    /// <param name="Merger">Streaming merger that absorbs each catalog as soon as it lands.</param>
+    /// <param name="CatalogCount">Box-wrapped counter of successfully-walked catalogs (used for the post-walk log line).</param>
     /// <param name="LoadFailures">Box-wrapped counter so workers can <see cref="Interlocked.Increment(ref int)"/> without capturing a local.</param>
     private sealed record WalkContext(
         ISymbolWalker SymbolWalker,
         Func<string, ISourceLinkResolver> SourceLinkResolverFactory,
         ILogger Logger,
-        ConcurrentBag<ApiCatalog> Catalogs,
+        StreamingTypeMerger Merger,
+        StrongBox<int> CatalogCount,
         StrongBox<int> LoadFailures);
 
     /// <summary>

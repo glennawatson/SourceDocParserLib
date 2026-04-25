@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Diagnosers;
 using SourceDocParser.NuGet;
 using SourceDocParser.SourceLink;
 using SourceDocParser.Zensical;
@@ -20,6 +21,7 @@ namespace SourceDocParser.Benchmarks;
 /// </summary>
 [ShortRunJob]
 [MemoryDiagnoser]
+[EventPipeProfiler(EventPipeProfile.GcVerbose)]
 public class PipelinePhaseBenchmarks
 {
     /// <summary>Scratch directory the fixture lives in.</summary>
