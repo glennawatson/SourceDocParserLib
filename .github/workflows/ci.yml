@@ -30,7 +30,7 @@ jobs:
             10.0.x
 
       - name: Setup NBGV
-        uses: dotnet/nbgv@v0.4.2
+        uses: dotnet/nbgv@v0.5.1
         with:
           setAllVars: true
 
