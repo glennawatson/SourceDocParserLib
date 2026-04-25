@@ -39,6 +39,7 @@
     <PackageReference Include="TUnit" />
     <PackageReference Include="Verify.TUnit" />
     <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
+    <PackageReference Include="NSubstitute" />
   </ItemGroup>
 
   <!-- Per-test-assembly testconfig.json copied next to the binary so the
