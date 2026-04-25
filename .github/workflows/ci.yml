@@ -40,7 +40,7 @@ jobs:
       # and pip-installs zensical + pymdown-extensions into it; we just
       # need a system python3 for `python3 -m venv` to succeed.
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.x'
 
