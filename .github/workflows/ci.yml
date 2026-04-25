@@ -1,0 +1,59 @@
+name: CI Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Setup NBGV
+        uses: dotnet/nbgv@v0.4.2
+        with:
+          setAllVars: true
+
+      # Python is required by SourceDocParser.IntegrationTests' Zensical
+      # render-smoke. The test creates its own venv at
+      # tests/SourceDocParser.IntegrationTests/zensical/.venv on first run
+      # and pip-installs zensical + pymdown-extensions into it; we just
+      # need a system python3 for `python3 -m venv` to succeed.
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Restore
+        run: dotnet restore src/SourceDocParserLib.slnx
+
+      - name: Build
+        run: dotnet build src/SourceDocParserLib.slnx --no-restore --configuration Release
+
+      - name: Test (unit)
+        working-directory: src
+        run: dotnet test --project tests/SourceDocParser.Tests/SourceDocParser.Tests.csproj --no-build --configuration Release
+
+      - name: Test (integration)
+        working-directory: src
+        run: dotnet test --project tests/SourceDocParser.IntegrationTests/SourceDocParser.IntegrationTests.csproj --no-build --configuration Release
