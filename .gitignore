@@ -427,3 +427,19 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Python virtual environments + Zensical / mkdocs build output
+.venv/
+.venv-*/
+venv/
+*.egg-info/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.requirements-installed
+site/
+
+# NuGet pack output (generated locally by GeneratePackageOnBuild)
+artifacts/

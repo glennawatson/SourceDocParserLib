@@ -1,0 +1,26 @@
+site_name: SourceDocParser Render Smoke
+site_description: Mock site fixture used by the Zensical render-smoke integration test.
+
+theme:
+  name: material
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - footnotes
+  - abbr
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed
+  - pymdownx.highlight
+
+# Strict mode is invoked from the integration test (`zensical build --strict`),
+# so any unresolved cross-reference, missing nav target, or theme warning fails
+# the test rather than silently shipping a broken page.
+
+nav:
+  - Home: index.md
+  - API:
+    - Overview: api/index.md
+    - Sample type: api/SampleType.md

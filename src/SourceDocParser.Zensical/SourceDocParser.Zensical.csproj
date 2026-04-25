@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>SourceDocParser.Zensical</PackageId>
+    <Description>Zensical / mkdocs Material emitter for SourceDocParser. Renders the parser's ApiCatalog into a flat tree of Markdown pages tuned for the Zensical theme (admonitions, content tabs, mermaid diagrams).</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SourceDocParser\SourceDocParser.csproj" />
+  </ItemGroup>
+
+</Project>

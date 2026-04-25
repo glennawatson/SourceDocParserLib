@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\SourceDocParser\SourceDocParser.csproj" />
+    <ProjectReference Include="..\..\SourceDocParser.NuGet\SourceDocParser.NuGet.csproj" />
+    <ProjectReference Include="..\..\SourceDocParser.Docfx\SourceDocParser.Docfx.csproj" />
+    <ProjectReference Include="..\..\SourceDocParser.Zensical\SourceDocParser.Zensical.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\SourceDocParser.Tests\Fixtures\nuget-packages.json" Link="Fixtures\nuget-packages.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

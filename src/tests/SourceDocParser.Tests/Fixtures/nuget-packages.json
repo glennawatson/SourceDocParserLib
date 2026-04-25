@@ -1,0 +1,66 @@
+{
+  "_comment": "DEBUG CONFIG — slimmed to ReactiveUI + 3 deps for fast iteration on the docs converter, but with the full supported-TFM preference order so we exercise the per-TFM walk + cross-TFM merge paths the production config will hit. Restore from nuget-packages.full.json.bak when ready to fetch the entire owner set.",
+  "_supportedTfmRule": "Modern .NET majors (net8-11) and their platform variants (-windows, -android, -ios, -maccatalyst, -macos, -tvos) are supported. .NET Framework 4.6.2 through 4.8.1 are supported. Netstandard is the documented exception (see TfmClassification.IsNetStandardFallback): only used when no supported TFM matches.",
+  "nugetPackageOwners": [],
+  "tfmPreference": [
+    "net11.0",
+    "net10.0",
+    "net9.0",
+    "net8.0",
+
+    "net11.0-windows10.0.19041.0",
+    "net10.0-windows10.0.19041.0",
+    "net9.0-windows10.0.19041.0",
+    "net8.0-windows10.0.19041.0",
+
+    "net11.0-android",
+    "net10.0-android",
+    "net9.0-android",
+    "net8.0-android",
+
+    "net11.0-ios",
+    "net10.0-ios",
+    "net9.0-ios",
+    "net8.0-ios",
+
+    "net11.0-maccatalyst",
+    "net10.0-maccatalyst",
+    "net9.0-maccatalyst",
+    "net8.0-maccatalyst",
+
+    "net11.0-macos",
+    "net10.0-macos",
+    "net9.0-macos",
+    "net8.0-macos",
+
+    "net11.0-tvos",
+    "net10.0-tvos",
+    "net9.0-tvos",
+    "net8.0-tvos",
+
+    "net481",
+    "net48",
+    "net472",
+    "net471",
+    "net462"
+  ],
+  "additionalPackages": [
+    { "id": "ReactiveUI" },
+    { "id": "Splat" },
+    { "id": "DynamicData" },
+    { "id": "System.Reactive" }
+  ],
+  "excludePackages": [],
+  "excludePackagePrefixes": [],
+  "referencePackages": [
+    { "id": "Microsoft.NETCore.App.Ref", "version": "10.0.0", "targetTfm": "net10.0", "pathPrefix": "ref/net10.0" },
+    { "id": "Microsoft.NETCore.App.Ref", "version": "9.0.0",  "targetTfm": "net9.0",  "pathPrefix": "ref/net9.0" },
+    { "id": "Microsoft.NETCore.App.Ref", "version": "8.0.0",  "targetTfm": "net8.0",  "pathPrefix": "ref/net8.0" },
+    { "id": "Microsoft.NETFramework.ReferenceAssemblies.net462", "targetTfm": "net462", "pathPrefix": "build/.NETFramework/v4.6.2" },
+    { "id": "Microsoft.NETFramework.ReferenceAssemblies.net471", "targetTfm": "net471", "pathPrefix": "build/.NETFramework/v4.7.1" },
+    { "id": "Microsoft.NETFramework.ReferenceAssemblies.net472", "targetTfm": "net472", "pathPrefix": "build/.NETFramework/v4.7.2" },
+    { "id": "Microsoft.NETFramework.ReferenceAssemblies.net48",  "targetTfm": "net48",  "pathPrefix": "build/.NETFramework/v4.8" },
+    { "id": "Microsoft.NETFramework.ReferenceAssemblies.net481", "targetTfm": "net481", "pathPrefix": "build/.NETFramework/v4.8.1" }
+  ],
+  "tfmOverrides": {}
+}

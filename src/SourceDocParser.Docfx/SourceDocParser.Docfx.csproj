@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>SourceDocParser.Docfx</PackageId>
+    <Description>docfx config-file compatibility shim for SourceDocParser. Reads and writes docfx.json shapes (metadata + build sections) so an existing docfx site can plug into the parser pipeline. No emitter — that ships separately.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SourceDocParser\SourceDocParser.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="docfx.template.json" LogicalName="SourceDocParser.Docfx.docfx.template.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <PackageId>SourceDocParser</PackageId>
+    <Description>Roslyn-based .NET assembly + PDB walker that produces a strongly-typed API catalog (types, members, signatures, XML docs, inheritdoc, SourceLink). Format-neutral; pluggable emitters consume the catalog to produce documentation in their own format.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <PackageReference Include="ICSharpCode.Decompiler" />
+    <PackageReference Include="System.Threading.RateLimiting" />
+    <PackageReference Include="Polly.RateLimiting" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="NuGet.Frameworks" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SourceDocParser.Tests" />
+    <InternalsVisibleTo Include="SourceDocParser.IntegrationTests" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,15 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="SourceDocParser/SourceDocParser.csproj" />
+    <Project Path="SourceDocParser.Docfx/SourceDocParser.Docfx.csproj" />
+    <Project Path="SourceDocParser.NuGet/SourceDocParser.NuGet.csproj" />
+    <Project Path="SourceDocParser.Zensical/SourceDocParser.Zensical.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SourceDocParser.Tests/SourceDocParser.Tests.csproj" />
+    <Project Path="tests/SourceDocParser.IntegrationTests/SourceDocParser.IntegrationTests.csproj" />
+  </Folder>
+</Solution>

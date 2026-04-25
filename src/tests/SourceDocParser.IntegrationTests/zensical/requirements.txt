@@ -1,0 +1,5 @@
+# Zensical static site generator + the Python-Markdown extension kit our
+# emitter relies on. The Python-Markdown core extensions we use (admonition,
+# attr_list, md_in_html, footnotes, abbr) come in transitively via zensical.
+zensical==0.0.36
+pymdown-extensions==10.21.2
