@@ -21,7 +21,7 @@ public class TypePageEmitterTests
     {
         var page = TypePageEmitter.Render(TestData.ObjectType("Foo"));
 
-        await Assert.That(page).StartsWith("# Foo class");
+        await Assert.That(page).Contains("# Foo class");
     }
 
     /// <summary>Enum types render the values table inline on the type page.</summary>

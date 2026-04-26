@@ -41,6 +41,9 @@ public static class TestData
             Interfaces: [],
             SourceUrl: sourceUrl,
             AppliesTo: [],
+            IsObsolete: false,
+            ObsoleteMessage: null,
+            Attributes: [],
             Kind: kind,
             IsReadOnly: false,
             IsByRefLike: false,
@@ -68,6 +71,9 @@ public static class TestData
             Interfaces: [],
             SourceUrl: null,
             AppliesTo: [],
+            IsObsolete: false,
+            ObsoleteMessage: null,
+            Attributes: [],
             UnderlyingType: new("int", "T:System.Int32"),
             Values: []);
 
@@ -93,6 +99,9 @@ public static class TestData
             Interfaces: [],
             SourceUrl: null,
             AppliesTo: [],
+            IsObsolete: false,
+            ObsoleteMessage: null,
+            Attributes: [],
             Invoke: new($"void {uid}()", null, [], []));
 
     /// <summary>

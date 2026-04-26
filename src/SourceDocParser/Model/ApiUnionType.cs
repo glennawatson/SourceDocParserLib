@@ -28,6 +28,9 @@ namespace SourceDocParser;
 /// <param name="Interfaces">Directly declared interfaces (includes the union marker interface).</param>
 /// <param name="SourceUrl">The source link URL.</param>
 /// <param name="AppliesTo">TFMs the type appears in.</param>
+/// <param name="IsObsolete">Whether the type is decorated with <c>[Obsolete]</c>.</param>
+/// <param name="ObsoleteMessage">Message supplied to <c>[Obsolete(...)]</c>, or null.</param>
+/// <param name="Attributes">Attributes applied to the type, in declaration order.</param>
 /// <param name="Members">Members declared on the union base itself (often empty).</param>
 /// <param name="Cases">Case type references; each case is also walked as a sibling <see cref="ApiObjectType"/>.</param>
 public sealed record ApiUnionType(
@@ -45,7 +48,25 @@ public sealed record ApiUnionType(
     ApiTypeReference[] Interfaces,
     string? SourceUrl,
     string[] AppliesTo,
+    bool IsObsolete,
+    string? ObsoleteMessage,
+    ApiAttribute[] Attributes,
     ApiMember[] Members,
     ApiTypeReference[] Cases) : ApiType(
-        Name, FullName, Uid, Namespace, Arity, IsStatic, IsSealed, IsAbstract,
-        AssemblyName, Documentation, BaseType, Interfaces, SourceUrl, AppliesTo);
+        Name,
+        FullName,
+        Uid,
+        Namespace,
+        Arity,
+        IsStatic,
+        IsSealed,
+        IsAbstract,
+        AssemblyName,
+        Documentation,
+        BaseType,
+        Interfaces,
+        SourceUrl,
+        AppliesTo,
+        IsObsolete,
+        ObsoleteMessage,
+        Attributes);

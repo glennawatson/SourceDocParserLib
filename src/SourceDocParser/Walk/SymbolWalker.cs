@@ -223,6 +223,8 @@ public sealed class SymbolWalker : ISymbolWalker
         var baseTypeRef = SymbolWalkerHelpers.BuildBaseTypeReference(type, context.TypeRefs);
         var interfaces = SymbolWalkerHelpers.BuildInterfaceReferences(type, context.TypeRefs);
         var sourceUrl = context.SourceLinks.Resolve(type);
+        var attributes = AttributeExtractor.Extract(type);
+        var (isObsolete, obsoleteMessage) = AttributeExtractor.ResolveObsolete(type);
 
         return type.TypeKind switch
         {
@@ -244,6 +246,9 @@ public sealed class SymbolWalker : ISymbolWalker
                 Interfaces: interfaces,
                 SourceUrl: sourceUrl,
                 AppliesTo: context.AppliesTo,
+                IsObsolete: isObsolete,
+                ObsoleteMessage: obsoleteMessage,
+                Attributes: attributes,
                 Members: BuildMembers(type, type.Name, uid, context),
                 Cases: SymbolWalkerHelpers.BuildUnionCases(type, context.TypeRefs)),
             TypeKind.Enum => new ApiEnumType(
@@ -261,6 +266,9 @@ public sealed class SymbolWalker : ISymbolWalker
                 Interfaces: interfaces,
                 SourceUrl: sourceUrl,
                 AppliesTo: context.AppliesTo,
+                IsObsolete: isObsolete,
+                ObsoleteMessage: obsoleteMessage,
+                Attributes: attributes,
                 UnderlyingType: context.TypeRefs.GetOrAdd(
                     type.EnumUnderlyingType ?? type,
                     SymbolWalkerHelpers.BuildReference),
@@ -280,6 +288,9 @@ public sealed class SymbolWalker : ISymbolWalker
                 Interfaces: interfaces,
                 SourceUrl: sourceUrl,
                 AppliesTo: context.AppliesTo,
+                IsObsolete: isObsolete,
+                ObsoleteMessage: obsoleteMessage,
+                Attributes: attributes,
                 Invoke: SymbolWalkerHelpers.BuildDelegateInvoke(type, context)),
             _ => SymbolWalkerHelpers.ClassifyObjectKind(type) is not { } kind
                 ? null
@@ -298,6 +309,9 @@ public sealed class SymbolWalker : ISymbolWalker
                     Interfaces: interfaces,
                     SourceUrl: sourceUrl,
                     AppliesTo: context.AppliesTo,
+                    IsObsolete: isObsolete,
+                    ObsoleteMessage: obsoleteMessage,
+                    Attributes: attributes,
                     Kind: kind,
                     IsReadOnly: type.IsReadOnly,
                     IsByRefLike: type.IsRefLikeType,
@@ -341,6 +355,8 @@ public sealed class SymbolWalker : ISymbolWalker
             }
 
             var uid = member.GetDocumentationCommentId() ?? string.Empty;
+            var memberAttributes = AttributeExtractor.Extract(member);
+            var (memberObsolete, memberObsoleteMessage) = AttributeExtractor.ResolveObsolete(member);
             members.Add(new(
                 Name: member.Name,
                 Uid: uid,
@@ -359,7 +375,10 @@ public sealed class SymbolWalker : ISymbolWalker
                 ContainingTypeUid: containingTypeUid,
                 ContainingTypeName: containingTypeName,
                 SourceUrl: context.SourceLinks.Resolve(member),
-                Documentation: context.Docs.Resolve(member)));
+                Documentation: context.Docs.Resolve(member),
+                IsObsolete: memberObsolete,
+                ObsoleteMessage: memberObsoleteMessage,
+                Attributes: memberAttributes));
         }
 
         return [.. members];

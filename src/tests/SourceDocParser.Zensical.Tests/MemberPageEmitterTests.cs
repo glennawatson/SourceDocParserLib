@@ -151,5 +151,8 @@ public class MemberPageEmitterTests
         ContainingTypeUid: "Foo",
         ContainingTypeName: "Foo",
         SourceUrl: null,
-        Documentation: ApiDocumentation.Empty);
+        Documentation: ApiDocumentation.Empty,
+        IsObsolete: false,
+        ObsoleteMessage: null,
+        Attributes: []);
 }

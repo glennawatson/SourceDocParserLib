@@ -59,9 +59,9 @@ public static class MemberPageEmitter
         var typePagePath = TypePageEmitter.PathFor(containingType, options);
         var typeName = ZensicalEmitterHelpers.FormatDisplayTypeName(containingType.Name, containingType.Arity);
 
-        var sb = new StringBuilder(capacity: InitialPageCapacity);
-
-        sb.Append($"""
+        var sb = new StringBuilder(capacity: InitialPageCapacity)
+            .Append(PageFrontmatter.ForMember(containingType, first.Kind, options))
+            .Append($"""
             # {heading} {kindLabel}
 
             !!! info "Defined in"

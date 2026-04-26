@@ -25,6 +25,9 @@ namespace SourceDocParser;
 /// <param name="Interfaces">Directly declared interfaces.</param>
 /// <param name="SourceUrl">The source link URL.</param>
 /// <param name="AppliesTo">TFMs the type appears in.</param>
+/// <param name="IsObsolete">Whether the type is decorated with <c>[Obsolete]</c>.</param>
+/// <param name="ObsoleteMessage">Message supplied to <c>[Obsolete(...)]</c>, or null.</param>
+/// <param name="Attributes">Attributes applied to the type, in declaration order.</param>
 /// <param name="Kind">Concrete object kind (class / struct / interface / record / record struct).</param>
 /// <param name="IsReadOnly">Whether the type is <c>readonly</c> (struct/record-struct only; otherwise <see langword="false"/>).</param>
 /// <param name="IsByRefLike">Whether the type is a <c>ref struct</c>.</param>
@@ -44,9 +47,27 @@ public sealed record ApiObjectType(
     ApiTypeReference[] Interfaces,
     string? SourceUrl,
     string[] AppliesTo,
+    bool IsObsolete,
+    string? ObsoleteMessage,
+    ApiAttribute[] Attributes,
     ApiObjectKind Kind,
     bool IsReadOnly,
     bool IsByRefLike,
     ApiMember[] Members) : ApiType(
-        Name, FullName, Uid, Namespace, Arity, IsStatic, IsSealed, IsAbstract,
-        AssemblyName, Documentation, BaseType, Interfaces, SourceUrl, AppliesTo);
+        Name,
+        FullName,
+        Uid,
+        Namespace,
+        Arity,
+        IsStatic,
+        IsSealed,
+        IsAbstract,
+        AssemblyName,
+        Documentation,
+        BaseType,
+        Interfaces,
+        SourceUrl,
+        AppliesTo,
+        IsObsolete,
+        ObsoleteMessage,
+        Attributes);

@@ -126,7 +126,10 @@ public class ZensicalDocumentationEmitterTests
                 ContainingTypeUid: name,
                 ContainingTypeName: name,
                 SourceUrl: null,
-                Documentation: ApiDocumentation.Empty));
+                Documentation: ApiDocumentation.Empty,
+                IsObsolete: false,
+                ObsoleteMessage: null,
+                Attributes: []));
         }
 
         return TestData.ObjectType(name) with { Members = [.. members] };

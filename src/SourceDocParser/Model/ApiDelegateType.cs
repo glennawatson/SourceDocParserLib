@@ -24,6 +24,9 @@ namespace SourceDocParser;
 /// <param name="Interfaces">Directly declared interfaces.</param>
 /// <param name="SourceUrl">The source link URL.</param>
 /// <param name="AppliesTo">TFMs the type appears in.</param>
+/// <param name="IsObsolete">Whether the type is decorated with <c>[Obsolete]</c>.</param>
+/// <param name="ObsoleteMessage">Message supplied to <c>[Obsolete(...)]</c>, or null.</param>
+/// <param name="Attributes">Attributes applied to the type, in declaration order.</param>
 /// <param name="Invoke">Invoke method signature (return type, parameters, type parameters).</param>
 public sealed record ApiDelegateType(
     string Name,
@@ -40,6 +43,24 @@ public sealed record ApiDelegateType(
     ApiTypeReference[] Interfaces,
     string? SourceUrl,
     string[] AppliesTo,
+    bool IsObsolete,
+    string? ObsoleteMessage,
+    ApiAttribute[] Attributes,
     ApiDelegateSignature Invoke) : ApiType(
-        Name, FullName, Uid, Namespace, Arity, IsStatic, IsSealed, IsAbstract,
-        AssemblyName, Documentation, BaseType, Interfaces, SourceUrl, AppliesTo);
+        Name,
+        FullName,
+        Uid,
+        Namespace,
+        Arity,
+        IsStatic,
+        IsSealed,
+        IsAbstract,
+        AssemblyName,
+        Documentation,
+        BaseType,
+        Interfaces,
+        SourceUrl,
+        AppliesTo,
+        IsObsolete,
+        ObsoleteMessage,
+        Attributes);

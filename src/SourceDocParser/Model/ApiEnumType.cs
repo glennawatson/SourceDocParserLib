@@ -24,6 +24,9 @@ namespace SourceDocParser;
 /// <param name="Interfaces">Directly declared interfaces (empty for enums in practice).</param>
 /// <param name="SourceUrl">The source link URL.</param>
 /// <param name="AppliesTo">TFMs the type appears in.</param>
+/// <param name="IsObsolete">Whether the type is decorated with <c>[Obsolete]</c>.</param>
+/// <param name="ObsoleteMessage">Message supplied to <c>[Obsolete(...)]</c>, or null.</param>
+/// <param name="Attributes">Attributes applied to the type, in declaration order.</param>
 /// <param name="UnderlyingType">Reference to the integral storage type (e.g. <c>System.Int32</c>).</param>
 /// <param name="Values">Declared enum values in source order.</param>
 public sealed record ApiEnumType(
@@ -41,7 +44,25 @@ public sealed record ApiEnumType(
     ApiTypeReference[] Interfaces,
     string? SourceUrl,
     string[] AppliesTo,
+    bool IsObsolete,
+    string? ObsoleteMessage,
+    ApiAttribute[] Attributes,
     ApiTypeReference UnderlyingType,
     ApiEnumValue[] Values) : ApiType(
-        Name, FullName, Uid, Namespace, Arity, IsStatic, IsSealed, IsAbstract,
-        AssemblyName, Documentation, BaseType, Interfaces, SourceUrl, AppliesTo);
+        Name,
+        FullName,
+        Uid,
+        Namespace,
+        Arity,
+        IsStatic,
+        IsSealed,
+        IsAbstract,
+        AssemblyName,
+        Documentation,
+        BaseType,
+        Interfaces,
+        SourceUrl,
+        AppliesTo,
+        IsObsolete,
+        ObsoleteMessage,
+        Attributes);

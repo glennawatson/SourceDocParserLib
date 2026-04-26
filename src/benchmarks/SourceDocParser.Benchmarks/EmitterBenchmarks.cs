@@ -124,7 +124,10 @@ public class EmitterBenchmarks
                 ContainingTypeUid: uid,
                 ContainingTypeName: uid,
                 SourceUrl: null,
-                Documentation: ApiDocumentation.Empty));
+                Documentation: ApiDocumentation.Empty,
+                IsObsolete: false,
+                ObsoleteMessage: null,
+                Attributes: []));
         }
 
         return new(
@@ -142,6 +145,9 @@ public class EmitterBenchmarks
             Interfaces: [],
             SourceUrl: null,
             AppliesTo: [],
+            IsObsolete: false,
+            ObsoleteMessage: null,
+            Attributes: [],
             Kind: ApiObjectKind.Class,
             IsReadOnly: false,
             IsByRefLike: false,

@@ -26,6 +26,9 @@ namespace SourceDocParser;
 /// <param name="Interfaces">Directly declared interfaces.</param>
 /// <param name="SourceUrl">The source link URL.</param>
 /// <param name="AppliesTo">TFMs the type appears in.</param>
+/// <param name="IsObsolete">Whether the type is decorated with <c>[Obsolete]</c>.</param>
+/// <param name="ObsoleteMessage">Message supplied to <c>[Obsolete(...)]</c>, or null when no message was given.</param>
+/// <param name="Attributes">Attributes applied to the type, in declaration order. The walker emits these faithfully; presentation-layer filtering (e.g. dropping <c>System.Runtime.CompilerServices.*</c> markers) belongs to the consuming emitter.</param>
 public abstract record ApiType(
     string Name,
     string FullName,
@@ -40,4 +43,7 @@ public abstract record ApiType(
     ApiTypeReference? BaseType,
     ApiTypeReference[] Interfaces,
     string? SourceUrl,
-    string[] AppliesTo);
+    string[] AppliesTo,
+    bool IsObsolete,
+    string? ObsoleteMessage,
+    ApiAttribute[] Attributes);

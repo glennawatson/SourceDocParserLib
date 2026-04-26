@@ -25,6 +25,9 @@ namespace SourceDocParser;
 /// <param name="ContainingTypeName">The name of the declaring type.</param>
 /// <param name="SourceUrl">The source link URL.</param>
 /// <param name="Documentation">The parsed XML documentation.</param>
+/// <param name="IsObsolete">Whether the member is decorated with <c>[Obsolete]</c>.</param>
+/// <param name="ObsoleteMessage">Message supplied to <c>[Obsolete(...)]</c>, or null.</param>
+/// <param name="Attributes">Attributes applied to the member, in declaration order.</param>
 public sealed record ApiMember(
     string Name,
     string Uid,
@@ -43,4 +46,7 @@ public sealed record ApiMember(
     string ContainingTypeUid,
     string ContainingTypeName,
     string? SourceUrl,
-    ApiDocumentation Documentation);
+    ApiDocumentation Documentation,
+    bool IsObsolete,
+    string? ObsoleteMessage,
+    ApiAttribute[] Attributes);
