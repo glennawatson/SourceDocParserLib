@@ -18,14 +18,14 @@ namespace SourceDocParser.NuGet;
 /// </summary>
 internal static class NuspecDependencyReader
 {
-    /// <summary>NuGet's nuspec namespace from the v2010/07 package schema (matches every modern nuspec we encounter).</summary>
-    private const string NuspecNamespace2007 = "http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd";
-
-    /// <summary>Older nuspec namespace from the v2011/08 schema, still seen on legacy packages.</summary>
-    private const string NuspecNamespace2011 = "http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd";
-
-    /// <summary>Older nuspec namespace from the v2011/10 schema.</summary>
-    private const string NuspecNamespace2012 = "http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd";
+    /// <summary>
+    /// Common prefix every nuspec schema URI uses
+    /// (<c>2010/07</c>, <c>2011/08</c>, <c>2012/06</c>, <c>2013/05</c>,
+    /// any future bump). Prefix-match keeps the reader open to schema
+    /// version bumps without losing the ability to reject unrelated
+    /// XML payloads dropped into a nupkg by accident.
+    /// </summary>
+    private const string NuspecNamespacePrefix = "http://schemas.microsoft.com/packaging/";
 
     /// <summary>Local-name of the dependency element regardless of namespace.</summary>
     private const string DependencyElementName = "dependency";
@@ -167,8 +167,6 @@ internal static class NuspecDependencyReader
 
         var ns = reader.NamespaceURI;
         return ns.Length == 0
-            || ns.Equals(NuspecNamespace2007, StringComparison.Ordinal)
-            || ns.Equals(NuspecNamespace2011, StringComparison.Ordinal)
-            || ns.Equals(NuspecNamespace2012, StringComparison.Ordinal);
+            || ns.StartsWith(NuspecNamespacePrefix, StringComparison.Ordinal);
     }
 }

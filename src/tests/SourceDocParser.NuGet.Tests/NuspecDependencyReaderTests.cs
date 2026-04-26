@@ -78,6 +78,39 @@ public class NuspecDependencyReaderTests
     }
 
     /// <summary>
+    /// Splat 19.x and other recent ReactiveUI packages ship with the
+    /// 2013/05 nuspec namespace — that's the schema bump the original
+    /// allow-list missed and the regression that left
+    /// <c>Splat.Core</c> / <c>Splat.Logging</c> / <c>Splat.Builder</c>
+    /// out of the transitive fetch.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ReadDependencyIdsRecognises2013Namespace()
+    {
+        const string nuspecXml = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+              <metadata>
+                <id>Splat</id>
+                <version>19.3.1</version>
+                <dependencies>
+                  <group targetFramework="net10.0">
+                    <dependency id="Splat.Builder" version="19.3.1" exclude="Build,Analyzers" />
+                    <dependency id="Splat.Logging" version="19.3.1" exclude="Build,Analyzers" />
+                  </group>
+                </dependencies>
+              </metadata>
+            </package>
+            """;
+
+        var ids = await NuspecDependencyReader.ReadDependencyIdsAsync(StreamFor(nuspecXml)).ConfigureAwait(false);
+
+        await Assert.That(ids).Contains("Splat.Builder");
+        await Assert.That(ids).Contains("Splat.Logging");
+    }
+
+    /// <summary>
     /// Older nuspec namespace (2011/08) is recognised — we still see
     /// these on legacy packages that haven't been re-published since
     /// the schema changed.

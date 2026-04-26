@@ -96,9 +96,13 @@ public sealed partial class NuGetFetcher : INuGetFetcher
             }
         }
 
-        var excludeSet = new HashSet<string>(config.ExcludePackages, StringComparer.OrdinalIgnoreCase);
+        // Exclude lists are user-curated and almost always single-digit
+        // sized. A linear scan over a string[] beats HashSet.Contains
+        // at that N (no hash compute, better cache locality, no method
+        // dispatch through the comparer).
+        var excludeIds = config.ExcludePackages;
         var excludePrefixes = config.ExcludePackagePrefixes;
-        discoveredIds.RemoveAll(d => IsExcluded(d.Id, excludeSet, excludePrefixes));
+        discoveredIds.RemoveAll(d => IsExcluded(d.Id, excludeIds, excludePrefixes));
 
         var allPackages = new (string Id, string? Version, string? Tfm)[discoveredIds.Count];
         for (var i = 0; i < discoveredIds.Count; i++)
@@ -121,7 +125,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
             libDir,
             cacheDir,
             seenIds,
-            excludeSet,
+            excludeIds,
             excludePrefixes,
             config.TfmOverrides,
             config.TfmPreference,
@@ -143,7 +147,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// <param name="libDir">Per-TFM lib directory root.</param>
     /// <param name="cacheDir">Cache directory the FetchGroupAsync downloads land in.</param>
     /// <param name="seenIds">Already-resolved package IDs — mutated as new ones are queued.</param>
-    /// <param name="excludeSet">Exact-match exclude set.</param>
+    /// <param name="excludeIds">Exact-match exclude IDs (linear scan; expected single-digit size).</param>
     /// <param name="excludePrefixes">Prefix-match excludes.</param>
     /// <param name="tfmOverrides">Per-package TFM overrides applied to newly-resolved packages.</param>
     /// <param name="tfmPreference">TFM preference passed through to FetchGroupAsync.</param>
@@ -154,7 +158,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         string libDir,
         string cacheDir,
         HashSet<string> seenIds,
-        HashSet<string> excludeSet,
+        string[] excludeIds,
         string[] excludePrefixes,
         Dictionary<string, string> tfmOverrides,
         string[] tfmPreference,
@@ -184,7 +188,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                     for (var d = 0; d < deps.Length; d++)
                     {
                         var depId = deps[d];
-                        if (IsExcluded(depId, excludeSet, excludePrefixes))
+                        if (IsExcluded(depId, excludeIds, excludePrefixes))
                         {
                             continue;
                         }
@@ -227,19 +231,22 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// Returns true when the package id should be skipped.
     /// </summary>
     /// <param name="id">Package identifier to test.</param>
-    /// <param name="excludeSet">Exact-match exclude set, OrdinalIgnoreCase.</param>
+    /// <param name="excludeIds">Exact-match exclude IDs (linear scan; expected single-digit size).</param>
     /// <param name="excludePrefixes">Prefix-match excludes, OrdinalIgnoreCase.</param>
     /// <returns><see langword="true"/> if the package should be skipped; otherwise, <see langword="false"/>.</returns>
     /// <remarks>
     /// Matches an exact exclude or starts with one of the configured
-    /// exclude prefixes. Foreach over the prefix array beats LINQ Any
-    /// here because this is called per discovered package (~200 calls).
+    /// exclude prefixes. Linear scan beats HashSet.Contains for the
+    /// single-digit exclude lists every real nuget-packages.json carries.
     /// </remarks>
-    private static bool IsExcluded(string id, HashSet<string> excludeSet, string[] excludePrefixes)
+    private static bool IsExcluded(string id, string[] excludeIds, string[] excludePrefixes)
     {
-        if (excludeSet.Contains(id))
+        for (var i = 0; i < excludeIds.Length; i++)
         {
-            return true;
+            if (string.Equals(id, excludeIds[i], StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
         }
 
         for (var i = 0; i < excludePrefixes.Length; i++)
