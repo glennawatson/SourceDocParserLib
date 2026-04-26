@@ -154,7 +154,7 @@ public sealed class SymbolWalker : ISymbolWalker
             if (TypeBuilder.TryBuild(type, context) is { } apiType)
             {
                 types.Add(apiType);
-                if (apiType.Uid.Length > 0)
+                if (apiType.Uid is [_, ..])
                 {
                     seenTypeUids.Add(apiType.Uid);
                 }

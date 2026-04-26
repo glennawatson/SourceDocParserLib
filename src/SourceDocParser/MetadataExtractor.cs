@@ -82,7 +82,7 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
             groups.Add(new(group, loader, group.AssemblyPaths.Length));
         }
 
-        if (groups.Count == 0)
+        if (groups.Count is 0)
         {
             throw new InvalidOperationException("Assembly source produced no TFM groups.");
         }

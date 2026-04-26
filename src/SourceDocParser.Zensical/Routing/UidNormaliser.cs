@@ -28,7 +28,7 @@ internal static class UidNormaliser
     public static string Normalise(string uid)
     {
         ArgumentNullException.ThrowIfNull(uid);
-        if (uid.Length == 0)
+        if (uid is [])
         {
             return uid;
         }

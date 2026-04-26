@@ -49,7 +49,7 @@ public static partial class DocfxConfigWriter
         }
 
         var libTfms = DocfxInternalHelpers.DiscoverTfms(libDir);
-        if (libTfms.Count == 0)
+        if (libTfms.Count is 0)
         {
             throw new InvalidOperationException("No TFM directories with DLLs found in lib/");
         }
@@ -61,7 +61,7 @@ public static partial class DocfxConfigWriter
         LogDiscoveredRefsTfms(logger, refsTfms);
 
         var template = ReadTemplate();
-        var sharedExtra = ExtractSharedMetadataExtras(template.Metadata.Length > 0 ? template.Metadata[0] : null);
+        var sharedExtra = ExtractSharedMetadataExtras(template.Metadata is [var firstMetadata, ..] ? firstMetadata : null);
 
         var metadataEntries = new List<DocfxMetadataEntry>(libTfms.Count);
         var platformLabels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -87,7 +87,7 @@ public static partial class DocfxConfigWriter
             var refDllNames = DocfxInternalHelpers.GetOrAddDllNames(refDllNameCache, bestRef, refDir);
             var packageDlls = DocfxInternalHelpers.CollectPackageDllNames(Path.Combine(libDir, tfm), refDllNames);
 
-            if (packageDlls.Count == 0)
+            if (packageDlls.Count is 0)
             {
                 LogNoPackageDlls(logger, tfm);
                 continue;
@@ -147,7 +147,7 @@ public static partial class DocfxConfigWriter
 
         var copy = new Dictionary<string, JsonElement>(extra);
         copy.Remove("references");
-        return copy.Count == 0 ? null : copy;
+        return copy.Count is 0 ? null : copy;
     }
 
     /// <summary>

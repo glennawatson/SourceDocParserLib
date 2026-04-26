@@ -111,7 +111,7 @@ public sealed class DocfxCatalogIndexes
         var map = new Dictionary<string, ApiObjectType>(types.Length, StringComparer.Ordinal);
         for (var i = 0; i < types.Length; i++)
         {
-            if (types[i] is ApiObjectType obj && obj.Uid is [_, ..] uid && !DocfxCompilerGenerated.IsCompilerGenerated(obj.Name))
+            if (types[i] is ApiObjectType { Uid: [_, ..] uid } obj && !DocfxCompilerGenerated.IsCompilerGenerated(obj.Name))
             {
                 map[uid] = obj;
             }
@@ -269,7 +269,7 @@ public sealed class DocfxCatalogIndexes
     /// <returns>The frozen dictionary; empty input returns the shared empty frozen instance.</returns>
     internal static FrozenDictionary<string, T[]> FreezeArrays<T>(Dictionary<string, List<T>> raw)
     {
-        if (raw.Count == 0)
+        if (raw.Count is 0)
         {
             return FrozenDictionary<string, T[]>.Empty;
         }

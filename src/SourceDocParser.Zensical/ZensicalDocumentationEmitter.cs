@@ -38,7 +38,7 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
         ArgumentException.ThrowIfNullOrWhiteSpace(outputRoot);
 
         var pages = 0;
-        var hasRouting = _options.PackageRouting.Length > 0;
+        var hasRouting = _options.PackageRouting is [_, ..];
         var indexes = ZensicalCatalogIndexes.Build(types);
         for (var i = 0; i < types.Length; i++)
         {

@@ -363,7 +363,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     /// <param name="reference">Candidate to add.</param>
     private static void AddReference(List<ApiTypeReference> references, HashSet<string> seen, ApiTypeReference reference)
     {
-        var key = reference.Uid.Length > 0 ? reference.Uid : reference.DisplayName;
+        var key = reference.Uid is [_, ..] uid ? uid : reference.DisplayName;
         if (!seen.Add(key))
         {
             return;

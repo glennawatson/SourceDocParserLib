@@ -29,7 +29,8 @@ internal static class PackageConfigReader
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-        using var doc = JsonDocument.Parse(File.ReadAllBytes(path), _strictOptions);
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, FileOptions.SequentialScan);
+        using var doc = JsonDocument.Parse(stream, _strictOptions);
         var root = doc.RootElement;
 
         if (root.ValueKind != JsonValueKind.Object)

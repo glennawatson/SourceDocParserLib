@@ -222,6 +222,99 @@ internal static class ZensicalEmitterHelpers
     }
 
     /// <summary>
+    /// Escapes pipe characters for inline Markdown code and text.
+    /// </summary>
+    /// <param name="text">Source text.</param>
+    /// <returns>The escaped text.</returns>
+    public static string EscapeInlinePipes(string text)
+    {
+        var firstPipeIndex = text.IndexOf('|');
+        if (firstPipeIndex < 0)
+        {
+            return text;
+        }
+
+        return string.Create(
+            text.Length + CountEscapedPipes(text.AsSpan(firstPipeIndex)),
+            (Text: text, FirstPipeIndex: firstPipeIndex),
+            static (dest, state) =>
+            {
+                state.Text.AsSpan(0, state.FirstPipeIndex).CopyTo(dest);
+                var destIndex = state.FirstPipeIndex;
+                for (var i = state.FirstPipeIndex; i < state.Text.Length; i++)
+                {
+                    if (state.Text[i] is '|')
+                    {
+                        dest[destIndex++] = '\\';
+                    }
+
+                    dest[destIndex++] = state.Text[i];
+                }
+            });
+    }
+
+    /// <summary>
+    /// Trims a summary, keeps only the first paragraph, and flattens it to a single line.
+    /// </summary>
+    /// <param name="summary">Raw summary text.</param>
+    /// <param name="escapePipes">Whether pipe characters should be escaped.</param>
+    /// <returns>The flattened summary.</returns>
+    public static string FirstParagraphAsSingleLine(string summary, bool escapePipes = false)
+    {
+        if (summary is not [_, ..])
+        {
+            return string.Empty;
+        }
+
+        var trimmed = summary.AsSpan().Trim();
+        var paragraphBreak = trimmed.IndexOf("\n\n", StringComparison.Ordinal);
+        var firstParagraph = paragraphBreak >= 0 ? trimmed[..paragraphBreak] : trimmed;
+        return ToSingleLine(firstParagraph, escapePipes).Trim();
+    }
+
+    /// <summary>
+    /// Flattens a span to a single line and optionally escapes pipes.
+    /// </summary>
+    /// <param name="text">Source text.</param>
+    /// <param name="escapePipes">Whether pipe characters should be escaped.</param>
+    /// <returns>The flattened string.</returns>
+    private static string ToSingleLine(in ReadOnlySpan<char> text, bool escapePipes)
+    {
+        var firstEscapeIndex = escapePipes
+            ? text.IndexOfAny(['|', '\n', '\r'])
+            : text.IndexOfAny(['\n', '\r']);
+        if (firstEscapeIndex < 0)
+        {
+            return text.ToString();
+        }
+
+        return string.Create(
+            text.Length + (escapePipes ? CountEscapedPipes(text[firstEscapeIndex..]) : 0),
+            (Text: text.ToString(), FirstEscapeIndex: firstEscapeIndex, EscapePipes: escapePipes),
+            static (dest, state) =>
+            {
+                state.Text.AsSpan(0, state.FirstEscapeIndex).CopyTo(dest);
+                var destIndex = state.FirstEscapeIndex;
+                for (var i = state.FirstEscapeIndex; i < state.Text.Length; i++)
+                {
+                    var current = state.Text[i];
+                    if (current is '\n' or '\r')
+                    {
+                        dest[destIndex++] = ' ';
+                        continue;
+                    }
+
+                    if (state.EscapePipes && current is '|')
+                    {
+                        dest[destIndex++] = '\\';
+                    }
+
+                    dest[destIndex++] = current;
+                }
+            });
+    }
+
+    /// <summary>
     /// Writes a positive integer into the destination span.
     /// </summary>
     /// <param name="dest">Destination span.</param>
@@ -349,7 +442,7 @@ internal static class ZensicalEmitterHelpers
     private readonly record struct NamespacePathFormatter(string NamespaceName)
     {
         /// <summary>Gets the rendered length including the trailing slash.</summary>
-        public int Length => NamespaceName.Length == 0 ? GlobalNamespaceFolder.Length : NamespaceName.Length + 1;
+        public int Length => NamespaceName is [] ? GlobalNamespaceFolder.Length : NamespaceName.Length + 1;
 
         /// <summary>
         /// Writes the namespace prefix into <paramref name="dest"/>.
@@ -358,7 +451,7 @@ internal static class ZensicalEmitterHelpers
         /// <returns>Characters written.</returns>
         public int WriteTo(in Span<char> dest)
         {
-            if (NamespaceName.Length == 0)
+            if (NamespaceName is [])
             {
                 GlobalNamespaceFolder.AsSpan().CopyTo(dest);
                 return GlobalNamespaceFolder.Length;

@@ -872,21 +872,7 @@ public static class TypePageEmitter
     /// <returns>A truncated, one-line summary.</returns>
     private static string OneLineSummary(string summary)
     {
-        if (summary is not [_, ..])
-        {
-            return string.Empty;
-        }
-
-        var trimmed = summary.AsSpan().Trim();
-        var paragraphBreak = trimmed.IndexOf("\n\n", StringComparison.Ordinal);
-        var firstParagraph = paragraphBreak >= 0 ? trimmed[..paragraphBreak] : trimmed;
-
-        // Flatten any remaining single newlines to spaces so the
-        // result fits in a single table cell.
-        var oneLine = firstParagraph.ToString()
-            .Replace('\n', ' ')
-            .Replace('\r', ' ')
-            .Trim();
+        var oneLine = ZensicalEmitterHelpers.FirstParagraphAsSingleLine(summary);
 
         if (oneLine.Length <= SummaryMaxLength)
         {
@@ -906,10 +892,7 @@ public static class TypePageEmitter
     /// </summary>
     /// <param name="text">The text to escape.</param>
     /// <returns>The escaped Markdown text.</returns>
-    private static string MarkdownEscape(string text) =>
-        text.IndexOf('|') < 0
-            ? text
-            : text.Replace("|", "\\|", StringComparison.Ordinal);
+    private static string MarkdownEscape(string text) => ZensicalEmitterHelpers.EscapeInlinePipes(text);
 
     /// <summary>
     /// Escapes pipes and replaces newlines for use in a table cell.

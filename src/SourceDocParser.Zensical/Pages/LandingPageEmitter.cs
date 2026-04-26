@@ -195,21 +195,7 @@ public static class LandingPageEmitter
     /// <param name="summary">The raw documentation summary.</param>
     /// <returns>A single-line summary suitable for the listing table.</returns>
     private static string OneLineSummary(string summary)
-    {
-        if (summary is not [_, ..])
-        {
-            return string.Empty;
-        }
-
-        var trimmed = summary.AsSpan().Trim();
-        var paragraphBreak = trimmed.IndexOf("\n\n", StringComparison.Ordinal);
-        var firstParagraph = paragraphBreak >= 0 ? trimmed[..paragraphBreak] : trimmed;
-        return firstParagraph.ToString()
-            .Replace('\n', ' ')
-            .Replace('\r', ' ')
-            .Replace("|", "\\|", StringComparison.Ordinal)
-            .Trim();
-    }
+        => ZensicalEmitterHelpers.FirstParagraphAsSingleLine(summary, escapePipes: true);
 
     /// <summary>One row in a namespace landing page.</summary>
     /// <param name="Title">Display name (with generic angles).</param>

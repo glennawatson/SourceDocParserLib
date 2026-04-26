@@ -112,7 +112,7 @@ public sealed class ZensicalCatalogIndexes
         var map = new Dictionary<string, ApiObjectType>(types.Length, StringComparer.Ordinal);
         for (var i = 0; i < types.Length; i++)
         {
-            if (types[i] is ApiObjectType obj && obj.Uid is [_, ..] uid && obj.Name.AsSpan().IndexOfAny('<', '>') < 0)
+            if (types[i] is ApiObjectType { Uid: [_, ..] uid } obj && obj.Name.AsSpan().IndexOfAny('<', '>') < 0)
             {
                 map[uid] = obj;
             }
@@ -261,7 +261,7 @@ public sealed class ZensicalCatalogIndexes
     /// <returns>The frozen dictionary; empty input returns the shared empty frozen instance.</returns>
     internal static FrozenDictionary<string, T[]> FreezeArrays<T>(Dictionary<string, List<T>> raw)
     {
-        if (raw.Count == 0)
+        if (raw.Count is 0)
         {
             return FrozenDictionary<string, T[]>.Empty;
         }

@@ -186,18 +186,17 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     {
         ArgumentNullException.ThrowIfNull(id);
 
-        ReadOnlySpan<char> s = id.AsSpan();
+        var s = id.AsSpan();
 
-        if (s.Length == 0)
+        return s.IsEmpty switch
         {
-            return false;
-        }
-
-        return (s[0] | 0x20) switch
-        {
-            'r' => s.StartsWith("runtime.", StringComparison.OrdinalIgnoreCase),
-            'm' => IsMicrosoftDefaultTransitiveSkip(s),
-            _ => false
+            true => false,
+            _ => (s[0] | 0x20) switch
+            {
+                'r' => s.StartsWith("runtime.", StringComparison.OrdinalIgnoreCase),
+                'm' => IsMicrosoftDefaultTransitiveSkip(s),
+                _ => false
+            }
         };
     }
 
@@ -352,19 +351,17 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                 }
             }
 
-            if (newIds.Count == 0)
+            if (newIds.Count is 0)
             {
                 return;
             }
 
-            var newIdArray = new string[newIds.Count];
-            newIds.CopyTo(newIdArray);
-            var newPackages = new (string Id, string? Version, string? Tfm)[newIdArray.Length];
-            for (var i = 0; i < newIdArray.Length; i++)
+            var newPackages = new (string Id, string? Version, string? Tfm)[newIds.Count];
+            var packageIndex = 0;
+            foreach (var id in newIds)
             {
-                var id = newIdArray[i];
                 tfmOverrides.TryGetValue(id, out var tfm);
-                newPackages[i] = (id, null, tfm);
+                newPackages[packageIndex++] = (id, null, tfm);
             }
 
             LogFetchingTransitiveDeps(logger, depth + 1, newPackages.Length);
@@ -603,7 +600,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                 continue;
             }
 
-            if (string.IsNullOrEmpty(entry.Name))
+            if (entry.Name is [])
             {
                 continue;
             }
@@ -1042,7 +1039,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
             list.Add(entry);
         }
 
-        if (libEntries.Count == 0)
+        if (libEntries.Count is 0)
         {
             LogNoLibEntries(logger, packageId);
             return;
@@ -1050,7 +1047,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
 
         var availableTfms = new List<string>(libEntries.Keys);
         var selectedTfms = TfmResolver.SelectAllSupportedTfms(availableTfms, tfmOverride, tfmPreference);
-        if (selectedTfms.Count == 0)
+        if (selectedTfms.Count is 0)
         {
             LogInvokerHelper.Invoke(
                 logger,

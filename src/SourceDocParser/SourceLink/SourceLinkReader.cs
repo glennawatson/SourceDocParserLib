@@ -257,7 +257,7 @@ internal sealed class SourceLinkReader : IDisposable
     /// </summary>
     /// <param name="utf8Json">SourceLink JSON body in UTF-8.</param>
     /// <returns>An enumerable of SourceLink map entries.</returns>
-    private static IEnumerable<SourceLinkMapEntry> ParseJson(byte[] utf8Json)
+    private static IEnumerable<SourceLinkMapEntry> ParseJson(ReadOnlyMemory<byte> utf8Json)
     {
         using var document = JsonDocument.Parse(utf8Json);
         if (document.RootElement.ValueKind != JsonValueKind.Object)
