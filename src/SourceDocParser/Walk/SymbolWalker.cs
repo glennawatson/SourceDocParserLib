@@ -104,6 +104,7 @@ public sealed class SymbolWalker : ISymbolWalker
         // the low hundreds of public types — so let the list grow
         // dynamically rather than picking an arbitrary capacity.
         List<ApiType> types = [];
+        var seenTypeUids = new HashSet<string>(StringComparer.Ordinal);
         var pendingNamespaces = new Stack<INamespaceSymbol>();
         var pendingTypes = new Stack<INamedTypeSymbol>();
 
@@ -122,28 +123,68 @@ public sealed class SymbolWalker : ISymbolWalker
                 pendingTypes.Push(namespaceTypes[i]);
             }
 
-            while (pendingTypes.TryPop(out var type))
-            {
-                if (!SymbolWalkerHelpers.IsExternallyVisible(type.DeclaredAccessibility))
-                {
-                    continue;
-                }
-
-                if (TryBuildType(type, context) is { } apiType)
-                {
-                    types.Add(apiType);
-                }
-
-                var nestedTypes = type.GetTypeMembers();
-                for (var i = 0; i < nestedTypes.Length; i++)
-                {
-                    pendingTypes.Push(nestedTypes[i]);
-                }
-            }
+            DrainPendingTypes(pendingTypes, types, seenTypeUids, context);
         }
+
+        // Type forwards: an umbrella assembly (e.g. Splat.dll) may
+        // declare [TypeForwardedTo(typeof(Foo))] for types whose real
+        // definition lives in a sibling assembly (Splat.Core.dll).
+        // Seed the same pending stack so DrainPendingTypes surfaces
+        // them through the existing visibility / dedupe filtering.
+        TypeForwardingHelpers.SeedPending(assembly, pendingTypes);
+        DrainPendingTypes(pendingTypes, types, seenTypeUids, context);
 
         types.Sort(static (a, b) => string.CompareOrdinal(a.FullName, b.FullName));
         return new(tfm, types);
+    }
+
+    /// <summary>
+    /// Pops every type off <paramref name="pendingTypes"/>, runs the
+    /// shared visibility / build-or-skip / nested-push pipeline, and
+    /// records each successfully built type's UID in
+    /// <paramref name="seenTypeUids"/> so a later forwarded-type pass
+    /// can skip duplicates. Lifted out of <see cref="WalkCore"/> so the
+    /// namespace walk and the forwarded-type walk share one drain
+    /// loop.
+    /// </summary>
+    /// <param name="pendingTypes">Stack of types to drain.</param>
+    /// <param name="types">Catalog list to append into.</param>
+    /// <param name="seenTypeUids">UIDs already produced — used for dedupe.</param>
+    /// <param name="context">Per-walk state bundle.</param>
+    private static void DrainPendingTypes(
+        Stack<INamedTypeSymbol> pendingTypes,
+        List<ApiType> types,
+        HashSet<string> seenTypeUids,
+        SymbolWalkContext context)
+    {
+        while (pendingTypes.TryPop(out var type))
+        {
+            if (!TypeForwardingHelpers.IsResolvable(type))
+            {
+                continue;
+            }
+
+            if (!SymbolWalkerHelpers.IsExternallyVisible(type.DeclaredAccessibility))
+            {
+                continue;
+            }
+
+            if (TypeForwardingHelpers.IsAlreadyCollected(type, seenTypeUids))
+            {
+                continue;
+            }
+
+            if (TryBuildType(type, context) is { } apiType)
+            {
+                types.Add(apiType);
+                if (apiType.Uid.Length > 0)
+                {
+                    seenTypeUids.Add(apiType.Uid);
+                }
+            }
+
+            TypeForwardingHelpers.PushNested(type, pendingTypes);
+        }
     }
 
     /// <summary>
