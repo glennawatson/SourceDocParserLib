@@ -168,8 +168,11 @@ public class DocfxYamlEmitterTests
     {
         // Embed the raw scalar as a member name so the page contains it
         // both in items[].name and items[].uid; whatever escape strategy
-        // the emitter picks must survive a round-trip parse.
-        var member = NewMember(raw, $"M:Foo.{raw}");
+        // the emitter picks must survive a round-trip parse. Use a
+        // property-kind member so the friendly-name pass doesn't append
+        // parens — this test is about YAML scalar correctness, not name
+        // policy.
+        var member = NewMember(raw, $"M:Foo.{raw}", ApiMemberKind.Property);
         var type = TestData.ObjectType("Foo") with { Members = [member] };
 
         var yaml = DocfxYamlEmitter.Render(type);
@@ -243,7 +246,10 @@ public class DocfxYamlEmitterTests
     [Test]
     public async Task QualifiedNameWithSafeIdentifiersStaysUnquoted()
     {
-        var member = NewMember("Run", "M:Foo.Run");
+        // Use property kind so the friendly-name pass doesn't append
+        // parens — this test pins the qualified-scalar quoting policy,
+        // not the method-naming convention.
+        var member = NewMember("Run", "P:Foo.Run", ApiMemberKind.Property);
         var type = TestData.ObjectType("Foo") with { Members = [member] };
 
         var yaml = DocfxYamlEmitter.Render(type);
@@ -264,7 +270,7 @@ public class DocfxYamlEmitterTests
     [Test]
     public async Task QualifiedNameQuotesWhenEitherHalfNeedsEscaping()
     {
-        var member = NewMember(": leading colon", "M:Foo.member");
+        var member = NewMember(": leading colon", "P:Foo.member", ApiMemberKind.Property);
         var type = TestData.ObjectType("Foo") with { Members = [member] };
 
         var yaml = DocfxYamlEmitter.Render(type);
@@ -600,7 +606,9 @@ public class DocfxYamlEmitterTests
     [Arguments("emoji_🎉")]
     public async Task NonAsciiMemberNamesRoundTrip(string name)
     {
-        var member = NewMember(name, $"M:Foo.{name}");
+        // Property kind so the friendly-name pass doesn't append parens
+        // — this test pins UTF-8 round-trip via the YAML scalar writer.
+        var member = NewMember(name, $"P:Foo.{name}", ApiMemberKind.Property);
         var type = TestData.ObjectType("Foo") with { Members = [member] };
 
         var yaml = DocfxYamlEmitter.Render(type);
@@ -671,11 +679,12 @@ public class DocfxYamlEmitterTests
     /// <summary>Builds a minimal <see cref="ApiMember"/> with the given name and UID.</summary>
     /// <param name="name">Member name.</param>
     /// <param name="uid">Member UID (Roslyn-style).</param>
+    /// <param name="kind">Member kind — defaults to <see cref="ApiMemberKind.Method"/>.</param>
     /// <returns>The constructed member.</returns>
-    private static ApiMember NewMember(string name, string uid) => new(
+    private static ApiMember NewMember(string name, string uid, ApiMemberKind kind = ApiMemberKind.Method) => new(
         Name: name,
         Uid: uid,
-        Kind: ApiMemberKind.Method,
+        Kind: kind,
         IsStatic: false,
         IsExtension: false,
         IsRequired: false,

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace SourceDocParser.Docfx;
@@ -32,6 +33,7 @@ internal static class DocfxYamlBuilderExtensions
         sb.Append("- uid: ").AppendScalar(DocfxCommentId.ToUid(type.Uid)).AppendLine()
             .AppendIfPresent("  commentId: ", DocfxCommentId.ForType(type))
             .Append("  id: ").AppendScalar(type.Name).AppendLine()
+            .AppendIfPresent("  parent: ", type.Namespace)
             .AppendChildren(type)
             .AppendLine("  langs:")
             .AppendLine("  - csharp")
@@ -305,15 +307,21 @@ internal static class DocfxYamlBuilderExtensions
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendMemberItem(this StringBuilder sb, ApiType type, ApiMember member)
     {
+        var unqualified = DocfxMemberDisplayName.Unqualified(member, type);
+        var qualified = DocfxMemberDisplayName.Qualified(member, type);
+        var fullyQualified = DocfxMemberDisplayName.FullyQualified(member, type);
+        var memberId = MemberIdFor(member);
+
         sb.Append("- uid: ").AppendScalar(DocfxCommentId.ToUid(member.Uid)).AppendLine()
             .AppendIfPresent("  commentId: ", DocfxCommentId.ForMember(member))
-            .Append("  id: ").AppendScalar(member.Name).AppendLine()
+            .Append("  id: ").AppendScalar(memberId).AppendLine()
             .Append("  parent: ").AppendScalar(DocfxCommentId.ToUid(type.Uid)).AppendLine()
+            .Append("  overload: ").AppendScalar(DocfxMemberDisplayName.OverloadAnchor(DocfxCommentId.ToUid(member.Uid))).AppendLine()
             .AppendLine("  langs:")
             .AppendLine("  - csharp")
-            .Append("  name: ").AppendScalar(member.Name).AppendLine()
-            .Append("  nameWithType: ").AppendQualifiedScalar(type.Name, '.', member.Name).AppendLine()
-            .Append("  fullName: ").AppendQualifiedScalar(type.FullName, '.', member.Name).AppendLine()
+            .Append("  name: ").AppendScalar(unqualified).AppendLine()
+            .Append("  nameWithType: ").AppendScalar(qualified).AppendLine()
+            .Append("  fullName: ").AppendScalar(fullyQualified).AppendLine()
             .Append("  type: ")
             .AppendLine(DocfxYamlEmitter.MemberTypeForKind(member.Kind))
             .AppendLine("  assemblies:")
@@ -733,6 +741,24 @@ internal static class DocfxYamlBuilderExtensions
 
         return false;
     }
+
+    /// <summary>
+    /// Returns the docfx <c>id:</c> field value for <paramref name="member"/>.
+    /// Constructors render as <c>#ctor</c> (or <c>#cctor</c> for the
+    /// static ctor) so docfx's xrefmap convention is preserved; every
+    /// other kind passes its metadata name through. Roslyn surfaces
+    /// constructor metadata as <c>.ctor</c>; the rewrite happens here
+    /// so consumers see the docfx-convention form.
+    /// </summary>
+    /// <param name="member">Member whose id field to compute.</param>
+    /// <returns>The id-field text, ready to feed through <see cref="AppendScalar"/>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string MemberIdFor(ApiMember member) => member.Name switch
+    {
+        ".ctor" => "#ctor",
+        ".cctor" => "#cctor",
+        _ => member.Name,
+    };
 
     /// <summary>
     /// Returns the member list a type carries, or <see langword="null"/>

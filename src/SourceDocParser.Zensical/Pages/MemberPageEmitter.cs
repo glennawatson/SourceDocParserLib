@@ -54,7 +54,7 @@ public static class MemberPageEmitter
         ArgumentNullException.ThrowIfNull(overloads);
         ArgumentNullException.ThrowIfNull(options);
         var first = overloads[0];
-        var heading = $"{containingType.Name}.{memberName}";
+        var heading = ZensicalMemberDisplayName.Heading(first, containingType);
         var kindLabel = MemberKindLabel(first.Kind);
         var typePagePath = TypePageEmitter.PathFor(containingType, options);
         var typeName = ZensicalEmitterHelpers.FormatDisplayTypeName(containingType.Name, containingType.Arity);
@@ -239,7 +239,7 @@ public static class MemberPageEmitter
         }
 
         var attributesLine = AttributeFilter.RenderInlineList(member.Attributes);
-        if (attributesLine.Length > 0)
+        if (attributesLine is [_, ..])
         {
             sb.Append("**Attributes:** ").Append(attributesLine).Append("\n\n");
         }
