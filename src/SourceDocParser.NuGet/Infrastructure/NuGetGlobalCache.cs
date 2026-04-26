@@ -45,18 +45,18 @@ internal static class NuGetGlobalCache
     public static string ResolveGlobalPackagesFolder(string? configOverride = null)
     {
         var envValue = Environment.GetEnvironmentVariable(GlobalPackagesFolderEnvVar);
-        if (!string.IsNullOrWhiteSpace(envValue))
+        if (TextHelpers.HasNonWhitespace(envValue))
         {
             return envValue;
         }
 
-        if (!string.IsNullOrWhiteSpace(configOverride))
+        if (TextHelpers.HasNonWhitespace(configOverride))
         {
             return configOverride;
         }
 
         var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (string.IsNullOrEmpty(userProfile))
+        if (!TextHelpers.HasValue(userProfile))
         {
             // Unix without HOME set is rare but happens in some
             // sandboxes; fall back to the same literal `.nuget/packages`
@@ -129,7 +129,7 @@ internal static class NuGetGlobalCache
         if (OperatingSystem.IsWindows())
         {
             var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            if (string.IsNullOrEmpty(appData))
+            if (!TextHelpers.HasValue(appData))
             {
                 return [];
             }
@@ -141,7 +141,7 @@ internal static class NuGetGlobalCache
         }
 
         var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (string.IsNullOrEmpty(userProfile))
+        if (!TextHelpers.HasValue(userProfile))
         {
             return [];
         }
@@ -168,7 +168,7 @@ internal static class NuGetGlobalCache
             ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "NuGet", "Config")
             : "/etc/opt/NuGet/Config";
 
-        if (string.IsNullOrEmpty(root) || !Directory.Exists(root))
+        if (!TextHelpers.HasValue(root) || !Directory.Exists(root))
         {
             return [];
         }

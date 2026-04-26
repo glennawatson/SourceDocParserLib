@@ -32,10 +32,7 @@ internal static class FallbackPackageFoldersReader
     /// <summary>Settings for the XML reader.</summary>
     private static readonly XmlReaderSettings _readerSettings = new()
     {
-        Async = true,
-        IgnoreComments = true,
-        IgnoreWhitespace = true,
-        DtdProcessing = DtdProcessing.Prohibit,
+        Async = true, IgnoreComments = true, IgnoreWhitespace = true, DtdProcessing = DtdProcessing.Prohibit,
     };
 
     /// <summary>Reads fallback folder paths from the specified <paramref name="configPath"/>.</summary>
@@ -47,10 +44,18 @@ internal static class FallbackPackageFoldersReader
     /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
     /// <returns>A task that represents the asynchronous read operation. The task result contains the per-file result with clear flag and ordered folder paths.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="configPath"/> is null or whitespace.</exception>
-    public static async Task<FallbackFoldersFileResult> ReadAsync(string configPath, CancellationToken cancellationToken = default)
+    public static async Task<FallbackFoldersFileResult> ReadAsync(
+        string configPath,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(configPath);
-        var stream = new FileStream(configPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, FileOptions.SequentialScan | FileOptions.Asynchronous);
+        var stream = new FileStream(
+            configPath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 4096,
+            FileOptions.SequentialScan | FileOptions.Asynchronous);
         await using (stream.ConfigureAwait(false))
         {
             return await ReadAsync(stream, cancellationToken).ConfigureAwait(false);
@@ -67,7 +72,9 @@ internal static class FallbackPackageFoldersReader
     /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
     /// <returns>A task that represents the asynchronous read operation. The task result contains the per-file result with clear flag and ordered folder paths.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="configStream"/> is null.</exception>
-    public static async Task<FallbackFoldersFileResult> ReadAsync(Stream configStream, CancellationToken cancellationToken = default)
+    public static async Task<FallbackFoldersFileResult> ReadAsync(
+        Stream configStream,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(configStream);
         var folders = new List<string>();
@@ -80,16 +87,21 @@ internal static class FallbackPackageFoldersReader
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (reader.NodeType == XmlNodeType.Element && reader.LocalName.Equals(SectionName, StringComparison.OrdinalIgnoreCase))
+            switch (reader.NodeType)
             {
-                insideSection = true;
-                continue;
-            }
+                case XmlNodeType.Element when
+                    reader.LocalName.Equals(SectionName, StringComparison.OrdinalIgnoreCase):
+                    {
+                        insideSection = true;
+                        continue;
+                    }
 
-            if (reader.NodeType == XmlNodeType.EndElement && reader.LocalName.Equals(SectionName, StringComparison.OrdinalIgnoreCase))
-            {
-                insideSection = false;
-                continue;
+                case XmlNodeType.EndElement when
+                    reader.LocalName.Equals(SectionName, StringComparison.OrdinalIgnoreCase):
+                    {
+                        insideSection = false;
+                        continue;
+                    }
             }
 
             if (!insideSection || reader.NodeType != XmlNodeType.Element)
@@ -112,7 +124,7 @@ internal static class FallbackPackageFoldersReader
 
             var key = reader.GetAttribute(KeyAttributeName);
             var value = reader.GetAttribute(ValueAttributeName);
-            if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value))
+            if (!TextHelpers.HasNonWhitespace(key) || !TextHelpers.HasNonWhitespace(value))
             {
                 continue;
             }

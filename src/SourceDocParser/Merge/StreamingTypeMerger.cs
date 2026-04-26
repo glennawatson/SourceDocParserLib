@@ -60,7 +60,7 @@ public sealed class StreamingTypeMerger
             {
                 var type = types[i];
                 var uid = type.Uid;
-                if (uid.Length == 0)
+                if (uid is [])
                 {
                     continue;
                 }

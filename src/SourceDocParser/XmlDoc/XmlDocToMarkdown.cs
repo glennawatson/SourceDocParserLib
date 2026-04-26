@@ -648,31 +648,52 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
             return text;
         }
 
-        var sb = new StringBuilder(text.Length);
-        foreach (var ch in text)
-        {
-            switch (ch)
+        return string.Create(
+            text.Length + CountEscapedPipes(text),
+            text,
+            static (dest, state) =>
             {
-                case '|':
+                var index = 0;
+                for (var i = 0; i < state.Length; i++)
+                {
+                    switch (state[i])
                     {
-                        sb.Append("\\|");
-                        break;
-                    }
+                        case '|':
+                        {
+                            dest[index++] = '\\';
+                            dest[index++] = '|';
+                            break;
+                        }
 
-                case '\n' or '\r':
-                    {
-                        sb.Append(' ');
-                        break;
-                    }
+                        case '\n' or '\r':
+                        {
+                            dest[index++] = ' ';
+                            break;
+                        }
 
-                default:
-                    {
-                        sb.Append(ch);
-                        break;
+                        default:
+                        {
+                            dest[index++] = state[i];
+                            break;
+                        }
                     }
-            }
+                }
+            });
+    }
+
+    /// <summary>
+    /// Counts pipes so the escaped table-cell length can be computed up front.
+    /// </summary>
+    /// <param name="text">Text to scan.</param>
+    /// <returns>The number of extra escape characters required.</returns>
+    private static int CountEscapedPipes(string text)
+    {
+        var count = 0;
+        for (var i = 0; i < text.Length; i++)
+        {
+            count += text[i] is '|' ? 1 : 0;
         }
 
-        return sb.ToString();
+        return count;
     }
 }

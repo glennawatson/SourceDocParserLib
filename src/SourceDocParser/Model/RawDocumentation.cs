@@ -51,14 +51,14 @@ internal sealed record RawDocumentation(
     /// Gets a value indicating whether the documentation is completely empty.
     /// </summary>
     public bool IsCompletelyEmpty =>
-        Summary.Length == 0
-        && Remarks.Length == 0
-        && Returns.Length == 0
-        && Value.Length == 0
-        && Examples.Length == 0
-        && Parameters.Length == 0
-        && TypeParameters.Length == 0
-        && Exceptions.Length == 0
-        && SeeAlso.Length == 0
+        Summary is []
+        && Remarks is []
+        && Returns is []
+        && Value is []
+        && Examples is []
+        && Parameters is []
+        && TypeParameters is []
+        && Exceptions is []
+        && SeeAlso is []
         && !HasInheritDoc;
 }

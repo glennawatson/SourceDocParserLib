@@ -36,6 +36,9 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     /// </summary>
     private const int InitialPageCapacity = 4096;
 
+    /// <summary>Empty UID set used by the legacy <see cref="Render(ApiType)"/> overload.</summary>
+    private static readonly HashSet<string> _emptyUidSet = new(StringComparer.Ordinal);
+
     /// <summary>
     /// Renders a single docfx ManagedReference page as a YAML string —
     /// header, items list (the type and its members), and references
@@ -43,16 +46,28 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     /// </summary>
     /// <param name="type">Type whose page to render.</param>
     /// <returns>The full YAML page text.</returns>
-    public static string Render(ApiType type)
+    public static string Render(ApiType type) => Render(type, _emptyUidSet);
+
+    /// <summary>
+    /// Renders a single docfx ManagedReference page using
+    /// <paramref name="internalUids"/> to classify references in the
+    /// <c>references:</c> block — internal types get a local
+    /// <c>href</c>, external (BCL) types route to Microsoft Learn.
+    /// </summary>
+    /// <param name="type">Type whose page to render.</param>
+    /// <param name="internalUids">UIDs of every type emitted by the current run.</param>
+    /// <returns>The full YAML page text.</returns>
+    public static string Render(ApiType type, HashSet<string> internalUids)
     {
         ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(internalUids);
 
         return new StringBuilder(InitialPageCapacity)
             .Append(YamlMimeHeader).Append('\n')
             .Append("items:\n")
             .AppendTypeItem(type)
             .AppendMemberItems(type)
-            .AppendPageReferences(CollectReferences(type))
+            .AppendPageReferences(CollectReferences(type), internalUids)
             .ToString();
     }
 
@@ -77,6 +92,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
         ArgumentNullException.ThrowIfNull(types);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputRoot);
 
+        var internalUids = BuildInternalUidSet(types);
         var pages = 0;
         for (var i = 0; i < types.Length; i++)
         {
@@ -90,12 +106,12 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
 
             var fullPath = Path.Combine(outputRoot, PathFor(type));
             var directory = Path.GetDirectoryName(fullPath);
-            if (!string.IsNullOrEmpty(directory))
+            if (directory is [_, ..])
             {
                 Directory.CreateDirectory(directory);
             }
 
-            await File.WriteAllTextAsync(fullPath, Render(type), cancellationToken).ConfigureAwait(false);
+            await File.WriteAllTextAsync(fullPath, Render(type, internalUids), cancellationToken).ConfigureAwait(false);
             pages++;
         }
 
@@ -171,6 +187,34 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
         ApiObjectType { Kind: ApiObjectKind.Interface } => "Interface",
         _ => "Class",
     };
+
+    /// <summary>
+    /// Builds the set of UIDs the current emit pass will produce a
+    /// page for. Used by <see cref="DocfxReferenceEnricher"/> to
+    /// classify references as internal (link to local page) vs
+    /// external (BCL → MS Learn / unknown → no href).
+    /// </summary>
+    /// <param name="types">All types about to be rendered.</param>
+    /// <returns>The lookup set, keyed on the type's UID.</returns>
+    internal static HashSet<string> BuildInternalUidSet(ApiType[] types)
+    {
+        var set = new HashSet<string>(types.Length, StringComparer.Ordinal);
+        for (var i = 0; i < types.Length; i++)
+        {
+            var type = types[i];
+            if (DocfxCompilerGenerated.IsCompilerGenerated(type.Name))
+            {
+                continue;
+            }
+
+            if (type.Uid is [_, ..] uid)
+            {
+                set.Add(uid);
+            }
+        }
+
+        return set;
+    }
 
     /// <summary>
     /// Returns the docfx <c>type</c> field value for a member kind.

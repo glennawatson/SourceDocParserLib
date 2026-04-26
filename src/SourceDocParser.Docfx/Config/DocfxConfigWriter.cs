@@ -170,7 +170,7 @@ public static partial class DocfxConfigWriter
 
         writer.WriteStartObject();
 
-        writer.WritePropertyName("metadata");
+        writer.WritePropertyName("metadata"u8);
         writer.WriteStartArray();
         for (var i = 0; i < config.Metadata.Length; i++)
         {
@@ -179,7 +179,7 @@ public static partial class DocfxConfigWriter
 
         writer.WriteEndArray();
 
-        writer.WritePropertyName("build");
+        writer.WritePropertyName("build"u8);
         WriteBuildSection(writer, config.Build);
 
         writer.WriteEndObject();
@@ -196,7 +196,7 @@ public static partial class DocfxConfigWriter
     {
         writer.WriteStartObject();
 
-        writer.WritePropertyName("src");
+        writer.WritePropertyName("src"u8);
         writer.WriteStartArray();
         for (var i = 0; i < entry.Src.Length; i++)
         {
@@ -205,7 +205,7 @@ public static partial class DocfxConfigWriter
 
         writer.WriteEndArray();
 
-        writer.WriteString("dest", entry.Dest);
+        writer.WriteString("dest"u8, entry.Dest);
 
         WriteExtras(writer, entry.Extra);
 
@@ -220,8 +220,8 @@ public static partial class DocfxConfigWriter
     private static void WriteMetadataSource(Utf8JsonWriter writer, DocfxMetadataSource source)
     {
         writer.WriteStartObject();
-        writer.WriteString("src", source.Src);
-        writer.WritePropertyName("files");
+        writer.WriteString("src"u8, source.Src);
+        writer.WritePropertyName("files"u8);
         WriteStringArray(writer, source.Files);
         writer.WriteEndObject();
     }
@@ -235,7 +235,7 @@ public static partial class DocfxConfigWriter
     {
         writer.WriteStartObject();
 
-        writer.WritePropertyName("content");
+        writer.WritePropertyName("content"u8);
         writer.WriteStartArray();
         for (var i = 0; i < build.Content.Length; i++)
         {
@@ -260,7 +260,7 @@ public static partial class DocfxConfigWriter
 
         if (entry.Files is { } files)
         {
-            writer.WritePropertyName("files");
+            writer.WritePropertyName("files"u8);
             WriteStringArray(writer, files);
         }
 

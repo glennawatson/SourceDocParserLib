@@ -6,6 +6,7 @@ using System.IO.Compression;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace SourceDocParser.NuGet;
@@ -149,8 +150,14 @@ public sealed partial class GlobalCacheInstaller : IDisposable
     {
         var hash = await ComputeContentHashAsync(nupkgPath, cancellationToken).ConfigureAwait(false);
         var metadataPath = Path.Combine(installPath, NupkgMetadataFileName);
-        var json = $"{{\"version\":2,\"contentHash\":\"{hash}\",\"source\":\"{source.Url}\"}}";
-        await File.WriteAllTextAsync(metadataPath, json, cancellationToken).ConfigureAwait(false);
+        await using var stream = new FileStream(metadataPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 256, FileOptions.Asynchronous);
+        await using var writer = new Utf8JsonWriter(stream);
+        writer.WriteStartObject();
+        writer.WriteNumber("version"u8, 2);
+        writer.WriteString("contentHash"u8, hash);
+        writer.WriteString("source"u8, source.Url);
+        writer.WriteEndObject();
+        await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Computes the SHA-512 / Base64 content hash NuGet stores in <c>.nupkg.metadata</c>.</summary>
@@ -278,9 +285,9 @@ public sealed partial class GlobalCacheInstaller : IDisposable
         }
 
         var envOverride = Environment.GetEnvironmentVariable(FlatContainerEnvVar);
-        if (!string.IsNullOrWhiteSpace(envOverride))
+        if (TextHelpers.HasNonWhitespace(envOverride))
         {
-            _flatContainerByFeed[source.Key] = envOverride.EndsWith('/') ? envOverride : envOverride + "/";
+            _flatContainerByFeed[source.Key] = TextHelpers.EnsureTrailingSlash(envOverride);
             return _flatContainerByFeed[source.Key];
         }
 
@@ -289,8 +296,8 @@ public sealed partial class GlobalCacheInstaller : IDisposable
 
         using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
-        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
-        var url = NuGetServiceIndexReader.ReadFlatContainerUrl(bytes);
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        var url = await NuGetServiceIndexReader.ReadFlatContainerUrlAsync(stream, cancellationToken).ConfigureAwait(false);
         _flatContainerByFeed[source.Key] = url;
         return url;
     }

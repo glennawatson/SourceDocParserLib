@@ -62,7 +62,7 @@ internal static class PackageInstallLock
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(lockFilePath);
         var dir = Path.GetDirectoryName(lockFilePath);
-        if (!string.IsNullOrEmpty(dir))
+        if (TextHelpers.HasValue(dir))
         {
             Directory.CreateDirectory(dir);
         }

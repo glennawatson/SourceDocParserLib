@@ -211,7 +211,7 @@ internal static class SourceUrlRewriter
     private static string? ExtractQueryParameter(in ReadOnlySpan<char> query, string name)
     {
         var current = query;
-        while (current.Length > 0)
+        while (!current.IsEmpty)
         {
             var ampIdx = current.IndexOf(PairSeparator);
             var pair = ampIdx < 0 ? current : current[..ampIdx];

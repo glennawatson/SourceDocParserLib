@@ -16,12 +16,12 @@ internal static class DocfxCommentId
     /// <returns>The commentId string, or empty when the type has no UID.</returns>
     public static string ForType(ApiType type)
     {
-        if (type.Uid.Length > 0)
+        if (type.Uid is [_, ..])
         {
             return type.Uid;
         }
 
-        return type.FullName.Length > 0 ? "T:" + type.FullName : string.Empty;
+        return type.FullName is [_, ..] ? $"T:{type.FullName}" : string.Empty;
     }
 
     /// <summary>

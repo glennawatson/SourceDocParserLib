@@ -86,8 +86,12 @@ internal static class DocfxYamlBuilderExtensions
     /// </summary>
     /// <param name="sb">Destination builder.</param>
     /// <param name="references">Distinct reference list.</param>
+    /// <param name="internalUids">UIDs of types emitted in this run; drives <c>isExternal</c> + <c>href</c>.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
-    public static StringBuilder AppendPageReferences(this StringBuilder sb, ApiTypeReference[] references)
+    public static StringBuilder AppendPageReferences(
+        this StringBuilder sb,
+        ApiTypeReference[] references,
+        HashSet<string> internalUids)
     {
         if (references is [])
         {
@@ -97,7 +101,7 @@ internal static class DocfxYamlBuilderExtensions
         sb.Append("references:\n");
         for (var i = 0; i < references.Length; i++)
         {
-            sb.AppendReference(references[i]);
+            DocfxReferenceEnricher.AppendEnrichedReference(sb, references[i], internalUids);
         }
 
         return sb;
@@ -397,12 +401,12 @@ internal static class DocfxYamlBuilderExtensions
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendQualifiedScalar(this StringBuilder sb, string left, char separator, string right)
     {
-        if (left.Length == 0)
+        if (left is [])
         {
             return sb.AppendScalar(right);
         }
 
-        if (right.Length == 0)
+        if (right is [])
         {
             return sb.AppendScalar(left);
         }

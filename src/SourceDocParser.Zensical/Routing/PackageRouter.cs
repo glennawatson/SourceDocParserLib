@@ -30,7 +30,7 @@ internal static class PackageRouter
         ArgumentNullException.ThrowIfNull(assemblyName);
         ArgumentNullException.ThrowIfNull(rules);
 
-        if (rules.Length == 0)
+        if (rules is [])
         {
             return assemblyName;
         }
@@ -53,7 +53,7 @@ internal static class PackageRouter
     /// <returns>True for exact match or prefix-with-dot match.</returns>
     private static bool Matches(string assemblyName, string prefix)
     {
-        if (string.IsNullOrEmpty(prefix))
+        if (prefix is not [_, ..])
         {
             return false;
         }

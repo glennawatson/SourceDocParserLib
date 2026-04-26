@@ -118,7 +118,12 @@ internal static class ZensicalEmitterHelpers
     /// <param name="memberName">Sanitised member file stem.</param>
     /// <param name="extension">Output file extension.</param>
     /// <returns>The relative path.</returns>
-    public static string BuildMemberPath(string namespaceName, string typeName, int arity, string memberName, string extension)
+    public static string BuildMemberPath(
+        string namespaceName,
+        string typeName,
+        int arity,
+        string memberName,
+        string extension)
     {
         var namespacePrefix = new NamespacePathFormatter(namespaceName);
         var typeFolder = new PathTypeNameFormatter(typeName, arity);
@@ -169,6 +174,54 @@ internal static class ZensicalEmitterHelpers
     }
 
     /// <summary>
+    /// Escapes pipes and normalises line endings for a Markdown table cell.
+    /// </summary>
+    /// <param name="text">The cell content.</param>
+    /// <returns>The escaped table cell content.</returns>
+    public static string EscapeTableCell(string text)
+    {
+        var firstEscapeIndex = text.AsSpan().IndexOfAny(['|', '\n', '\r']);
+        if (firstEscapeIndex < 0)
+        {
+            return text;
+        }
+
+        return string.Create(
+            text.Length + CountEscapedPipes(text.AsSpan(firstEscapeIndex)),
+            (Text: text, FirstEscapeIndex: firstEscapeIndex),
+            static (dest, state) =>
+            {
+                state.Text.AsSpan(0, state.FirstEscapeIndex).CopyTo(dest);
+                var destIndex = state.FirstEscapeIndex;
+                for (var i = state.FirstEscapeIndex; i < state.Text.Length; i++)
+                {
+                    switch (state.Text[i])
+                    {
+                        case '|':
+                            {
+                                dest[destIndex++] = '\\';
+                                dest[destIndex++] = '|';
+                                break;
+                            }
+
+                        case '\n':
+                        case '\r':
+                            {
+                                dest[destIndex++] = ' ';
+                                break;
+                            }
+
+                        default:
+                            {
+                                dest[destIndex++] = state.Text[i];
+                                break;
+                            }
+                    }
+                }
+            });
+    }
+
+    /// <summary>
     /// Writes a positive integer into the destination span.
     /// </summary>
     /// <param name="dest">Destination span.</param>
@@ -201,6 +254,22 @@ internal static class ZensicalEmitterHelpers
         }
 
         return digits;
+    }
+
+    /// <summary>
+    /// Counts pipes in the span so the escaped table-cell length can be computed up front.
+    /// </summary>
+    /// <param name="text">Text to scan.</param>
+    /// <returns>The number of extra backslashes needed.</returns>
+    private static int CountEscapedPipes(in ReadOnlySpan<char> text)
+    {
+        var count = 0;
+        for (var i = 0; i < text.Length; i++)
+        {
+            count += text[i] is '|' ? 1 : 0;
+        }
+
+        return count;
     }
 
     /// <summary>
@@ -313,7 +382,9 @@ internal static class ZensicalEmitterHelpers
     private readonly record struct PathTypeNameFormatter(string Name, int Arity)
     {
         /// <summary>Gets the rendered path length.</summary>
-        public int Length => Arity is 0 ? Name.Length : Name.Length + new GenericPlaceholderFormatter(Arity, '{', '}', ",").Length;
+        public int Length => Arity is 0
+            ? Name.Length
+            : Name.Length + new GenericPlaceholderFormatter(Arity, '{', '}', ",").Length;
 
         /// <summary>
         /// Writes the formatted path name into <paramref name="dest"/>.

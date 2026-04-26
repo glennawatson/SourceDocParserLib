@@ -36,10 +36,7 @@ internal static class PackageSourcesReader
     /// <summary>Reader settings shared across every parse — async on so we pump a FileStream that opened with FileOptions.Asynchronous.</summary>
     private static readonly XmlReaderSettings _readerSettings = new()
     {
-        Async = true,
-        IgnoreComments = true,
-        IgnoreWhitespace = true,
-        DtdProcessing = DtdProcessing.Prohibit,
+        Async = true, IgnoreComments = true, IgnoreWhitespace = true, DtdProcessing = DtdProcessing.Prohibit,
     };
 
     /// <summary>
@@ -53,10 +50,18 @@ internal static class PackageSourcesReader
     /// <param name="configPath">Absolute path to a <c>nuget.config</c>.</param>
     /// <param name="cancellationToken">Token observed across the parse.</param>
     /// <returns>Per-file result (clearedSeen + ordered sources).</returns>
-    public static async Task<PackageSourceFileResult> ReadPackageSourcesAsync(string configPath, CancellationToken cancellationToken = default)
+    public static async Task<PackageSourceFileResult> ReadPackageSourcesAsync(
+        string configPath,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(configPath);
-        var stream = new FileStream(configPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, FileOptions.SequentialScan | FileOptions.Asynchronous);
+        var stream = new FileStream(
+            configPath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 4096,
+            FileOptions.SequentialScan | FileOptions.Asynchronous);
         await using (stream.ConfigureAwait(false))
         {
             return await ReadPackageSourcesAsync(stream, cancellationToken).ConfigureAwait(false);
@@ -70,7 +75,9 @@ internal static class PackageSourcesReader
     /// <param name="configStream">Open stream positioned at the start of the <c>nuget.config</c> XML.</param>
     /// <param name="cancellationToken">Token observed across the parse.</param>
     /// <returns>Per-file result (clearedSeen + ordered sources).</returns>
-    public static async Task<PackageSourceFileResult> ReadPackageSourcesAsync(Stream configStream, CancellationToken cancellationToken = default)
+    public static async Task<PackageSourceFileResult> ReadPackageSourcesAsync(
+        Stream configStream,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(configStream);
 
@@ -90,13 +97,15 @@ internal static class PackageSourcesReader
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (reader is { NodeType: XmlNodeType.Element } && reader.LocalName.Equals(PackageSourcesElementName, StringComparison.OrdinalIgnoreCase))
+            if (reader is { NodeType: XmlNodeType.Element } &&
+                reader.LocalName.Equals(PackageSourcesElementName, StringComparison.OrdinalIgnoreCase))
             {
                 insideSection = true;
                 continue;
             }
 
-            if (reader is { NodeType: XmlNodeType.EndElement } && reader.LocalName.Equals(PackageSourcesElementName, StringComparison.OrdinalIgnoreCase))
+            if (reader is { NodeType: XmlNodeType.EndElement } &&
+                reader.LocalName.Equals(PackageSourcesElementName, StringComparison.OrdinalIgnoreCase))
             {
                 insideSection = false;
                 continue;
@@ -122,7 +131,7 @@ internal static class PackageSourcesReader
 
             var key = reader.GetAttribute(KeyAttributeName);
             var value = reader.GetAttribute(ValueAttributeName);
-            if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value))
+            if (!TextHelpers.HasNonWhitespace(key) || !TextHelpers.HasNonWhitespace(value))
             {
                 continue;
             }

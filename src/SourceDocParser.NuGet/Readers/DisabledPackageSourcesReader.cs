@@ -33,10 +33,7 @@ internal static class DisabledPackageSourcesReader
     /// <summary>Settings for the XML reader.</summary>
     private static readonly XmlReaderSettings _readerSettings = new()
     {
-        Async = true,
-        IgnoreComments = true,
-        IgnoreWhitespace = true,
-        DtdProcessing = DtdProcessing.Prohibit,
+        Async = true, IgnoreComments = true, IgnoreWhitespace = true, DtdProcessing = DtdProcessing.Prohibit,
     };
 
     /// <summary>Reads the disabled-source keys from the specified <paramref name="configPath"/>.</summary>
@@ -48,10 +45,18 @@ internal static class DisabledPackageSourcesReader
     /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
     /// <returns>A task that represents the asynchronous read operation. The task result contains a set of disabled source keys (case-insensitive).</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="configPath"/> is null or whitespace.</exception>
-    public static async Task<HashSet<string>> ReadAsync(string configPath, CancellationToken cancellationToken = default)
+    public static async Task<HashSet<string>> ReadAsync(
+        string configPath,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(configPath);
-        var stream = new FileStream(configPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, FileOptions.SequentialScan | FileOptions.Asynchronous);
+        var stream = new FileStream(
+            configPath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 4096,
+            FileOptions.SequentialScan | FileOptions.Asynchronous);
         await using (stream.ConfigureAwait(false))
         {
             return await ReadAsync(stream, cancellationToken).ConfigureAwait(false);
@@ -68,7 +73,9 @@ internal static class DisabledPackageSourcesReader
     /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
     /// <returns>A task that represents the asynchronous read operation. The task result contains a set of disabled source keys (case-insensitive).</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="configStream"/> is null.</exception>
-    public static async Task<HashSet<string>> ReadAsync(Stream configStream, CancellationToken cancellationToken = default)
+    public static async Task<HashSet<string>> ReadAsync(
+        Stream configStream,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(configStream);
         var disabled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -79,16 +86,21 @@ internal static class DisabledPackageSourcesReader
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (reader is { NodeType: XmlNodeType.Element } && reader.LocalName.Equals(SectionName, StringComparison.OrdinalIgnoreCase))
+            switch (reader)
             {
-                insideSection = true;
-                continue;
-            }
+                case { NodeType: XmlNodeType.Element } when
+                    reader.LocalName.Equals(SectionName, StringComparison.OrdinalIgnoreCase):
+                    {
+                        insideSection = true;
+                        continue;
+                    }
 
-            if (reader is { NodeType: XmlNodeType.EndElement } && reader.LocalName.Equals(SectionName, StringComparison.OrdinalIgnoreCase))
-            {
-                insideSection = false;
-                continue;
+                case { NodeType: XmlNodeType.EndElement } when
+                    reader.LocalName.Equals(SectionName, StringComparison.OrdinalIgnoreCase):
+                    {
+                        insideSection = false;
+                        continue;
+                    }
             }
 
             if (!insideSection || reader.NodeType != XmlNodeType.Element)
@@ -103,7 +115,7 @@ internal static class DisabledPackageSourcesReader
 
             var key = reader.GetAttribute(KeyAttributeName);
             var value = reader.GetAttribute(ValueAttributeName);
-            if (string.IsNullOrWhiteSpace(key) || !TrueLiteral.Equals(value, StringComparison.OrdinalIgnoreCase))
+            if (!TextHelpers.HasNonWhitespace(key) || !TrueLiteral.Equals(value, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }

@@ -62,10 +62,10 @@ internal static class AttributeExtractor
                 continue;
             }
 
-            var message = data.ConstructorArguments.Length > 0
-                ? data.ConstructorArguments[0].Value as string
+            var message = data.ConstructorArguments is [var first, ..]
+                ? first.Value as string
                 : null;
-            return (true, string.IsNullOrEmpty(message) ? null : message);
+            return (true, message is [_, ..] ? message : null);
         }
 
         return (false, null);

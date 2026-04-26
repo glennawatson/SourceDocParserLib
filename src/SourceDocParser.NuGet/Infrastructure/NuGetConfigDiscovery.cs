@@ -35,7 +35,7 @@ internal static class NuGetConfigDiscovery
         ArgumentException.ThrowIfNullOrWhiteSpace(workingFolder);
 
         var dir = Path.GetFullPath(workingFolder);
-        while (!string.IsNullOrEmpty(dir))
+        while (dir is [_, ..])
         {
             for (var i = 0; i < _configFileNames.Length; i++)
             {
@@ -176,7 +176,7 @@ internal static class NuGetConfigDiscovery
             }
         }
 
-        if (merged.Count == 0)
+        if (merged.Count is 0)
         {
             return [DefaultNuGetOrgSource];
         }

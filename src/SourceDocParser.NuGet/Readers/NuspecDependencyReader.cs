@@ -117,7 +117,7 @@ internal static class NuspecDependencyReader
             if (reader is { NodeType: XmlNodeType.Element } && IsDependencyElement(reader))
             {
                 var id = reader.GetAttribute(IdAttributeName);
-                if (!string.IsNullOrWhiteSpace(id))
+                if (TextHelpers.HasNonWhitespace(id))
                 {
                     ids.Add(id);
                 }

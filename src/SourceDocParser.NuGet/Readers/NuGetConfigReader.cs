@@ -134,7 +134,7 @@ internal static class NuGetConfigReader
             }
 
             var value = reader.GetAttribute(ValueAttributeName);
-            if (!string.IsNullOrWhiteSpace(value))
+            if (TextHelpers.HasNonWhitespace(value))
             {
                 foundValue = value;
             }

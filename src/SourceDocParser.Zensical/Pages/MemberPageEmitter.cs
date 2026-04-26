@@ -517,8 +517,5 @@ public static class MemberPageEmitter
     /// </summary>
     /// <param name="text">The text.</param>
     /// <returns>The escaped text.</returns>
-    private static string TableEscape(string text) =>
-        text.Replace("|", "\\|", StringComparison.Ordinal)
-            .Replace('\n', ' ')
-            .Replace('\r', ' ');
+    private static string TableEscape(string text) => ZensicalEmitterHelpers.EscapeTableCell(text);
 }

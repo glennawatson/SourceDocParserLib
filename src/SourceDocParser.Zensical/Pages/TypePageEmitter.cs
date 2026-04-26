@@ -558,7 +558,7 @@ public static class TypePageEmitter
     /// <param name="examples">The example XML fragments.</param>
     private static void AppendExamples(StringBuilder sb, string[] examples)
     {
-        if (examples.Length == 0)
+        if (examples is [])
         {
             return;
         }
@@ -636,7 +636,7 @@ public static class TypePageEmitter
         ApiMemberKind kind,
         ApiType containingType)
     {
-        if (!byKind.TryGetValue(kind, out var entries) || entries.Count == 0)
+        if (!byKind.TryGetValue(kind, out var entries) || entries.Count is 0)
         {
             return;
         }
@@ -758,10 +758,5 @@ public static class TypePageEmitter
     /// </summary>
     /// <param name="text">The cell content.</param>
     /// <returns>The escaped table cell content.</returns>
-    private static string TableEscape(string text) =>
-        text.AsSpan().IndexOfAny(['|', '\n', '\r']) < 0
-            ? text
-            : text.Replace("|", "\\|", StringComparison.Ordinal)
-                .Replace('\n', ' ')
-                .Replace('\r', ' ');
+    private static string TableEscape(string text) => ZensicalEmitterHelpers.EscapeTableCell(text);
 }

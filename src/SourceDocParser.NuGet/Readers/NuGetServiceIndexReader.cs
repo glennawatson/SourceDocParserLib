@@ -14,53 +14,60 @@ namespace SourceDocParser.NuGet;
 /// </summary>
 internal static class NuGetServiceIndexReader
 {
-    /// <summary>
-    /// The resource <c>@type</c> identifying the v3 flat-container
-    /// download endpoint. Highest-versioned entry wins per
-    /// NuGet's own client.
-    /// </summary>
-    private const string FlatContainerTypePrefix = "PackageBaseAddress/3.0.0";
-
     /// <summary>Strict parse options — duplicate keys throw rather than silently last-one-wins.</summary>
     private static readonly JsonDocumentOptions _strictDocOptions = new() { AllowDuplicateProperties = false };
 
     /// <summary>Reads the flat-container URL from <paramref name="indexJson"/>.</summary>
     /// <param name="indexJson">UTF-8 bytes of the v3 service-index document.</param>
     /// <returns>The flat-container base URL ending with <c>/</c>; null when none declared.</returns>
-    public static string? ReadFlatContainerUrl(ReadOnlySpan<byte> indexJson)
+    public static string? ReadFlatContainerUrl(ReadOnlyMemory<byte> indexJson)
     {
-        using var doc = JsonDocument.Parse(indexJson.ToArray(), _strictDocOptions);
+        using var doc = JsonDocument.Parse(indexJson, _strictDocOptions);
+        return ReadFlatContainerUrl(doc.RootElement);
+    }
 
-        if (!doc.RootElement.TryGetProperty("resources"u8, out var resources) || resources.ValueKind != JsonValueKind.Array)
+    /// <summary>Reads the flat-container URL from <paramref name="indexJsonStream"/>.</summary>
+    /// <param name="indexJsonStream">UTF-8 stream of the v3 service-index document.</param>
+    /// <param name="cancellationToken">Token observed across the JSON parse.</param>
+    /// <returns>The flat-container base URL ending with <c>/</c>; null when none declared.</returns>
+    public static async Task<string?> ReadFlatContainerUrlAsync(Stream indexJsonStream, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(indexJsonStream);
+        using var doc = await JsonDocument.ParseAsync(indexJsonStream, _strictDocOptions, cancellationToken).ConfigureAwait(false);
+        return ReadFlatContainerUrl(doc.RootElement);
+    }
+
+    /// <summary>Extracts the flat-container URL from the parsed service-index root object.</summary>
+    /// <param name="root">Parsed service-index root.</param>
+    /// <returns>The flat-container base URL ending with <c>/</c>; null when none declared.</returns>
+    private static string? ReadFlatContainerUrl(in JsonElement root)
+    {
+        if (!root.TryGetProperty("resources"u8, out var resources) || resources is not { ValueKind: JsonValueKind.Array })
         {
             return null;
         }
 
         foreach (var resource in resources.EnumerateArray())
         {
-            if (!resource.TryGetProperty("@type"u8, out var type) || type.ValueKind != JsonValueKind.String)
+            if (!resource.TryGetProperty("@type"u8, out var type)
+                || type is not { ValueKind: JsonValueKind.String }
+                || !type.ValueEquals("PackageBaseAddress/3.0.0"u8))
             {
                 continue;
             }
 
-            var typeValue = type.GetString();
-            if (!FlatContainerTypePrefix.Equals(typeValue, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            if (!resource.TryGetProperty("@id"u8, out var id) || id.ValueKind != JsonValueKind.String)
+            if (!resource.TryGetProperty("@id"u8, out var id) || id is not { ValueKind: JsonValueKind.String })
             {
                 continue;
             }
 
             var url = id.GetString();
-            if (string.IsNullOrWhiteSpace(url))
+            if (!TextHelpers.HasNonWhitespace(url))
             {
                 continue;
             }
 
-            return url.EndsWith('/') ? url : url + "/";
+            return TextHelpers.EnsureTrailingSlash(url);
         }
 
         return null;
