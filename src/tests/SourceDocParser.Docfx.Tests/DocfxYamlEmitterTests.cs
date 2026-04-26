@@ -88,13 +88,13 @@ public class DocfxYamlEmitterTests
 
         await Assert.That(typeItem[new YamlScalarNode("uid")].ToString()).IsEqualTo("Foo");
         await Assert.That(typeItem[new YamlScalarNode("type")].ToString()).IsEqualTo("Class");
-        await Assert.That(memberItem[new YamlScalarNode("uid")].ToString()).IsEqualTo("M:Foo.Run");
+        await Assert.That(memberItem[new YamlScalarNode("uid")].ToString()).IsEqualTo("Foo.Run");
         await Assert.That(memberItem[new YamlScalarNode("parent")].ToString()).IsEqualTo("Foo");
         await Assert.That(memberItem[new YamlScalarNode("type")].ToString()).IsEqualTo("Method");
 
         var children = (YamlSequenceNode)typeItem[new YamlScalarNode("children")];
         await Assert.That(children.Children).Count().IsEqualTo(1);
-        await Assert.That(children.Children[0].ToString()).IsEqualTo("M:Foo.Run");
+        await Assert.That(children.Children[0].ToString()).IsEqualTo("Foo.Run");
     }
 
     /// <summary>
@@ -211,8 +211,8 @@ public class DocfxYamlEmitterTests
             .Cast<YamlMappingNode>()
             .Select(static n => n[new YamlScalarNode("uid")].ToString())
             .ToList();
-        await Assert.That(refUids).Contains("T:System.String");
-        await Assert.That(refUids).Contains("T:System.Int32");
+        await Assert.That(refUids).Contains("System.String");
+        await Assert.That(refUids).Contains("System.Int32");
     }
 
     /// <summary>
@@ -231,7 +231,7 @@ public class DocfxYamlEmitterTests
 
         await Assert.That(DocfxYamlEmitter.PathFor(simple)).IsEqualTo("Foo.Bar.yml");
         await Assert.That(DocfxYamlEmitter.PathFor(generic)).IsEqualTo("Foo.Bar_T_.yml");
-        await Assert.That(DocfxYamlEmitter.PathFor(unsafeUid)).IsEqualTo("T_Foo_Bar_Baz__Qux_.yml");
+        await Assert.That(DocfxYamlEmitter.PathFor(unsafeUid)).IsEqualTo("Foo_Bar_Baz__Qux_.yml");
     }
 
     /// <summary>
@@ -510,8 +510,8 @@ public class DocfxYamlEmitterTests
             .Select(static n => n[new YamlScalarNode("uid")].ToString())
             .ToList();
 
-        await Assert.That(refUids).Contains("T:My.Shape.Circle");
-        await Assert.That(refUids).Contains("T:My.Shape.Square");
+        await Assert.That(refUids).Contains("My.Shape.Circle");
+        await Assert.That(refUids).Contains("My.Shape.Square");
     }
 
     /// <summary>
@@ -538,7 +538,7 @@ public class DocfxYamlEmitterTests
         var inheritance = (YamlSequenceNode)typeItem[new YamlScalarNode("inheritance")];
         var implements = (YamlSequenceNode)typeItem[new YamlScalarNode("implements")];
 
-        await Assert.That(inheritance.Children.Single().ToString()).IsEqualTo("T:My.Base");
+        await Assert.That(inheritance.Children.Single().ToString()).IsEqualTo("My.Base");
         await Assert.That(implements.Children).Count().IsEqualTo(2);
     }
 

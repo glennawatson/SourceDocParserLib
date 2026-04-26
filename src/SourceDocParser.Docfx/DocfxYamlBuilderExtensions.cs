@@ -29,7 +29,7 @@ internal static class DocfxYamlBuilderExtensions
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendTypeItem(this StringBuilder sb, ApiType type)
     {
-        sb.Append("- uid: ").AppendScalar(type.Uid).AppendLine()
+        sb.Append("- uid: ").AppendScalar(DocfxCommentId.ToUid(type.Uid)).AppendLine()
             .AppendIfPresent("  commentId: ", DocfxCommentId.ForType(type))
             .Append("  id: ").AppendScalar(type.Name).AppendLine()
             .AppendChildren(type)
@@ -148,7 +148,7 @@ internal static class DocfxYamlBuilderExtensions
     /// <param name="member">Member whose UID to emit.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendChild(this StringBuilder sb, ApiMember member) =>
-        sb.Append("  - ").AppendScalar(member.Uid).AppendLine();
+        sb.Append("  - ").AppendScalar(DocfxCommentId.ToUid(member.Uid)).AppendLine();
 
     /// <summary>
     /// Writes the <c>namespace:</c> field, skipped for the global
@@ -180,7 +180,7 @@ internal static class DocfxYamlBuilderExtensions
     public static StringBuilder AppendBaseType(this StringBuilder sb, ApiTypeReference? baseRef) =>
         baseRef is { Uid: var uid }
             ? sb.Append("  inheritance:\n  - ")
-                .AppendScalar(uid is [_, ..] ? uid : baseRef.DisplayName)
+                .AppendScalar(uid is [_, ..] ? DocfxCommentId.ToUid(uid) : baseRef.DisplayName)
                 .AppendLine()
             : sb;
 
@@ -209,7 +209,7 @@ internal static class DocfxYamlBuilderExtensions
     /// <param name="iface">Interface reference to emit.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendInterface(this StringBuilder sb, ApiTypeReference iface) =>
-        sb.Append("  - ").AppendScalar(iface is { Uid: [_, ..] uid } ? uid : iface.DisplayName).AppendLine();
+        sb.Append("  - ").AppendScalar(iface is { Uid: [_, ..] uid } ? DocfxCommentId.ToUid(uid) : iface.DisplayName).AppendLine();
 
     /// <summary>
     /// Dispatches the type-page <c>syntax:</c> block to the right
@@ -246,7 +246,7 @@ internal static class DocfxYamlBuilderExtensions
         sb.Append("  syntax:\n    content: ")
             .AppendScalar($"public enum {type.Name}").AppendLine()
             .Append("    return:\n      type: ")
-            .AppendScalar(type.UnderlyingType is { Uid: [_, ..] uid } ? uid : type.UnderlyingType.DisplayName)
+            .AppendScalar(type.UnderlyingType is { Uid: [_, ..] uid } ? DocfxCommentId.ToUid(uid) : type.UnderlyingType.DisplayName)
             .AppendLine()
             .Append("    parameters:\n");
 
@@ -290,10 +290,10 @@ internal static class DocfxYamlBuilderExtensions
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendMemberItem(this StringBuilder sb, ApiType type, ApiMember member)
     {
-        sb.Append("- uid: ").AppendScalar(member.Uid).AppendLine()
+        sb.Append("- uid: ").AppendScalar(DocfxCommentId.ToUid(member.Uid)).AppendLine()
             .AppendIfPresent("  commentId: ", DocfxCommentId.ForMember(member))
             .Append("  id: ").AppendScalar(member.Name).AppendLine()
-            .Append("  parent: ").AppendScalar(type.Uid).AppendLine()
+            .Append("  parent: ").AppendScalar(DocfxCommentId.ToUid(type.Uid)).AppendLine()
             .AppendLine("  langs:")
             .AppendLine("  - csharp")
             .Append("  name: ").AppendScalar(member.Name).AppendLine()
@@ -405,7 +405,7 @@ internal static class DocfxYamlBuilderExtensions
     public static StringBuilder AppendParameter(this StringBuilder sb, ApiParameter parameter, string indent) => sb
         .Append(indent).Append("- id: ").AppendScalar(parameter.Name).AppendLine()
         .Append(indent).Append("  type: ")
-        .AppendScalar(parameter.Type is { Uid: [_, ..] uid } ? uid : parameter.Type.DisplayName).AppendLine()
+        .AppendScalar(parameter.Type is { Uid: [_, ..] uid } ? DocfxCommentId.ToUid(uid) : parameter.Type.DisplayName).AppendLine()
         .AppendDefaultValue(parameter.DefaultValue, indent);
 
     /// <summary>Writes the parameter's <c>defaultValue:</c> field when present.</summary>
@@ -436,7 +436,7 @@ internal static class DocfxYamlBuilderExtensions
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendReturn(this StringBuilder sb, ApiTypeReference returnType, string indent) => sb
         .Append(indent).Append("return:\n").Append(indent).Append("  type: ")
-        .AppendScalar(returnType is { Uid: [_, ..] uid } ? uid : returnType.DisplayName)
+        .AppendScalar(returnType is { Uid: [_, ..] uid } ? DocfxCommentId.ToUid(uid) : returnType.DisplayName)
         .AppendLine();
 
     /// <summary>
@@ -448,7 +448,7 @@ internal static class DocfxYamlBuilderExtensions
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendReference(this StringBuilder sb, ApiTypeReference reference)
     {
-        var key = reference is { Uid: [_, ..] uid } ? uid : reference.DisplayName;
+        var key = reference is { Uid: [_, ..] uid } ? DocfxCommentId.ToUid(uid) : reference.DisplayName;
         var commentId = reference is { Uid: [_, ..] uid2 } ? uid2 : "T:" + reference.DisplayName;
         return sb
             .Append("- uid: ").AppendScalar(key).AppendLine()

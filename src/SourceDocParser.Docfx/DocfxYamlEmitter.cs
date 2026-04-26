@@ -67,7 +67,8 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     public static string PathFor(ApiType type)
     {
         ArgumentNullException.ThrowIfNull(type);
-        return DocfxInternalHelpers.SanitiseFileStem(type.Uid.Length > 0 ? type.Uid : type.FullName) + FileExtension;
+        var stem = type.Uid.Length > 0 ? DocfxCommentId.ToUid(type.Uid) : type.FullName;
+        return DocfxInternalHelpers.SanitiseFileStem(stem) + FileExtension;
     }
 
     /// <inheritdoc />
