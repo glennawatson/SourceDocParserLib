@@ -60,6 +60,8 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
             pages += EmitMemberPages(type, outputRoot, _options);
         }
 
+        pages += LandingPageEmitter.EmitAll(types, outputRoot, _options);
+
         return Task.FromResult(pages);
     }
 

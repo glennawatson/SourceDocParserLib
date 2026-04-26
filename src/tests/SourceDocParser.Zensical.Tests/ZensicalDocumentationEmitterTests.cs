@@ -28,9 +28,9 @@ public class ZensicalDocumentationEmitterTests
 
         var pages = await new ZensicalDocumentationEmitter().EmitAsync([type], scratch.Path);
 
-        // 1 type page + 3 overload-group pages.
-        await Assert.That(pages).IsEqualTo(4);
-        await Assert.That(MarkdownFiles(scratch.Path)).IsEqualTo(4);
+        // 1 type page + 3 overload-group pages + 1 package landing + 1 namespace landing.
+        await Assert.That(pages).IsEqualTo(6);
+        await Assert.That(MarkdownFiles(scratch.Path)).IsEqualTo(6);
     }
 
     /// <summary>
@@ -46,9 +46,9 @@ public class ZensicalDocumentationEmitterTests
 
         var pages = await new ZensicalDocumentationEmitter().EmitAsync([type], scratch.Path);
 
-        // 1 type page + 1 overload-group page (all three Run overloads
-        // share the same name bucket).
-        await Assert.That(pages).IsEqualTo(2);
+        // 1 type page + 1 overload-group page (all three Run overloads share
+        // the same name bucket) + 1 package landing + 1 namespace landing.
+        await Assert.That(pages).IsEqualTo(4);
     }
 
     /// <summary>
@@ -72,8 +72,9 @@ public class ZensicalDocumentationEmitterTests
         var type = TestData.EnumType("DemoEnum") with { Values = [.. values] };
         var pages = await new ZensicalDocumentationEmitter().EmitAsync([type], scratch.Path);
 
-        await Assert.That(pages).IsEqualTo(1);
-        await Assert.That(MarkdownFiles(scratch.Path)).IsEqualTo(1);
+        // 1 type page + 1 package landing + 1 namespace landing.
+        await Assert.That(pages).IsEqualTo(3);
+        await Assert.That(MarkdownFiles(scratch.Path)).IsEqualTo(3);
     }
 
     /// <summary>
@@ -89,8 +90,9 @@ public class ZensicalDocumentationEmitterTests
 
         var pages = await new ZensicalDocumentationEmitter().EmitAsync([type], scratch.Path);
 
-        await Assert.That(pages).IsEqualTo(1);
-        await Assert.That(MarkdownFiles(scratch.Path)).IsEqualTo(1);
+        // 1 type page + 1 package landing + 1 namespace landing.
+        await Assert.That(pages).IsEqualTo(3);
+        await Assert.That(MarkdownFiles(scratch.Path)).IsEqualTo(3);
     }
 
     /// <summary>
