@@ -51,9 +51,9 @@ public class DocfxReferenceEnricherTests
             new ApiTypeReference("IObservable<int>", "T:System.IObservable{System.Int32}"),
             internalUids: []);
 
-        await Assert.That(page).Contains("definition: T:System.IObservable`1");
+        await Assert.That(page).Contains("definition: System.IObservable`1");
         await Assert.That(page).Contains("spec.csharp:");
-        await Assert.That(page).Contains("  - uid: T:System.IObservable`1");
+        await Assert.That(page).Contains("  - uid: System.IObservable`1");
         await Assert.That(page).Contains("  - name: <");
         await Assert.That(page).Contains("  - name: '>'");
     }

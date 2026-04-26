@@ -53,9 +53,10 @@ internal static class DocfxReferenceEnricher
 
         // Constructed generics get a definition pointer back to the
         // open-generic uid so docfx can resolve the page link.
+        // Docfx convention: definition uses the bare uid (no T: prefix).
         if (!string.Equals(uid, openGenericUid, StringComparison.Ordinal))
         {
-            sb.Append("  definition: ").AppendScalar(openGenericUid).AppendLine();
+            sb.Append("  definition: ").AppendScalar(StripPrefix(openGenericUid)).AppendLine();
         }
 
         AppendIsExternal(sb, isInternal, indent: "  ");
@@ -68,7 +69,7 @@ internal static class DocfxReferenceEnricher
 
         if (displayName.AsSpan().IndexOfAny('<', '>') >= 0)
         {
-            AppendSpecCsharp(sb, displayName, openGenericUid, internalUids);
+            AppendSpecCsharp(sb, uid, displayName, openGenericUid, internalUids);
         }
 
         return sb;
@@ -223,31 +224,39 @@ internal static class DocfxReferenceEnricher
     /// so docfx can hyperlink each token independently.
     /// </summary>
     /// <param name="sb">Destination builder.</param>
+    /// <param name="uid">Full reference UID; its brace region carries fully-qualified names for spec components.</param>
     /// <param name="displayName">Display form of the generic reference (e.g. <c>IObservable&lt;int&gt;</c>).</param>
     /// <param name="openGenericUid">Open-generic UID for the base type token.</param>
     /// <param name="internalUids">Set used to classify each token as internal or external.</param>
     private static void AppendSpecCsharp(
         StringBuilder sb,
+        string uid,
         string displayName,
         string openGenericUid,
         HashSet<string> internalUids)
     {
         var ltIdx = displayName.IndexOf('<', StringComparison.Ordinal);
-        if (ltIdx <= 0)
+        var braceIdx = uid.IndexOf('{', StringComparison.Ordinal);
+        if (ltIdx <= 0 || braceIdx <= 0)
         {
             return;
         }
 
         var baseName = displayName[..ltIdx];
-        var argsRegion = displayName[(ltIdx + 1)..^1];
+        var displayArgsRegion = displayName[(ltIdx + 1)..^1];
+        var uidArgsRegion = uid[(braceIdx + 1)..^1];
 
         sb.AppendLine("  spec.csharp:");
         AppendSpecComponent(sb, openGenericUid, baseName, internalUids);
         sb.AppendLine("  - name: <");
-        var args = SplitTopLevelArgs(argsRegion);
-        for (var i = 0; i < args.Count; i++)
+        var displayArgs = SplitTopLevelArgs(displayArgsRegion, '<', '>');
+        var uidArgs = SplitTopLevelArgs(uidArgsRegion, '{', '}');
+        var argCount = Math.Max(displayArgs.Count, uidArgs.Count);
+        for (var i = 0; i < argCount; i++)
         {
-            AppendArgWithSeparator(sb, args[i], i, args.Count, internalUids);
+            var displayArg = i < displayArgs.Count ? displayArgs[i] : string.Empty;
+            var uidArg = i < uidArgs.Count ? uidArgs[i] : string.Empty;
+            AppendArgWithSeparator(sb, uidArg, displayArg, i, argCount, internalUids);
         }
 
         sb.AppendLine("  - name: '>'");
@@ -255,13 +264,14 @@ internal static class DocfxReferenceEnricher
 
     /// <summary>Renders one type-arg of a spec list and the comma separator between adjacent entries.</summary>
     /// <param name="sb">Destination builder.</param>
-    /// <param name="arg">The type-arg display form.</param>
+    /// <param name="uidArg">The type-arg in UID brace-region form (FQN).</param>
+    /// <param name="displayArg">The type-arg display form (short).</param>
     /// <param name="index">Zero-based position in the parent list.</param>
     /// <param name="count">Total count of args in the parent list.</param>
     /// <param name="internalUids">Classification set.</param>
-    private static void AppendArgWithSeparator(StringBuilder sb, string arg, int index, int count, HashSet<string> internalUids)
+    private static void AppendArgWithSeparator(StringBuilder sb, string uidArg, string displayArg, int index, int count, HashSet<string> internalUids)
     {
-        AppendSpecArg(sb, arg, internalUids);
+        AppendSpecArg(sb, uidArg, displayArg, internalUids);
         if (index >= count - 1)
         {
             return;
@@ -279,7 +289,9 @@ internal static class DocfxReferenceEnricher
     {
         var isInternal = internalUids.Contains(uid);
         var href = ResolveHref(uid, ToOpenGenericUid(uid), StripPrefix(uid), isInternal);
-        sb.Append("  - uid: ").AppendScalar(uid).AppendLine()
+
+        // Docfx convention: spec.csharp uid is bare (no T: prefix).
+        sb.Append("  - uid: ").AppendScalar(StripPrefix(uid)).AppendLine()
             .Append("    name: ").AppendScalar(name).AppendLine();
         AppendIsExternal(sb, isInternal, indent: "    ");
         AppendHref(sb, href, indent: "    ");
@@ -316,44 +328,61 @@ internal static class DocfxReferenceEnricher
     /// <summary>
     /// Renders one type-arg of a constructed generic — recurses into
     /// nested generics so <c>Func&lt;IObservable&lt;int&gt;&gt;</c>
-    /// produces a nested spec list rather than a flat string.
+    /// produces a nested spec list rather than a flat string. The
+    /// UID brace region carries fully-qualified names so it drives
+    /// component UIDs; the display brace region drives the labels.
     /// </summary>
     /// <param name="sb">Destination builder.</param>
-    /// <param name="arg">The display form of one type argument.</param>
+    /// <param name="uidArg">FQN form from the UID brace region.</param>
+    /// <param name="displayArg">Short form from the display brace region.</param>
     /// <param name="internalUids">Classification set.</param>
-    private static void AppendSpecArg(StringBuilder sb, string arg, HashSet<string> internalUids)
+    private static void AppendSpecArg(StringBuilder sb, string uidArg, string displayArg, HashSet<string> internalUids)
     {
-        var trimmed = arg.Trim();
-        var nestedLt = trimmed.IndexOf('<', StringComparison.Ordinal);
-        if (nestedLt < 0)
+        var trimmedUid = uidArg.Trim();
+        var trimmedDisplay = displayArg.Trim();
+        var displayLt = trimmedDisplay.IndexOf('<', StringComparison.Ordinal);
+        var uidBrace = trimmedUid.IndexOf('{', StringComparison.Ordinal);
+        if (displayLt < 0 || uidBrace < 0)
         {
-            // Plain leaf type: emit a single component. The display
-            // form may be unqualified (e.g. "int") so we synthesise a
-            // T: UID assuming primitive aliases map to System.* types.
-            var uid = "T:" + LiftPrimitive(trimmed);
-            AppendSpecComponent(sb, uid, trimmed, internalUids);
+            // Plain leaf type: emit a single component using the FQN
+            // from the UID side and the short label from the display
+            // side. Display may be unqualified — fall back to the
+            // promoted UID name when display is empty.
+            var leafUid = trimmedUid is [_, ..]
+                ? "T:" + LiftPrimitive(trimmedUid)
+                : "T:" + LiftPrimitive(trimmedDisplay);
+            var label = trimmedDisplay is [_, ..] ? trimmedDisplay : trimmedUid;
+            AppendSpecComponent(sb, leafUid, label, internalUids);
             return;
         }
 
-        var baseName = trimmed[..nestedLt];
-        var argRegion = trimmed[(nestedLt + 1)..^1];
-        var arity = CountTopLevelArgs(argRegion);
-        var openUid = "T:" + baseName + "`" + arity.ToString(CultureInfo.InvariantCulture);
-        AppendSpecComponent(sb, openUid, baseName, internalUids);
+        var displayBase = trimmedDisplay[..displayLt];
+        var displayRegion = trimmedDisplay[(displayLt + 1)..^1];
+        var uidBaseFqn = trimmedUid[..uidBrace];
+        var uidRegion = trimmedUid[(uidBrace + 1)..^1];
+        var arity = CountTopLevelArgs(uidRegion, '{', '}');
+        var openUid = "T:" + uidBaseFqn + "`" + arity.ToString(CultureInfo.InvariantCulture);
+        AppendSpecComponent(sb, openUid, displayBase, internalUids);
         sb.AppendLine("  - name: <");
-        var nestedArgs = SplitTopLevelArgs(argRegion);
-        for (var i = 0; i < nestedArgs.Count; i++)
+        var nestedDisplayArgs = SplitTopLevelArgs(displayRegion, '<', '>');
+        var nestedUidArgs = SplitTopLevelArgs(uidRegion, '{', '}');
+        var nestedCount = Math.Max(nestedDisplayArgs.Count, nestedUidArgs.Count);
+        for (var i = 0; i < nestedCount; i++)
         {
-            AppendArgWithSeparator(sb, nestedArgs[i], i, nestedArgs.Count, internalUids);
+            var nestedDisplay = i < nestedDisplayArgs.Count ? nestedDisplayArgs[i] : string.Empty;
+            var nestedUid = i < nestedUidArgs.Count ? nestedUidArgs[i] : string.Empty;
+            AppendArgWithSeparator(sb, nestedUid, nestedDisplay, i, nestedCount, internalUids);
         }
 
         sb.AppendLine("  - name: '>'");
     }
 
-    /// <summary>Splits a comma-separated type-argument list, ignoring commas inside nested angle brackets.</summary>
-    /// <param name="region">The comma-separated arg list (without the outer angle brackets).</param>
+    /// <summary>Splits a comma-separated type-argument list, ignoring commas inside nested bracket pairs.</summary>
+    /// <param name="region">The comma-separated arg list (without the outer brackets).</param>
+    /// <param name="open">Opening bracket character (<c>&lt;</c> for display names, <c>{</c> for UIDs).</param>
+    /// <param name="close">Closing bracket character.</param>
     /// <returns>The pieces in source order.</returns>
-    private static List<string> SplitTopLevelArgs(string region)
+    private static List<string> SplitTopLevelArgs(string region, char open, char close)
     {
         var depth = 0;
         var start = 0;
@@ -361,11 +390,11 @@ internal static class DocfxReferenceEnricher
         for (var i = 0; i < region.Length; i++)
         {
             var c = region[i];
-            if (c == '<')
+            if (c == open)
             {
                 depth++;
             }
-            else if (c == '>')
+            else if (c == close)
             {
                 depth--;
             }
@@ -381,20 +410,22 @@ internal static class DocfxReferenceEnricher
     }
 
     /// <summary>Counts top-level type arguments inside a comma-separated arg region.</summary>
-    /// <param name="region">The arg region (without the outer angle brackets).</param>
+    /// <param name="region">The arg region (without the outer brackets).</param>
+    /// <param name="open">Opening bracket character.</param>
+    /// <param name="close">Closing bracket character.</param>
     /// <returns>The number of top-level commas plus one.</returns>
-    private static int CountTopLevelArgs(string region)
+    private static int CountTopLevelArgs(string region, char open, char close)
     {
         var depth = 0;
         var count = 1;
         for (var i = 0; i < region.Length; i++)
         {
             var c = region[i];
-            if (c == '<')
+            if (c == open)
             {
                 depth++;
             }
-            else if (c == '>')
+            else if (c == close)
             {
                 depth--;
             }
