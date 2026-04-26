@@ -38,11 +38,23 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
         ArgumentException.ThrowIfNullOrWhiteSpace(outputRoot);
 
         var pages = 0;
+        var hasRouting = _options.PackageRouting.Length > 0;
         for (var i = 0; i < types.Length; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             var type = types[i];
+
+            // Walk-scope filter: when the user has configured
+            // package routing, types from non-primary assemblies
+            // (transient deps, BCL) are skipped — they get
+            // referenced via cross-links to Microsoft Learn /
+            // repo search instead of getting their own pages.
+            if (hasRouting && PackageRouter.ResolveFolder(type.AssemblyName, _options.PackageRouting) is null)
+            {
+                continue;
+            }
+
             TypePageEmitter.RenderToFile(type, outputRoot, _options);
             pages++;
             pages += EmitMemberPages(type, outputRoot, _options);
