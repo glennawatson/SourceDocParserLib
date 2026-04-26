@@ -119,20 +119,25 @@ internal static partial class PackageSourceCredentialsReader
                 continue;
             }
 
-            if (reader.NodeType == XmlNodeType.Element && IsCredentialChildElement(reader, currentSourceKey))
+            switch (reader.NodeType)
             {
-                if (currentSourceKey is null)
-                {
-                    currentSourceKey = UnescapeSourceName(reader.LocalName);
-                    continue;
-                }
+                case XmlNodeType.Element when IsCredentialChildElement(reader, currentSourceKey):
+                    {
+                        if (currentSourceKey is null)
+                        {
+                            currentSourceKey = UnescapeSourceName(reader.LocalName);
+                            continue;
+                        }
 
-                ApplyAddEntry(reader, ref username, ref clearTextPassword, ref validAuthTypes);
-            }
+                        ApplyAddEntry(reader, ref username, ref clearTextPassword, ref validAuthTypes);
+                        break;
+                    }
 
-            if (reader.NodeType == XmlNodeType.EndElement && currentSourceKey is not null && IsSourceContainerEnd(reader, currentSourceKey))
-            {
-                FlushCurrent(result, ref currentSourceKey, ref username, ref clearTextPassword, ref validAuthTypes);
+                case XmlNodeType.EndElement when currentSourceKey is not null && IsSourceContainerEnd(reader, currentSourceKey):
+                    {
+                        FlushCurrent(result, ref currentSourceKey, ref username, ref clearTextPassword, ref validAuthTypes);
+                        break;
+                    }
             }
         }
 

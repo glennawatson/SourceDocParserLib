@@ -14,6 +14,23 @@ namespace SourceDocParser.Zensical;
 /// </summary>
 public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
 {
+    /// <summary>Emitter tunables (per-package routing, BCL link base URL).</summary>
+    private readonly ZensicalEmitterOptions _options;
+
+    /// <summary>Initializes a new instance of the <see cref="ZensicalDocumentationEmitter"/> class with the legacy flat-namespace layout.</summary>
+    public ZensicalDocumentationEmitter()
+        : this(ZensicalEmitterOptions.Default)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="ZensicalDocumentationEmitter"/> class.</summary>
+    /// <param name="options">Routing rules + cross-link tunables.</param>
+    public ZensicalDocumentationEmitter(ZensicalEmitterOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        _options = options;
+    }
+
     /// <inheritdoc />
     public Task<int> EmitAsync(ApiType[] types, string outputRoot, CancellationToken cancellationToken = default)
     {
@@ -26,9 +43,9 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
             cancellationToken.ThrowIfCancellationRequested();
 
             var type = types[i];
-            TypePageEmitter.RenderToFile(type, outputRoot);
+            TypePageEmitter.RenderToFile(type, outputRoot, _options);
             pages++;
-            pages += EmitMemberPages(type, outputRoot);
+            pages += EmitMemberPages(type, outputRoot, _options);
         }
 
         return Task.FromResult(pages);
@@ -44,8 +61,9 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
     /// </summary>
     /// <param name="type">Type whose members to emit pages for.</param>
     /// <param name="outputRoot">Markdown output root.</param>
+    /// <param name="options">Routing + cross-link tunables threaded through to the per-overload write.</param>
     /// <returns>Total page count written.</returns>
-    private static int EmitMemberPages(ApiType type, string outputRoot)
+    private static int EmitMemberPages(ApiType type, string outputRoot, ZensicalEmitterOptions options)
     {
         var members = type switch
         {
@@ -75,7 +93,7 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
         var pages = 0;
         foreach (var group in groups)
         {
-            MemberPageEmitter.RenderToFile(type, group.Key, [.. group.Value], outputRoot);
+            MemberPageEmitter.RenderToFile(type, group.Key, [.. group.Value], outputRoot, options);
             pages++;
         }
 

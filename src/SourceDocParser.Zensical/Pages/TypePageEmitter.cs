@@ -47,9 +47,20 @@ public static class TypePageEmitter
     /// </summary>
     /// <param name="type">The type to render.</param>
     /// <param name="outputRoot">The directory that contains the api/ tree.</param>
-    public static void RenderToFile(ApiType type, string outputRoot)
+    public static void RenderToFile(ApiType type, string outputRoot) =>
+        RenderToFile(type, outputRoot, ZensicalEmitterOptions.Default);
+
+    /// <summary>
+    /// Renders and writes the page to disk under <paramref name="outputRoot"/>,
+    /// honouring per-package routing rules from <paramref name="options"/>.
+    /// </summary>
+    /// <param name="type">The type to render.</param>
+    /// <param name="outputRoot">The directory that contains the api/ tree.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    public static void RenderToFile(ApiType type, string outputRoot, ZensicalEmitterOptions options)
     {
-        var relativePath = PathFor(type);
+        ArgumentNullException.ThrowIfNull(options);
+        var relativePath = PathFor(type, options);
         var fullPath = Path.Combine(outputRoot, relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
         File.WriteAllText(fullPath, Render(type));
@@ -115,17 +126,29 @@ public static class TypePageEmitter
     }
 
     /// <summary>
-    /// Returns a relative file path for the type's page.
+    /// Returns a relative file path for the type's page (legacy
+    /// flat-namespace layout — no per-package folder routing).
     /// </summary>
-    /// <remarks>
-    /// Generic types use curly braces for Windows safety and URL readability.
-    /// </remarks>
     /// <param name="type">The type whose page path to compute.</param>
     /// <returns>The relative file path for the type's page.</returns>
-    public static string PathFor(ApiType type)
+    public static string PathFor(ApiType type) => PathFor(type, ZensicalEmitterOptions.Default);
+
+    /// <summary>
+    /// Returns a relative file path for the type's page, prefixed by
+    /// the package folder when <paramref name="options"/> declares a
+    /// matching <see cref="PackageRoutingRule"/>.
+    /// </summary>
+    /// <param name="type">The type whose page path to compute.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    /// <returns>The relative file path for the type's page.</returns>
+    public static string PathFor(ApiType type, ZensicalEmitterOptions options)
     {
         ArgumentNullException.ThrowIfNull(type);
-        return ZensicalEmitterHelpers.BuildTypePath(type.Namespace, type.Name, type.Arity, FileExtension);
+        ArgumentNullException.ThrowIfNull(options);
+
+        var basePath = ZensicalEmitterHelpers.BuildTypePath(type.Namespace, type.Name, type.Arity, FileExtension);
+        var packageFolder = PackageRouter.ResolveFolder(type.AssemblyName, options.PackageRouting);
+        return packageFolder is null ? basePath : Path.Combine(packageFolder, basePath);
     }
 
     /// <summary>

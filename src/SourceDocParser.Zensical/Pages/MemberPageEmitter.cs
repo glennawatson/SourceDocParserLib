@@ -95,16 +95,33 @@ public static class MemberPageEmitter
     /// <param name="containingType">The declaring type.</param>
     /// <param name="memberName">The member name.</param>
     /// <returns>The relative path.</returns>
-    public static string PathFor(ApiType containingType, string memberName)
+    public static string PathFor(ApiType containingType, string memberName) =>
+        PathFor(containingType, memberName, ZensicalEmitterOptions.Default);
+
+    /// <summary>
+    /// Gets the documentation path for a member, prefixed by the
+    /// package folder when <paramref name="options"/> declares a
+    /// matching <see cref="PackageRoutingRule"/>.
+    /// </summary>
+    /// <param name="containingType">The declaring type.</param>
+    /// <param name="memberName">The member name.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    /// <returns>The relative path.</returns>
+    public static string PathFor(ApiType containingType, string memberName, ZensicalEmitterOptions options)
     {
         ArgumentNullException.ThrowIfNull(containingType);
         ArgumentException.ThrowIfNullOrWhiteSpace(memberName);
-        return ZensicalEmitterHelpers.BuildMemberPath(
+        ArgumentNullException.ThrowIfNull(options);
+
+        var basePath = ZensicalEmitterHelpers.BuildMemberPath(
             containingType.Namespace,
             containingType.Name,
             containingType.Arity,
             ZensicalEmitterHelpers.SanitiseForFilename(memberName),
             TypePageEmitter.FileExtension);
+
+        var packageFolder = PackageRouter.ResolveFolder(containingType.AssemblyName, options.PackageRouting);
+        return packageFolder is null ? basePath : Path.Combine(packageFolder, basePath);
     }
 
     /// <summary>
@@ -115,9 +132,22 @@ public static class MemberPageEmitter
     /// <param name="memberName">Shared overload group name.</param>
     /// <param name="overloads">The overloads to render.</param>
     /// <param name="outputRoot">Directory that contains the api/ tree.</param>
-    public static void RenderToFile(ApiType containingType, string memberName, ApiMember[] overloads, string outputRoot)
+    public static void RenderToFile(ApiType containingType, string memberName, ApiMember[] overloads, string outputRoot) =>
+        RenderToFile(containingType, memberName, overloads, outputRoot, ZensicalEmitterOptions.Default);
+
+    /// <summary>
+    /// Render and write the page under <paramref name="outputRoot"/>,
+    /// honouring per-package routing rules from <paramref name="options"/>.
+    /// </summary>
+    /// <param name="containingType">Type the overloads are declared on.</param>
+    /// <param name="memberName">Shared overload group name.</param>
+    /// <param name="overloads">The overloads to render.</param>
+    /// <param name="outputRoot">Directory that contains the api/ tree.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    public static void RenderToFile(ApiType containingType, string memberName, ApiMember[] overloads, string outputRoot, ZensicalEmitterOptions options)
     {
-        var relativePath = PathFor(containingType, memberName);
+        ArgumentNullException.ThrowIfNull(options);
+        var relativePath = PathFor(containingType, memberName, options);
         var fullPath = Path.Combine(outputRoot, relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
         File.WriteAllText(fullPath, Render(containingType, memberName, overloads));
