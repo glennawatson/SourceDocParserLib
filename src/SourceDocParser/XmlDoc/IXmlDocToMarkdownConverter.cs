@@ -33,7 +33,19 @@ public interface IXmlDocToMarkdownConverter
     /// </summary>
     /// <param name="reader">Reader positioned on a start element.</param>
     /// <returns>Markdown-formatted doc fragment.</returns>
-    string Convert(XmlReader reader);
+    Task<string> ConvertAsync(XmlReader reader);
+
+    /// <summary>
+    /// Converts the current element's child nodes into Markdown,
+    /// streaming directly from <paramref name="reader"/> without
+    /// materialising an intermediate string. The reader must be
+    /// positioned on a start element; on return, the reader is at the
+    /// matching end element (or end-of-stream if the element was empty).
+    /// </summary>
+    /// <param name="reader">Reader positioned on a start element.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>Markdown-formatted doc fragment.</returns>
+    Task<string> ConvertAsync(XmlReader reader, CancellationToken cancellationToken);
 
     /// <summary>
     /// Converts a span of inner XML directly into Markdown without

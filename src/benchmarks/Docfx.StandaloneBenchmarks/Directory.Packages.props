@@ -1,0 +1,25 @@
+<Project>
+  <!--
+    Local central-pinning props for the docfx-only benchmark. Replaces
+    the solution-wide src/Directory.Packages.props for everything under
+    this folder so docfx 2.78.5's Roslyn (5.0.0) and Decompiler
+    (9.1.0.7988) pins stay isolated. No ProjectReferences cross this
+    boundary, so we don't drag SourceDocParser's preferred newer
+    Roslyn / Decompiler versions into the conflict.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
+    <PackageVersion Include="Docfx.Dotnet" Version="2.78.5" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="5.0.0" />
+    <PackageVersion Include="Nerdbank.GitVersioning" Version="3.9.50" />
+    <PackageVersion Include="stylecop.analyzers" Version="1.2.0-beta.556" />
+    <PackageVersion Include="Roslynator.Analyzers" Version="4.15.0" />
+    <PackageVersion Include="Blazor.Common.Analyzers" Version="1.0.28" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.203" />
+  </ItemGroup>
+</Project>

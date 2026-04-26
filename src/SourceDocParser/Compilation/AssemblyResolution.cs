@@ -31,8 +31,9 @@ public static partial class AssemblyResolution
 
         var index = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var dir in directories)
+        for (var i = 0; i < directories.Count; i++)
         {
+            var dir = directories[i];
             if (!Directory.Exists(dir))
             {
                 continue;

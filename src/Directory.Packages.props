@@ -37,6 +37,20 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageVersion Include="YamlDotNet" Version="17.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Docfx.Dotnet is referenced only by the head-to-head comparison
+         benchmark project; never by the production library. Lives in
+         its own benchmark assembly so docfx's transitive Roslyn /
+         Decompiler pins stay isolated and can be VersionOverride'd
+         locally if a future docfx release drops back to older deps. -->
+    <PackageVersion Include="Docfx.Dotnet" Version="2.78.5" />
+  </ItemGroup>
+
+
+  <ItemGroup>
     <PackageVersion Include="TUnit" Version="1.39.0" />
     <PackageVersion Include="Verify.TUnit" Version="31.16.2" />
     <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.6.2" />

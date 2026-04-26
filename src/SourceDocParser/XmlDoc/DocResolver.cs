@@ -28,7 +28,7 @@ public sealed class DocResolver : IDocResolver
         _context = new(
             compilation,
             converter ?? new XmlDocToMarkdown(),
-            new(SymbolEqualityComparer.Default));
+            new());
     }
 
     /// <inheritdoc />
@@ -42,7 +42,7 @@ public sealed class DocResolver : IDocResolver
     /// <param name="context">Per-resolver state bundle.</param>
     /// <returns>The resolved documentation.</returns>
     private static ApiDocumentation ResolveCached(ISymbol symbol, DocResolveContext context) =>
-        context.Cache.GetOrAdd(symbol, static (s, ctx) => ResolveCore(s, ctx), context);
+        context.Cache.GetOrAdd(symbol, context, static (candidate, state) => ResolveCore(candidate, state));
 
     /// <summary>
     /// Resolution body: parse the symbol's own XML, decide whether
@@ -121,15 +121,15 @@ public sealed class DocResolver : IDocResolver
     private static ISymbol? FindNaturalInheritedDocSource(ISymbol symbol) => symbol switch
     {
         IMethodSymbol { OverriddenMethod: { } overridden } => overridden,
-        IMethodSymbol { ExplicitInterfaceImplementations.Length: > 0 } m => m.ExplicitInterfaceImplementations[0],
+        IMethodSymbol { ExplicitInterfaceImplementations: [var implementation, ..] } => implementation,
         IMethodSymbol m => FindImplicitInterfaceImpl(m),
 
         IPropertySymbol { OverriddenProperty: { } overridden } => overridden,
-        IPropertySymbol { ExplicitInterfaceImplementations.Length: > 0 } p => p.ExplicitInterfaceImplementations[0],
+        IPropertySymbol { ExplicitInterfaceImplementations: [var implementation, ..] } => implementation,
         IPropertySymbol p => FindImplicitInterfaceImpl(p),
 
         IEventSymbol { OverriddenEvent: { } overridden } => overridden,
-        IEventSymbol { ExplicitInterfaceImplementations.Length: > 0 } e => e.ExplicitInterfaceImplementations[0],
+        IEventSymbol { ExplicitInterfaceImplementations: [var implementation, ..] } => implementation,
         IEventSymbol e => FindImplicitInterfaceImpl(e),
 
         INamedTypeSymbol { BaseType: { } baseType } => baseType,
@@ -196,15 +196,15 @@ public sealed class DocResolver : IDocResolver
     /// <returns>The merged documentation.</returns>
     private static ApiDocumentation MergeWithParent(RawDocumentation child, ApiDocumentation parent, string inheritedFromName) =>
         new(
-            Summary: child.Summary.Length > 0 ? child.Summary : parent.Summary,
-            Remarks: child.Remarks.Length > 0 ? child.Remarks : parent.Remarks,
-            Returns: child.Returns.Length > 0 ? child.Returns : parent.Returns,
-            Value: child.Value.Length > 0 ? child.Value : parent.Value,
-            Examples: child.Examples.Count > 0 ? child.Examples : parent.Examples,
+            Summary: child.Summary is [_, ..] ? child.Summary : parent.Summary,
+            Remarks: child.Remarks is [_, ..] ? child.Remarks : parent.Remarks,
+            Returns: child.Returns is [_, ..] ? child.Returns : parent.Returns,
+            Value: child.Value is [_, ..] ? child.Value : parent.Value,
+            Examples: child.Examples is [_, ..] ? child.Examples : parent.Examples,
             Parameters: MergeKeyed(child.Parameters, parent.Parameters),
             TypeParameters: MergeKeyed(child.TypeParameters, parent.TypeParameters),
             Exceptions: MergeKeyed(child.Exceptions, parent.Exceptions),
-            SeeAlso: child.SeeAlso.Count > 0 ? child.SeeAlso : parent.SeeAlso,
+            SeeAlso: child.SeeAlso is [_, ..] ? child.SeeAlso : parent.SeeAlso,
             InheritedFrom: inheritedFromName);
 
     /// <summary>
@@ -287,7 +287,7 @@ public sealed class DocResolver : IDocResolver
     private static RawDocumentation ParseRaw(ISymbol symbol, DocResolveContext context)
     {
         var xml = symbol.GetDocumentationCommentXml();
-        return string.IsNullOrEmpty(xml) ? RawDocumentation.Empty : Parse(xml, context);
+        return xml is [_, ..] ? Parse(xml, context) : RawDocumentation.Empty;
     }
 
     /// <summary>
@@ -324,72 +324,92 @@ public sealed class DocResolver : IDocResolver
                 continue;
             }
 
-            var name = scanner.Name;
-            if (name.SequenceEqual("summary"))
+            switch (scanner.Name)
             {
-                summary = converter.Convert(scanner.ReadInnerSpan());
-            }
-            else if (name.SequenceEqual("remarks"))
-            {
-                remarks = converter.Convert(scanner.ReadInnerSpan());
-            }
-            else if (name.SequenceEqual("returns"))
-            {
-                returns = converter.Convert(scanner.ReadInnerSpan());
-            }
-            else if (name.SequenceEqual("value"))
-            {
-                value = converter.Convert(scanner.ReadInnerSpan());
-            }
-            else if (name.SequenceEqual("example"))
-            {
-                examples.Add(converter.Convert(scanner.ReadInnerSpan()));
-            }
-            else if (name.SequenceEqual("param"))
-            {
-                var paramName = scanner.GetAttribute("name");
-                if (paramName.Length > 0)
-                {
-                    parameters.Add(new(paramName.ToString(), converter.Convert(scanner.ReadInnerSpan())));
-                }
-            }
-            else if (name.SequenceEqual("typeparam"))
-            {
-                var typeParamName = scanner.GetAttribute("name");
-                if (typeParamName.Length > 0)
-                {
-                    typeParameters.Add(new(typeParamName.ToString(), converter.Convert(scanner.ReadInnerSpan())));
-                }
-            }
-            else if (name.SequenceEqual("exception"))
-            {
-                var exceptionCref = scanner.GetAttribute("cref");
-                if (exceptionCref.Length > 0)
-                {
-                    exceptions.Add(new(exceptionCref.ToString(), converter.Convert(scanner.ReadInnerSpan())));
-                }
-            }
-            else if (name.SequenceEqual("seealso"))
-            {
-                var seeAlsoCref = scanner.GetAttribute("cref");
-                if (seeAlsoCref.Length > 0)
-                {
-                    seeAlso.Add(seeAlsoCref.ToString());
-                }
-            }
-            else if (name.SequenceEqual("inheritdoc"))
-            {
-                hasInheritDoc = true;
-                var inheritCref = scanner.GetAttribute("cref");
-                if (inheritCref.Length > 0)
-                {
-                    inheritDocCref = inheritCref.ToString();
-                }
+                case "summary":
+                    {
+                        summary = converter.Convert(scanner.ReadInnerSpan());
+                        break;
+                    }
 
-                // <inheritdoc>…</inheritdoc> with content: skip the
-                // body rather than processing it (rarely used and not
-                // part of any standard).
-                scanner.SkipElement();
+                case "remarks":
+                    {
+                        remarks = converter.Convert(scanner.ReadInnerSpan());
+                        break;
+                    }
+
+                case "returns":
+                    {
+                        returns = converter.Convert(scanner.ReadInnerSpan());
+                        break;
+                    }
+
+                case "value":
+                    {
+                        value = converter.Convert(scanner.ReadInnerSpan());
+                        break;
+                    }
+
+                case "example":
+                    {
+                        examples.Add(converter.Convert(scanner.ReadInnerSpan()));
+                        break;
+                    }
+
+                case "param":
+                    {
+                        if (scanner.GetAttribute("name") is [_, ..] paramName)
+                        {
+                            parameters.Add(new(paramName.ToString(), converter.Convert(scanner.ReadInnerSpan())));
+                        }
+
+                        break;
+                    }
+
+                case "typeparam":
+                    {
+                        if (scanner.GetAttribute("name") is [_, ..] typeParamName)
+                        {
+                            typeParameters.Add(new(typeParamName.ToString(), converter.Convert(scanner.ReadInnerSpan())));
+                        }
+
+                        break;
+                    }
+
+                case "exception":
+                    {
+                        if (scanner.GetAttribute("cref") is [_, ..] exceptionCref)
+                        {
+                            exceptions.Add(new(exceptionCref.ToString(), converter.Convert(scanner.ReadInnerSpan())));
+                        }
+
+                        break;
+                    }
+
+                case "seealso":
+                    {
+                        if (scanner.GetAttribute("cref") is [_, ..] seeAlsoCref)
+                        {
+                            seeAlso.Add(seeAlsoCref.ToString());
+                        }
+
+                        break;
+                    }
+
+                case "inheritdoc":
+                    {
+                        hasInheritDoc = true;
+                        if (scanner.GetAttribute("cref") is [_, ..] inheritCref)
+                        {
+                            inheritDocCref = inheritCref.ToString();
+                        }
+
+                        // <inheritdoc>…</inheritdoc> with content: skip the
+                        // body rather than processing it (rarely used and not
+                        // part of any standard).
+                        scanner.SkipElement();
+                        break;
+                    }
             }
         }
 

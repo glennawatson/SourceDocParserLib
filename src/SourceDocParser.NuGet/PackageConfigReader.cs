@@ -14,13 +14,6 @@ namespace SourceDocParser.NuGet;
 /// </summary>
 internal static class PackageConfigReader
 {
-    /// <summary>JSON parse options that match the previous deserialiser behaviour.</summary>
-    private static readonly JsonDocumentOptions _docOptions = new()
-    {
-        AllowTrailingCommas = true,
-        CommentHandling = JsonCommentHandling.Skip,
-    };
-
     /// <summary>
     /// Reads <c>nuget-packages.json</c> at <paramref name="path"/> and
     /// materialises a <see cref="PackageConfig"/>.
@@ -33,14 +26,7 @@ internal static class PackageConfigReader
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-        using var stream = new FileStream(
-            path,
-            FileMode.Open,
-            FileAccess.Read,
-            FileShare.Read,
-            bufferSize: 4096,
-            FileOptions.SequentialScan);
-        using var doc = JsonDocument.Parse(stream, _docOptions);
+        using var doc = JsonDocument.Parse(File.ReadAllBytes(path));
         var root = doc.RootElement;
 
         if (root.ValueKind != JsonValueKind.Object)
@@ -49,13 +35,13 @@ internal static class PackageConfigReader
         }
 
         return new(
-            NugetPackageOwners: ReadStringArray(root, "nugetPackageOwners"),
-            TfmPreference: ReadStringArray(root, "tfmPreference"),
+            NugetPackageOwners: ReadStringArray(root, "nugetPackageOwners"u8),
+            TfmPreference: ReadStringArray(root, "tfmPreference"u8),
             AdditionalPackages: ReadAdditionalPackages(root),
-            ExcludePackages: ReadStringArray(root, "excludePackages"),
-            ExcludePackagePrefixes: ReadStringArray(root, "excludePackagePrefixes"),
+            ExcludePackages: ReadStringArray(root, "excludePackages"u8),
+            ExcludePackagePrefixes: ReadStringArray(root, "excludePackagePrefixes"u8),
             ReferencePackages: ReadReferencePackages(root),
-            TfmOverrides: ReadStringDictionary(root, "tfmOverrides"));
+            TfmOverrides: ReadStringDictionary(root, "tfmOverrides"u8));
     }
 
     /// <summary>
@@ -64,11 +50,11 @@ internal static class PackageConfigReader
     /// rely on a non-null collection without per-call null checks.
     /// </summary>
     /// <param name="root">Root JSON object.</param>
-    /// <param name="propertyName">Property to read.</param>
+    /// <param name="propertyName">UTF-8 encoded property name to read.</param>
     /// <returns>The string values, in document order.</returns>
-    private static string[] ReadStringArray(in JsonElement root, string propertyName)
+    private static string[] ReadStringArray(in JsonElement root, ReadOnlySpan<byte> propertyName)
     {
-        if (!root.TryGetProperty(propertyName, out var element) || element.ValueKind != JsonValueKind.Array)
+        if (!root.TryGetProperty(propertyName, out var element) || element is not { ValueKind: JsonValueKind.Array })
         {
             return [];
         }
@@ -90,7 +76,7 @@ internal static class PackageConfigReader
     /// <returns>The additional packages, in document order.</returns>
     private static AdditionalPackage[] ReadAdditionalPackages(in JsonElement root)
     {
-        if (!root.TryGetProperty("additionalPackages", out var element) || element.ValueKind != JsonValueKind.Array)
+        if (!root.TryGetProperty("additionalPackages"u8, out var element) || element is not { ValueKind: JsonValueKind.Array })
         {
             return [];
         }
@@ -100,8 +86,8 @@ internal static class PackageConfigReader
         foreach (var item in element.EnumerateArray())
         {
             result[i++] = new(
-                Id: GetRequiredString(item, "id", "additionalPackages"),
-                Version: GetOptionalString(item, "version"));
+                Id: GetRequiredString(item, "id"u8, "additionalPackages"u8),
+                Version: GetOptionalString(item, "version"u8));
         }
 
         return result;
@@ -114,7 +100,7 @@ internal static class PackageConfigReader
     /// <returns>The reference packages, in document order.</returns>
     private static ReferencePackage[] ReadReferencePackages(in JsonElement root)
     {
-        if (!root.TryGetProperty("referencePackages", out var element) || element.ValueKind != JsonValueKind.Array)
+        if (!root.TryGetProperty("referencePackages"u8, out var element) || element is not { ValueKind: JsonValueKind.Array })
         {
             return [];
         }
@@ -124,10 +110,10 @@ internal static class PackageConfigReader
         foreach (var item in element.EnumerateArray())
         {
             result[i++] = new(
-                Id: GetRequiredString(item, "id", "referencePackages"),
-                Version: GetOptionalString(item, "version"),
-                TargetTfm: GetOptionalString(item, "targetTfm") ?? string.Empty,
-                PathPrefix: GetOptionalString(item, "pathPrefix") ?? "ref");
+                Id: GetRequiredString(item, "id"u8, "referencePackages"u8),
+                Version: GetOptionalString(item, "version"u8),
+                TargetTfm: GetOptionalString(item, "targetTfm"u8) ?? string.Empty,
+                PathPrefix: GetOptionalString(item, "pathPrefix"u8) ?? "ref");
         }
 
         return result;
@@ -137,11 +123,11 @@ internal static class PackageConfigReader
     /// Reads a string-to-string dictionary under <paramref name="propertyName"/>.
     /// </summary>
     /// <param name="root">Root JSON object.</param>
-    /// <param name="propertyName">Property to read.</param>
+    /// <param name="propertyName">UTF-8 encoded property name to read.</param>
     /// <returns>An ordinal dictionary keyed by JSON property name.</returns>
-    private static Dictionary<string, string> ReadStringDictionary(in JsonElement root, string propertyName)
+    private static Dictionary<string, string> ReadStringDictionary(in JsonElement root, ReadOnlySpan<byte> propertyName)
     {
-        if (!root.TryGetProperty(propertyName, out var element) || element.ValueKind != JsonValueKind.Object)
+        if (!root.TryGetProperty(propertyName, out var element) || element is not { ValueKind: JsonValueKind.Object })
         {
             return new(StringComparer.Ordinal);
         }
@@ -159,28 +145,45 @@ internal static class PackageConfigReader
     /// Returns the string value of a required property, throwing when it is missing or not a string.
     /// </summary>
     /// <param name="element">Object containing the property.</param>
-    /// <param name="propertyName">Property to read.</param>
+    /// <param name="propertyName">UTF-8 encoded property name to read.</param>
     /// <param name="parentPath">Parent property name, included in the exception message for context.</param>
     /// <returns>The required string value.</returns>
     /// <exception cref="JsonException">When the property is missing, null, or not a string.</exception>
-    private static string GetRequiredString(in JsonElement element, string propertyName, string parentPath)
+    private static string GetRequiredString(in JsonElement element, ReadOnlySpan<byte> propertyName, ReadOnlySpan<byte> parentPath)
     {
-        if (!element.TryGetProperty(propertyName, out var value) || value.ValueKind != JsonValueKind.String)
+        if (!element.TryGetProperty(propertyName, out var value) || value is not { ValueKind: JsonValueKind.String })
         {
-            throw new JsonException($"Required string property '{propertyName}' missing or not a string under '{parentPath}'.");
+            throw new JsonException($"Required string property '{GetDisplayName(propertyName)}' missing or not a string under '{GetDisplayName(parentPath)}'.");
         }
 
-        return value.GetString() ?? throw new JsonException($"Required string property '{propertyName}' under '{parentPath}' was null.");
+        return value.GetString() ?? throw new JsonException($"Required string property '{GetDisplayName(propertyName)}' under '{GetDisplayName(parentPath)}' was null.");
     }
 
     /// <summary>
     /// Returns the string value of an optional property, or null if the property is absent or not a string.
     /// </summary>
     /// <param name="element">Object containing the property.</param>
-    /// <param name="propertyName">Property to read.</param>
+    /// <param name="propertyName">UTF-8 encoded property name to read.</param>
     /// <returns>The string value, or null.</returns>
-    private static string? GetOptionalString(in JsonElement element, string propertyName) =>
-        element.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String
+    private static string? GetOptionalString(in JsonElement element, ReadOnlySpan<byte> propertyName) =>
+        element.TryGetProperty(propertyName, out var value) && value is { ValueKind: JsonValueKind.String }
             ? value.GetString()
             : null;
+
+    /// <summary>
+    /// Gets a human-readable display name for a UTF-8 property name.
+    /// </summary>
+    /// <param name="propertyName">The UTF-8 property name.</param>
+    /// <returns>A string representation of the property name.</returns>
+    private static string GetDisplayName(ReadOnlySpan<byte> propertyName) =>
+        propertyName switch
+        {
+            _ when propertyName.SequenceEqual("id"u8) => "id",
+            _ when propertyName.SequenceEqual("version"u8) => "version",
+            _ when propertyName.SequenceEqual("targetTfm"u8) => "targetTfm",
+            _ when propertyName.SequenceEqual("pathPrefix"u8) => "pathPrefix",
+            _ when propertyName.SequenceEqual("additionalPackages"u8) => "additionalPackages",
+            _ when propertyName.SequenceEqual("referencePackages"u8) => "referencePackages",
+            _ => "unknown"
+        };
 }

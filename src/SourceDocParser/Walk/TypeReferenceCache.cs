@@ -2,7 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Concurrent;
 using Microsoft.CodeAnalysis;
 
 namespace SourceDocParser;
@@ -12,14 +11,15 @@ namespace SourceDocParser;
 /// </summary>
 /// <remarks>
 /// Caching formatted display names and UIDs avoids redundant allocations during assembly walks.
-/// Concurrent for thread-safety during parallel processing.
+/// The cache is scoped to one <see cref="SymbolWalker.Walk"/> invocation, so lookups stay
+/// single-threaded even though the outer metadata extraction pipeline processes assemblies in parallel.
 /// </remarks>
 internal sealed class TypeReferenceCache
 {
     /// <summary>
     /// The backing dictionary for cached type references.
     /// </summary>
-    private readonly ConcurrentDictionary<ITypeSymbol, ApiTypeReference> _byType =
+    private readonly Dictionary<ITypeSymbol, ApiTypeReference> _byType =
         new(SymbolEqualityComparer.Default);
 
     /// <summary>
@@ -28,6 +28,15 @@ internal sealed class TypeReferenceCache
     /// <param name="type">The type symbol to look up.</param>
     /// <param name="builder">The factory used to create the reference on a cache miss.</param>
     /// <returns>A formatted <see cref="ApiTypeReference"/>.</returns>
-    public ApiTypeReference GetOrAdd(ITypeSymbol type, Func<ITypeSymbol, ApiTypeReference> builder) =>
-        _byType.GetOrAdd(type, builder);
+    public ApiTypeReference GetOrAdd(ITypeSymbol type, Func<ITypeSymbol, ApiTypeReference> builder)
+    {
+        if (_byType.TryGetValue(type, out var cached))
+        {
+            return cached;
+        }
+
+        var created = builder(type);
+        _byType[type] = created;
+        return created;
+    }
 }

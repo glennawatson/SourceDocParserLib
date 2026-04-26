@@ -27,9 +27,10 @@ public static partial class CompilationDiagnosticsExtensions
         ArgumentNullException.ThrowIfNull(logger);
 
         var errorCount = 0;
-
-        foreach (var diagnostic in compilation.GetDeclarationDiagnostics())
+        var diagnostics = compilation.GetDeclarationDiagnostics();
+        for (var i = 0; i < diagnostics.Length; i++)
         {
+            var diagnostic = diagnostics[i];
             if (diagnostic.IsSuppressed)
             {
                 continue;

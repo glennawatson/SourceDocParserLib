@@ -43,13 +43,16 @@ internal sealed partial class MetadataReferenceCache : IDisposable
     /// <param name="assemblyPath">The absolute path to the assembly DLL.</param>
     /// <returns>A metadata reference, possibly with XML documentation attached.</returns>
     public MetadataReference Get(string assemblyPath) =>
-        _byPath.GetOrAdd(assemblyPath, path =>
-        {
-            var documentation = TryLoadXmlDocs(path);
-            return documentation is null
-                ? MetadataReference.CreateFromFile(path)
-                : MetadataReference.CreateFromFile(path, documentation: documentation);
-        });
+        _byPath.GetOrAdd(
+            assemblyPath,
+            static (path, state) =>
+            {
+                var documentation = TryLoadXmlDocs(path, state.Logger);
+                return documentation is null
+                    ? MetadataReference.CreateFromFile(path)
+                    : MetadataReference.CreateFromFile(path, documentation: documentation);
+            },
+            new FactoryState(_logger));
 
     /// <summary>
     /// Disposes every cached <see cref="MetadataReference"/>'s backing
@@ -60,9 +63,9 @@ internal sealed partial class MetadataReferenceCache : IDisposable
     /// </summary>
     public void Dispose()
     {
-        foreach (var entry in _byPath)
+        foreach (var entry in _byPath.Values)
         {
-            if (entry.Value is PortableExecutableReference peReference)
+            if (entry is PortableExecutableReference peReference)
             {
                 peReference.GetMetadata().Dispose();
             }
@@ -89,8 +92,9 @@ internal sealed partial class MetadataReferenceCache : IDisposable
     /// Attempts to load XML documentation sitting next to the assembly.
     /// </summary>
     /// <param name="assemblyPath">The absolute path to the assembly DLL.</param>
+    /// <param name="logger">Target logger.</param>
     /// <returns>A documentation provider if the XML exists and is valid; otherwise, null.</returns>
-    private FileXmlDocumentationProvider? TryLoadXmlDocs(string assemblyPath)
+    private static FileXmlDocumentationProvider? TryLoadXmlDocs(string assemblyPath, ILogger logger)
     {
         var xmlPath = Path.ChangeExtension(assemblyPath, ".xml");
         if (!File.Exists(xmlPath))
@@ -101,13 +105,19 @@ internal sealed partial class MetadataReferenceCache : IDisposable
         try
         {
             var source = XmlDocSource.Load(xmlPath);
-            LogXmlDocLoaded(_logger, source.Count, xmlPath);
+            LogXmlDocLoaded(logger, source.Count, xmlPath);
             return new(source, xmlPath);
         }
         catch (Exception ex)
         {
-            LogXmlDocParseFailed(_logger, ex, xmlPath);
+            LogXmlDocParseFailed(logger, ex, xmlPath);
             return null;
         }
     }
+
+    /// <summary>
+    /// The state of the Factory.
+    /// </summary>
+    /// <param name="Logger">Logger for XML doc load progress and parse failures.</param>
+    private readonly record struct FactoryState(ILogger Logger);
 }

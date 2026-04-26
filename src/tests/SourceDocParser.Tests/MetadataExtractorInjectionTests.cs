@@ -34,25 +34,9 @@ public class MetadataExtractorInjectionTests
 
         var loader = new MockCompilationLoader();
         var loaderFactoryCalls = 0;
-        Func<ILogger, ICompilationLoader> loaderFactory = _ =>
-        {
-            Interlocked.Increment(ref loaderFactoryCalls);
-            return loader;
-        };
-
         var walker = new MockSymbolWalker();
         var sourceLinkPaths = new List<string>();
-        Func<string, ISourceLinkResolver> resolverFactory = path =>
-        {
-            lock (sourceLinkPaths)
-            {
-                sourceLinkPaths.Add(path);
-            }
-
-            return new NullSourceLinkResolver();
-        };
-
-        var extractor = new MetadataExtractor(walker, loaderFactory, resolverFactory);
+        var extractor = new MetadataExtractor(walker, LoaderFactory, ResolverFactory);
 
         using var output = new TempDirectory();
         var result = await extractor.RunAsync(new FakeAssemblySource(groups), output.Path, new RecordingEmitter());
@@ -67,6 +51,22 @@ public class MetadataExtractorInjectionTests
         // the mock just counts every call.
         await Assert.That(loader.DisposeCount).IsGreaterThanOrEqualTo(1);
         await Assert.That(result.LoadFailures).IsEqualTo(0);
+
+        ICompilationLoader LoaderFactory(ILogger logger)
+        {
+            Interlocked.Increment(ref loaderFactoryCalls);
+            return loader;
+        }
+
+        ISourceLinkResolver ResolverFactory(string path)
+        {
+            lock (sourceLinkPaths)
+            {
+                sourceLinkPaths.Add(path);
+            }
+
+            return new NullSourceLinkResolver();
+        }
     }
 
     /// <summary>
@@ -83,7 +83,16 @@ public class MetadataExtractorInjectionTests
         };
 
         var loaders = new List<MockCompilationLoader>();
-        Func<ILogger, ICompilationLoader> loaderFactory = _ =>
+        var walker = new MockSymbolWalker();
+        var extractor = new MetadataExtractor(walker, LoaderFactory, static _ => new NullSourceLinkResolver());
+
+        using var output = new TempDirectory();
+        await extractor.RunAsync(new FakeAssemblySource(groups), output.Path, new RecordingEmitter());
+
+        await Assert.That(loaders.Count).IsEqualTo(2);
+        await Assert.That(loaders.All(static l => l.DisposeCount >= 1)).IsTrue();
+
+        ICompilationLoader LoaderFactory(ILogger logger)
         {
             var loader = new MockCompilationLoader();
             lock (loaders)
@@ -92,16 +101,7 @@ public class MetadataExtractorInjectionTests
             }
 
             return loader;
-        };
-
-        var walker = new MockSymbolWalker();
-        var extractor = new MetadataExtractor(walker, loaderFactory, _ => new NullSourceLinkResolver());
-
-        using var output = new TempDirectory();
-        await extractor.RunAsync(new FakeAssemblySource(groups), output.Path, new RecordingEmitter());
-
-        await Assert.That(loaders.Count).IsEqualTo(2);
-        await Assert.That(loaders.All(l => l.DisposeCount >= 1)).IsTrue();
+        }
     }
 
     /// <summary>
@@ -116,15 +116,16 @@ public class MetadataExtractorInjectionTests
             new("net10.0", ["/fake/Boom.dll"], []),
         };
 
-        Func<ILogger, ICompilationLoader> loaderFactory = _ => new ThrowingCompilationLoader();
         var walker = new MockSymbolWalker();
-        var extractor = new MetadataExtractor(walker, loaderFactory, _ => new NullSourceLinkResolver());
+        var extractor = new MetadataExtractor(walker, LoaderFactory, static _ => new NullSourceLinkResolver());
 
         using var output = new TempDirectory();
         var result = await extractor.RunAsync(new FakeAssemblySource(groups), output.Path, new RecordingEmitter());
 
         await Assert.That(result.LoadFailures).IsEqualTo(1);
         await Assert.That(walker.WalkCalls.Count).IsEqualTo(0);
+
+        static ICompilationLoader LoaderFactory(ILogger logger) => new ThrowingCompilationLoader();
     }
 
     /// <summary>
@@ -143,14 +144,18 @@ public class MetadataExtractorInjectionTests
         var walker = new MockSymbolWalker();
         var extractor = new MetadataExtractor(
             walker,
-            _ => new MockCompilationLoader(),
-            _ => new NullSourceLinkResolver());
+            LoaderFactory,
+            ResolverFactory);
 
         using var output = new TempDirectory();
         await extractor.RunAsync(new FakeAssemblySource(groups), output.Path, new RecordingEmitter());
 
-        List<string> observedTfms = [.. walker.WalkCalls.Select(c => c.Tfm).OrderBy(s => s, StringComparer.Ordinal)];
+        List<string> observedTfms = [.. walker.WalkCalls.Select(static c => c.Tfm).OrderBy(static s => s, StringComparer.Ordinal)];
         await Assert.That(observedTfms).IsEquivalentTo((List<string>)["net10.0", "net9.0"]);
+
+        static ICompilationLoader LoaderFactory(ILogger logger) => new MockCompilationLoader();
+
+        static ISourceLinkResolver ResolverFactory(string path) => new NullSourceLinkResolver();
     }
 
     /// <summary>
@@ -166,7 +171,20 @@ public class MetadataExtractorInjectionTests
         };
 
         var observed = new List<string>();
-        Func<string, ISourceLinkResolver> resolverFactory = path =>
+        var extractor = new MetadataExtractor(
+            new MockSymbolWalker(),
+            LoaderFactory,
+            ResolverFactory);
+
+        using var output = new TempDirectory();
+        await extractor.RunAsync(new FakeAssemblySource(groups), output.Path, new RecordingEmitter());
+
+        List<string> sorted = [.. observed.OrderBy(static s => s, StringComparer.Ordinal)];
+        await Assert.That(sorted).IsEquivalentTo((List<string>)["/fake/A.dll", "/fake/B.dll"]);
+
+        static ICompilationLoader LoaderFactory(ILogger logger) => new MockCompilationLoader();
+
+        ISourceLinkResolver ResolverFactory(string path)
         {
             lock (observed)
             {
@@ -174,18 +192,7 @@ public class MetadataExtractorInjectionTests
             }
 
             return new NullSourceLinkResolver();
-        };
-
-        var extractor = new MetadataExtractor(
-            new MockSymbolWalker(),
-            _ => new MockCompilationLoader(),
-            resolverFactory);
-
-        using var output = new TempDirectory();
-        await extractor.RunAsync(new FakeAssemblySource(groups), output.Path, new RecordingEmitter());
-
-        List<string> sorted = [.. observed.OrderBy(s => s, StringComparer.Ordinal)];
-        await Assert.That(sorted).IsEquivalentTo((List<string>)["/fake/A.dll", "/fake/B.dll"]);
+        }
     }
 
     /// <summary>

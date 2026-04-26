@@ -87,15 +87,15 @@ public class XmlDocSourceTests
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task FromStringValidatesArguments() =>
-        await Assert.That(() => XmlDocSource.FromString(null!)).Throws<ArgumentNullException>();
+        await Assert.That(static () => XmlDocSource.FromString(null!)).Throws<ArgumentNullException>();
 
     /// <summary>Load validates its arguments.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task LoadValidatesArguments()
     {
-        await Assert.That(() => XmlDocSource.Load(null!)).Throws<ArgumentException>();
-        await Assert.That(() => XmlDocSource.Load("   ")).Throws<ArgumentException>();
+        await Assert.That(static () => XmlDocSource.Load(null!)).Throws<ArgumentException>();
+        await Assert.That(static () => XmlDocSource.Load("   ")).Throws<ArgumentException>();
     }
 
     /// <summary>Round-trip via a temp file matches FromString.</summary>

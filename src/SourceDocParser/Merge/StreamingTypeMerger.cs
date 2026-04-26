@@ -30,7 +30,7 @@ public sealed class StreamingTypeMerger
         new(InitialBucketCapacity, StringComparer.Ordinal);
 
     /// <summary>Lock guarding <see cref="_byUid"/> writes.</summary>
-    private readonly System.Threading.Lock _lock = new();
+    private readonly Lock _lock = new();
 
     /// <summary>Set to true after <see cref="Build"/> runs so subsequent <see cref="Add"/>s throw.</summary>
     private bool _built;

@@ -76,9 +76,9 @@ public sealed partial class CompilationLoader : ICompilationLoader
         var resolved = ResolveTransitiveReferences(assemblyPath, fallbackReferences, _logger);
 
         var references = new List<MetadataReference>(resolved.Count + 1);
-        foreach (var path in resolved)
+        for (var i = 0; i < resolved.Count; i++)
         {
-            references.Add(_referenceCache.Get(path));
+            references.Add(_referenceCache.Get(resolved[i]));
         }
 
         var primary = _referenceCache.Get(assemblyPath);
@@ -118,7 +118,9 @@ public sealed partial class CompilationLoader : ICompilationLoader
     {
         using var primary = new PEFile(assemblyPath);
         var resolver = new UniversalAssemblyResolver(assemblyPath, throwOnError: false, primary.DetectTargetFrameworkId());
-        var resolved = new Dictionary<string, string>(StringComparer.Ordinal);
+        var resolvedNames = new HashSet<string>(StringComparer.Ordinal);
+        List<string> resolvedPaths = [];
+        var assemblyName = Path.GetFileName(assemblyPath);
 
         var pending = new Stack<PEFile>();
         pending.Push(new(assemblyPath));
@@ -139,16 +141,17 @@ public sealed partial class CompilationLoader : ICompilationLoader
                         var file = resolver.FindAssemblyFile(reference);
                         if (file is null && !fallbackIndex.TryGetValue(reference.Name, out file))
                         {
-                            LogUnresolvedReference(logger, reference.ToString(), Path.GetFileName(assemblyPath));
+                            LogUnresolvedReference(logger, reference.ToString(), assemblyName);
                             continue;
                         }
 
-                        if (!resolved.TryAdd(reference.Name, file))
+                        if (!resolvedNames.Add(reference.Name))
                         {
                             continue;
                         }
 
                         LogResolvedReference(logger, reference.Name, file);
+                        resolvedPaths.Add(file);
                         pending.Push(new(file));
                     }
                 }
@@ -168,13 +171,7 @@ public sealed partial class CompilationLoader : ICompilationLoader
             throw;
         }
 
-        var results = new List<string>(resolved.Count);
-        foreach (var pair in resolved)
-        {
-            results.Add(pair.Value);
-        }
-
-        return results;
+        return resolvedPaths;
     }
 
     /// <summary>Logs an assembly reference the resolver and fallback index could not locate.</summary>

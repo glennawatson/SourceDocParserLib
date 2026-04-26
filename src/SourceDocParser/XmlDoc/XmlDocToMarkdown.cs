@@ -37,7 +37,10 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
     public string Convert(string xmlFragment) => Convert(xmlFragment.AsSpan());
 
     /// <inheritdoc />
-    public string Convert(XmlReader reader)
+    public Task<string> ConvertAsync(XmlReader reader) => ConvertAsync(reader, CancellationToken.None);
+
+    /// <inheritdoc />
+    public async Task<string> ConvertAsync(XmlReader reader, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(reader);
         if (reader.NodeType != XmlNodeType.Element || reader.IsEmptyElement)
@@ -50,7 +53,8 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
         // (rare since DocResolver moved to the scanner) pay one extra
         // string allocation; the alternative — keeping a parallel
         // XmlReader-based renderer — is more code with no real win.
-        return Convert(reader.ReadInnerXml().AsSpan());
+        var innerXml = await reader.ReadInnerXmlAsync().ConfigureAwait(false);
+        return Convert(innerXml.AsSpan());
     }
 
     /// <inheritdoc />
@@ -61,20 +65,19 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
             return string.Empty;
         }
 
-        var sb = _builder;
-        sb.Clear();
+        _builder.Clear();
 
         // Plain-text fast path: no '<' means no inline tags to render,
         // just decode standard entities. Skips even the scanner overhead.
         if (innerXml.IndexOf('<') < 0)
         {
-            DocXmlScanner.AppendDecoded(sb, innerXml);
-            return sb.ToString();
+            DocXmlScanner.AppendDecoded(_builder, innerXml);
+            return _builder.ToString();
         }
 
         var scanner = new DocXmlScanner(innerXml);
-        WriteFragment(ref scanner, sb, ListContext.None);
-        return CollapseWhitespace(sb).ToString();
+        WriteFragment(ref scanner, _builder, ListContext.None);
+        return CollapseWhitespace(_builder).ToString();
     }
 
     /// <summary>
@@ -134,13 +137,19 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
 
                 case DocTokenKind.StartElement:
                     {
-                        if (suppressTags && !scanner.IsEmptyElement)
+                        switch (suppressTags)
                         {
-                            WriteSubtreeChildren(ref scanner, sb, listContext, suppressTags: true);
-                        }
-                        else if (!suppressTags)
-                        {
-                            WriteElement(ref scanner, sb, listContext);
+                            case true when !scanner.IsEmptyElement:
+                                {
+                                    WriteSubtreeChildren(ref scanner, sb, listContext, suppressTags: true);
+                                    break;
+                                }
+
+                            case false:
+                                {
+                                    WriteElement(ref scanner, sb, listContext);
+                                    break;
+                                }
                         }
 
                         break;
@@ -157,78 +166,107 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
     /// <param name="listContext">Inherited list context.</param>
     private static void WriteElement(ref DocXmlScanner scanner, StringBuilder sb, ListContext listContext)
     {
-        var name = scanner.Name;
-        if (name.SequenceEqual("see") || name.SequenceEqual("seealso"))
+        switch (scanner.Name)
         {
-            WriteSee(ref scanner, sb);
-        }
-        else if (name.SequenceEqual("paramref") || name.SequenceEqual("typeparamref"))
-        {
-            var refName = scanner.GetAttribute("name");
-            if (refName.Length > 0)
-            {
-                sb.Append('`').Append(refName).Append('`');
-            }
+            case "see":
+            case "seealso":
+                {
+                    WriteSee(ref scanner, sb);
+                    break;
+                }
 
-            scanner.SkipElement();
-        }
-        else if (name.SequenceEqual("c"))
-        {
-            sb.Append('`');
-            WriteSubtreeChildren(ref scanner, sb, listContext, suppressTags: true);
-            sb.Append('`');
-        }
-        else if (name.SequenceEqual("code"))
-        {
-            WriteCode(ref scanner, sb);
-        }
-        else if (name.SequenceEqual("para"))
-        {
-            EnsureBlankLine(sb);
-            WriteSubtreeChildren(ref scanner, sb, listContext, suppressTags: false);
-            EnsureBlankLine(sb);
-        }
-        else if (name.SequenceEqual("br"))
-        {
-            sb.Append("  \n");
-            scanner.SkipElement();
-        }
-        else if (name.SequenceEqual("b") || name.SequenceEqual("strong"))
-        {
-            sb.Append("**");
-            WriteSubtreeChildren(ref scanner, sb, listContext, suppressTags: false);
-            sb.Append("**");
-        }
-        else if (name.SequenceEqual("i") || name.SequenceEqual("em"))
-        {
-            sb.Append('*');
-            WriteSubtreeChildren(ref scanner, sb, listContext, suppressTags: false);
-            sb.Append('*');
-        }
-        else if (name.SequenceEqual("list"))
-        {
-            WriteList(ref scanner, sb);
-        }
-        else if (name.SequenceEqual("item"))
-        {
-            // Bare item outside <list>: render as a bullet so we don't
-            // lose the content even if the doc author was sloppy with
-            // the wrapping element.
-            EnsureLineStart(sb);
-            sb.Append("- ");
-            WriteSubtreeChildren(ref scanner, sb, ListContext.Bullet, suppressTags: false);
-            EnsureLineStart(sb);
-        }
-        else if (name.SequenceEqual("description") || name.SequenceEqual("term"))
-        {
-            // List item parts: emit children inline; the parent list
-            // writer arranges separators.
-            WriteSubtreeChildren(ref scanner, sb, listContext, suppressTags: false);
-        }
-        else
-        {
-            // Unknown tag: keep its content so we don't drop words.
-            WriteSubtreeChildren(ref scanner, sb, listContext, suppressTags: false);
+            case "paramref":
+            case "typeparamref":
+                {
+                    if (scanner.GetAttribute("name") is [_, ..] refName)
+                    {
+                        sb.Append('`').Append(refName).Append('`');
+                    }
+
+                    scanner.SkipElement();
+                    break;
+                }
+
+            case "c":
+                {
+                    sb.Append('`');
+                    WriteSubtreeChildren(ref scanner, sb, listContext, suppressTags: true);
+                    sb.Append('`');
+                    break;
+                }
+
+            case "code":
+                {
+                    WriteCode(ref scanner, sb);
+                    break;
+                }
+
+            case "para":
+                {
+                    EnsureBlankLine(sb);
+                    WriteSubtreeChildren(ref scanner, sb, listContext, suppressTags: false);
+                    EnsureBlankLine(sb);
+                    break;
+                }
+
+            case "br":
+                {
+                    sb.Append("  \n");
+                    scanner.SkipElement();
+                    break;
+                }
+
+            case "b":
+            case "strong":
+                {
+                    sb.Append("**");
+                    WriteSubtreeChildren(ref scanner, sb, listContext, suppressTags: false);
+                    sb.Append("**");
+                    break;
+                }
+
+            case "i":
+            case "em":
+                {
+                    sb.Append('*');
+                    WriteSubtreeChildren(ref scanner, sb, listContext, suppressTags: false);
+                    sb.Append('*');
+                    break;
+                }
+
+            case "list":
+                {
+                    WriteList(ref scanner, sb);
+                    break;
+                }
+
+            case "item":
+                {
+                    // Bare item outside <list>: render as a bullet so we don't
+                    // lose the content even if the doc author was sloppy with
+                    // the wrapping element.
+                    EnsureLineStart(sb);
+                    sb.Append("- ");
+                    WriteSubtreeChildren(ref scanner, sb, ListContext.Bullet, suppressTags: false);
+                    EnsureLineStart(sb);
+                    break;
+                }
+
+            case "description":
+            case "term":
+                {
+                    // List item parts: emit children inline; the parent list
+                    // writer arranges separators.
+                    WriteSubtreeChildren(ref scanner, sb, listContext, suppressTags: false);
+                    break;
+                }
+
+            default:
+                {
+                    // Unknown tag: keep its content so we don't drop words.
+                    WriteSubtreeChildren(ref scanner, sb, listContext, suppressTags: false);
+                    break;
+                }
         }
     }
 
@@ -240,24 +278,21 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
     /// <param name="sb">Destination buffer.</param>
     private static void WriteSee(ref DocXmlScanner scanner, StringBuilder sb)
     {
-        var cref = scanner.GetAttribute("cref");
-        if (cref.Length > 0)
+        if (scanner.GetAttribute("cref") is [_, ..] cref)
         {
             sb.Append('[').Append(ShortName(cref)).Append("][").Append(cref).Append(']');
             scanner.SkipElement();
             return;
         }
 
-        var langword = scanner.GetAttribute("langword");
-        if (langword.Length > 0)
+        if (scanner.GetAttribute("langword") is [_, ..] langword)
         {
             sb.Append('`').Append(langword).Append('`');
             scanner.SkipElement();
             return;
         }
 
-        var href = scanner.GetAttribute("href");
-        if (href.Length > 0)
+        if (scanner.GetAttribute("href") is [_, ..] href)
         {
             if (scanner.IsEmptyElement)
             {
@@ -342,7 +377,7 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
                 return;
             }
 
-            if (scanner.Kind != DocTokenKind.StartElement || !scanner.Name.SequenceEqual("item"))
+            if (scanner.Kind != DocTokenKind.StartElement || scanner.Name is not "item")
             {
                 continue;
             }
@@ -385,26 +420,32 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
                 continue;
             }
 
-            if (scanner.Name.SequenceEqual("listheader"))
+            switch (scanner.Name)
             {
-                var inner = scanner.ReadInnerSpan();
-                var (term, description) = ReadTermAndDescription(inner);
-                sb.Append("| ").Append(term).Append(" | ").Append(description).Append(" |\n")
-                    .Append("| --- | --- |\n");
-                headerWritten = true;
-            }
-            else if (scanner.Name.SequenceEqual("item"))
-            {
-                if (!headerWritten)
-                {
-                    sb.Append("| Term | Description |\n")
-                        .Append("| --- | --- |\n");
-                    headerWritten = true;
-                }
+                case "listheader":
+                    {
+                        var inner = scanner.ReadInnerSpan();
+                        var (term, description) = ReadTermAndDescription(inner);
+                        sb.Append("| ").Append(term).Append(" | ").Append(description).Append(" |\n")
+                            .Append("| --- | --- |\n");
+                        headerWritten = true;
+                        break;
+                    }
 
-                var inner = scanner.ReadInnerSpan();
-                var (term, description) = ReadTermAndDescription(inner);
-                sb.Append("| ").Append(term).Append(" | ").Append(description).Append(" |\n");
+                case "item":
+                    {
+                        if (!headerWritten)
+                        {
+                            sb.Append("| Term | Description |\n")
+                                .Append("| --- | --- |\n");
+                            headerWritten = true;
+                        }
+
+                        var inner = scanner.ReadInnerSpan();
+                        var (term, description) = ReadTermAndDescription(inner);
+                        sb.Append("| ").Append(term).Append(" | ").Append(description).Append(" |\n");
+                        break;
+                    }
             }
         }
     }
@@ -417,10 +458,10 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
     /// </summary>
     /// <param name="inner">Inner XML span of one item or listheader.</param>
     /// <returns>Tuple of (term, description). Each defaults to a single space when empty so the table cell is non-collapsing.</returns>
-    private static (string Term, string Description) ReadTermAndDescription(ReadOnlySpan<char> inner)
+    private static (string Term, string Description) ReadTermAndDescription(in ReadOnlySpan<char> inner)
     {
-        string term = string.Empty;
-        string description = string.Empty;
+        var term = string.Empty;
+        var description = string.Empty;
 
         var scanner = new DocXmlScanner(inner);
         while (scanner.Read())
@@ -430,19 +471,25 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
                 continue;
             }
 
-            if (scanner.Name.SequenceEqual("term"))
+            switch (scanner.Name)
             {
-                var sub = scanner.ReadInnerSpan();
-                term = TableEscape(ConvertSpanToMarkdown(sub));
-            }
-            else if (scanner.Name.SequenceEqual("description"))
-            {
-                var sub = scanner.ReadInnerSpan();
-                description = TableEscape(ConvertSpanToMarkdown(sub));
+                case "term":
+                    {
+                        var sub = scanner.ReadInnerSpan();
+                        term = TableEscape(ConvertSpanToMarkdown(sub));
+                        break;
+                    }
+
+                case "description":
+                    {
+                        var sub = scanner.ReadInnerSpan();
+                        description = TableEscape(ConvertSpanToMarkdown(sub));
+                        break;
+                    }
             }
         }
 
-        return (term.Length == 0 ? " " : term, description.Length == 0 ? " " : description);
+        return (term is [_, ..] ? term : " ", description is [_, ..] ? description : " ");
     }
 
     /// <summary>
@@ -452,7 +499,7 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
     /// </summary>
     /// <param name="span">Inner XML span to render.</param>
     /// <returns>Markdown text.</returns>
-    private static string ConvertSpanToMarkdown(ReadOnlySpan<char> span)
+    private static string ConvertSpanToMarkdown(in ReadOnlySpan<char> span)
     {
         if (span.IsEmpty)
         {
@@ -480,7 +527,7 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
     /// </summary>
     /// <param name="cref">Roslyn cref string as a span.</param>
     /// <returns>The short name as a span over <paramref name="cref"/>.</returns>
-    private static ReadOnlySpan<char> ShortName(ReadOnlySpan<char> cref)
+    private static ReadOnlySpan<char> ShortName(in ReadOnlySpan<char> cref)
     {
         var name = cref;
         if (name.Length >= 2 && name[1] == ':')
@@ -542,7 +589,7 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
     /// <param name="sb">Buffer to trim.</param>
     private static void TrimTrailingWhitespace(StringBuilder sb)
     {
-        while (sb.Length > 0 && char.IsWhiteSpace(sb[^1]))
+        while (sb.Length is not 0 && char.IsWhiteSpace(sb[^1]))
         {
             sb.Length--;
         }
@@ -591,25 +638,38 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
     /// <returns>The escaped text, or a single space when the input was empty.</returns>
     private static string TableEscape(string text)
     {
-        if (string.IsNullOrEmpty(text))
+        if (text is not [_, ..])
         {
             return " ";
+        }
+
+        if (text.AsSpan().IndexOfAny(['|', '\n', '\r']) < 0)
+        {
+            return text;
         }
 
         var sb = new StringBuilder(text.Length);
         foreach (var ch in text)
         {
-            if (ch == '|')
+            switch (ch)
             {
-                sb.Append("\\|");
-            }
-            else if (ch is '\n' or '\r')
-            {
-                sb.Append(' ');
-            }
-            else
-            {
-                sb.Append(ch);
+                case '|':
+                    {
+                        sb.Append("\\|");
+                        break;
+                    }
+
+                case '\n' or '\r':
+                    {
+                        sb.Append(' ');
+                        break;
+                    }
+
+                default:
+                    {
+                        sb.Append(ch);
+                        break;
+                    }
             }
         }
 

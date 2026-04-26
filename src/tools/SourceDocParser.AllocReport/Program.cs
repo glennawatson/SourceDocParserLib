@@ -141,7 +141,7 @@ internal static class Program
         Console.WriteLine();
         Console.WriteLine("| Type | Sampled bytes | % | Samples |");
         Console.WriteLine("|---|---:|---:|---:|");
-        foreach (var (type, stat) in stats.ByType.OrderByDescending(kvp => kvp.Value.Bytes).Take(topN))
+        foreach (var (type, stat) in stats.ByType.OrderByDescending(static kvp => kvp.Value.Bytes).Take(topN))
         {
             var pct = stats.TotalBytes == 0 ? 0d : stat.Bytes * 100d / stats.TotalBytes;
             Console.WriteLine($"| `{Escape(type)}` | {FormatBytes(stat.Bytes)} | {pct:F1}% | {stat.Samples:N0} |");
@@ -159,7 +159,7 @@ internal static class Program
         Console.WriteLine();
         Console.WriteLine("| Top type | Sampled bytes | % | Samples | Stack |");
         Console.WriteLine("|---|---:|---:|---:|---|");
-        foreach (var (stack, stat) in stats.ByStack.OrderByDescending(kvp => kvp.Value.Bytes).Take(topN))
+        foreach (var (stack, stat) in stats.ByStack.OrderByDescending(static kvp => kvp.Value.Bytes).Take(topN))
         {
             var pct = stats.TotalBytes == 0 ? 0d : stat.Bytes * 100d / stats.TotalBytes;
             Console.WriteLine($"| `{Escape(stat.TopType ?? "<n/a>")}` | {FormatBytes(stat.Bytes)} | {pct:F1}% | {stat.Samples:N0} | {Escape(stack)} |");

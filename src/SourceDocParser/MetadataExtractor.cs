@@ -47,8 +47,8 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
         Func<string, ISourceLinkResolver>? sourceLinkResolverFactory = null)
     {
         _symbolWalker = symbolWalker ?? new SymbolWalker();
-        _loaderFactory = loaderFactory ?? (logger => new CompilationLoader(logger));
-        _sourceLinkResolverFactory = sourceLinkResolverFactory ?? (path => new SourceLinkResolver(path));
+        _loaderFactory = loaderFactory ?? (static logger => new CompilationLoader(logger));
+        _sourceLinkResolverFactory = sourceLinkResolverFactory ?? (static path => new SourceLinkResolver(path));
     }
 
     /// <inheritdoc />
@@ -248,18 +248,33 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
         Func<string, ISourceLinkResolver> sourceLinkResolverFactory,
         ILogger logger)
     {
-        var name = Path.GetFileNameWithoutExtension(work.AssemblyPath.AsSpan()).ToString();
+        var tfm = work.Owner.Group.Tfm;
         try
         {
             var (compilation, assembly) = work.Owner.Loader.Load(work.AssemblyPath, work.Owner.Group.FallbackIndex);
             using var sourceLinks = sourceLinkResolverFactory(work.AssemblyPath);
             var catalog = symbolWalker.Walk(work.Owner.Group.Tfm, assembly, compilation, sourceLinks);
-            LogAssemblyWalked(logger, work.Owner.Group.Tfm, name, catalog.Types.Count);
+            LogInvokerHelper.Invoke(
+                logger,
+                LogLevel.Trace,
+                tfm,
+                catalog.Types.Count,
+                work.AssemblyPath,
+                static assemblyPath => Path.GetFileNameWithoutExtension(assemblyPath),
+                static (l, walkTfm, typeCount, assemblyName) => LogAssemblyWalked(l, walkTfm, assemblyName, typeCount));
+
             return catalog;
         }
         catch (Exception ex)
         {
-            LogAssemblyLoadFailed(logger, ex, work.Owner.Group.Tfm, name);
+            LogInvokerHelper.Invoke(
+                logger,
+                LogLevel.Error,
+                ex,
+                tfm,
+                work.AssemblyPath,
+                static assemblyPath => Path.GetFileNameWithoutExtension(assemblyPath),
+                static (l, error, walkTfm, assemblyName) => LogAssemblyLoadFailed(l, error, walkTfm, assemblyName));
             return null;
         }
     }
@@ -424,9 +439,9 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
         /// <inheritdoc />
         public void Dispose()
         {
-            foreach (var loader in _loaders)
+            for (var i = 0; i < _loaders.Count; i++)
             {
-                loader.Dispose();
+                _loaders[i].Dispose();
             }
 
             _loaders.Clear();

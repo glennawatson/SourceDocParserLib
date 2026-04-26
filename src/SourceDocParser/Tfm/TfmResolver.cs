@@ -10,7 +10,7 @@ namespace SourceDocParser;
 /// Pure helpers for selecting target frameworks from package contents and
 /// matching lib/ TFMs against available refs/ TFMs. All methods are
 /// stateless so they can be unit-tested in isolation from any IO. No LINQ
-/// in the lookups: each call is a few foreach passes that early-exit on
+/// in the lookups: each call is a few simple passes that early-exit on
 /// match, which is both cheaper and easier to read for what's logically
 /// "find the first hit".
 /// </summary>
@@ -40,21 +40,24 @@ public static class TfmResolver
         // Override path: pin to whatever SelectTfm picks.
         if (tfmOverride is not null)
         {
-            return SelectTfm(availableTfms, tfmOverride, tfmPreference) is { } pinned
-                ? [pinned]
-                : [];
+            return SelectTfm(availableTfms, tfmOverride, tfmPreference) switch
+            {
+                { } pinned => [pinned],
+                _ => [],
+            };
         }
 
-        var selected = new List<string>(availableTfms.Count);
-        foreach (var available in availableTfms)
+        List<string> selected = [];
+        for (var i = 0; i < availableTfms.Count; i++)
         {
+            var available = availableTfms[i];
             if (MatchesAnyPreference(available, tfmPreference))
             {
                 selected.Add(available);
             }
         }
 
-        if (selected.Count > 0)
+        if (selected is [_, ..])
         {
             return selected;
         }
@@ -63,8 +66,9 @@ public static class TfmResolver
         // present, not just the highest, so cross-package merging
         // sees a faithful "Applies to" if a type happens to live
         // in multiple netstandard versions.
-        foreach (var available in availableTfms)
+        for (var i = 0; i < availableTfms.Count; i++)
         {
+            var available = availableTfms[i];
             if (available.IsNetStandardFallback())
             {
                 selected.Add(available);
@@ -108,16 +112,18 @@ public static class TfmResolver
             }
         }
 
-        foreach (var pref in tfmPreference)
+        for (var i = 0; i < tfmPreference.Length; i++)
         {
+            var pref = tfmPreference[i];
             if (FirstExactMatch(availableTfms, pref) is { } exact)
             {
                 return exact;
             }
         }
 
-        foreach (var pref in tfmPreference)
+        for (var i = 0; i < tfmPreference.Length; i++)
         {
+            var pref = tfmPreference[i];
             if (FirstPrefixMatch(availableTfms, pref) is { } prefix)
             {
                 return prefix;
@@ -125,11 +131,13 @@ public static class TfmResolver
         }
 
         // Handle major version preference (e.g., net8 matching net8.0)
-        foreach (var pref in tfmPreference)
+        for (var i = 0; i < tfmPreference.Length; i++)
         {
+            var pref = tfmPreference[i];
             var prefTfm = Tfm.Parse(pref);
-            foreach (var available in availableTfms)
+            for (var j = 0; j < availableTfms.Count; j++)
             {
+                var available = availableTfms[j];
                 var availableTfm = Tfm.Parse(available);
                 if (availableTfm.Family == prefTfm.Family && availableTfm.Version.StartsWith(prefTfm.Version, StringComparison.Ordinal))
                 {
@@ -142,10 +150,15 @@ public static class TfmResolver
         // supported-TFMs-only rule. Picks the highest netstandard
         // available since 2.1 supersedes 2.0 in API surface.
         string? bestNetstandard = null;
-        foreach (var tfm in availableTfms)
+        for (var i = 0; i < availableTfms.Count; i++)
         {
-            if (tfm.IsNetStandardFallback()
-                && (bestNetstandard is null || string.CompareOrdinal(tfm, bestNetstandard) > 0))
+            var tfm = availableTfms[i];
+            if (!tfm.IsNetStandardFallback())
+            {
+                continue;
+            }
+
+            if (bestNetstandard is null || string.CompareOrdinal(tfm, bestNetstandard) > 0)
             {
                 bestNetstandard = tfm;
             }
@@ -170,7 +183,7 @@ public static class TfmResolver
         ArgumentException.ThrowIfNullOrWhiteSpace(libTfm);
         ArgumentNullException.ThrowIfNull(refsTfms);
 
-        if (refsTfms.Count == 0)
+        if (refsTfms is [])
         {
             return null;
         }
@@ -190,8 +203,7 @@ public static class TfmResolver
         // -> net10.0) and look for the base TFM in refs/. Avoids parsing
         // every entry into NuGetFramework for the common platform-targeted
         // libraries.
-        var dashIdx = libTfm.IndexOf('-');
-        if (dashIdx > 0)
+        if (libTfm.AsSpan().IndexOf('-') is > 0 and var dashIdx)
         {
             var stripped = libTfm.AsSpan(0, dashIdx);
             for (var i = 0; i < refsTfms.Count; i++)
@@ -217,14 +229,14 @@ public static class TfmResolver
     /// <returns>The platform label, or null if not a platform-specific TFM.</returns>
     public static string? GetPlatformLabel(string tfm) => tfm switch
     {
-        _ when tfm.Contains("-android", StringComparison.OrdinalIgnoreCase) => "android",
-        _ when tfm.Contains("-ios", StringComparison.OrdinalIgnoreCase) => "ios",
-        _ when tfm.Contains("-maccatalyst", StringComparison.OrdinalIgnoreCase) => "maccatalyst",
-        _ when tfm.Contains("-windows", StringComparison.OrdinalIgnoreCase) => "windows",
-        _ when tfm.StartsWith("monoandroid", StringComparison.OrdinalIgnoreCase) => "android",
-        _ when tfm.StartsWith("xamarinios", StringComparison.OrdinalIgnoreCase) => "ios",
-        _ when tfm.StartsWith("xamarinmac", StringComparison.OrdinalIgnoreCase) => "maccatalyst",
-        _ when tfm.StartsWith("uap", StringComparison.OrdinalIgnoreCase) => "windows",
+        _ when tfm.Contains("-android", StringComparison.OrdinalIgnoreCase)
+               || tfm.StartsWith("monoandroid", StringComparison.OrdinalIgnoreCase) => "android",
+        _ when tfm.Contains("-ios", StringComparison.OrdinalIgnoreCase)
+               || tfm.StartsWith("xamarinios", StringComparison.OrdinalIgnoreCase) => "ios",
+        _ when tfm.Contains("-maccatalyst", StringComparison.OrdinalIgnoreCase)
+               || tfm.StartsWith("xamarinmac", StringComparison.OrdinalIgnoreCase) => "maccatalyst",
+        _ when tfm.Contains("-windows", StringComparison.OrdinalIgnoreCase)
+               || tfm.StartsWith("uap", StringComparison.OrdinalIgnoreCase) => "windows",
         _ => null,
     };
 
@@ -261,8 +273,7 @@ public static class TfmResolver
             byFramework.TryAdd(fw, raw);
         }
 
-        var nearest = _frameworkReducer.GetNearest(libFramework, candidates);
-        if (nearest is not null)
+        if (_frameworkReducer.GetNearest(libFramework, candidates) is { } nearest)
         {
             return byFramework.GetValueOrDefault(nearest);
         }
@@ -292,7 +303,7 @@ public static class TfmResolver
         for (var i = 0; i < candidates.Count; i++)
         {
             var candidate = candidates[i];
-            if (candidate.Framework != FrameworkConstants.FrameworkIdentifiers.NetCoreApp || candidate.Version.Major < 5)
+            if (candidate is { Framework: not FrameworkConstants.FrameworkIdentifiers.NetCoreApp } or { Version.Major: < 5 })
             {
                 continue;
             }
@@ -316,8 +327,9 @@ public static class TfmResolver
     private static bool MatchesAnyPreference(string tfm, string[] tfmPreference)
     {
         var testTfm = Tfm.Parse(tfm);
-        foreach (var pref in tfmPreference)
+        for (var i = 0; i < tfmPreference.Length; i++)
         {
+            var pref = tfmPreference[i];
             if (string.Equals(tfm, pref, StringComparison.OrdinalIgnoreCase)
                 || tfm.StartsWith(pref, StringComparison.OrdinalIgnoreCase))
             {
@@ -325,7 +337,7 @@ public static class TfmResolver
             }
 
             var prefTfm = Tfm.Parse(pref);
-            if (testTfm.Family == prefTfm.Family && testTfm.Version.StartsWith(prefTfm.Version, StringComparison.Ordinal))
+            if (testTfm.Family == prefTfm.Family && testTfm.Version.AsSpan().StartsWith(prefTfm.Version, StringComparison.Ordinal))
             {
                 return true;
             }
@@ -336,16 +348,17 @@ public static class TfmResolver
 
     /// <summary>
     /// Returns the first entry in candidates that compares ordinally
-    /// equal (case-insensitive) to target, or null. Wraps the foreach so
+    /// equal (case-insensitive) to target, or null. Wraps the scan so
     /// callers don't repeat the loop body.
     /// </summary>
     /// <param name="candidates">Strings to scan, in iteration order.</param>
     /// <param name="target">Value to match.</param>
     /// <returns>The first exact match, or null if none found.</returns>
-    private static string? FirstExactMatch(IEnumerable<string> candidates, string target)
+    private static string? FirstExactMatch(List<string> candidates, string target)
     {
-        foreach (var candidate in candidates)
+        for (var i = 0; i < candidates.Count; i++)
         {
+            var candidate = candidates[i];
             if (string.Equals(candidate, target, StringComparison.OrdinalIgnoreCase))
             {
                 return candidate;
@@ -362,11 +375,12 @@ public static class TfmResolver
     /// <param name="candidates">Strings to scan, in iteration order.</param>
     /// <param name="target">Prefix to match.</param>
     /// <returns>The first prefix match, or null if none found.</returns>
-    private static string? FirstPrefixMatch(IEnumerable<string> candidates, string target)
+    private static string? FirstPrefixMatch(List<string> candidates, string target)
     {
-        foreach (var candidate in candidates)
+        for (var i = 0; i < candidates.Count; i++)
         {
-            if (candidate.StartsWith(target, StringComparison.OrdinalIgnoreCase))
+            var candidate = candidates[i];
+            if (candidate.AsSpan().StartsWith(target, StringComparison.OrdinalIgnoreCase))
             {
                 return candidate;
             }

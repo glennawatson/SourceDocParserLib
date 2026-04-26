@@ -69,16 +69,18 @@ public sealed class NuGetAssemblySource : IAssemblySource
 
         var libTfms = DiscoverTfms(libDir);
         var refsTfms = Directory.Exists(refsDir) ? DiscoverTfms(refsDir) : [];
+        var refDllNameCache = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var tfm in libTfms)
+        for (var i = 0; i < libTfms.Count; i++)
         {
+            var tfm = libTfms[i];
             cancellationToken.ThrowIfCancellationRequested();
 
             var libTfmDir = Path.Combine(libDir, tfm);
             var bestRef = TfmResolver.FindBestRefsTfm(tfm, refsTfms);
 
             var refDllNames = bestRef is not null
-                ? CollectFileNamesWithoutExtension(Path.Combine(refsDir, bestRef), DllPattern)
+                ? GetOrAddRefDllNames(refDllNameCache, refsDir, bestRef)
                 : new(StringComparer.OrdinalIgnoreCase);
 
             var packageDlls = CollectPackageDlls(libTfmDir, refDllNames);
@@ -137,6 +139,29 @@ public sealed class NuGetAssemblySource : IAssemblySource
 
         packageDlls.Sort(StringComparer.Ordinal);
         return packageDlls;
+    }
+
+    /// <summary>
+    /// Returns the cached reference-assembly names for <paramref name="bestRef"/>,
+    /// populating the cache on the first request.
+    /// </summary>
+    /// <param name="cache">Per-discovery cache keyed by refs/ TFM.</param>
+    /// <param name="refsDir">Root refs directory.</param>
+    /// <param name="bestRef">Matched refs TFM.</param>
+    /// <returns>Filename-without-extension names of reference assemblies for the TFM.</returns>
+    private static HashSet<string> GetOrAddRefDllNames(
+        Dictionary<string, HashSet<string>> cache,
+        string refsDir,
+        string bestRef)
+    {
+        if (cache.TryGetValue(bestRef, out var cached))
+        {
+            return cached;
+        }
+
+        var names = CollectFileNamesWithoutExtension(Path.Combine(refsDir, bestRef), DllPattern);
+        cache[bestRef] = names;
+        return names;
     }
 
     /// <summary>

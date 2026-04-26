@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Xml;
+
 namespace SourceDocParser.Tests;
 
 /// <summary>
@@ -128,31 +130,25 @@ public class XmlDocToMarkdownTests
     }
 
     /// <summary>
-    /// The streaming <see cref="XmlDocToMarkdown.Convert(System.Xml.XmlReader)"/>
-    /// overload reads the current element's children and produces the
-    /// same Markdown as the string overload — verifying the
-    /// nested-XmlReader allocation fix preserved behaviour.
+    /// Handles the case where the input is a single-element list.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    [System.Diagnostics.CodeAnalysis.SuppressMessage(
-        "Performance",
-        "CA1849:Call async methods",
-        Justification = "Test exercises sync XmlReader directly; ReadAsync is unrelated to what's being verified.")]
     public async Task ConvertReaderProducesSameOutputAsString()
     {
         const string fragment = "Use <c>Foo()</c> and pass <paramref name=\"x\"/>.";
         var expected = _converter.Convert(fragment);
 
-        using var stringReader = new System.IO.StringReader($"<root>{fragment}</root>");
-        using var reader = System.Xml.XmlReader.Create(stringReader);
+        using var stringReader = new StringReader($"<root>{fragment}</root>");
+        var settings = new XmlReaderSettings { Async = true };
+        using var reader = XmlReader.Create(stringReader, settings);
 
         // Position on the <root> start element.
-        while (reader.Read() && reader.NodeType != System.Xml.XmlNodeType.Element)
+        while (await reader.ReadAsync() && reader.NodeType != XmlNodeType.Element)
         {
         }
 
-        var actual = _converter.Convert(reader);
+        var actual = await _converter.ConvertAsync(reader);
 
         await Assert.That(actual).IsEqualTo(expected);
     }
@@ -162,30 +158,35 @@ public class XmlDocToMarkdownTests
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    [System.Diagnostics.CodeAnalysis.SuppressMessage(
-        "Performance",
-        "CA1849:Call async methods",
-        Justification = "Test exercises sync XmlReader directly; ReadAsync is unrelated to what's being verified.")]
     public async Task ConvertReaderReturnsEmptyForEmptyElement()
     {
-        using var stringReader = new System.IO.StringReader("<empty/>");
-        using var reader = System.Xml.XmlReader.Create(stringReader);
-        while (reader.Read() && reader.NodeType != System.Xml.XmlNodeType.Element)
+        using var stringReader = new StringReader("<empty/>");
+        var settings = new XmlReaderSettings { Async = true };
+        using var reader = XmlReader.Create(stringReader, settings);
+        while (await reader.ReadAsync() && reader.NodeType != XmlNodeType.Element)
         {
         }
 
-        var result = _converter.Convert(reader);
+        var result = await _converter.ConvertAsync(reader);
 
         await Assert.That(result).IsEqualTo(string.Empty);
     }
 
     /// <summary>
-    /// A null reader throws <see cref="System.ArgumentNullException"/>.
+    /// A null reader throws <see cref="ArgumentNullException"/>.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ConvertReaderValidatesArgument() =>
-        await Assert.That(() => _converter.Convert((System.Xml.XmlReader)null!)).Throws<System.ArgumentNullException>();
+    public async Task ConvertReaderValidatesArgument()
+    {
+        await Assert.That(ActReaderAsync).Throws<ArgumentNullException>();
+        await Assert.That(ActReaderWithTokenAsync).Throws<ArgumentNullException>();
+        return;
+
+        Task ActReaderAsync() => _converter.ConvertAsync((XmlReader)null!);
+
+        Task ActReaderWithTokenAsync() => _converter.ConvertAsync((XmlReader)null!, CancellationToken.None);
+    }
 
     /// <summary>
     /// The span overload returns plain decoded text on the no-tag fast
@@ -214,7 +215,7 @@ public class XmlDocToMarkdownTests
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ConvertSpanReturnsEmptyForEmptyInput() =>
-        await Assert.That(_converter.Convert(default(System.ReadOnlySpan<char>))).IsEqualTo(string.Empty);
+        await Assert.That(_converter.Convert(default(ReadOnlySpan<char>))).IsEqualTo(string.Empty);
 
     /// <summary>A numbered list renders with sequential prefixes.</summary>
     /// <returns>A task representing the test execution.</returns>

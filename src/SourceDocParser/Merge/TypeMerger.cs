@@ -31,8 +31,9 @@ public static class TypeMerger
 
         var byUid = new Dictionary<string, List<TypeVariant>>(InitialBucketCapacity, StringComparer.Ordinal);
 
-        foreach (var (tfmString, types) in catalogs)
+        for (var catalogIndex = 0; catalogIndex < catalogs.Count; catalogIndex++)
         {
+            var (tfmString, types) = catalogs[catalogIndex];
             var tfm = Tfm.Parse(tfmString);
             for (var i = 0; i < types.Count; i++)
             {

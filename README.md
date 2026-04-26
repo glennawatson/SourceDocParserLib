@@ -2,7 +2,7 @@
 
 Roslyn-based .NET assembly walker that turns compiled `.dll` + `.pdb` + `.xml` triples into a strongly-typed API catalog (types, members, signatures, XML docs, inheritdoc, SourceLink) and hands it to a pluggable emitter for rendering.
 
-The catalog is **format-neutral**. Emitters decide how to render it — Markdown for Zensical / mkdocs Material today, with room for other targets.
+The catalog is **format-neutral**. Emitters decide how to render it — Markdown for Zensical / mkdocs Material, or YAML for docfx ManagedReference, with room for other targets.
 
 ## Packages
 
@@ -11,7 +11,7 @@ The catalog is **format-neutral**. Emitters decide how to render it — Markdown
 | `SourceDocParser` | Core walker, merger, source-link resolution. Defines `IAssemblySource`, `IDocumentationEmitter`, `IMetadataExtractor`. |
 | `SourceDocParser.NuGet` | `IAssemblySource` that fetches packages from `nuget.org` by owner / explicit list and exposes the per-TFM `lib/` trees. |
 | `SourceDocParser.Zensical` | `IDocumentationEmitter` that writes Markdown tuned for Zensical / mkdocs Material (admonitions, content tabs, mermaid). |
-| `SourceDocParser.Docfx` | docfx config-file shim — reads + writes `docfx.json` shapes so an existing docfx site can drive the parser pipeline. No emitter; that ships separately. |
+| `SourceDocParser.Docfx` | `IDocumentationEmitter` that writes docfx ManagedReference YAML pages (drop-in replacement for `dotnet docfx metadata` output) plus the `docfx.json` config-file shim that lets an existing docfx site drive the parser pipeline. |
 
 Logging flows through `Microsoft.Extensions.Logging.Abstractions` source-generated `[LoggerMessage]` partials, so any host (Serilog, Console, NLog, …) plugs in without the libraries taking a dependency on a specific backend.
 
@@ -58,13 +58,35 @@ Peak working set is bounded too: per-TFM compilation loaders dispose as soon as 
 
 | Operation                                                                |    Time | Allocated |
 |--------------------------------------------------------------------------|--------:|----------:|
-| `XmlDocToMarkdown.Convert` — plain summary                               |  ~26 ns |     176 B |
-| `XmlDocToMarkdown.Convert` — tagged with `<see>` / `<c>` / `<paramref>`  | ~890 ns |     304 B |
-| `XmlDocToMarkdown.Convert` — code block + bullet list                    | ~1.1 µs |     440 B |
-| `TfmResolver.FindBestRefsTfm` — exact match                              |   ~3 ns |       0 B |
+| `XmlDocToMarkdown.Convert` — plain summary                               |  ~25 ns |     176 B |
+| `XmlDocToMarkdown.Convert` — tagged with `<see>` / `<c>` / `<paramref>`  | ~786 ns |     304 B |
+| `XmlDocToMarkdown.Convert` — code block + bullet list                    | ~1.0 µs |     440 B |
+| `TfmResolver.FindBestRefsTfm` — exact match                              |   ~2 ns |       0 B |
 | `TfmResolver.FindBestRefsTfm` — platform-suffix strip                    |  ~11 ns |       0 B |
-| `TfmResolver.FindBestRefsTfm` — netstandard fallback                     | ~500 ns |     1 KB  |
-| `TypeMerger.Merge` — 600 types × 3 TFMs                                  | ~120 µs |    330 KB |
+| `TfmResolver.FindBestRefsTfm` — netstandard fallback                     | ~471 ns |     1 KB  |
+| `TypeMerger.Merge` — 600 types × 3 TFMs                                  | ~115 µs |    325 KB |
+
+**Emitter cost per type page** (no I/O, just markup formatting; baseline = Zensical Markdown):
+
+| Workload (types × members/type) | Zensical Markdown   | DocFx YAML            | Time | Alloc |
+|---------------------------------|--------------------:|----------------------:|-----:|------:|
+| 100 × 5                         |   78 µs / 420 KB    |   305 µs / 1,410 KB   | 3.9× | 3.4×  |
+| 100 × 30                        |  288 µs / 1,334 KB  | 1,618 µs / 6,184 KB   | 5.5× | 4.6×  |
+| 600 × 5                         |  459 µs / 2,522 KB  | 1,823 µs / 8,461 KB   | 3.9× | 3.4×  |
+| 600 × 30                        | 1,938 µs / 8,006 KB | 10,820 µs / 37,106 KB | 5.7× | 4.6×  |
+| 2000 × 5                        | 1,617 µs / 8,406 KB | 7,443 µs / 28,203 KB  | 4.5× | 3.4×  |
+| 2000 × 30                       | 8,528 µs / 26.7 MB  | 37,166 µs / 123.7 MB  | 4.4× | 4.6×  |
+
+DocFx YAML is heavier by design — every member duplicates uid / commentId / parent / name / nameWithType / fullName, and the page-level `references:` list adds another mapping per cross-referenced type. The emitter still hand-writes its YAML directly via `StringBuilder` (no YamlDotNet runtime dependency), with a single-allocation fast path for the qualified-name composites (`type.Name + "." + member.Name`) that round-trips identifiers as plain scalars when escape-safe.
+
+**Side-by-side against `dotnet docfx metadata`.** Two fully isolated standalone benchmark assemblies — `benchmarks/Docfx.StandaloneBenchmarks/` (calls `DotnetApiCatalog.GenerateManagedReferenceYamlFiles` in-process) and `benchmarks/SourceDocParser.Docfx.StandaloneBenchmarks/` (drives our pipeline through `DocfxYamlEmitter`) — both target the same 4 NuGet packages (`ReactiveUI`, `Splat`, `DynamicData`, `System.Reactive`), measured by BenchmarkDotNet's `[ShortRunJob]` on the same machine:
+
+| Pipeline                                                       | Mean    | Allocated |
+|----------------------------------------------------------------|--------:|----------:|
+| docfx 2.78.5 — `DotnetApiCatalog.GenerateManagedReferenceYamlFiles` | 1.598 s |   6.72 MB |
+| `SourceDocParser` + `DocfxYamlEmitter`                         | 2.031 s |  919.6 MB |
+
+The two pipelines aren't strictly walking identical inputs — docfx loads a synthesised `Fixture.csproj` that pulls the 4 packages as transitive `PackageReference`s and walks one effective TFM, while our pipeline resolves every shipped `lib/`/`ref/` slice across ~19 supported TFMs from `nuget-packages.json` and merges across them. Working backward from that fixture difference, our per-TFM walk explains both the wall-time delta and the allocation gap (each TFM spins a fresh Roslyn compilation graph, and the cross-TFM merger holds catalogs while it dedupes UIDs). The contract pinned by the comparison is parity output (every `T:`, `M:`, `P:`, `E:` UID docfx emits, our pipeline emits too) at the per-page emit cost shown in the per-page table above.
 
 ### Strategies the pipeline uses
 

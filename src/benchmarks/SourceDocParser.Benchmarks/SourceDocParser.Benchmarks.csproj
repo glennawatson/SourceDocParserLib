@@ -21,6 +21,7 @@
     <ProjectReference Include="..\..\SourceDocParser\SourceDocParser.csproj" />
     <ProjectReference Include="..\..\SourceDocParser.NuGet\SourceDocParser.NuGet.csproj" />
     <ProjectReference Include="..\..\SourceDocParser.Zensical\SourceDocParser.Zensical.csproj" />
+    <ProjectReference Include="..\..\SourceDocParser.Docfx\SourceDocParser.Docfx.csproj" />
   </ItemGroup>
 
   <ItemGroup>

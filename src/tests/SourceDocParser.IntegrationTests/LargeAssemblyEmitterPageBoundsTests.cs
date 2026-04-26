@@ -49,9 +49,9 @@ public class LargeAssemblyEmitterPageBoundsTests
         // files in those sibling directories tells us which types are
         // contributing the long tail.
         var perTypeCounts = Directory.EnumerateDirectories(output, "*", SearchOption.AllDirectories)
-            .Select(dir => (dir, count: Directory.EnumerateFiles(dir, "*.md", SearchOption.TopDirectoryOnly).Count()))
-            .Where(t => t.count > 0)
-            .OrderByDescending(t => t.count)
+            .Select(static dir => (dir, count: Directory.EnumerateFiles(dir, "*.md", SearchOption.TopDirectoryOnly).Count()))
+            .Where(static t => t.count > 0)
+            .OrderByDescending(static t => t.count)
             .Take(20)
             .ToList();
 

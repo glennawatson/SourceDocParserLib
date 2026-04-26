@@ -63,12 +63,11 @@ internal static class SymbolWalkerHelpers
     /// <returns><see langword="true"/> if the type is a union base.</returns>
     public static bool IsUnion(INamedTypeSymbol type)
     {
-        var interfaces = type.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
+        for (var i = 0; i < type.AllInterfaces.Length; i++)
         {
-            var iface = interfaces[i];
-            if (iface.Name == "IUnion" &&
-                iface.ContainingNamespace?.ToDisplayString() == "System.Runtime.CompilerServices")
+            var iface = type.AllInterfaces[i];
+            if (iface is { Name: "IUnion", ContainingNamespace: { Name: "CompilerServices", ContainingNamespace.Name: "Runtime" } } &&
+                iface.ContainingNamespace.ContainingNamespace.ContainingNamespace?.Name == "System")
             {
                 return true;
             }
@@ -176,10 +175,10 @@ internal static class SymbolWalkerHelpers
         }
 
         var refs = new List<ApiTypeReference>(type.Interfaces.Length);
-        var interfaces = type.Interfaces;
-        for (var i = 0; i < interfaces.Length; i++)
+        for (var i = 0; i < type.Interfaces.Length; i++)
         {
-            refs.Add(cache.GetOrAdd(interfaces[i], BuildReference));
+            var iface = type.Interfaces[i];
+            refs.Add(cache.GetOrAdd(iface, BuildReference));
         }
 
         return refs;
@@ -201,26 +200,26 @@ internal static class SymbolWalkerHelpers
         // derivations of this base. Same-assembly is the closure rule
         // from the closed-hierarchies proposal — case types must live
         // alongside the base.
-        var cases = new List<ApiTypeReference>();
         var assembly = type.ContainingAssembly;
         if (assembly is null)
         {
-            return cases;
+            return [];
         }
 
+        var cases = new List<ApiTypeReference>();
         var pending = new Stack<INamespaceSymbol>();
         pending.Push(assembly.GlobalNamespace);
-        while (pending.Count > 0)
+        while (pending.TryPop(out var ns))
         {
-            var ns = pending.Pop();
-            foreach (var nested in ns.GetNamespaceMembers())
+            foreach (var nestedNamespace in ns.GetNamespaceMembers())
             {
-                pending.Push(nested);
+                pending.Push(nestedNamespace);
             }
 
-            foreach (var candidate in ns.GetTypeMembers())
+            var candidates = ns.GetTypeMembers();
+            for (var i = 0; i < candidates.Length; i++)
             {
-                CollectCasesRecursive(candidate, type, cases, cache);
+                CollectCasesRecursive(candidates[i], type, cases, cache);
             }
         }
 
@@ -241,7 +240,8 @@ internal static class SymbolWalkerHelpers
         var values = new List<ApiEnumValue>(members.Length);
         for (var i = 0; i < members.Length; i++)
         {
-            if (members[i] is not IFieldSymbol { IsConst: true } field || field.IsImplicitlyDeclared)
+            var member = members[i];
+            if (member is not IFieldSymbol { IsConst: true, IsImplicitlyDeclared: false } field)
             {
                 continue;
             }
@@ -385,9 +385,10 @@ internal static class SymbolWalkerHelpers
             cases.Add(cache.GetOrAdd(candidate, BuildReference));
         }
 
-        foreach (var nested in candidate.GetTypeMembers())
+        var nestedTypes = candidate.GetTypeMembers();
+        for (var i = 0; i < nestedTypes.Length; i++)
         {
-            CollectCasesRecursive(nested, unionBase, cases, cache);
+            CollectCasesRecursive(nestedTypes[i], unionBase, cases, cache);
         }
     }
 }

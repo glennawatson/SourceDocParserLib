@@ -76,8 +76,8 @@ public class SourceLinkResolverTests
         List<MetadataReference> refs =
         [
             .. AppDomain.CurrentDomain.GetAssemblies()
-                .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-                .Select(a => MetadataReference.CreateFromFile(a.Location)),
+                .Where(static a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
+                .Select(static a => MetadataReference.CreateFromFile(a.Location)),
         ];
         var compilation = CSharpCompilation.Create("Probe", [tree], refs);
         return compilation.GetTypeByMetadataName("Probe")!;

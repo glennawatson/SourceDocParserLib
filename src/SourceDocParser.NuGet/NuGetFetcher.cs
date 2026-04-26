@@ -82,13 +82,14 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         // the prior LINQ Any() scanned the whole list per additional
         // package which was N*M for no reason.
         var seenIds = new HashSet<string>(discoveredIds.Count, StringComparer.OrdinalIgnoreCase);
-        foreach (var d in discoveredIds)
+        for (var i = 0; i < discoveredIds.Count; i++)
         {
-            seenIds.Add(d.Id);
+            seenIds.Add(discoveredIds[i].Id);
         }
 
-        foreach (var additional in config.AdditionalPackages)
+        for (var i = 0; i < config.AdditionalPackages.Length; i++)
         {
+            var additional = config.AdditionalPackages[i];
             if (seenIds.Add(additional.Id))
             {
                 discoveredIds.Add((additional.Id, additional.Version));
@@ -133,8 +134,9 @@ public sealed partial class NuGetFetcher : INuGetFetcher
             return true;
         }
 
-        foreach (var prefix in excludePrefixes)
+        for (var i = 0; i < excludePrefixes.Length; i++)
         {
+            var prefix = excludePrefixes[i];
             if (id.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
@@ -230,14 +232,20 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         LogUsingSearchEndpoint(logger, searchEndpoint);
 
         List<(string Id, string? Version)> allIds = [];
-        foreach (var owner in config.NugetPackageOwners)
+        var seenIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < config.NugetPackageOwners.Length; i++)
         {
+            var owner = config.NugetPackageOwners[i];
             cancellationToken.ThrowIfCancellationRequested();
             var ids = await DiscoverPackagesByOwnerAsync(client, retryPolicy, searchEndpoint, owner, cancellationToken).ConfigureAwait(false);
             LogDiscoveredOwnerPackages(logger, ids.Count, owner);
-            foreach (var id in ids)
+            for (var j = 0; j < ids.Count; j++)
             {
-                allIds.Add((id, null));
+                var id = ids[j];
+                if (seenIds.Add(id))
+                {
+                    allIds.Add((id, null));
+                }
             }
         }
 
@@ -268,8 +276,9 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         using var client = new HttpClient();
         var retryPolicy = CreateRetryPolicy();
 
-        foreach (var pkg in packages)
+        for (var i = 0; i < packages.Length; i++)
         {
+            var pkg = packages[i];
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
@@ -358,8 +367,9 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         var prefix = pathPrefix.TrimEnd('/') + "/";
         var count = 0;
 
-        foreach (var entry in archive.Entries)
+        for (var i = 0; i < archive.Entries.Count; i++)
         {
+            var entry = archive.Entries[i];
             if (!entry.FullName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
@@ -745,8 +755,9 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         // ToDictionary chain. Allocates one Dictionary and one List per
         // distinct TFM rather than the LINQ pipeline's grouping internals.
         var libEntries = new Dictionary<string, List<ZipArchiveEntry>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var entry in archive.Entries)
+        for (var i = 0; i < archive.Entries.Count; i++)
         {
+            var entry = archive.Entries[i];
             if (entry.Name is null or [])
             {
                 continue;

@@ -92,7 +92,7 @@ public class DocfxConfigRoundTripTests
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ReadRejectsNonObjectRoot() => await Assert.That(() => ReadFromString("[1, 2, 3]")).ThrowsExactly<JsonException>();
+    public async Task ReadRejectsNonObjectRoot() => await Assert.That(static () => ReadFromString("[1, 2, 3]")).ThrowsExactly<JsonException>();
 
     /// <summary>
     /// Reads a docfx config from a string by encoding it to UTF-8 and feeding the bytes to the reader.

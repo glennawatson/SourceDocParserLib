@@ -17,8 +17,8 @@ public class CompilationDiagnosticsExtensionsTests
     private static List<MetadataReference> BclReferences { get; } =
     [
         .. AppDomain.CurrentDomain.GetAssemblies()
-            .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-            .Select(a => MetadataReference.CreateFromFile(a.Location)),
+            .Where(static a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
+            .Select(static a => MetadataReference.CreateFromFile(a.Location)),
     ];
 
     /// <summary>

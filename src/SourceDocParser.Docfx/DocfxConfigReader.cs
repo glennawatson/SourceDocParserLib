@@ -21,15 +21,6 @@ public static class DocfxConfigReader
         CommentHandling = JsonCommentHandling.Skip,
     };
 
-    /// <summary>Property names handled explicitly on a metadata entry; everything else flows into <see cref="DocfxMetadataEntry.Extra"/>.</summary>
-    private static readonly HashSet<string> _metadataKnownProperties = new(StringComparer.Ordinal) { "src", "dest" };
-
-    /// <summary>Property names handled explicitly on the build section; everything else flows into <see cref="DocfxBuildSection.Extra"/>.</summary>
-    private static readonly HashSet<string> _buildKnownProperties = new(StringComparer.Ordinal) { "content" };
-
-    /// <summary>Property names handled explicitly on a build content entry; everything else flows into <see cref="DocfxBuildContent.Extra"/>.</summary>
-    private static readonly HashSet<string> _buildContentKnownProperties = new(StringComparer.Ordinal) { "files" };
-
     /// <summary>
     /// Parses a docfx config object from <paramref name="utf8Stream"/>.
     /// </summary>
@@ -44,7 +35,7 @@ public static class DocfxConfigReader
         using var doc = JsonDocument.Parse(utf8Stream, _docOptions);
         var root = doc.RootElement;
 
-        if (root.ValueKind != JsonValueKind.Object)
+        if (root is not { ValueKind: JsonValueKind.Object })
         {
             throw new JsonException("Expected the root of the docfx config to be a JSON object.");
         }
@@ -61,7 +52,7 @@ public static class DocfxConfigReader
     /// <returns>Ordered metadata entries.</returns>
     private static List<DocfxMetadataEntry> ReadMetadataArray(in JsonElement root)
     {
-        if (!root.TryGetProperty("metadata", out var array) || array.ValueKind != JsonValueKind.Array)
+        if (!root.TryGetProperty("metadata"u8, out var array) || array is not { ValueKind: JsonValueKind.Array })
         {
             return [];
         }
@@ -69,17 +60,17 @@ public static class DocfxConfigReader
         var entries = new List<DocfxMetadataEntry>(array.GetArrayLength());
         foreach (var item in array.EnumerateArray())
         {
-            if (item.ValueKind != JsonValueKind.Object)
+            if (item is not { ValueKind: JsonValueKind.Object })
             {
                 throw new JsonException("Each metadata entry must be a JSON object.");
             }
 
-            var dest = item.TryGetProperty("dest", out var destEl) && destEl.ValueKind == JsonValueKind.String
+            var dest = item.TryGetProperty("dest"u8, out var destEl) && destEl is { ValueKind: JsonValueKind.String }
                 ? destEl.GetString() ?? string.Empty
                 : string.Empty;
             entries.Add(new(ReadMetadataSources(item), dest)
             {
-                Extra = ReadExtra(item, _metadataKnownProperties),
+                Extra = ReadExtra(item, IsKnownMetadataProperty),
             });
         }
 
@@ -93,7 +84,7 @@ public static class DocfxConfigReader
     /// <returns>Ordered source records.</returns>
     private static List<DocfxMetadataSource> ReadMetadataSources(in JsonElement entry)
     {
-        if (!entry.TryGetProperty("src", out var array) || array.ValueKind != JsonValueKind.Array)
+        if (!entry.TryGetProperty("src"u8, out var array) || array is not { ValueKind: JsonValueKind.Array })
         {
             return [];
         }
@@ -101,15 +92,15 @@ public static class DocfxConfigReader
         var sources = new List<DocfxMetadataSource>(array.GetArrayLength());
         foreach (var item in array.EnumerateArray())
         {
-            if (item.ValueKind != JsonValueKind.Object)
+            if (item is not { ValueKind: JsonValueKind.Object })
             {
                 throw new JsonException("Each metadata src entry must be a JSON object.");
             }
 
-            var src = item.TryGetProperty("src", out var srcEl) && srcEl.ValueKind == JsonValueKind.String
+            var src = item.TryGetProperty("src"u8, out var srcEl) && srcEl is { ValueKind: JsonValueKind.String }
                 ? srcEl.GetString() ?? string.Empty
                 : string.Empty;
-            sources.Add(new(src, ReadStringArray(item, "files")));
+            sources.Add(new(src, ReadStringArray(item, "files"u8)));
         }
 
         return sources;
@@ -122,14 +113,14 @@ public static class DocfxConfigReader
     /// <returns>Parsed build section.</returns>
     private static DocfxBuildSection ReadBuildSection(in JsonElement root)
     {
-        if (!root.TryGetProperty("build", out var build) || build.ValueKind != JsonValueKind.Object)
+        if (!root.TryGetProperty("build"u8, out var build) || build is not { ValueKind: JsonValueKind.Object })
         {
             return new([]);
         }
 
         return new(ReadBuildContent(build))
         {
-            Extra = ReadExtra(build, _buildKnownProperties),
+            Extra = ReadExtra(build, IsKnownBuildProperty),
         };
     }
 
@@ -140,7 +131,7 @@ public static class DocfxConfigReader
     /// <returns>Ordered content entries.</returns>
     private static List<DocfxBuildContent> ReadBuildContent(in JsonElement build)
     {
-        if (!build.TryGetProperty("content", out var array) || array.ValueKind != JsonValueKind.Array)
+        if (!build.TryGetProperty("content"u8, out var array) || array is not { ValueKind: JsonValueKind.Array })
         {
             return [];
         }
@@ -148,18 +139,18 @@ public static class DocfxConfigReader
         var entries = new List<DocfxBuildContent>(array.GetArrayLength());
         foreach (var item in array.EnumerateArray())
         {
-            if (item.ValueKind != JsonValueKind.Object)
+            if (item is not { ValueKind: JsonValueKind.Object })
             {
                 throw new JsonException("Each build content entry must be a JSON object.");
             }
 
-            var files = item.TryGetProperty("files", out var filesEl) && filesEl.ValueKind == JsonValueKind.Array
+            var files = item.TryGetProperty("files"u8, out var filesEl) && filesEl is { ValueKind: JsonValueKind.Array }
                 ? ReadStringList(filesEl)
                 : null;
 
             entries.Add(new(files)
             {
-                Extra = ReadExtra(item, _buildContentKnownProperties),
+                Extra = ReadExtra(item, IsKnownBuildContentProperty),
             });
         }
 
@@ -170,11 +161,11 @@ public static class DocfxConfigReader
     /// Reads an array of strings under <paramref name="propertyName"/> as a list.
     /// </summary>
     /// <param name="element">Containing object.</param>
-    /// <param name="propertyName">Property to read.</param>
+    /// <param name="propertyName">UTF-8 encoded property name to read.</param>
     /// <returns>String values in document order.</returns>
-    private static List<string> ReadStringArray(in JsonElement element, string propertyName)
+    private static List<string> ReadStringArray(in JsonElement element, ReadOnlySpan<byte> propertyName)
     {
-        if (!element.TryGetProperty(propertyName, out var array) || array.ValueKind != JsonValueKind.Array)
+        if (!element.TryGetProperty(propertyName, out var array) || array is not { ValueKind: JsonValueKind.Array })
         {
             return [];
         }
@@ -200,27 +191,52 @@ public static class DocfxConfigReader
 
     /// <summary>
     /// Collects every property of <paramref name="element"/> not present in
-    /// <paramref name="known"/> into a round-trip dictionary. Each value is
+    /// <paramref name="isKnownProperty"/> into a round-trip dictionary. Each value is
     /// cloned so it survives disposal of the source <see cref="JsonDocument"/>.
     /// </summary>
     /// <param name="element">Object whose properties to scan.</param>
-    /// <param name="known">Property names that the typed model handles directly.</param>
+    /// <param name="isKnownProperty">Predicate for property names that the typed model handles directly.</param>
     /// <returns>The extension data, or null when there is nothing to round-trip.</returns>
-    private static Dictionary<string, JsonElement>? ReadExtra(in JsonElement element, HashSet<string> known)
+    private static Dictionary<string, JsonElement>? ReadExtra(in JsonElement element, Func<string, bool> isKnownProperty)
     {
         Dictionary<string, JsonElement>? extra = null;
 
         foreach (var prop in element.EnumerateObject())
         {
-            if (known.Contains(prop.Name))
+            var name = prop.Name;
+            if (isKnownProperty(name))
             {
                 continue;
             }
 
             extra ??= new(StringComparer.Ordinal);
-            extra[prop.Name] = prop.Value.Clone();
+            extra[name] = prop.Value.Clone();
         }
 
         return extra;
     }
+
+    /// <summary>
+    /// Checks if the property name is a known metadata property.
+    /// </summary>
+    /// <param name="propertyName">The property name to check.</param>
+    /// <returns>True if known, false otherwise.</returns>
+    private static bool IsKnownMetadataProperty(string propertyName) =>
+        propertyName is "src" or "dest";
+
+    /// <summary>
+    /// Checks if the property name is a known build property.
+    /// </summary>
+    /// <param name="propertyName">The property name to check.</param>
+    /// <returns>True if known, false otherwise.</returns>
+    private static bool IsKnownBuildProperty(string propertyName) =>
+        propertyName is "content";
+
+    /// <summary>
+    /// Checks if the property name is a known build content property.
+    /// </summary>
+    /// <param name="propertyName">The property name to check.</param>
+    /// <returns>True if known, false otherwise.</returns>
+    private static bool IsKnownBuildContentProperty(string propertyName) =>
+        propertyName is "files";
 }

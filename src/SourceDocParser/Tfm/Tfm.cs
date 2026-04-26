@@ -66,7 +66,7 @@ public record Tfm(string Raw, string Family, string Version, string? Platform)
     /// <summary>
     /// Gets a value indicating whether this is a modern .NET TFM (net5.0+).
     /// </summary>
-    public bool IsModernNet => Family == "net" && (Version.StartsWith("5", StringComparison.Ordinal) || Version.Length > 1);
+    public bool IsModernNet => Family == "net" && Version.AsSpan() is ['5', ..] or { Length: > 1 };
 
     /// <summary>
     /// Gets a value indicating whether this is a .NET Framework TFM.
@@ -99,24 +99,15 @@ public record Tfm(string Raw, string Family, string Version, string? Platform)
             var baseTfm = dashIndex >= 0 ? tfmSpan[..dashIndex] : tfmSpan;
             var platform = dashIndex >= 0 ? key[(dashIndex + 1)..] : null;
 
-            Tfm result;
-            if (baseTfm.StartsWith("netstandard", StringComparison.OrdinalIgnoreCase))
+            var (family, versionString) = baseTfm switch
             {
-                result = new(key, "netstandard", new(baseTfm[NetStandardPrefixLength..]), platform);
-            }
-            else if (baseTfm.StartsWith("net4", StringComparison.OrdinalIgnoreCase))
-            {
-                result = new(key, "net4", new(baseTfm[NetPrefixLength..]), platform);
-            }
-            else if (baseTfm.StartsWith("net", StringComparison.OrdinalIgnoreCase))
-            {
-                result = new(key, "net", new(baseTfm[NetPrefixLength..]), platform);
-            }
-            else
-            {
-                result = new(key, "unknown", new(baseTfm), platform);
-            }
+                _ when baseTfm.StartsWith("netstandard", StringComparison.OrdinalIgnoreCase) => ("netstandard", new(baseTfm[NetStandardPrefixLength..])),
+                _ when baseTfm.StartsWith("net4", StringComparison.OrdinalIgnoreCase) => ("net4", new(baseTfm[NetPrefixLength..])),
+                _ when baseTfm.StartsWith("net", StringComparison.OrdinalIgnoreCase) => ("net", new(baseTfm[NetPrefixLength..])),
+                _ => ("unknown", new string(baseTfm))
+            };
 
+            var result = new Tfm(key, family, versionString, platform);
             return result with { Rank = CalculateRank(result) };
         });
     }
@@ -130,26 +121,19 @@ public record Tfm(string Raw, string Family, string Version, string? Platform)
     {
         var platformAdjust = tfm.Platform is null ? 0 : PlatformAdjustment;
 
-        if (tfm.IsModernNet)
+        return tfm switch
         {
-            if (double.TryParse(tfm.Version, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var version))
-            {
-                return (int)(version * 100) + platformAdjust;
-            }
-
-            return ModernNetBaseRank + platformAdjust;
-        }
-
-        if (tfm.IsNetStandard)
-        {
-            return tfm.Version switch
+            _ when tfm.IsModernNet => double.TryParse(tfm.Version, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var version)
+                ? (int)(version * 100) + platformAdjust
+                : ModernNetBaseRank + platformAdjust,
+            _ when tfm.IsNetStandard => tfm.Version switch
             {
                 "2.1" => NetStandard21Rank,
                 "2.0" => NetStandard20Rank,
                 _ => NetStandardDefaultRank
-            };
-        }
-
-        return tfm.IsNetFramework ? NetFrameworkRank : DefaultRank;
+            },
+            _ when tfm.IsNetFramework => NetFrameworkRank,
+            _ => DefaultRank
+        };
     }
 }

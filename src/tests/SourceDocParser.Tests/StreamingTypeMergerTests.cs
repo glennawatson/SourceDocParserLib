@@ -44,7 +44,7 @@ public class StreamingTypeMergerTests
         var merged = merger.Build();
 
         await Assert.That(merged.Count).IsEqualTo(1);
-        var sorted = merged[0].AppliesTo.OrderBy(s => s, StringComparer.Ordinal).ToList();
+        var sorted = merged[0].AppliesTo.OrderBy(static s => s, StringComparer.Ordinal).ToList();
         await Assert.That(sorted).IsEquivalentTo((List<string>)["net10.0", "net9.0"]);
     }
 

@@ -228,7 +228,7 @@ public class SymbolWalkerHelpersTests
     {
         var type = Substitute.For<INamedTypeSymbol>();
         type.ContainingAssembly.Returns((IAssemblySymbol?)null);
-        await Assert.That(SymbolWalkerHelpers.BuildUnionCases(type, new TypeReferenceCache())).IsEmpty();
+        await Assert.That(SymbolWalkerHelpers.BuildUnionCases(type, new())).IsEmpty();
     }
 
     /// <summary>

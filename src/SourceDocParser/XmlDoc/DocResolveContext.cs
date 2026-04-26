@@ -2,7 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Concurrent;
 using Microsoft.CodeAnalysis;
 
 namespace SourceDocParser;
@@ -16,8 +15,8 @@ namespace SourceDocParser;
 /// </summary>
 /// <param name="Compilation">Compilation used for cref resolution.</param>
 /// <param name="Converter">Converter used to fold inline doc tags into Markdown.</param>
-/// <param name="Cache">Per-symbol documentation cache scoped to one resolver instance.</param>
+/// <param name="Cache">Per-symbol documentation cache scoped to one resolver instance and never shared across parallel resolves.</param>
 internal sealed record DocResolveContext(
     Compilation Compilation,
     IXmlDocToMarkdownConverter Converter,
-    ConcurrentDictionary<ISymbol, ApiDocumentation> Cache);
+    DocResolveCache Cache);

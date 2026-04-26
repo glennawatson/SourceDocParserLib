@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <RootNamespace>Docfx.StandaloneBenchmarks</RootNamespace>
+    <!-- BenchmarkDotNet uses reflection extensively. -->
+    <IsAotCompatible>false</IsAotCompatible>
+    <EnableTrimAnalyzer>false</EnableTrimAnalyzer>
+    <EnableAotAnalyzer>false</EnableAotAnalyzer>
+    <NoWarn>$(NoWarn);CA1822</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    Docfx-only benchmark assembly. Deliberately has NO ProjectReferences
+    to any SourceDocParser library — docfx is measured in isolation,
+    against the same slim fixture our SourceDocParser.Benchmarks suite
+    uses, so the README can put both numbers side by side.
+
+    Lives under its own Directory.Packages.props (alongside this csproj)
+    so docfx 2.78.5's transitive Roslyn / ICSharpCode.Decompiler pins
+    don't leak into the rest of the solution.
+  -->
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+    <PackageReference Include="Docfx.Dotnet" />
+  </ItemGroup>
+
+</Project>

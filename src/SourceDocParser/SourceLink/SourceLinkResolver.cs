@@ -37,19 +37,19 @@ public sealed class SourceLinkResolver(string assemblyPath) : ISourceLinkResolve
             return null;
         }
 
-        if (PickMethodForLocation(symbol) is not { } method)
+        if (PickMethodForLocation(symbol) is not { MetadataToken: var token and not 0 })
         {
             return null;
         }
 
-        if (_reader.GetMethodLocation(method.MetadataToken) is not { } location)
+        if (_reader.GetMethodLocation(token) is not { } location)
         {
             return null;
         }
 
-        return _reader.ResolveRawUrl(location.LocalPath) is not { } rawUrl
-            ? null
-            : SourceUrlRewriter.ToBlobUrl(rawUrl, location.StartLine);
+        return _reader.ResolveRawUrl(location.LocalPath) is { } rawUrl
+            ? SourceUrlRewriter.ToBlobUrl(rawUrl, location.StartLine)
+            : null;
     }
 
     /// <inheritdoc/>
@@ -93,18 +93,17 @@ public sealed class SourceLinkResolver(string assemblyPath) : ISourceLinkResolve
         }
 
         IMethodSymbol? found = null;
-        foreach (var member in type.GetMembers())
+        var members = type.GetMembers();
+        for (var i = 0; i < members.Length; i++)
         {
-            if (member is not IMethodSymbol { MetadataToken: not 0 } method)
+            var member = members[i];
+            if (member is IMethodSymbol { MetadataToken: not 0 } method)
             {
-                continue;
+                found = method;
+                break;
             }
-
-            found = method;
-            break;
         }
 
-        _firstMethodCache[type] = found;
-        return found;
+        return _firstMethodCache[type] = found;
     }
 }

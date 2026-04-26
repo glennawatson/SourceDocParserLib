@@ -18,7 +18,7 @@ namespace SourceDocParser.Zensical;
 /// detail is appended via small helpers that keep StringBuilder
 /// growth bounded.
 /// </summary>
-internal static class MemberPageEmitter
+public static class MemberPageEmitter
 {
     /// <summary>
     /// Initial StringBuilder capacity for a member-group page. Pages
@@ -37,13 +37,14 @@ internal static class MemberPageEmitter
     /// <returns>The rendered Markdown.</returns>
     public static string Render(ApiType containingType, string memberName, List<ApiMember> overloads)
     {
+        ArgumentNullException.ThrowIfNull(containingType);
+        ArgumentException.ThrowIfNullOrWhiteSpace(memberName);
+        ArgumentNullException.ThrowIfNull(overloads);
         var first = overloads[0];
         var heading = $"{containingType.Name}.{memberName}";
         var kindLabel = MemberKindLabel(first.Kind);
         var typePagePath = TypePageEmitter.PathFor(containingType);
-        var typeName = containingType.Arity > 0
-            ? $"{containingType.Name}<{string.Join(", ", GenericPlaceholders(containingType.Arity))}>"
-            : containingType.Name;
+        var typeName = ZensicalEmitterHelpers.FormatDisplayTypeName(containingType.Name, containingType.Arity);
 
         var sb = new StringBuilder(capacity: InitialPageCapacity);
 
@@ -52,30 +53,30 @@ internal static class MemberPageEmitter
 
             !!! info "Defined in"
                 Type: [{typeName}](../{Path.GetFileName(typePagePath)})
-                Namespace: `{(containingType.Namespace.Length > 0 ? containingType.Namespace : "(global)")}`
+                Namespace: `{(containingType.Namespace is [_, ..] ns ? ns : "(global)")}`
                 Assembly: `{containingType.AssemblyName}.dll`
 
             """);
 
-        if (containingType.AppliesTo.Count > 0)
+        if (containingType.AppliesTo is [_, ..] appliesTo)
         {
             sb.Append("!!! tip \"Applies to\"\n    ");
-            for (var i = 0; i < containingType.AppliesTo.Count; i++)
+            for (var i = 0; i < appliesTo.Count; i++)
             {
                 if (i > 0)
                 {
                     sb.Append(", ");
                 }
 
-                sb.Append('`').Append(containingType.AppliesTo[i]).Append('`');
+                sb.Append('`').Append(appliesTo[i]).Append('`');
             }
 
             sb.Append("\n\n");
         }
 
-        if (overloads.Count == 1)
+        if (overloads is [var single])
         {
-            AppendSingleOverload(sb, overloads[0]);
+            AppendSingleOverload(sb, single);
         }
         else
         {
@@ -97,14 +98,14 @@ internal static class MemberPageEmitter
     /// <returns>The relative path.</returns>
     public static string PathFor(ApiType containingType, string memberName)
     {
-        var nsSegments = containingType.Namespace.Length > 0
-            ? containingType.Namespace.Split('.')
-            : ["_global"];
-        var typeFolder = containingType.Arity > 0
-            ? $"{containingType.Name}{{{string.Join(",", GenericPlaceholders(containingType.Arity))}}}"
-            : containingType.Name;
-        var sanitised = SanitiseForFilename(memberName);
-        return string.Join('/', nsSegments) + "/" + typeFolder + "/" + sanitised + TypePageEmitter.FileExtension;
+        ArgumentNullException.ThrowIfNull(containingType);
+        ArgumentException.ThrowIfNullOrWhiteSpace(memberName);
+        return ZensicalEmitterHelpers.BuildMemberPath(
+            containingType.Namespace,
+            containingType.Name,
+            containingType.Arity,
+            ZensicalEmitterHelpers.SanitiseForFilename(memberName),
+            TypePageEmitter.FileExtension);
     }
 
     /// <summary>
@@ -154,10 +155,10 @@ internal static class MemberPageEmitter
 
         for (var i = 0; i < overloads.Count; i++)
         {
-            sb.Append(i + 1).Append(". `").Append(overloads[i].Signature).Append("`\n");
+            sb.Append(i + 1).Append(". `").Append(overloads[i].Signature).AppendLine("`").AppendLine();
         }
 
-        sb.Append('\n');
+        sb.AppendLine();
     }
 
     /// <summary>
@@ -207,7 +208,7 @@ internal static class MemberPageEmitter
     {
         var doc = member.Documentation;
 
-        if (doc.InheritedFrom is { Length: > 0 } inheritedFrom)
+        if (doc.InheritedFrom is [_, ..] inheritedFrom)
         {
             sb.Append($"""
                 !!! note "Inherited documentation"
@@ -217,17 +218,17 @@ internal static class MemberPageEmitter
                 """);
         }
 
-        if (doc.Summary.Length > 0)
+        if (doc.Summary is [_, ..] summary)
         {
-            sb.Append("**Summary:** ").Append(doc.Summary).Append("\n\n");
+            sb.Append("**Summary:** ").Append(summary).Append("\n\n");
         }
 
-        if (member.TypeParameters.Count > 0)
+        if (member.TypeParameters is [_, ..])
         {
             AppendTypeParametersSection(sb, member, doc);
         }
 
-        if (member.Parameters.Count > 0)
+        if (member.Parameters is [_, ..])
         {
             AppendParametersSection(sb, member, doc);
         }
@@ -237,32 +238,32 @@ internal static class MemberPageEmitter
             AppendReturnsSection(sb, returnType, doc.Returns);
         }
 
-        if (doc.Value.Length > 0)
+        if (doc.Value is [_, ..] val)
         {
-            sb.Append("**Value:** ").Append(doc.Value).Append("\n\n");
+            sb.Append("**Value:** ").Append(val).Append("\n\n");
         }
 
-        if (doc.Remarks.Length > 0)
+        if (doc.Remarks is [_, ..] remarks)
         {
-            sb.Append("**Remarks**\n\n").Append(doc.Remarks).Append("\n\n");
+            sb.Append("**Remarks**\n\n").Append(remarks).Append("\n\n");
         }
 
-        if (doc.Exceptions.Count > 0)
+        if (doc.Exceptions is [_, ..] exceptions)
         {
-            AppendExceptionsSection(sb, doc.Exceptions);
+            AppendExceptionsSection(sb, exceptions);
         }
 
-        if (doc.Examples.Count > 0)
+        if (doc.Examples is [_, ..] examples)
         {
-            AppendExamplesSection(sb, doc.Examples);
+            AppendExamplesSection(sb, examples);
         }
 
-        if (doc.SeeAlso.Count == 0)
+        if (doc.SeeAlso is not [_, ..] seeAlso)
         {
             return;
         }
 
-        AppendSeeAlsoSection(sb, doc.SeeAlso);
+        AppendSeeAlsoSection(sb, seeAlso);
     }
 
     /// <summary>
@@ -322,7 +323,7 @@ internal static class MemberPageEmitter
     private static void AppendReturnsSection(StringBuilder sb, ApiTypeReference returnType, string returnsDoc)
     {
         sb.Append("**Returns:** ").Append(FormatTypeReference(returnType));
-        if (returnsDoc.Length > 0)
+        if (returnsDoc is [_, ..])
         {
             sb.Append(" — ").Append(returnsDoc);
         }
@@ -371,10 +372,10 @@ internal static class MemberPageEmitter
         sb.Append("**See also**\n\n");
         for (var i = 0; i < seeAlso.Count; i++)
         {
-            sb.Append("- ").Append(FormatXref(seeAlso[i])).Append('\n');
+            sb.Append("- ").AppendLine(FormatXref(seeAlso[i]));
         }
 
-        sb.Append('\n');
+        sb.AppendLine();
     }
 
     /// <summary>
@@ -382,30 +383,14 @@ internal static class MemberPageEmitter
     /// </summary>
     /// <param name="parameter">The parameter.</param>
     /// <returns>The modifier string.</returns>
-    private static string ModifierLabel(ApiParameter parameter)
+    private static string ModifierLabel(ApiParameter parameter) => parameter switch
     {
-        if (parameter.IsParams)
-        {
-            return "params ";
-        }
-
-        if (parameter.IsIn)
-        {
-            return "in ";
-        }
-
-        if (parameter.IsOut)
-        {
-            return "out ";
-        }
-
-        if (parameter.IsRef)
-        {
-            return "ref ";
-        }
-
-        return string.Empty;
-    }
+        { IsParams: true } => "params ",
+        { IsIn: true } => "in ",
+        { IsOut: true } => "out ",
+        { IsRef: true } => "ref ",
+        _ => string.Empty,
+    };
 
     /// <summary>
     /// Returns the member kind label.
@@ -449,8 +434,8 @@ internal static class MemberPageEmitter
     /// <param name="reference">The reference.</param>
     /// <returns>The rendered text.</returns>
     private static string FormatTypeReference(ApiTypeReference reference) =>
-        reference.Uid.Length > 0
-            ? $"[`{reference.DisplayName}`][{reference.Uid}]"
+        reference.Uid is [_, ..] uid
+            ? $"[`{reference.DisplayName}`][{uid}]"
             : $"`{reference.DisplayName}`";
 
     /// <summary>
@@ -459,50 +444,9 @@ internal static class MemberPageEmitter
     /// <param name="cref">The cref UID.</param>
     /// <returns>The rendered link.</returns>
     private static string FormatXref(string cref) =>
-        cref.Length > 2 && cref[1] == ':'
+        cref is [_, ':', ..]
             ? $"[`{cref[2..]}`][{cref}]"
             : $"`{cref}`";
-
-    /// <summary>
-    /// Sanitises a name for use in a filename.
-    /// </summary>
-    /// <param name="name">The name.</param>
-    /// <returns>The sanitised name.</returns>
-    private static string SanitiseForFilename(string name) => name
-        .Replace('.', '_')
-        .Replace('<', '{')
-        .Replace('>', '}')
-        .Replace(':', '_');
-
-    /// <summary>
-    /// Gets generic placeholders.
-    /// </summary>
-    /// <param name="arity">The arity.</param>
-    /// <returns>The placeholders.</returns>
-    private static List<string> GenericPlaceholders(int arity) => arity switch
-    {
-        1 => ["T"],
-        2 => ["T1", "T2"],
-        3 => ["T1", "T2", "T3"],
-        4 => ["T1", "T2", "T3", "T4"],
-        _ => NumberedPlaceholders(arity),
-    };
-
-    /// <summary>
-    /// Gets numbered placeholders.
-    /// </summary>
-    /// <param name="arity">The arity.</param>
-    /// <returns>The placeholders.</returns>
-    private static List<string> NumberedPlaceholders(int arity)
-    {
-        var names = new List<string>(capacity: arity);
-        for (var i = 1; i <= arity; i++)
-        {
-            names.Add($"T{i}");
-        }
-
-        return names;
-    }
 
     /// <summary>
     /// Escapes text for a Markdown table.

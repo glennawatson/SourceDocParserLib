@@ -69,10 +69,10 @@ public class CompilationLoaderTests
         var (secondCompilation, _) = loader.Load(SourceDocParserDllPath, fallback);
 
         // References for the same path should be the same object reference because the cache returned them.
-        var firstPrimary = firstCompilation.References.First(r =>
+        var firstPrimary = firstCompilation.References.First(static r =>
             r is PortableExecutableReference per
             && string.Equals(per.FilePath, SourceDocParserDllPath, StringComparison.OrdinalIgnoreCase));
-        var secondPrimary = secondCompilation.References.First(r =>
+        var secondPrimary = secondCompilation.References.First(static r =>
             r is PortableExecutableReference per
             && string.Equals(per.FilePath, SourceDocParserDllPath, StringComparison.OrdinalIgnoreCase));
 

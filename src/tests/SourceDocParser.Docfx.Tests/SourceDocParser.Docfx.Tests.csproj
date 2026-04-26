@@ -11,4 +11,12 @@
     <ProjectReference Include="..\SourceDocParser.TestHelpers\SourceDocParser.TestHelpers.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Test-only: round-trip-parses every emitter output through
+         YamlDotNet to confirm the hand-rolled writer produces valid
+         YAML. The production library hand-writes its YAML directly and
+         doesn't take a runtime dependency on YamlDotNet. -->
+    <PackageReference Include="YamlDotNet" />
+  </ItemGroup>
+
 </Project>

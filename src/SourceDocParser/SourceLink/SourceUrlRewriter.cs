@@ -9,6 +9,63 @@ namespace SourceDocParser.SourceLink;
 /// </summary>
 internal static class SourceUrlRewriter
 {
+    /// <summary>The URL prefix for raw GitHub content.</summary>
+    private const string GitHubRawUrlPrefix = "https://raw.githubusercontent.com/";
+
+    /// <summary>The URL prefix for Bitbucket API repositories.</summary>
+    private const string BitbucketApiUrlPrefix = "https://api.bitbucket.org/2.0/repositories/";
+
+    /// <summary>The URL prefix for Azure DevOps.</summary>
+    private const string AzureDevOpsUrlPrefix = "https://dev.azure.com/";
+
+    /// <summary>The raw URL segment for GitLab.</summary>
+    private const string GitLabRawSegment = "/-/raw/";
+
+    /// <summary>The blob URL segment for GitLab.</summary>
+    private const string GitLabBlobSegment = "/-/blob/";
+
+    /// <summary>The API URL segment for Azure DevOps Git repositories.</summary>
+    private const string AzureDevOpsGitApiSegment = "/_apis/git/repositories/";
+
+    /// <summary>The URL prefix for GitHub blob URLs.</summary>
+    private const string GitHubBlobUrlPrefix = "https://github.com/";
+
+    /// <summary>The URL prefix for Bitbucket blob URLs.</summary>
+    private const string BitbucketBlobUrlPrefix = "https://bitbucket.org/";
+
+    /// <summary>The URL segment for Azure DevOps Git projects.</summary>
+    private const string AzureDevOpsGitSegment = "/_git/";
+
+    /// <summary>The path query parameter name for Azure DevOps.</summary>
+    private const string AzureDevOpsPathQueryParam = "path";
+
+    /// <summary>The version query parameter name for Azure DevOps.</summary>
+    private const string AzureDevOpsVersionQueryParam = "version";
+
+    /// <summary>The blob URL segment for GitHub.</summary>
+    private const string GitHubBlobSegment = "/blob/";
+
+    /// <summary>The line anchor prefix for Bitbucket.</summary>
+    private const string BitbucketLinesAnchorPrefix = "#lines-";
+
+    /// <summary>The default line anchor prefix.</summary>
+    private const string LineAnchorPrefix = "#L";
+
+    /// <summary>The anchor separator character.</summary>
+    private const char AnchorSeparator = '#';
+
+    /// <summary>The query string separator character.</summary>
+    private const char QuerySeparator = '?';
+
+    /// <summary>The path segment separator character.</summary>
+    private const char PathSeparator = '/';
+
+    /// <summary>The query parameter pair separator character.</summary>
+    private const char PairSeparator = '&';
+
+    /// <summary>The query parameter value separator character.</summary>
+    private const char ValueSeparator = '=';
+
     /// <summary>
     /// Rewrites a raw SourceLink URL into a blob URL with a line anchor.
     /// </summary>
@@ -17,9 +74,11 @@ internal static class SourceUrlRewriter
     /// <returns>A human-friendly URL.</returns>
     public static string ToBlobUrl(string rawUrl, int line)
     {
-        if (rawUrl.StartsWith("https://raw.githubusercontent.com/", StringComparison.OrdinalIgnoreCase))
+        var urlSpan = rawUrl.AsSpan();
+
+        if (urlSpan.StartsWith(GitHubRawUrlPrefix, StringComparison.OrdinalIgnoreCase))
         {
-            var afterHost = rawUrl.AsSpan("https://raw.githubusercontent.com/".Length);
+            var afterHost = urlSpan[GitHubRawUrlPrefix.Length..];
             var slashAfterRepo = SkipPathSegments(afterHost, 3);
             if (slashAfterRepo > 0)
             {
@@ -39,33 +98,33 @@ internal static class SourceUrlRewriter
                     // ReadOnlySpan parts directly to its internal buffer
                     // — one string allocation total instead of two.
                     return line > 0
-                        ? $"https://github.com/{owner}/{repo}/blob/{sha}/{path}#L{line}"
-                        : $"https://github.com/{owner}/{repo}/blob/{sha}/{path}";
+                        ? $"{GitHubBlobUrlPrefix}{owner}/{repo}{GitHubBlobSegment}{sha}/{path}{LineAnchorPrefix}{line}"
+                        : $"{GitHubBlobUrlPrefix}{owner}/{repo}{GitHubBlobSegment}{sha}/{path}";
                 }
             }
         }
 
-        if (rawUrl.Contains("/-/raw/", StringComparison.OrdinalIgnoreCase))
+        if (rawUrl.Contains(GitLabRawSegment, StringComparison.OrdinalIgnoreCase))
         {
-            var rewritten = rawUrl.Replace("/-/raw/", "/-/blob/", StringComparison.OrdinalIgnoreCase);
-            return line > 0 ? $"{rewritten}#L{line}" : rewritten;
+            var rewritten = rawUrl.Replace(GitLabRawSegment, GitLabBlobSegment, StringComparison.OrdinalIgnoreCase);
+            return line > 0 ? $"{rewritten}{LineAnchorPrefix}{line}" : rewritten;
         }
 
-        if (rawUrl.StartsWith("https://api.bitbucket.org/2.0/repositories/", StringComparison.OrdinalIgnoreCase))
+        if (urlSpan.StartsWith(BitbucketApiUrlPrefix, StringComparison.OrdinalIgnoreCase))
         {
-            var afterHost = rawUrl.AsSpan("https://api.bitbucket.org/2.0/repositories/".Length);
+            var afterHost = urlSpan[BitbucketApiUrlPrefix.Length..];
             return line > 0
-                ? $"https://bitbucket.org/{afterHost}#lines-{line}"
-                : $"https://bitbucket.org/{afterHost}";
+                ? $"{BitbucketBlobUrlPrefix}{afterHost}{BitbucketLinesAnchorPrefix}{line}"
+                : $"{BitbucketBlobUrlPrefix}{afterHost}";
         }
 
-        if (rawUrl.StartsWith("https://dev.azure.com/", StringComparison.OrdinalIgnoreCase)
+        if (urlSpan.StartsWith(AzureDevOpsUrlPrefix, StringComparison.OrdinalIgnoreCase)
             && TryRewriteAzureDevOps(rawUrl, line) is { } azureBlob)
         {
             return azureBlob;
         }
 
-        return line > 0 ? $"{rawUrl}#L{line}" : rawUrl;
+        return line > 0 ? $"{rawUrl}{LineAnchorPrefix}{line}" : rawUrl;
     }
 
     /// <summary>
@@ -75,7 +134,7 @@ internal static class SourceUrlRewriter
     /// <returns>The URL without the anchor.</returns>
     public static string StripAnchor(string blobUrl)
     {
-        var hashIdx = blobUrl.IndexOf('#', StringComparison.Ordinal);
+        var hashIdx = blobUrl.IndexOf(AnchorSeparator, StringComparison.Ordinal);
         return hashIdx < 0 ? blobUrl : blobUrl[..hashIdx];
     }
 
@@ -90,7 +149,7 @@ internal static class SourceUrlRewriter
         var index = -1;
         for (var i = 0; i < segments; i++)
         {
-            var next = span[(index + 1)..].IndexOf('/');
+            var next = span[(index + 1)..].IndexOf(PathSeparator);
             if (next < 0)
             {
                 return -1;
@@ -110,14 +169,14 @@ internal static class SourceUrlRewriter
     /// <returns>The rewritten URL, or null.</returns>
     private static string? TryRewriteAzureDevOps(string rawUrl, int line)
     {
-        var apisIdx = rawUrl.IndexOf("/_apis/git/repositories/", StringComparison.OrdinalIgnoreCase);
+        var apisIdx = rawUrl.IndexOf(AzureDevOpsGitApiSegment, StringComparison.OrdinalIgnoreCase);
         if (apisIdx < 0)
         {
             return null;
         }
 
-        var orgProject = rawUrl[..apisIdx];
-        var afterRepos = rawUrl.AsSpan(apisIdx + "/_apis/git/repositories/".Length);
+        var orgProject = rawUrl.AsSpan(0, apisIdx);
+        var afterRepos = rawUrl.AsSpan(apisIdx + AzureDevOpsGitApiSegment.Length);
         var slashAfterRepo = afterRepos.IndexOf('/');
         if (slashAfterRepo <= 0)
         {
@@ -125,22 +184,22 @@ internal static class SourceUrlRewriter
         }
 
         var repo = afterRepos[..slashAfterRepo];
-        var queryStart = rawUrl.IndexOf('?', apisIdx);
+        var queryStart = rawUrl.IndexOf(QuerySeparator, apisIdx);
         if (queryStart < 0)
         {
             return null;
         }
 
         var query = rawUrl.AsSpan(queryStart + 1);
-        var path = ExtractQueryParameter(query, "path");
-        var version = ExtractQueryParameter(query, "version");
+        var path = ExtractQueryParameter(query, AzureDevOpsPathQueryParam);
+        var version = ExtractQueryParameter(query, AzureDevOpsVersionQueryParam);
         if (path is null || version is null)
         {
             return null;
         }
 
-        var built = $"{orgProject}/_git/{repo}?path={path}&version=GC{version}";
-        return line > 0 ? $"{built}&line={line}" : built;
+        var built = $"{orgProject}{AzureDevOpsGitSegment}{repo}{QuerySeparator}{AzureDevOpsPathQueryParam}{ValueSeparator}{path}{PairSeparator}{AzureDevOpsVersionQueryParam}{ValueSeparator}GC{version}";
+        return line > 0 ? $"{built}{PairSeparator}line{ValueSeparator}{line}" : built;
     }
 
     /// <summary>
@@ -149,13 +208,14 @@ internal static class SourceUrlRewriter
     /// <param name="query">Query string span.</param>
     /// <param name="name">Parameter name.</param>
     /// <returns>The parameter value, or null.</returns>
-    private static string? ExtractQueryParameter(ReadOnlySpan<char> query, string name)
+    private static string? ExtractQueryParameter(in ReadOnlySpan<char> query, string name)
     {
-        while (query.Length > 0)
+        var current = query;
+        while (current.Length > 0)
         {
-            var ampIdx = query.IndexOf('&');
-            var pair = ampIdx < 0 ? query : query[..ampIdx];
-            var eqIdx = pair.IndexOf('=');
+            var ampIdx = current.IndexOf(PairSeparator);
+            var pair = ampIdx < 0 ? current : current[..ampIdx];
+            var eqIdx = pair.IndexOf(ValueSeparator);
             if (eqIdx > 0 && pair[..eqIdx].Equals(name, StringComparison.OrdinalIgnoreCase))
             {
                 return pair[(eqIdx + 1)..].ToString();
@@ -166,7 +226,7 @@ internal static class SourceUrlRewriter
                 break;
             }
 
-            query = query[(ampIdx + 1)..];
+            current = current[(ampIdx + 1)..];
         }
 
         return null;

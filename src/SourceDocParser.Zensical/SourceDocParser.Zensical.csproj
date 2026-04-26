@@ -10,4 +10,8 @@
     <ProjectReference Include="..\SourceDocParser\SourceDocParser.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="SourceDocParser.Zensical.Tests" />
+  </ItemGroup>
+
 </Project>

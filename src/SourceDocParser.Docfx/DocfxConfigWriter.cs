@@ -18,9 +18,6 @@ public static partial class DocfxConfigWriter
     /// <summary>Logical name of the embedded docfx template resource.</summary>
     private const string TemplateResourceName = "SourceDocParser.Docfx.docfx.template.json";
 
-    /// <summary>File pattern used to discover assemblies.</summary>
-    private const string DllPattern = "*.dll";
-
     /// <summary>JSON output options matching docfx's expected camelCase + indented form.</summary>
     private static readonly JsonWriterOptions _writerOptions = new()
     {
@@ -51,13 +48,14 @@ public static partial class DocfxConfigWriter
             throw new DirectoryNotFoundException($"No lib/ directory found at {libDir}");
         }
 
-        var libTfms = DiscoverTfms(libDir);
+        var libTfms = DocfxInternalHelpers.DiscoverTfms(libDir);
         if (libTfms.Count == 0)
         {
             throw new InvalidOperationException("No TFM directories with DLLs found in lib/");
         }
 
-        var refsTfms = Directory.Exists(refsDir) ? DiscoverTfms(refsDir) : [];
+        var refsTfms = Directory.Exists(refsDir) ? DocfxInternalHelpers.DiscoverTfms(refsDir) : [];
+        var refDllNameCache = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 
         LogDiscoveredLibTfms(logger, libTfms);
         LogDiscoveredRefsTfms(logger, refsTfms);
@@ -68,8 +66,9 @@ public static partial class DocfxConfigWriter
         var metadataEntries = new List<DocfxMetadataEntry>(libTfms.Count);
         var platformLabels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var tfm in libTfms)
+        for (var i = 0; i < libTfms.Count; i++)
         {
+            var tfm = libTfms[i];
             var bestRef = TfmResolver.FindBestRefsTfm(tfm, refsTfms);
             if (bestRef is null)
             {
@@ -85,8 +84,8 @@ public static partial class DocfxConfigWriter
             }
 
             var refDir = Path.Combine(refsDir, bestRef);
-            var refDllNames = CollectDllNames(refDir);
-            var packageDlls = CollectPackageDllNames(Path.Combine(libDir, tfm), refDllNames);
+            var refDllNames = DocfxInternalHelpers.GetOrAddDllNames(refDllNameCache, bestRef, refDir);
+            var packageDlls = DocfxInternalHelpers.CollectPackageDllNames(Path.Combine(libDir, tfm), refDllNames);
 
             if (packageDlls.Count == 0)
             {
@@ -107,7 +106,7 @@ public static partial class DocfxConfigWriter
         var orderedPlatforms = new List<string>(platformLabels);
         orderedPlatforms.Sort(StringComparer.Ordinal);
 
-        var patchedBuild = PatchBuildSection(template.Build, orderedPlatforms);
+        var patchedBuild = DocfxInternalHelpers.PatchBuildSection(template.Build, orderedPlatforms);
         var generated = new DocfxConfig(metadataEntries, patchedBuild);
 
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
@@ -115,72 +114,6 @@ public static partial class DocfxConfigWriter
 
         LogWroteConfig(logger, metadataEntries.Count, outputPath);
         return outputPath;
-    }
-
-    /// <summary>
-    /// Returns the names of every immediate sub-directory of <paramref name="root"/> that contains at least one DLL.
-    /// </summary>
-    /// <param name="root">Directory to enumerate.</param>
-    /// <returns>Sorted list of TFM directory names.</returns>
-    private static List<string> DiscoverTfms(string root)
-    {
-        var tfms = new List<string>();
-
-        foreach (var dir in Directory.EnumerateDirectories(root))
-        {
-            using var enumerator = Directory.EnumerateFiles(dir, DllPattern).GetEnumerator();
-            if (enumerator.MoveNext())
-            {
-                tfms.Add(Path.GetFileName(dir.AsSpan()).ToString());
-            }
-        }
-
-        tfms.Sort(StringComparer.Ordinal);
-        return tfms;
-    }
-
-    /// <summary>
-    /// Returns a case-insensitive set of DLL filenames in <paramref name="dir"/> (or empty if the directory does not exist).
-    /// </summary>
-    /// <param name="dir">Directory to scan.</param>
-    /// <returns>Set of DLL filenames.</returns>
-    private static HashSet<string> CollectDllNames(string dir)
-    {
-        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (!Directory.Exists(dir))
-        {
-            return names;
-        }
-
-        foreach (var file in Directory.EnumerateFiles(dir, DllPattern))
-        {
-            names.Add(Path.GetFileName(file.AsSpan()).ToString());
-        }
-
-        return names;
-    }
-
-    /// <summary>
-    /// Lists the package DLL filenames in <paramref name="libTfmDir"/>, excluding any that match a co-located reference assembly.
-    /// </summary>
-    /// <param name="libTfmDir">Per-TFM lib directory.</param>
-    /// <param name="refDllNames">Filenames of reference assemblies to exclude.</param>
-    /// <returns>Sorted list of package DLL filenames.</returns>
-    private static List<string> CollectPackageDllNames(string libTfmDir, HashSet<string> refDllNames)
-    {
-        var packageDlls = new List<string>();
-
-        foreach (var dll in Directory.EnumerateFiles(libTfmDir, DllPattern))
-        {
-            var fileName = Path.GetFileName(dll.AsSpan()).ToString();
-            if (!refDllNames.Contains(fileName))
-            {
-                packageDlls.Add(fileName);
-            }
-        }
-
-        packageDlls.Sort(StringComparer.Ordinal);
-        return packageDlls;
     }
 
     /// <summary>
@@ -215,50 +148,6 @@ public static partial class DocfxConfigWriter
         var copy = new Dictionary<string, JsonElement>(extra);
         copy.Remove("references");
         return copy.Count == 0 ? null : copy;
-    }
-
-    /// <summary>
-    /// Removes previously-injected platform <c>api-*</c> content entries
-    /// and appends a fresh set for the platforms discovered this run.
-    /// </summary>
-    /// <param name="template">Build section from the template.</param>
-    /// <param name="platformLabels">Platform labels to inject content entries for, in deterministic order.</param>
-    /// <returns>The patched build section.</returns>
-    private static DocfxBuildSection PatchBuildSection(DocfxBuildSection template, List<string> platformLabels)
-    {
-        var content = new List<DocfxBuildContent>(template.Content.Count + platformLabels.Count);
-        foreach (var item in template.Content)
-        {
-            if (!IsInjectedPlatformEntry(item))
-            {
-                content.Add(item);
-            }
-        }
-
-        foreach (var label in platformLabels)
-        {
-            content.Add(new(Files: [$"api-{label}/**.yml", $"api-{label}/index.md"]));
-        }
-
-        return template with { Content = content };
-    }
-
-    /// <summary>
-    /// Detects content entries previously injected by this writer (whose
-    /// first file path begins with <c>api-</c> but is not the canonical <c>api/</c>).
-    /// </summary>
-    /// <param name="entry">A build content entry from the template.</param>
-    /// <returns>True if the entry was previously injected by this writer.</returns>
-    private static bool IsInjectedPlatformEntry(DocfxBuildContent entry)
-    {
-        if (entry.Files is not { Count: > 0 } files)
-        {
-            return false;
-        }
-
-        var firstFile = files[0];
-        return firstFile.StartsWith("api-", StringComparison.Ordinal)
-            && !firstFile.StartsWith("api/", StringComparison.Ordinal);
     }
 
     /// <summary>

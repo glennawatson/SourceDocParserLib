@@ -24,6 +24,8 @@
   </Folder>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/SourceDocParser.Benchmarks/SourceDocParser.Benchmarks.csproj" />
+    <Project Path="benchmarks/Docfx.StandaloneBenchmarks/Docfx.StandaloneBenchmarks.csproj" />
+    <Project Path="benchmarks/SourceDocParser.Docfx.StandaloneBenchmarks/SourceDocParser.Docfx.StandaloneBenchmarks.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/SourceDocParser.AllocReport/SourceDocParser.AllocReport.csproj" />

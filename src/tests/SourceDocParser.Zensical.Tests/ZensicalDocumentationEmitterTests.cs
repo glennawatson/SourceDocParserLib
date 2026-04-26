@@ -106,7 +106,7 @@ public class ZensicalDocumentationEmitterTests
         for (var i = 0; i < memberNames.Length; i++)
         {
             var memberName = memberNames[i];
-            members.Add(new ApiMember(
+            members.Add(new(
                 Name: memberName,
                 Uid: $"{name}.{memberName}",
                 Kind: ApiMemberKind.Method,

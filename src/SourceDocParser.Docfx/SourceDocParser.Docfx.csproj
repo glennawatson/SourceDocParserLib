@@ -3,11 +3,15 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <PackageId>SourceDocParser.Docfx</PackageId>
-    <Description>docfx config-file compatibility shim for SourceDocParser. Reads and writes docfx.json shapes (metadata + build sections) so an existing docfx site can plug into the parser pipeline. No emitter — that ships separately.</Description>
+    <Description>docfx compatibility for SourceDocParser. Reads and writes docfx.json shapes (metadata + build sections) so an existing docfx site can plug into the parser pipeline, and emits docfx ManagedReference YAML pages so the parser output is consumable by docfx as a drop-in replacement for its own metadata extractor.</Description>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SourceDocParser\SourceDocParser.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="SourceDocParser.Docfx.Tests" />
   </ItemGroup>
 
   <ItemGroup>

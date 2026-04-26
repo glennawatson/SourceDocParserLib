@@ -35,7 +35,7 @@ public sealed partial class SourceLinkValidator : ISourceLinkValidator
         ArgumentNullException.ThrowIfNull(entries);
         logger ??= NullLogger.Instance;
 
-        if (entries.Count == 0)
+        if (entries is [])
         {
             LogNothingToValidate(logger);
             return 0;
@@ -49,11 +49,13 @@ public sealed partial class SourceLinkValidator : ISourceLinkValidator
         {
             var pipeline = BuildResiliencePipeline(rateLimiter);
 
-            using var http = new HttpClient { Timeout = RequestTimeout };
+            using var http = new HttpClient();
+            http.Timeout = RequestTimeout;
             var broken = new ConcurrentBag<BrokenLink>();
             var checkedCount = 0;
 
             var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = MaxConcurrentRequests };
+
             await Parallel.ForEachAsync(
                 byFileUrl,
                 parallelOptions,
@@ -64,22 +66,22 @@ public sealed partial class SourceLinkValidator : ISourceLinkValidator
                     try
                     {
                         using var response = await pipeline.ExecuteAsync(
-                            static async (state, token) =>
+                            static async (vState, token) =>
                             {
-                                using var request = new HttpRequestMessage(HttpMethod.Head, state.Url);
-                                return await state.Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+                                using var request = new HttpRequestMessage(HttpMethod.Head, new Uri(vState.Url));
+                                return await vState.Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
                             },
-                            state: (Url: url, Http: http),
+                            new ValidatorState(url, http),
                             ct).ConfigureAwait(false);
 
-                        if (!response.IsSuccessStatusCode)
+                        if (response is { IsSuccessStatusCode: false })
                         {
-                            broken.Add(new(url, kvp.Value, $"HTTP {(int)response.StatusCode}"));
+                            broken.Add(new BrokenLink(url, kvp.Value, $"HTTP {(int)response.StatusCode}"));
                         }
                     }
                     catch (Exception ex)
                     {
-                        broken.Add(new(url, kvp.Value, ex.Message));
+                        broken.Add(new BrokenLink(url, kvp.Value, ex.Message));
                     }
                 }).ConfigureAwait(false);
 
@@ -209,6 +211,13 @@ public sealed partial class SourceLinkValidator : ISourceLinkValidator
     /// <param name="symbolCount">Number of symbols referencing this URL.</param>
     [LoggerMessage(Level = LogLevel.Warning, Message = "  {Reason}  {Url}  (referenced by {SymbolCount} symbol(s))")]
     private static partial void LogBrokenEntry(ILogger logger, string reason, string url, int symbolCount);
+
+    /// <summary>
+    /// State used for the validator.
+    /// </summary>
+    /// <param name="Url">The URL to check.</param>
+    /// <param name="Http">The HTTP client to use.</param>
+    private readonly record struct ValidatorState(string Url, HttpClient Http);
 
     /// <summary>
     /// Record for a broken link.

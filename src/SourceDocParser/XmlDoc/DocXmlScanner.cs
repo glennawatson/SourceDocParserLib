@@ -63,18 +63,12 @@ internal ref struct DocXmlScanner
     /// <summary>Current read position into the input.</summary>
     private int _pos;
 
-    /// <summary>Element name surfaced by the most recent start or end element token.</summary>
-    private ReadOnlySpan<char> _name;
-
     /// <summary>Slice of the start tag's attribute area (between the element name and the tag closer).</summary>
     private ReadOnlySpan<char> _attrArea;
 
-    /// <summary>Raw text for the current Text token (still entity-encoded).</summary>
-    private ReadOnlySpan<char> _text;
-
     /// <summary>Initializes a new instance of the <see cref="DocXmlScanner"/> struct.</summary>
     /// <param name="input">XML text to scan.</param>
-    public DocXmlScanner(ReadOnlySpan<char> input)
+    public DocXmlScanner(in ReadOnlySpan<char> input)
     {
         _input = input;
         _pos = 0;
@@ -97,15 +91,15 @@ internal ref struct DocXmlScanner
     public bool IsEmptyElement { get; private set; }
 
     /// <summary>Gets the element name for the current start/end token. Caller-side SequenceEqual against literals avoids allocating per check.</summary>
-    public readonly ReadOnlySpan<char> Name => _name;
+    public ReadOnlySpan<char> Name { get; private set; }
 
     /// <summary>Gets the raw text slice for the current text token (entity-encoded).</summary>
-    public readonly ReadOnlySpan<char> RawText => _text;
+    public ReadOnlySpan<char> RawText { get; private set; }
 
     /// <summary>Decodes the five standard entities + numeric character references into <paramref name="dest"/>.</summary>
     /// <param name="dest">Destination buffer (appended to).</param>
     /// <param name="text">Raw text slice (entity-encoded).</param>
-    public static void AppendDecoded(StringBuilder dest, ReadOnlySpan<char> text)
+    public static void AppendDecoded(StringBuilder dest, in ReadOnlySpan<char> text)
     {
         ArgumentNullException.ThrowIfNull(dest);
         var i = 0;
@@ -129,29 +123,47 @@ internal ref struct DocXmlScanner
             }
 
             var entity = text[(entityStart + 1)..(entityStart + semi)];
-            if (entity.SequenceEqual(EntityLt))
+            switch (entity)
             {
-                dest.Append('<');
-            }
-            else if (entity.SequenceEqual(EntityGt))
-            {
-                dest.Append('>');
-            }
-            else if (entity.SequenceEqual(EntityAmp))
-            {
-                dest.Append('&');
-            }
-            else if (entity.SequenceEqual(EntityQuot))
-            {
-                dest.Append('"');
-            }
-            else if (entity.SequenceEqual(EntityApos))
-            {
-                dest.Append('\'');
-            }
-            else if (entity.Length > 1 && entity[0] == '#' && TryParseNumericRef(entity[1..], out var rune))
-            {
-                dest.Append(rune);
+                case EntityLt:
+                    {
+                        dest.Append('<');
+                        break;
+                    }
+
+                case EntityGt:
+                    {
+                        dest.Append('>');
+                        break;
+                    }
+
+                case EntityAmp:
+                    {
+                        dest.Append('&');
+                        break;
+                    }
+
+                case EntityQuot:
+                    {
+                        dest.Append('"');
+                        break;
+                    }
+
+                case EntityApos:
+                    {
+                        dest.Append('\'');
+                        break;
+                    }
+
+                default:
+                    {
+                        if (entity.Length > 1 && entity[0] == '#' && TryParseNumericRef(entity[1..], out var rune))
+                        {
+                            dest.Append(rune);
+                        }
+
+                        break;
+                    }
             }
 
             // Unknown entity → silently dropped (matches XmlReader's behaviour for undefined entities).
@@ -182,7 +194,7 @@ internal ref struct DocXmlScanner
             TokenStart = _pos;
             var nextLt = _input[_pos..].IndexOf('<');
             var end = nextLt < 0 ? _input.Length : _pos + nextLt;
-            _text = _input[_pos..end];
+            RawText = _input[_pos..end];
             _pos = end;
             Kind = DocTokenKind.Text;
             return true;
@@ -227,7 +239,7 @@ internal ref struct DocXmlScanner
     /// </summary>
     /// <param name="attributeName">Attribute name to look up.</param>
     /// <returns>The attribute value as a span over the source, or empty.</returns>
-    public readonly ReadOnlySpan<char> GetAttribute(ReadOnlySpan<char> attributeName)
+    public readonly ReadOnlySpan<char> GetAttribute(in ReadOnlySpan<char> attributeName)
     {
         if (_attrArea.IsEmpty)
         {
@@ -290,40 +302,6 @@ internal ref struct DocXmlScanner
     }
 
     /// <summary>
-    /// Reads the inner text of the current element into a string. The
-    /// scanner must be positioned on a start element;
-    /// on return the scanner is positioned on the matching end element
-    /// (or just past the start tag for self-closing elements).
-    /// </summary>
-    /// <param name="builder">Reusable buffer the scanner writes into; cleared at entry, returned filled with decoded text.</param>
-    /// <returns>The decoded inner text.</returns>
-    public string ReadInnerText(StringBuilder builder)
-    {
-        ArgumentNullException.ThrowIfNull(builder);
-        builder.Clear();
-        if (IsEmptyElement)
-        {
-            return string.Empty;
-        }
-
-        var startDepth = Depth;
-        while (Read())
-        {
-            if (Kind == DocTokenKind.EndElement && Depth < startDepth)
-            {
-                break;
-            }
-
-            if (Kind == DocTokenKind.Text)
-            {
-                AppendDecoded(builder, _text);
-            }
-        }
-
-        return builder.ToString();
-    }
-
-    /// <summary>
     /// Advances the scanner past the current element, ignoring its
     /// children. The scanner must be positioned on a start element;
     /// on return it is positioned on the matching end element (or
@@ -354,7 +332,7 @@ internal ref struct DocXmlScanner
     /// <param name="body">Numeric reference body.</param>
     /// <param name="rune">Decoded code point.</param>
     /// <returns>True when the reference parsed.</returns>
-    private static bool TryParseNumericRef(ReadOnlySpan<char> body, out char rune)
+    private static bool TryParseNumericRef(in ReadOnlySpan<char> body, out char rune)
     {
         rune = '\0';
         if (body.Length == 0)
@@ -430,7 +408,7 @@ internal ref struct DocXmlScanner
                 return false;
             }
 
-            _text = _input[afterOpen..(afterOpen + end)];
+            RawText = _input[afterOpen..(afterOpen + end)];
             _pos = afterOpen + end + CdataClose.Length;
             Kind = DocTokenKind.Text;
             return true;
@@ -464,7 +442,7 @@ internal ref struct DocXmlScanner
                 return false;
             }
 
-            _name = _input[nameStart..(nameStart + end)].Trim();
+            Name = _input[nameStart..(nameStart + end)].Trim();
             _pos = nameStart + end + 1;
             Kind = DocTokenKind.EndElement;
             Depth--;
@@ -494,7 +472,7 @@ internal ref struct DocXmlScanner
             nameEnd++;
         }
 
-        _name = tagBody[..nameEnd];
+        Name = tagBody[..nameEnd];
         _attrArea = tagBody[nameEnd..];
         _pos += tagEnd + 1;
         Kind = DocTokenKind.StartElement;

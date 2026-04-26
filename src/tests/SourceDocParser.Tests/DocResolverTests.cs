@@ -185,10 +185,7 @@ public class DocResolverTests
     /// <summary>Null compilation throws on construction.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ConstructorValidatesCompilation()
-    {
-        await Assert.That(() => new DocResolver(null!)).Throws<ArgumentNullException>();
-    }
+    public async Task ConstructorValidatesCompilation() => await Assert.That(static () => new DocResolver(null!)).Throws<ArgumentNullException>();
 
     /// <summary>
     /// Builds an in-memory <see cref="CSharpCompilation"/> from
@@ -201,18 +198,18 @@ public class DocResolverTests
     {
         var tree = CSharpSyntaxTree.ParseText(
             source,
-            new CSharpParseOptions(documentationMode: DocumentationMode.Parse));
+            new(documentationMode: DocumentationMode.Parse));
         List<MetadataReference> references =
         [
             .. AppDomain.CurrentDomain.GetAssemblies()
-                .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-                .Select(a => MetadataReference.CreateFromFile(a.Location)),
+                .Where(static a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
+                .Select(static a => MetadataReference.CreateFromFile(a.Location)),
         ];
         return CSharpCompilation.Create(
             "DocTest",
             [tree],
             references,
-            new CSharpCompilationOptions(
+            new(
                 outputKind: OutputKind.DynamicallyLinkedLibrary,
                 xmlReferenceResolver: XmlFileResolver.Default));
     }
@@ -227,8 +224,8 @@ public class DocResolverTests
         /// <summary>Gets the count of string-overload Convert calls.</summary>
         public int StringCalls { get; private set; }
 
-        /// <summary>Gets the count of XmlReader-overload Convert calls.</summary>
-        public int ReaderCalls { get; private set; }
+        /// <summary>Gets the count of async XmlReader-overload Convert calls.</summary>
+        public int ReaderAsyncCalls { get; private set; }
 
         /// <summary>Gets the count of span-overload Convert calls.</summary>
         public int SpanCalls { get; private set; }
@@ -241,10 +238,13 @@ public class DocResolverTests
         }
 
         /// <inheritdoc />
-        public string Convert(XmlReader reader)
+        public Task<string> ConvertAsync(XmlReader reader) => ConvertAsync(reader, CancellationToken.None);
+
+        /// <inheritdoc />
+        public async Task<string> ConvertAsync(XmlReader reader, CancellationToken cancellationToken)
         {
-            ReaderCalls++;
-            return reader.IsEmptyElement ? string.Empty : reader.ReadInnerXml();
+            ReaderAsyncCalls++;
+            return reader.IsEmptyElement ? string.Empty : await reader.ReadInnerXmlAsync().ConfigureAwait(false);
         }
 
         /// <inheritdoc />

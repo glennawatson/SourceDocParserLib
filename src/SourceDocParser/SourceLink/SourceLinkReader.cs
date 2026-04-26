@@ -91,7 +91,7 @@ internal sealed class SourceLinkReader : IDisposable
     /// <returns>The source location, or null if resolution fails.</returns>
     public SourceLocation? GetMethodLocation(int metadataToken)
     {
-        if (_pdbReader is not { })
+        if (_pdbReader is null)
         {
             return null;
         }
@@ -239,8 +239,9 @@ internal sealed class SourceLinkReader : IDisposable
             try
             {
                 var blob = pdb.GetBlobReader(info.Value);
-                List<SourceLinkMapEntry> entries = [.. ParseJson(blob.ReadBytes(blob.Length))];
-                return entries.Count > 0 ? new SourceLinkMap(entries) : null;
+                var bytes = blob.ReadBytes(blob.Length);
+                List<SourceLinkMapEntry> entries = [.. ParseJson(bytes)];
+                return entries is [_, ..] ? new SourceLinkMap(entries) : null;
             }
             catch
             {
@@ -264,7 +265,7 @@ internal sealed class SourceLinkReader : IDisposable
             yield break;
         }
 
-        if (!document.RootElement.TryGetProperty("documents"u8, out var documents) || documents.ValueKind != JsonValueKind.Object)
+        if (!document.RootElement.TryGetProperty("documents"u8, out var documents) || documents.ValueKind is not JsonValueKind.Object)
         {
             yield break;
         }
@@ -272,17 +273,14 @@ internal sealed class SourceLinkReader : IDisposable
         foreach (var property in documents.EnumerateObject())
         {
             var localPattern = property.Name;
-            var urlPattern = property.Value.ValueKind == JsonValueKind.String ? property.Value.GetString() : null;
-
-            if (string.IsNullOrEmpty(localPattern) || string.IsNullOrEmpty(urlPattern))
+            if (localPattern is not [_, ..]
+                || property.Value.ValueKind is not JsonValueKind.String
+                || property.Value.GetString() is not [_, ..] urlPattern)
             {
                 continue;
             }
 
-            var localIsWildcard = localPattern.EndsWith('*');
-            var urlIsWildcard = urlPattern.EndsWith('*');
-
-            if (localIsWildcard && urlIsWildcard)
+            if (localPattern is [.., '*'] && urlPattern is [.., '*'])
             {
                 yield return new(
                     LocalPrefix: localPattern[..^1],

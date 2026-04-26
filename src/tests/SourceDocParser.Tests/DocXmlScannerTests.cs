@@ -157,7 +157,7 @@ public class DocXmlScannerTests
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task AppendDecodedValidatesArguments() =>
-        await Assert.That(() => DocXmlScanner.AppendDecoded(null!, default)).Throws<ArgumentNullException>();
+        await Assert.That(static () => DocXmlScanner.AppendDecoded(null!, default)).Throws<ArgumentNullException>();
 
     /// <summary>Synchronously runs the scanner over an empty input.</summary>
     /// <returns>The Read result and the kind after.</returns>

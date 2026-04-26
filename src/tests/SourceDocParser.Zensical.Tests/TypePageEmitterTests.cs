@@ -1,0 +1,111 @@
+// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Glenn Watson and Contributors licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for full license information.
+
+using SourceDocParser.TestHelpers;
+
+namespace SourceDocParser.Zensical.Tests;
+
+/// <summary>
+/// Pins the public surface of <see cref="TypePageEmitter"/> — heading
+/// label, file path layout, kind-specific section presence — so any
+/// future change to the markdown shape surfaces here before it lands
+/// in a downstream emitter consumer.
+/// </summary>
+public class TypePageEmitterTests
+{
+    /// <summary>Class types render an H1 heading that includes the kind keyword.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task RenderProducesHeadingForClass()
+    {
+        var page = TypePageEmitter.Render(TestData.ObjectType("Foo"));
+
+        await Assert.That(page).StartsWith("# Foo class");
+    }
+
+    /// <summary>Enum types render the values table inline on the type page.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task RenderEmitsValueTableForEnum()
+    {
+        var values = new List<ApiEnumValue>
+        {
+            new("Red", "F:Color.Red", "0", ApiDocumentation.Empty, null),
+            new("Green", "F:Color.Green", "1", ApiDocumentation.Empty, null),
+        };
+        var enumType = TestData.EnumType("Color") with { Values = values };
+
+        var page = TypePageEmitter.Render(enumType);
+
+        await Assert.That(page).Contains("# Color enum");
+        await Assert.That(page).Contains("## Values");
+        await Assert.That(page).Contains("`Red`");
+        await Assert.That(page).Contains("`Green`");
+    }
+
+    /// <summary>
+    /// Delegate types render the Invoke signature under a Signature
+    /// section, not as a member page.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task RenderEmitsSignatureSectionForDelegate()
+    {
+        var page = TypePageEmitter.Render(TestData.DelegateType("Handler"));
+
+        await Assert.That(page).Contains("# Handler delegate");
+        await Assert.That(page).Contains("## Signature");
+    }
+
+    /// <summary>
+    /// Path layout: <c>Namespace/Type.md</c> for namespaced types,
+    /// <c>_global/Type.md</c> for global-namespace types so the api
+    /// tree stays well-formed.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task PathForUsesNamespaceTreeAndMarkdownExtension()
+    {
+        var withNamespace = TestData.ObjectType("Foo") with { Namespace = "My.Lib" };
+        var globalNs = TestData.ObjectType("Bar");
+
+        await Assert.That(TypePageEmitter.PathFor(withNamespace)).IsEqualTo("My/Lib/Foo.md");
+        await Assert.That(TypePageEmitter.PathFor(globalNs)).IsEqualTo("_global/Bar.md");
+    }
+
+    /// <summary>
+    /// Generic types use curly braces in the file stem so the path stays
+    /// safe on Windows and readable in URLs.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task PathForReplacesAngleBracketsWithCurlyBraces()
+    {
+        var generic = TestData.ObjectType("List") with { Arity = 1 };
+
+        var path = TypePageEmitter.PathFor(generic);
+
+        await Assert.That(path).EndsWith("List{T}.md");
+    }
+
+    /// <summary>Render rejects null types with the standard guard.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task RenderRejectsNullType()
+    {
+        await Assert.That(Act).Throws<ArgumentNullException>();
+
+        static string Act() => TypePageEmitter.Render(null!);
+    }
+
+    /// <summary>PathFor rejects null types with the standard guard.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task PathForRejectsNullType()
+    {
+        await Assert.That(Act).Throws<ArgumentNullException>();
+
+        static string Act() => TypePageEmitter.PathFor(null!);
+    }
+}

@@ -45,8 +45,8 @@ public class SymbolWalkerTests
         var catalog = walker.Walk("net10.0", compilation.Assembly, compilation, resolver);
 
         await Assert.That(catalog.Tfm).IsEqualTo("net10.0");
-        await Assert.That(catalog.Types.Any(t => t.FullName == "Foo.Bar")).IsTrue();
-        await Assert.That(catalog.Types.Any(t => t.FullName == "Foo.IQux")).IsTrue();
+        await Assert.That(catalog.Types.Any(static t => t.FullName == "Foo.Bar")).IsTrue();
+        await Assert.That(catalog.Types.Any(static t => t.FullName == "Foo.IQux")).IsTrue();
     }
 
     /// <summary>
@@ -69,7 +69,7 @@ public class SymbolWalkerTests
 
         var catalog = walker.Walk("net10.0", compilation.Assembly, compilation, resolver);
 
-        await Assert.That(catalog.Types.Any(t => t.FullName == "Foo.Hidden")).IsFalse();
+        await Assert.That(catalog.Types.Any(static t => t.FullName == "Foo.Hidden")).IsFalse();
     }
 
     /// <summary>
@@ -115,6 +115,39 @@ public class SymbolWalkerTests
     }
 
     /// <summary>
+    /// A single walker instance can serve multiple concurrent walk calls
+    /// because each call builds its own scoped caches.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task WalkSupportsConcurrentCalls()
+    {
+        var compilation = BuildCompilation(
+            """
+            namespace Foo
+            {
+                public class Bar
+                {
+                    public int Baz() => 42;
+                }
+            }
+            """);
+        var walker = new SymbolWalker();
+
+        var catalogs = await Task.WhenAll(
+            Enumerable.Range(0, 4)
+                .Select(async i =>
+                {
+                    await Task.Yield();
+                    using ISourceLinkResolver resolver = new NullSourceLinkResolver();
+                    return (Index: i, Catalog: walker.Walk("net10.0", compilation.Assembly, compilation, resolver));
+                }));
+
+        await Assert.That(catalogs.Length).IsEqualTo(4);
+        await Assert.That(catalogs.All(static c => c.Catalog.Types.Any(t => t.FullName == "Foo.Bar"))).IsTrue();
+    }
+
+    /// <summary>
     /// Builds an in-memory <see cref="CSharpCompilation"/> from <paramref name="source"/>
     /// referencing the runtime assemblies of the currently-loaded BCL.
     /// </summary>
@@ -126,8 +159,8 @@ public class SymbolWalkerTests
         List<MetadataReference> references =
         [
             .. AppDomain.CurrentDomain.GetAssemblies()
-                .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-                .Select(a => MetadataReference.CreateFromFile(a.Location)),
+                .Where(static a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
+                .Select(static a => MetadataReference.CreateFromFile(a.Location)),
         ];
         return CSharpCompilation.Create("Test", [tree], references);
     }
