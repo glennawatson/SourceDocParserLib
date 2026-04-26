@@ -9,9 +9,9 @@ namespace SourceDocParser.Zensical.Tests;
 /// <summary>
 /// Unit-level coverage of the page count contract for
 /// <see cref="ZensicalDocumentationEmitter"/>: the emitter writes one
-/// page per type, plus one per overload group on classes/structs/
-/// interfaces, but never per-value pages on enums or per-overload pages
-/// on delegates (their type page already shows the full surface inline).
+/// page per type, plus one per overload group on object / union types.
+/// Enums and delegates emit exactly one page (their type page already
+/// shows the full surface inline).
 /// </summary>
 public class ZensicalDocumentationEmitterTests
 {
@@ -24,16 +24,9 @@ public class ZensicalDocumentationEmitterTests
     public async Task ClassWithDistinctMemberNamesEmitsOnePagePerOverloadGroup()
     {
         using var scratch = new ScratchDirectory();
+        var type = ObjectTypeWithMembers("DemoClass", "Run", "Stop", "Cancel");
 
-        var type = TypeWithMembers(
-            "DemoClass",
-            ApiTypeKind.Class,
-            "Run",
-            "Stop",
-            "Cancel");
-
-        var emitter = new ZensicalDocumentationEmitter();
-        var pages = await emitter.EmitAsync([type], scratch.Path);
+        var pages = await new ZensicalDocumentationEmitter().EmitAsync([type], scratch.Path);
 
         // 1 type page + 3 overload-group pages.
         await Assert.That(pages).IsEqualTo(4);
@@ -49,16 +42,9 @@ public class ZensicalDocumentationEmitterTests
     public async Task ClassWithRepeatedOverloadsCollapsesIntoOneMemberPage()
     {
         using var scratch = new ScratchDirectory();
+        var type = ObjectTypeWithMembers("DemoClass", "Run", "Run", "Run");
 
-        var type = TypeWithMembers(
-            "DemoClass",
-            ApiTypeKind.Class,
-            "Run",
-            "Run",
-            "Run");
-
-        var emitter = new ZensicalDocumentationEmitter();
-        var pages = await emitter.EmitAsync([type], scratch.Path);
+        var pages = await new ZensicalDocumentationEmitter().EmitAsync([type], scratch.Path);
 
         // 1 type page + 1 overload-group page (all three Run overloads
         // share the same name bucket).
@@ -66,7 +52,7 @@ public class ZensicalDocumentationEmitterTests
     }
 
     /// <summary>
-    /// Enums never emit per-member pages no matter how many values they
+    /// Enums never emit per-value pages no matter how many values they
     /// declare — the type page already lists every value inline. The
     /// baseline an icon-font enum would otherwise hit is thousands of
     /// per-value pages, so the contract is "exactly 1 page".
@@ -77,58 +63,49 @@ public class ZensicalDocumentationEmitterTests
     {
         using var scratch = new ScratchDirectory();
 
-        var memberNames = new string[256];
-        for (var i = 0; i < memberNames.Length; i++)
+        var values = new List<ApiEnumValue>(256);
+        for (var i = 0; i < 256; i++)
         {
-            memberNames[i] = $"Value{i}";
+            values.Add(new($"Value{i}", $"F:DemoEnum.Value{i}", i.ToString(System.Globalization.CultureInfo.InvariantCulture), ApiDocumentation.Empty, null));
         }
 
-        var type = TypeWithMembers("DemoEnum", ApiTypeKind.Enum, memberNames);
-
-        var emitter = new ZensicalDocumentationEmitter();
-        var pages = await emitter.EmitAsync([type], scratch.Path);
+        var type = TestData.EnumType("DemoEnum") with { Values = values };
+        var pages = await new ZensicalDocumentationEmitter().EmitAsync([type], scratch.Path);
 
         await Assert.That(pages).IsEqualTo(1);
         await Assert.That(MarkdownFiles(scratch.Path)).IsEqualTo(1);
     }
 
     /// <summary>
-    /// Delegates never emit per-member pages — the signature is the type
-    /// page itself.
+    /// Delegates never emit per-overload pages — the Invoke signature
+    /// is the type page itself.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task DelegateEmitsOnlyTheTypePage()
     {
         using var scratch = new ScratchDirectory();
+        var type = TestData.DelegateType("DemoHandler");
 
-        var type = TypeWithMembers(
-            "DemoHandler",
-            ApiTypeKind.Delegate,
-            "Invoke",
-            "BeginInvoke",
-            "EndInvoke");
-
-        var emitter = new ZensicalDocumentationEmitter();
-        var pages = await emitter.EmitAsync([type], scratch.Path);
+        var pages = await new ZensicalDocumentationEmitter().EmitAsync([type], scratch.Path);
 
         await Assert.That(pages).IsEqualTo(1);
         await Assert.That(MarkdownFiles(scratch.Path)).IsEqualTo(1);
     }
 
     /// <summary>
-    /// Builds an <see cref="ApiType"/> of the requested kind with one
-    /// synthetic <see cref="ApiMember"/> per name in <paramref name="memberNames"/>.
+    /// Builds an <see cref="ApiObjectType"/> with one synthetic
+    /// <see cref="ApiMember"/> per name in <paramref name="memberNames"/>.
     /// </summary>
     /// <param name="name">Type name (also used as the UID stem for each member).</param>
-    /// <param name="kind">Type kind to assign.</param>
     /// <param name="memberNames">Member names, one per synthesised member.</param>
     /// <returns>The constructed type with members attached.</returns>
-    private static ApiType TypeWithMembers(string name, ApiTypeKind kind, params string[] memberNames)
+    private static ApiObjectType ObjectTypeWithMembers(string name, params string[] memberNames)
     {
         var members = new List<ApiMember>(memberNames.Length);
-        foreach (var memberName in memberNames)
+        for (var i = 0; i < memberNames.Length; i++)
         {
+            var memberName = memberNames[i];
             members.Add(new ApiMember(
                 Name: memberName,
                 Uid: $"{name}.{memberName}",
@@ -150,7 +127,7 @@ public class ZensicalDocumentationEmitterTests
                 Documentation: ApiDocumentation.Empty));
         }
 
-        return TestData.Type(name, kind) with { Members = members };
+        return TestData.ObjectType(name) with { Members = members };
     }
 
     /// <summary>Counts every markdown file under <paramref name="root"/>.</summary>

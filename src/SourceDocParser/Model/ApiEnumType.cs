@@ -5,28 +5,28 @@
 namespace SourceDocParser;
 
 /// <summary>
-/// A documented type. Discriminated by sealed derivation:
-/// <see cref="ApiObjectType"/> (class/struct/interface/record/record
-/// struct), <see cref="ApiEnumType"/>, <see cref="ApiDelegateType"/>,
-/// or <see cref="ApiUnionType"/>. Emitters pattern-match on the
-/// derived type to access the kind-specific data; the shared
-/// identity / hierarchy / docs / source-link state lives on this base.
+/// An enum. The values are surfaced as a structured list rather than
+/// as generic members so emitters can render them inline on the type
+/// page; per-value markdown pages would explode the file count for any
+/// large vocabulary (icon-font enums in particular).
 /// </summary>
 /// <param name="Name">The simple name.</param>
 /// <param name="FullName">The namespace-qualified name.</param>
 /// <param name="Uid">The documentation member ID.</param>
 /// <param name="Namespace">The containing namespace.</param>
-/// <param name="Arity">Number of generic type parameters.</param>
+/// <param name="Arity">Number of generic type parameters (always zero for enums).</param>
 /// <param name="IsStatic">Whether the type is static.</param>
 /// <param name="IsSealed">Whether the type is sealed.</param>
 /// <param name="IsAbstract">Whether the type is abstract.</param>
 /// <param name="AssemblyName">The declaring assembly name.</param>
 /// <param name="Documentation">The parsed XML documentation.</param>
 /// <param name="BaseType">The immediate base type reference, if any.</param>
-/// <param name="Interfaces">Directly declared interfaces.</param>
+/// <param name="Interfaces">Directly declared interfaces (empty for enums in practice).</param>
 /// <param name="SourceUrl">The source link URL.</param>
 /// <param name="AppliesTo">TFMs the type appears in.</param>
-public abstract record ApiType(
+/// <param name="UnderlyingType">Reference to the integral storage type (e.g. <c>System.Int32</c>).</param>
+/// <param name="Values">Declared enum values in source order.</param>
+public sealed record ApiEnumType(
     string Name,
     string FullName,
     string Uid,
@@ -40,4 +40,8 @@ public abstract record ApiType(
     ApiTypeReference? BaseType,
     List<ApiTypeReference> Interfaces,
     string? SourceUrl,
-    List<string> AppliesTo);
+    List<string> AppliesTo,
+    ApiTypeReference UnderlyingType,
+    List<ApiEnumValue> Values) : ApiType(
+        Name, FullName, Uid, Namespace, Arity, IsStatic, IsSealed, IsAbstract,
+        AssemblyName, Documentation, BaseType, Interfaces, SourceUrl, AppliesTo);

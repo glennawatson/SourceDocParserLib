@@ -5,12 +5,11 @@
 namespace SourceDocParser;
 
 /// <summary>
-/// A documented type. Discriminated by sealed derivation:
-/// <see cref="ApiObjectType"/> (class/struct/interface/record/record
-/// struct), <see cref="ApiEnumType"/>, <see cref="ApiDelegateType"/>,
-/// or <see cref="ApiUnionType"/>. Emitters pattern-match on the
-/// derived type to access the kind-specific data; the shared
-/// identity / hierarchy / docs / source-link state lives on this base.
+/// Object-shaped type — class, struct, interface, record class, or
+/// record struct. Carries a member list. The <see cref="Kind"/> field
+/// distinguishes the underlying flavour for emitters that only need a
+/// label change between them (e.g. the <c>class</c> vs <c>struct</c>
+/// keyword on the type page).
 /// </summary>
 /// <param name="Name">The simple name.</param>
 /// <param name="FullName">The namespace-qualified name.</param>
@@ -26,7 +25,11 @@ namespace SourceDocParser;
 /// <param name="Interfaces">Directly declared interfaces.</param>
 /// <param name="SourceUrl">The source link URL.</param>
 /// <param name="AppliesTo">TFMs the type appears in.</param>
-public abstract record ApiType(
+/// <param name="Kind">Concrete object kind (class / struct / interface / record / record struct).</param>
+/// <param name="IsReadOnly">Whether the type is <c>readonly</c> (struct/record-struct only; otherwise <see langword="false"/>).</param>
+/// <param name="IsByRefLike">Whether the type is a <c>ref struct</c>.</param>
+/// <param name="Members">Documented members declared on the type.</param>
+public sealed record ApiObjectType(
     string Name,
     string FullName,
     string Uid,
@@ -40,4 +43,10 @@ public abstract record ApiType(
     ApiTypeReference? BaseType,
     List<ApiTypeReference> Interfaces,
     string? SourceUrl,
-    List<string> AppliesTo);
+    List<string> AppliesTo,
+    ApiObjectKind Kind,
+    bool IsReadOnly,
+    bool IsByRefLike,
+    List<ApiMember> Members) : ApiType(
+        Name, FullName, Uid, Namespace, Arity, IsStatic, IsSealed, IsAbstract,
+        AssemblyName, Documentation, BaseType, Interfaces, SourceUrl, AppliesTo);

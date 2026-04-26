@@ -183,35 +183,103 @@ public sealed class SymbolWalker : ISymbolWalker
     /// <returns>The generated API type, or null if it could not be built.</returns>
     private static ApiType? TryBuildType(INamedTypeSymbol type, SymbolWalkContext context)
     {
-        if (SymbolWalkerHelpers.ClassifyType(type) is not { } kind)
+        var uid = type.GetDocumentationCommentId() ?? string.Empty;
+        var ns = GetNamespaceDisplayName(context, type.ContainingNamespace);
+        var fullName = ns.Length == 0 ? type.Name : $"{ns}.{type.Name}";
+        var documentation = context.Docs.Resolve(type);
+        var baseTypeRef = SymbolWalkerHelpers.BuildBaseTypeReference(type, context.TypeRefs);
+        var interfaces = SymbolWalkerHelpers.BuildInterfaceReferences(type, context.TypeRefs);
+        var sourceUrl = context.SourceLinks.Resolve(type);
+
+        // Closed-hierarchy unions (C# 15+) are class-shaped and have to
+        // be checked before the generic class branch — otherwise we'd
+        // emit them as a plain class and lose the case list.
+        if (type.TypeKind is TypeKind.Class && SymbolWalkerHelpers.IsUnion(type))
+        {
+            return new ApiUnionType(
+                Name: type.Name,
+                FullName: fullName,
+                Uid: uid,
+                Namespace: ns,
+                Arity: type.Arity,
+                IsStatic: type.IsStatic,
+                IsSealed: type.IsSealed,
+                IsAbstract: type.IsAbstract,
+                AssemblyName: context.AssemblyName,
+                Documentation: documentation,
+                BaseType: baseTypeRef,
+                Interfaces: interfaces,
+                SourceUrl: sourceUrl,
+                AppliesTo: context.AppliesTo,
+                Members: BuildMembers(type, type.Name, uid, context),
+                Cases: SymbolWalkerHelpers.BuildUnionCases(type, context.TypeRefs));
+        }
+
+        if (type.TypeKind is TypeKind.Enum)
+        {
+            return new ApiEnumType(
+                Name: type.Name,
+                FullName: fullName,
+                Uid: uid,
+                Namespace: ns,
+                Arity: type.Arity,
+                IsStatic: type.IsStatic,
+                IsSealed: type.IsSealed,
+                IsAbstract: type.IsAbstract,
+                AssemblyName: context.AssemblyName,
+                Documentation: documentation,
+                BaseType: baseTypeRef,
+                Interfaces: interfaces,
+                SourceUrl: sourceUrl,
+                AppliesTo: context.AppliesTo,
+                UnderlyingType: context.TypeRefs.GetOrAdd(type.EnumUnderlyingType ?? type, SymbolWalkerHelpers.BuildReference),
+                Values: SymbolWalkerHelpers.BuildEnumValues(type, context));
+        }
+
+        if (type.TypeKind is TypeKind.Delegate)
+        {
+            return new ApiDelegateType(
+                Name: type.Name,
+                FullName: fullName,
+                Uid: uid,
+                Namespace: ns,
+                Arity: type.Arity,
+                IsStatic: type.IsStatic,
+                IsSealed: type.IsSealed,
+                IsAbstract: type.IsAbstract,
+                AssemblyName: context.AssemblyName,
+                Documentation: documentation,
+                BaseType: baseTypeRef,
+                Interfaces: interfaces,
+                SourceUrl: sourceUrl,
+                AppliesTo: context.AppliesTo,
+                Invoke: SymbolWalkerHelpers.BuildDelegateInvoke(type, context));
+        }
+
+        if (SymbolWalkerHelpers.ClassifyObjectKind(type) is not { } kind)
         {
             return null;
         }
 
-        var uid = type.GetDocumentationCommentId() ?? string.Empty;
-        var ns = GetNamespaceDisplayName(context, type.ContainingNamespace);
-        var fullName = ns.Length == 0 ? type.Name : $"{ns}.{type.Name}";
-
-        return new(
+        return new ApiObjectType(
             Name: type.Name,
             FullName: fullName,
             Uid: uid,
             Namespace: ns,
-            Kind: kind,
             Arity: type.Arity,
             IsStatic: type.IsStatic,
             IsSealed: type.IsSealed,
             IsAbstract: type.IsAbstract,
+            AssemblyName: context.AssemblyName,
+            Documentation: documentation,
+            BaseType: baseTypeRef,
+            Interfaces: interfaces,
+            SourceUrl: sourceUrl,
+            AppliesTo: context.AppliesTo,
+            Kind: kind,
             IsReadOnly: type.IsReadOnly,
             IsByRefLike: type.IsRefLikeType,
-            AssemblyName: context.AssemblyName,
-            Documentation: context.Docs.Resolve(type),
-            BaseType: SymbolWalkerHelpers.BuildBaseTypeReference(type, context.TypeRefs),
-            Interfaces: SymbolWalkerHelpers.BuildInterfaceReferences(type, context.TypeRefs),
-            UnionCases: SymbolWalkerHelpers.BuildUnionCases(type),
-            Members: BuildMembers(type, type.Name, uid, context),
-            SourceUrl: context.SourceLinks.Resolve(type),
-            AppliesTo: context.AppliesTo);
+            Members: BuildMembers(type, type.Name, uid, context));
     }
 
     /// <summary>

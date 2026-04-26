@@ -177,9 +177,21 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
                 entries.Add(new(type.Uid, typeUrl));
             }
 
-            for (var m = 0; m < type.Members.Count; m++)
+            var members = type switch
             {
-                var member = type.Members[m];
+                ApiObjectType o => o.Members,
+                ApiUnionType u => u.Members,
+                _ => null,
+            };
+
+            if (members is null)
+            {
+                continue;
+            }
+
+            for (var m = 0; m < members.Count; m++)
+            {
+                var member = members[m];
                 if (member.SourceUrl is { Length: > 0 } memberUrl)
                 {
                     entries.Add(new(member.Uid, memberUrl));

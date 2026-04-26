@@ -58,25 +58,24 @@ public class TypeMergerBenchmarks
     /// </summary>
     /// <param name="uid">Unique identifier (also used as Name + FullName).</param>
     /// <returns>The constructed type.</returns>
-    private static ApiType BuildType(string uid) =>
+    private static ApiObjectType BuildType(string uid) =>
         new(
             Name: uid,
             FullName: uid,
             Uid: uid,
             Namespace: string.Empty,
-            Kind: ApiTypeKind.Class,
             Arity: 0,
             IsStatic: false,
             IsSealed: false,
             IsAbstract: false,
-            IsReadOnly: false,
-            IsByRefLike: false,
             AssemblyName: "Bench",
             Documentation: ApiDocumentation.Empty,
             BaseType: null,
             Interfaces: [],
-            UnionCases: [],
-            Members: [],
             SourceUrl: null,
-            AppliesTo: []);
+            AppliesTo: [],
+            Kind: ApiObjectKind.Class,
+            IsReadOnly: false,
+            IsByRefLike: false,
+            Members: []);
 }

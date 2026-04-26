@@ -110,6 +110,8 @@ internal static class TypePageEmitter
 
         AppendExamples(sb, type.Documentation.Examples);
         AppendMembers(sb, type);
+        AppendEnumValues(sb, type);
+        AppendDelegateSignature(sb, type);
 
         _ = displayName;
         return sb.ToString();
@@ -136,6 +138,66 @@ internal static class TypePageEmitter
     }
 
     /// <summary>
+    /// Renders the enum value table for an <see cref="ApiEnumType"/>.
+    /// Skipped for any other kind. The values come straight off the
+    /// structured <see cref="ApiEnumType.Values"/> list — no per-value
+    /// markdown page is produced (those would explode the file count
+    /// for icon-font enums).
+    /// </summary>
+    /// <param name="sb">The destination string builder.</param>
+    /// <param name="type">The type whose enum values to emit.</param>
+    private static void AppendEnumValues(StringBuilder sb, ApiType type)
+    {
+        if (type is not ApiEnumType enumType || enumType.Values.Count == 0)
+        {
+            return;
+        }
+
+        sb.Append("\n## Values\n\n| Name | Value | Description |\n| --- | --- | --- |\n");
+        for (var i = 0; i < enumType.Values.Count; i++)
+        {
+            var value = enumType.Values[i];
+            var summary = value.Documentation.Summary.Length > 0
+                ? value.Documentation.Summary.ReplaceLineEndings(" ")
+                : string.Empty;
+            sb.Append("| `").Append(value.Name)
+                .Append("` | `").Append(value.Value)
+                .Append("` | ").Append(summary).Append(" |\n");
+        }
+    }
+
+    /// <summary>
+    /// Renders the Invoke signature for an <see cref="ApiDelegateType"/>.
+    /// Skipped for any other kind. Surfaces return type, parameters,
+    /// and any generic type parameters declared on the delegate.
+    /// </summary>
+    /// <param name="sb">The destination string builder.</param>
+    /// <param name="type">The type whose delegate signature to emit.</param>
+    private static void AppendDelegateSignature(StringBuilder sb, ApiType type)
+    {
+        if (type is not ApiDelegateType delegateType)
+        {
+            return;
+        }
+
+        var invoke = delegateType.Invoke;
+        sb.Append("\n## Signature\n\n```csharp\n").Append(invoke.Signature).Append("\n```\n");
+
+        if (invoke.Parameters.Count == 0)
+        {
+            return;
+        }
+
+        sb.Append("\n## Parameters\n\n| Name | Type |\n| --- | --- |\n");
+        for (var i = 0; i < invoke.Parameters.Count; i++)
+        {
+            var p = invoke.Parameters[i];
+            sb.Append("| `").Append(p.Name)
+                .Append("` | `").Append(p.Type.DisplayName).Append("` |\n");
+        }
+    }
+
+    /// <summary>
     /// Emits a collapsible class-hierarchy admonition.
     /// </summary>
     /// <remarks>
@@ -145,7 +207,7 @@ internal static class TypePageEmitter
     /// <param name="type">The type to diagram.</param>
     private static void AppendHierarchy(StringBuilder sb, ApiType type)
     {
-        if (type.Kind is ApiTypeKind.Delegate or ApiTypeKind.Enum)
+        if (type is ApiDelegateType or ApiEnumType)
         {
             return;
         }
@@ -262,14 +324,14 @@ internal static class TypePageEmitter
     /// <param name="type">The type to render.</param>
     private static void AppendUnionCases(StringBuilder sb, ApiType type)
     {
-        if (type.UnionCases.Count == 0)
+        if (type is not ApiUnionType union || union.Cases.Count == 0)
         {
             return;
         }
 
-        var unionNode = MermaidNodeName(type.Name, type.Arity);
-        var diagramBody = RenderUnionDiagramBody(type.UnionCases, unionNode);
-        var caseRows = RenderUnionCaseRows(type.UnionCases);
+        var unionNode = MermaidNodeName(union.Name, union.Arity);
+        var diagramBody = RenderUnionDiagramBody(union.Cases, unionNode);
+        var caseRows = RenderUnionCaseRows(union.Cases);
 
         sb.Append($"""
 
@@ -407,15 +469,16 @@ internal static class TypePageEmitter
             ? $"<{string.Join(", ", GenericPlaceholders(type.Arity))}>"
             : string.Empty;
 
-        var kindLabel = type.Kind switch
+        var kindLabel = type switch
         {
-            ApiTypeKind.Class => "class",
-            ApiTypeKind.Struct => "struct",
-            ApiTypeKind.Interface => "interface",
-            ApiTypeKind.Enum => "enum",
-            ApiTypeKind.Delegate => "delegate",
-            ApiTypeKind.Record => "record",
-            ApiTypeKind.RecordStruct => "record struct",
+            ApiObjectType { Kind: ApiObjectKind.Class } => "class",
+            ApiObjectType { Kind: ApiObjectKind.Struct } => "struct",
+            ApiObjectType { Kind: ApiObjectKind.Interface } => "interface",
+            ApiObjectType { Kind: ApiObjectKind.Record } => "record",
+            ApiObjectType { Kind: ApiObjectKind.RecordStruct } => "record struct",
+            ApiEnumType => "enum",
+            ApiDelegateType => "delegate",
+            ApiUnionType => "union",
             _ => "type",
         };
 
@@ -489,7 +552,14 @@ internal static class TypePageEmitter
     /// <param name="type">The type whose documented members to emit.</param>
     private static void AppendMembers(StringBuilder sb, ApiType type)
     {
-        if (type.Members.Count == 0)
+        var members = type switch
+        {
+            ApiObjectType o => o.Members,
+            ApiUnionType u => u.Members,
+            _ => null,
+        };
+
+        if (members is not { Count: > 0 })
         {
             return;
         }
@@ -498,8 +568,9 @@ internal static class TypePageEmitter
         // uses every kind, but it's a tight upper bound and avoids
         // any growth.
         var byKind = new Dictionary<ApiMemberKind, List<ApiMember>>(capacity: ApiMemberKindCount);
-        foreach (var member in type.Members)
+        for (var i = 0; i < members.Count; i++)
         {
+            var member = members[i];
             if (!byKind.TryGetValue(member.Kind, out var bucket))
             {
                 bucket = [];
@@ -515,7 +586,6 @@ internal static class TypePageEmitter
         AppendMemberSection(sb, "Methods", byKind, ApiMemberKind.Method, type);
         AppendMemberSection(sb, "Operators", byKind, ApiMemberKind.Operator, type);
         AppendMemberSection(sb, "Events", byKind, ApiMemberKind.Event, type);
-        AppendMemberSection(sb, "Values", byKind, ApiMemberKind.EnumValue, type);
     }
 
     /// <summary>

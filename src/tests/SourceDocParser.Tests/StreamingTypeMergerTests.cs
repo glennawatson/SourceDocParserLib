@@ -121,25 +121,5 @@ public class StreamingTypeMergerTests
     /// </summary>
     /// <param name="uid">UID/Name/FullName for the synthetic type.</param>
     /// <returns>The constructed type.</returns>
-    private static ApiType BuildType(string uid) =>
-        new(
-            Name: uid,
-            FullName: uid,
-            Uid: uid,
-            Namespace: string.Empty,
-            Kind: ApiTypeKind.Class,
-            Arity: 0,
-            IsStatic: false,
-            IsSealed: false,
-            IsAbstract: false,
-            IsReadOnly: false,
-            IsByRefLike: false,
-            AssemblyName: "Test",
-            Documentation: ApiDocumentation.Empty,
-            BaseType: null,
-            Interfaces: [],
-            UnionCases: [],
-            Members: [],
-            SourceUrl: null,
-            AppliesTo: []);
+    private static ApiObjectType BuildType(string uid) => TestHelpers.TestData.ObjectType(uid);
 }

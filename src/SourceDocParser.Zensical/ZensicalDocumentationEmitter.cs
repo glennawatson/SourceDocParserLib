@@ -35,33 +35,34 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
     }
 
     /// <summary>
-    /// Emits one Markdown page per overload group on the supplied
-    /// type. Members are bucketed by name; the bucket dictionary is
-    /// pre-sized to the member count which is a tight upper bound on
-    /// the distinct names.
+    /// Emits one Markdown page per overload group on the supplied type.
+    /// Only object and union types contribute member pages — enums and
+    /// delegates are typed away from this code path entirely, so there's
+    /// no per-call kind check needed. Members are bucketed by name;
+    /// the bucket dictionary is pre-sized to the member count, which
+    /// is a tight upper bound on the distinct names.
     /// </summary>
     /// <param name="type">Type whose members to emit pages for.</param>
     /// <param name="outputRoot">Markdown output root.</param>
     /// <returns>Total page count written.</returns>
     private static int EmitMemberPages(ApiType type, string outputRoot)
     {
-        if (type.Members.Count == 0)
+        var members = type switch
+        {
+            ApiObjectType o => o.Members,
+            ApiUnionType u => u.Members,
+            _ => null,
+        };
+
+        if (members is not { Count: > 0 })
         {
             return 0;
         }
 
-        // Enums and delegates have no callable surface a per-overload
-        // page could meaningfully describe — the type page already shows
-        // every enum value and the delegate signature inline.
-        if (type.Kind is ApiTypeKind.Enum or ApiTypeKind.Delegate)
+        var groups = new Dictionary<string, List<ApiMember>>(capacity: members.Count, StringComparer.Ordinal);
+        for (var i = 0; i < members.Count; i++)
         {
-            return 0;
-        }
-
-        var groups = new Dictionary<string, List<ApiMember>>(capacity: type.Members.Count, StringComparer.Ordinal);
-        for (var i = 0; i < type.Members.Count; i++)
-        {
-            var member = type.Members[i];
+            var member = members[i];
             if (!groups.TryGetValue(member.Name, out var bucket))
             {
                 bucket = [];

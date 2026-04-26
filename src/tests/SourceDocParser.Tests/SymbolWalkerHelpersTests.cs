@@ -16,39 +16,44 @@ namespace SourceDocParser.Tests;
 public class SymbolWalkerHelpersTests
 {
     /// <summary>
-    /// <see cref="SymbolWalkerHelpers.ClassifyType"/> maps every supported
-    /// Roslyn <see cref="TypeKind"/> to the matching <see cref="ApiTypeKind"/>.
+    /// <see cref="SymbolWalkerHelpers.ClassifyObjectKind"/> maps each
+    /// Roslyn <see cref="TypeKind"/> to the matching <see cref="ApiObjectKind"/>.
+    /// Enums and delegates are classified through dedicated walker
+    /// branches (see <see cref="ApiEnumType"/> / <see cref="ApiDelegateType"/>)
+    /// rather than through this helper, so they aren't covered here.
     /// </summary>
     /// <param name="kind">Roslyn type kind to feed in.</param>
     /// <param name="isRecord">Whether the type is a record.</param>
     /// <param name="expected">Expected classification.</param>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    [Arguments(TypeKind.Class, false, ApiTypeKind.Class)]
-    [Arguments(TypeKind.Class, true, ApiTypeKind.Record)]
-    [Arguments(TypeKind.Struct, false, ApiTypeKind.Struct)]
-    [Arguments(TypeKind.Struct, true, ApiTypeKind.RecordStruct)]
-    [Arguments(TypeKind.Interface, false, ApiTypeKind.Interface)]
-    [Arguments(TypeKind.Enum, false, ApiTypeKind.Enum)]
-    [Arguments(TypeKind.Delegate, false, ApiTypeKind.Delegate)]
-    public async Task ClassifyTypeMapsKnownKinds(TypeKind kind, bool isRecord, ApiTypeKind expected)
+    [Arguments(TypeKind.Class, false, ApiObjectKind.Class)]
+    [Arguments(TypeKind.Class, true, ApiObjectKind.Record)]
+    [Arguments(TypeKind.Struct, false, ApiObjectKind.Struct)]
+    [Arguments(TypeKind.Struct, true, ApiObjectKind.RecordStruct)]
+    [Arguments(TypeKind.Interface, false, ApiObjectKind.Interface)]
+    public async Task ClassifyObjectKindMapsKnownKinds(TypeKind kind, bool isRecord, ApiObjectKind expected)
     {
         var symbol = Substitute.For<INamedTypeSymbol>();
         symbol.TypeKind.Returns(kind);
         symbol.IsRecord.Returns(isRecord);
 
-        await Assert.That(SymbolWalkerHelpers.ClassifyType(symbol)).IsEqualTo(expected);
+        await Assert.That(SymbolWalkerHelpers.ClassifyObjectKind(symbol)).IsEqualTo(expected);
     }
 
-    /// <summary>Unsupported kinds (modules, error types) classify as null.</summary>
+    /// <summary>Non-object kinds (enums, delegates, modules) classify as null.</summary>
+    /// <param name="kind">Roslyn type kind to feed in.</param>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ClassifyTypeReturnsNullForUnsupportedKind()
+    [Arguments(TypeKind.Enum)]
+    [Arguments(TypeKind.Delegate)]
+    [Arguments(TypeKind.Module)]
+    public async Task ClassifyObjectKindReturnsNullForNonObjectKinds(TypeKind kind)
     {
         var symbol = Substitute.For<INamedTypeSymbol>();
-        symbol.TypeKind.Returns(TypeKind.Module);
+        symbol.TypeKind.Returns(kind);
 
-        await Assert.That(SymbolWalkerHelpers.ClassifyType(symbol)).IsNull();
+        await Assert.That(SymbolWalkerHelpers.ClassifyObjectKind(symbol)).IsNull();
     }
 
     /// <summary>
@@ -212,15 +217,18 @@ public class SymbolWalkerHelpersTests
     }
 
     /// <summary>
-    /// <see cref="SymbolWalkerHelpers.BuildUnionCases"/> currently always
-    /// returns an empty list (placeholder until Roslyn 6.x exposes union cases).
+    /// <see cref="SymbolWalkerHelpers.BuildUnionCases"/> walks the
+    /// containing assembly looking for direct derivations of the union
+    /// base. With a substitute type that has no containing assembly the
+    /// helper returns an empty list and never throws.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task BuildUnionCasesReturnsEmpty()
+    public async Task BuildUnionCasesReturnsEmptyWhenNoContainingAssembly()
     {
         var type = Substitute.For<INamedTypeSymbol>();
-        await Assert.That(SymbolWalkerHelpers.BuildUnionCases(type)).IsEmpty();
+        type.ContainingAssembly.Returns((IAssemblySymbol?)null);
+        await Assert.That(SymbolWalkerHelpers.BuildUnionCases(type, new TypeReferenceCache())).IsEmpty();
     }
 
     /// <summary>

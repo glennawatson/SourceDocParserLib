@@ -25,21 +25,57 @@ internal static class SymbolWalkerHelpers
     private static readonly SymbolDisplayFormat _displayFormat = SymbolDisplayFormat.MinimallyQualifiedFormat;
 
     /// <summary>
-    /// Maps Roslyn TypeKind to <see cref="ApiTypeKind"/>; returns null for kinds the walker skips.
+    /// Maps a Roslyn class/struct-kind type to the corresponding
+    /// <see cref="ApiObjectKind"/>. Only meaningful for object-shaped
+    /// types — caller is expected to have already filtered out enums,
+    /// delegates, and union bases.
     /// </summary>
     /// <param name="type">Type to classify.</param>
-    /// <returns>The classified API type kind, or null if skipped.</returns>
-    public static ApiTypeKind? ClassifyType(INamedTypeSymbol type) => type.TypeKind switch
+    /// <returns>The matching object kind, or <see langword="null"/> if the type is not class- or struct-shaped.</returns>
+    public static ApiObjectKind? ClassifyObjectKind(INamedTypeSymbol type) => type.TypeKind switch
     {
-        TypeKind.Class when type.IsRecord => ApiTypeKind.Record,
-        TypeKind.Class => ApiTypeKind.Class,
-        TypeKind.Struct when type.IsRecord => ApiTypeKind.RecordStruct,
-        TypeKind.Struct => ApiTypeKind.Struct,
-        TypeKind.Interface => ApiTypeKind.Interface,
-        TypeKind.Enum => ApiTypeKind.Enum,
-        TypeKind.Delegate => ApiTypeKind.Delegate,
+        TypeKind.Class when type.IsRecord => ApiObjectKind.Record,
+        TypeKind.Class => ApiObjectKind.Class,
+        TypeKind.Struct when type.IsRecord => ApiObjectKind.RecordStruct,
+        TypeKind.Struct => ApiObjectKind.Struct,
+        TypeKind.Interface => ApiObjectKind.Interface,
         _ => null,
     };
+
+    /// <summary>
+    /// Returns <see langword="true"/> if the type is a closed-hierarchy
+    /// union base — i.e. it implements
+    /// <c>System.Runtime.CompilerServices.IUnion</c>. Roslyn 5.x doesn't
+    /// know about C# 15 unions yet so this always returns
+    /// <see langword="false"/> in practice today; on future Roslyn the
+    /// detection lights up automatically.
+    /// </summary>
+    /// <remarks>
+    /// Once a stable Microsoft.CodeAnalysis.CSharp release ships with
+    /// first-class union support (<c>TypeKind.Union</c>,
+    /// <c>INamedTypeSymbol.UnionCases</c>, or whatever the final API
+    /// shape ends up being on the dotnet/roslyn <c>features/Unions</c>
+    /// branch), swap this interface-marker probe for the native API and
+    /// drop the same-assembly derivation walk in
+    /// <see cref="BuildUnionCases"/>.
+    /// </remarks>
+    /// <param name="type">Type to inspect.</param>
+    /// <returns><see langword="true"/> if the type is a union base.</returns>
+    public static bool IsUnion(INamedTypeSymbol type)
+    {
+        var interfaces = type.AllInterfaces;
+        for (var i = 0; i < interfaces.Length; i++)
+        {
+            var iface = interfaces[i];
+            if (iface.Name == "IUnion" &&
+                iface.ContainingNamespace?.ToDisplayString() == "System.Runtime.CompilerServices")
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>
     /// Maps an <see cref="ISymbol"/> to <see cref="ApiMemberKind"/>; returns null for kinds the walker skips.
@@ -150,20 +186,110 @@ internal static class SymbolWalkerHelpers
     }
 
     /// <summary>
-    /// Returns the case types of a C# 15+ union, or an empty list for non-unions.
-    /// Stub implementation until Roslyn exposes union-case discovery.
+    /// Returns the case types of a C# 15+ closed-hierarchy union: every
+    /// other type in the same assembly that derives directly from this
+    /// one. Returns an empty list for non-unions or until Roslyn surfaces
+    /// the union marker — the caller is responsible for the
+    /// <see cref="IsUnion"/> check before invoking this.
     /// </summary>
-    /// <param name="type">Type to inspect.</param>
+    /// <param name="type">Union base to inspect.</param>
+    /// <param name="cache">Type-reference cache.</param>
     /// <returns>The list of union case type references.</returns>
-    public static List<ApiTypeReference> BuildUnionCases(INamedTypeSymbol type)
+    public static List<ApiTypeReference> BuildUnionCases(INamedTypeSymbol type, TypeReferenceCache cache)
     {
-        // Future shape (commented for the Roslyn 6.x bump):
-        //   if (type.TypeKind is not TypeKind.Union) return [];
-        //   var cases = new List<ApiTypeReference>(type.UnionCases.Length);
-        //   foreach (var caseType in type.UnionCases) cases.Add(ToReference(caseType));
-        //   return cases;
-        _ = type;
-        return [];
+        // Walk every named type in the same assembly looking for direct
+        // derivations of this base. Same-assembly is the closure rule
+        // from the closed-hierarchies proposal — case types must live
+        // alongside the base.
+        var cases = new List<ApiTypeReference>();
+        var assembly = type.ContainingAssembly;
+        if (assembly is null)
+        {
+            return cases;
+        }
+
+        var pending = new Stack<INamespaceSymbol>();
+        pending.Push(assembly.GlobalNamespace);
+        while (pending.Count > 0)
+        {
+            var ns = pending.Pop();
+            foreach (var nested in ns.GetNamespaceMembers())
+            {
+                pending.Push(nested);
+            }
+
+            foreach (var candidate in ns.GetTypeMembers())
+            {
+                CollectCasesRecursive(candidate, type, cases, cache);
+            }
+        }
+
+        return cases;
+    }
+
+    /// <summary>
+    /// Builds the structured value list for an enum type. Pulls every
+    /// public field off the type, materialises the constant value as a
+    /// string, and resolves docs + source link per value.
+    /// </summary>
+    /// <param name="type">Enum type symbol.</param>
+    /// <param name="context">Per-walk state bundle.</param>
+    /// <returns>The declared values, in source order.</returns>
+    public static List<ApiEnumValue> BuildEnumValues(INamedTypeSymbol type, SymbolWalkContext context)
+    {
+        var members = type.GetMembers();
+        var values = new List<ApiEnumValue>(members.Length);
+        for (var i = 0; i < members.Length; i++)
+        {
+            if (members[i] is not IFieldSymbol { IsConst: true } field || field.IsImplicitlyDeclared)
+            {
+                continue;
+            }
+
+            if (!IsExternallyVisible(field.DeclaredAccessibility))
+            {
+                continue;
+            }
+
+            values.Add(new(
+                Name: field.Name,
+                Uid: field.GetDocumentationCommentId() ?? string.Empty,
+                Value: FormatLiteral(field.ConstantValue),
+                Documentation: context.Docs.Resolve(field),
+                SourceUrl: context.SourceLinks.Resolve(field)));
+        }
+
+        return values;
+    }
+
+    /// <summary>
+    /// Builds the structured Invoke signature for a delegate type. Reads
+    /// the synthetic <c>Invoke</c> method off the delegate symbol and
+    /// captures its return type, parameters, and any generic type
+    /// parameters declared on the delegate itself.
+    /// </summary>
+    /// <param name="type">Delegate type symbol.</param>
+    /// <param name="context">Per-walk state bundle.</param>
+    /// <returns>The delegate's invoke signature.</returns>
+    public static ApiDelegateSignature BuildDelegateInvoke(INamedTypeSymbol type, SymbolWalkContext context)
+    {
+        var invoke = type.DelegateInvokeMethod;
+        var typeParameters = new List<string>(type.TypeParameters.Length);
+        for (var i = 0; i < type.TypeParameters.Length; i++)
+        {
+            typeParameters.Add(type.TypeParameters[i].Name);
+        }
+
+        if (invoke is null)
+        {
+            return new(type.ToDisplayString(), null, [], typeParameters);
+        }
+
+        return new(
+            Signature: invoke.ToDisplayString(),
+            ReturnType: BuildReturnTypeReference(invoke, context.TypeRefs),
+            Parameters: BuildParameters(invoke, context.TypeRefs),
+            TypeParameters: typeParameters);
     }
 
     /// <summary>
@@ -238,4 +364,30 @@ internal static class SymbolWalkerHelpers
         IPropertySymbol p => typeRefs.GetOrAdd(p.Type, BuildReference),
         _ => null,
     };
+
+    /// <summary>
+    /// Walks <paramref name="candidate"/> (and its nested types) looking
+    /// for direct derivations of <paramref name="unionBase"/>; appends
+    /// each match into <paramref name="cases"/> as a type reference.
+    /// </summary>
+    /// <param name="candidate">Type to test as a possible case.</param>
+    /// <param name="unionBase">Union base type the cases derive from.</param>
+    /// <param name="cases">Accumulator the matches are appended to.</param>
+    /// <param name="cache">Type-reference cache.</param>
+    private static void CollectCasesRecursive(
+        INamedTypeSymbol candidate,
+        INamedTypeSymbol unionBase,
+        List<ApiTypeReference> cases,
+        TypeReferenceCache cache)
+    {
+        if (SymbolEqualityComparer.Default.Equals(candidate.BaseType, unionBase))
+        {
+            cases.Add(cache.GetOrAdd(candidate, BuildReference));
+        }
+
+        foreach (var nested in candidate.GetTypeMembers())
+        {
+            CollectCasesRecursive(nested, unionBase, cases, cache);
+        }
+    }
 }
