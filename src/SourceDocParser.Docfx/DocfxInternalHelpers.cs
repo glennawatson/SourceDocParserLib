@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
+
 namespace SourceDocParser.Docfx;
 
 /// <summary>
@@ -13,6 +15,9 @@ internal static class DocfxInternalHelpers
     /// <summary>File pattern used to discover assemblies.</summary>
     private const string DllPattern = "*.dll";
 
+    /// <summary>Cached set of filename-unsafe characters; one allocation per process instead of per call.</summary>
+    private static readonly SearchValues<char> _unsafeStemChars = SearchValues.Create(['<', '>', '/', '\\', '*', '?', '|', ':', '"']);
+
     /// <summary>
     /// Returns the names of every immediate sub-directory of <paramref name="root"/> that contains at least one DLL.
     /// </summary>
@@ -20,7 +25,7 @@ internal static class DocfxInternalHelpers
     /// <returns>Sorted list of TFM directory names.</returns>
     public static List<string> DiscoverTfms(string root)
     {
-        var tfms = new List<string>();
+        List<string> tfms = [];
 
         foreach (var dir in Directory.EnumerateDirectories(root))
         {
@@ -86,7 +91,7 @@ internal static class DocfxInternalHelpers
     /// <returns>Sorted list of package DLL filenames.</returns>
     public static List<string> CollectPackageDllNames(string libTfmDir, HashSet<string> refDllNames)
     {
-        var packageDlls = new List<string>();
+        List<string> packageDlls = [];
 
         foreach (var dll in Directory.EnumerateFiles(libTfmDir, DllPattern))
         {
@@ -109,7 +114,7 @@ internal static class DocfxInternalHelpers
     /// <returns>The patched build section.</returns>
     public static DocfxBuildSection PatchBuildSection(DocfxBuildSection template, string[] platformLabels)
     {
-        var content = new List<DocfxBuildContent>(template.Content.Length + platformLabels.Length);
+        List<DocfxBuildContent> content = new(template.Content.Length + platformLabels.Length);
         for (var i = 0; i < template.Content.Length; i++)
         {
             var item = template.Content[i];
@@ -135,12 +140,11 @@ internal static class DocfxInternalHelpers
     /// <returns>True if the entry was previously injected.</returns>
     public static bool IsInjectedPlatformEntry(DocfxBuildContent entry)
     {
-        if (entry.Files is not { Length: > 0 } files)
+        if (entry.Files is not [var firstFile, ..])
         {
             return false;
         }
 
-        var firstFile = files[0];
         return firstFile.StartsWith("api-", StringComparison.Ordinal)
             && !firstFile.StartsWith("api/", StringComparison.Ordinal);
     }
@@ -152,16 +156,12 @@ internal static class DocfxInternalHelpers
     /// <returns>The filesystem-safe stem.</returns>
     public static string SanitiseFileStem(string value)
     {
-        for (var i = 0; i < value.Length; i++)
+        if (value.AsSpan().IndexOfAny(_unsafeStemChars) < 0)
         {
-            var c = value[i];
-            if (c is '<' or '>' or '/' or '\\' or '*' or '?' or '|' or ':' or '"')
-            {
-                return SanitiseFileStemSlow(value);
-            }
+            return value;
         }
 
-        return value;
+        return SanitiseFileStemSlow(value);
     }
 
     /// <summary>

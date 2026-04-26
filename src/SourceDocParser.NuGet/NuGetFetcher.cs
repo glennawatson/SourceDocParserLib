@@ -137,6 +137,52 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     }
 
     /// <summary>
+    /// Returns the on-disk path where a <c>.nupkg</c>'s nuspec is
+    /// sidecared after extraction (sibling to the nupkg with the
+    /// nupkg basename + <c>.nuspec</c>). Used by both the writer in
+    /// <see cref="ExtractAssemblies"/> and the reader in
+    /// <see cref="ResolveTransitiveDependenciesAsync"/> so the
+    /// transitive walk never re-OpenReads the zip.
+    /// </summary>
+    /// <param name="nupkgPath">Absolute path to the cached <c>.nupkg</c>.</param>
+    /// <returns>The sidecar path.</returns>
+    internal static string NuspecSidecarPath(string nupkgPath) => nupkgPath + ".nuspec";
+
+    /// <summary>
+    /// Returns true when the file at <paramref name="destPath"/> already
+    /// matches <paramref name="entry"/>'s uncompressed length and last
+    /// write time — cheap fingerprint that lets the extract loop
+    /// skip the I/O on cache-warm runs without hashing the bytes.
+    /// </summary>
+    /// <param name="destPath">Absolute path to the candidate already-on-disk file.</param>
+    /// <param name="entry">Zip entry that would otherwise be extracted to <paramref name="destPath"/>.</param>
+    /// <returns>True when the existing file is byte-equivalent to what would be written.</returns>
+    internal static bool IsSameAsExtracted(string destPath, ZipArchiveEntry entry)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destPath);
+        ArgumentNullException.ThrowIfNull(entry);
+
+        var info = new FileInfo(destPath);
+        if (!info.Exists)
+        {
+            return false;
+        }
+
+        if (info.Length != entry.Length)
+        {
+            return false;
+        }
+
+        // Round to seconds: zip entries store mtime at FAT precision (2s)
+        // and ExtractToFile rounds the destination's LastWriteTime to
+        // match. Compare in UTC-second resolution to avoid timezone
+        // drift and sub-second formatter mismatches.
+        var entryStamp = entry.LastWriteTime.UtcDateTime;
+        var destStamp = info.LastWriteTimeUtc;
+        return Math.Abs((entryStamp - destStamp).TotalSeconds) < 2;
+    }
+
+    /// <summary>
     /// Reads each cached <c>.nupkg</c>'s declared dependency IDs and
     /// fetches any not yet pulled. Loops until no new IDs surface (or
     /// a depth cap trips), so a chain like
@@ -184,7 +230,16 @@ public sealed partial class NuGetFetcher : INuGetFetcher
 
                 try
                 {
-                    var deps = await NuspecDependencyReader.ReadDependencyIdsAsync(nupkgPath, cancellationToken).ConfigureAwait(false);
+                    // Read the nuspec sidecar that ExtractAssemblies wrote
+                    // alongside the nupkg. The zip is never re-opened;
+                    // we just stream a few hundred bytes of XML.
+                    var sidecarPath = NuspecSidecarPath(nupkgPath);
+                    if (!File.Exists(sidecarPath))
+                    {
+                        continue;
+                    }
+
+                    var deps = await NuspecDependencyReader.ReadDependencyIdsFromFileAsync(sidecarPath, cancellationToken).ConfigureAwait(false);
                     for (var d = 0; d < deps.Length; d++)
                     {
                         var depId = deps[d];
@@ -556,16 +611,14 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                 await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
                 using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
 
-                foreach (var resource in doc.RootElement.GetProperty("resources").EnumerateArray())
+                foreach (var resource in doc.RootElement.GetProperty("resources"u8).EnumerateArray())
                 {
-                    var type = resource.GetProperty("@type").GetString();
-                    if (type != SearchQueryServiceType)
+                    if (resource.GetProperty("@type"u8).GetString() != SearchQueryServiceType)
                     {
                         continue;
                     }
 
-                    var id = resource.GetProperty("@id").GetString();
-                    if (id != null)
+                    if (resource.GetProperty("@id"u8).GetString() is { } id)
                     {
                         endpoint = new(id);
                     }
@@ -622,26 +675,26 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                     await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
                     using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
 
-                    totalHits = doc.RootElement.GetProperty("totalHits").GetInt32();
+                    totalHits = doc.RootElement.GetProperty("totalHits"u8).GetInt32();
 
-                    foreach (var result in doc.RootElement.GetProperty("data").EnumerateArray())
+                    foreach (var result in doc.RootElement.GetProperty("data"u8).EnumerateArray())
                     {
                         // Skip deprecated packages (still listed but author-flagged).
-                        if (result.TryGetProperty("deprecation", out _))
+                        if (result.TryGetProperty("deprecation"u8, out _))
                         {
                             continue;
                         }
 
                         // Skip packages with known vulnerabilities so the docs site
                         // never advertises a version a consumer should not pull.
-                        if (result.TryGetProperty("vulnerabilities", out var vulns)
+                        if (result.TryGetProperty("vulnerabilities"u8, out var vulns)
                             && vulns.ValueKind == JsonValueKind.Array
                             && vulns.GetArrayLength() > 0)
                         {
                             continue;
                         }
 
-                        var id = result.GetProperty("id").GetString();
+                        var id = result.GetProperty("id"u8).GetString();
                         if (id != null)
                         {
                             packageIds.Add(id);
@@ -780,7 +833,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                 // prereleases / build metadata, rather than relying on the API's
                 // ascending-string order.
                 NuGetVersion? best = null;
-                foreach (var versionElement in doc.RootElement.GetProperty("versions").EnumerateArray())
+                foreach (var versionElement in doc.RootElement.GetProperty("versions"u8).EnumerateArray())
                 {
                     if (versionElement.GetString() is not { } raw
                         || !NuGetVersion.TryParse(raw, out var parsed)
@@ -870,12 +923,22 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         // ToDictionary chain. Allocates one Dictionary and one List per
         // distinct TFM rather than the LINQ pipeline's grouping internals.
         var libEntries = new Dictionary<string, List<ZipArchiveEntry>>(StringComparer.OrdinalIgnoreCase);
+        ZipArchiveEntry? nuspecEntry = null;
         for (var i = 0; i < archive.Entries.Count; i++)
         {
             var entry = archive.Entries[i];
             if (entry.Name is null or [])
             {
                 continue;
+            }
+
+            // Capture the nuspec while we already have the central
+            // directory open. Sidecar-extracting it here means the
+            // transitive-dep walk never has to re-OpenRead the zip
+            // just to read deps — it tail-reads the XML from disk.
+            if (nuspecEntry is null && NuspecDependencyReader.IsRootNuspecEntry(entry.FullName))
+            {
+                nuspecEntry = entry;
             }
 
             var path = entry.FullName.AsSpan();
@@ -965,9 +1028,40 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                 }
 
                 var destPath = Path.Combine(tfmLibDir, entry.Name);
+
+                // Skip-if-identical: the transitive-dep closure can
+                // run up to maxDepth rounds, each one re-globbing the
+                // cache and re-entering ExtractAssemblies. Without this
+                // check every package's per-TFM DLL set re-extracts
+                // every round (and SelectAllSupportedTfms multiplies
+                // that by every compatible TFM family) — on a heavy
+                // fixture that fans out to tens of GB of redundant
+                // disk writes. Compare uncompressed length + last
+                // write time so a real package upgrade still copies.
+                if (IsSameAsExtracted(destPath, entry))
+                {
+                    continue;
+                }
+
                 entry.ExtractToFile(destPath, overwrite: true);
             }
         }
+
+        // Sidecar the nuspec next to the .nupkg so the transitive-dep
+        // walk reads cheap XML from disk instead of re-OpenRead-ing
+        // the zip. Skip-if-same matches the DLL extraction policy.
+        if (nuspecEntry is null)
+        {
+            return;
+        }
+
+        var nuspecSidecarPath = NuspecSidecarPath(nupkgPath);
+        if (IsSameAsExtracted(nuspecSidecarPath, nuspecEntry))
+        {
+            return;
+        }
+
+        nuspecEntry.ExtractToFile(nuspecSidecarPath, overwrite: true);
     }
 
     /// <summary>Logs the start of the parallel fetch over discovered packages.</summary>

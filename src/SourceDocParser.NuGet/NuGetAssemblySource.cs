@@ -67,6 +67,18 @@ public sealed class NuGetAssemblySource : IAssemblySource
             throw new DirectoryNotFoundException($"No {LibDirName}/ directory found at {libDir}");
         }
 
+        // Re-read the manifest the fetcher used so we know which
+        // packages the user explicitly asked for. Transitive deps
+        // (Microsoft.Maui.Controls pulled in via CrissCross.MAUI,
+        // Xamarin.Google.* pulled in via Maui, etc.) get fetched and
+        // stay in the fallback index so compilation resolves them,
+        // but they're not walked for documentation pages — those
+        // pages are not what the user wanted.
+        var manifestPath = Path.Combine(_rootDirectory, "nuget-packages.json");
+        var primaryPrefixes = File.Exists(manifestPath)
+            ? BuildPrimaryPrefixes(PackageConfigReader.Read(manifestPath))
+            : [];
+
         var libTfms = DiscoverTfms(libDir);
         var refsTfms = Directory.Exists(refsDir) ? DiscoverTfms(refsDir) : [];
         var refDllNameCache = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
@@ -83,7 +95,7 @@ public sealed class NuGetAssemblySource : IAssemblySource
                 ? GetOrAddRefDllNames(refDllNameCache, refsDir, bestRef)
                 : new(StringComparer.OrdinalIgnoreCase);
 
-            var packageDlls = CollectPackageDlls(libTfmDir, refDllNames);
+            var packageDlls = CollectPackageDlls(libTfmDir, refDllNames, primaryPrefixes);
             if (packageDlls.Count == 0)
             {
                 continue;
@@ -98,11 +110,87 @@ public sealed class NuGetAssemblySource : IAssemblySource
     }
 
     /// <summary>
+    /// Builds the set of "primary package" prefixes the assembly
+    /// source uses to decide which DLLs to walk vs. leave as
+    /// compile-only refs. Each primary ID is added in two forms —
+    /// the bare ID (matches the umbrella DLL) and the ID + dot
+    /// (matches sibling assemblies the umbrella forwards to, e.g.
+    /// <c>Splat → Splat.Core</c>). Returns empty when no IDs are
+    /// supplied; in that case <see cref="CollectPackageDlls"/>
+    /// falls back to walking everything.
+    /// </summary>
+    /// <param name="config">Loaded package config.</param>
+    /// <returns>Distinct primary prefixes laid out as bare-id / id+dot pairs — empty when no <c>additionalPackages</c> are declared.</returns>
+    internal static string[] BuildPrimaryPrefixes(PackageConfig config)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        if (config.AdditionalPackages.Length == 0)
+        {
+            return [];
+        }
+
+        var prefixes = new List<string>(config.AdditionalPackages.Length * 2);
+        for (var i = 0; i < config.AdditionalPackages.Length; i++)
+        {
+            var id = config.AdditionalPackages[i].Id;
+            if (string.IsNullOrEmpty(id))
+            {
+                continue;
+            }
+
+            prefixes.Add(id);
+            prefixes.Add(id + ".");
+        }
+
+        return [.. prefixes];
+    }
+
+    /// <summary>
+    /// Returns true when <paramref name="dllNameWithoutExt"/> looks
+    /// like it came from one of the user's primary packages — exact
+    /// match against the bare ID, or starts with <c>id + "."</c>.
+    /// When <paramref name="primaryPrefixes"/> is empty the source
+    /// hasn't been told what's primary (e.g. owner-discovery only,
+    /// or no manifest); fall back to walking everything in lib/ so
+    /// behaviour matches the pre-filter version of the source.
+    /// </summary>
+    /// <param name="dllNameWithoutExt">DLL filename minus extension.</param>
+    /// <param name="primaryPrefixes">Primary prefixes from <see cref="BuildPrimaryPrefixes"/>.</param>
+    /// <returns>True when the DLL should be walked for documentation pages.</returns>
+    internal static bool IsPrimaryDll(string dllNameWithoutExt, string[] primaryPrefixes)
+    {
+        ArgumentNullException.ThrowIfNull(dllNameWithoutExt);
+        ArgumentNullException.ThrowIfNull(primaryPrefixes);
+        if (primaryPrefixes.Length == 0)
+        {
+            return true;
+        }
+
+        for (var i = 0; i < primaryPrefixes.Length; i++)
+        {
+            var prefix = primaryPrefixes[i];
+
+            // Even-indexed entries are bare IDs (exact match); odd-indexed
+            // are "<id>." (prefix match for sibling assemblies). The
+            // BuildPrimaryPrefixes layout pairs them so this single loop
+            // handles both shapes without a second pass.
+            if ((i & 1) == 0
+                ? dllNameWithoutExt.Equals(prefix, StringComparison.OrdinalIgnoreCase)
+                : dllNameWithoutExt.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Returns the names of every immediate sub-directory of <paramref name="root"/> that contains at least one DLL.
     /// </summary>
     /// <param name="root">Directory to enumerate.</param>
     /// <returns>Sorted list of TFM directory names.</returns>
-    private static List<string> DiscoverTfms(string root)
+    internal static List<string> DiscoverTfms(string root)
     {
         var tfms = new List<string>();
 
@@ -119,22 +207,40 @@ public sealed class NuGetAssemblySource : IAssemblySource
     }
 
     /// <summary>
-    /// Returns the package DLLs in <paramref name="libTfmDir"/>, excluding any whose name matches a co-located reference assembly.
+    /// Returns the package DLLs in <paramref name="libTfmDir"/> the
+    /// walker should visit — excludes co-located reference assemblies
+    /// (those are compile-only) and, when <paramref name="primaryPrefixes"/>
+    /// has entries, restricts the result to DLLs whose filename
+    /// matches one of the user's primary packages. Transitive deps
+    /// stay on disk for the compilation's fallback index but don't
+    /// produce documentation pages.
     /// </summary>
     /// <param name="libTfmDir">Per-TFM lib directory.</param>
     /// <param name="refDllNames">Filename-without-extension names of reference assemblies to exclude.</param>
+    /// <param name="primaryPrefixes">Bare-id / id+dot pairs from <see cref="BuildPrimaryPrefixes"/>; empty means no filter.</param>
     /// <returns>Sorted list of absolute DLL paths.</returns>
-    private static List<string> CollectPackageDlls(string libTfmDir, HashSet<string> refDllNames)
+    internal static List<string> CollectPackageDlls(string libTfmDir, HashSet<string> refDllNames, string[] primaryPrefixes)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(libTfmDir);
+        ArgumentNullException.ThrowIfNull(refDllNames);
+        ArgumentNullException.ThrowIfNull(primaryPrefixes);
+
         var packageDlls = new List<string>();
 
         foreach (var dll in Directory.EnumerateFiles(libTfmDir, DllPattern))
         {
             var nameWithoutExt = Path.GetFileNameWithoutExtension(dll.AsSpan()).ToString();
-            if (!refDllNames.Contains(nameWithoutExt))
+            if (refDllNames.Contains(nameWithoutExt))
             {
-                packageDlls.Add(dll);
+                continue;
             }
+
+            if (!IsPrimaryDll(nameWithoutExt, primaryPrefixes))
+            {
+                continue;
+            }
+
+            packageDlls.Add(dll);
         }
 
         packageDlls.Sort(StringComparer.Ordinal);
@@ -149,7 +255,7 @@ public sealed class NuGetAssemblySource : IAssemblySource
     /// <param name="refsDir">Root refs directory.</param>
     /// <param name="bestRef">Matched refs TFM.</param>
     /// <returns>Filename-without-extension names of reference assemblies for the TFM.</returns>
-    private static HashSet<string> GetOrAddRefDllNames(
+    internal static HashSet<string> GetOrAddRefDllNames(
         Dictionary<string, HashSet<string>> cache,
         string refsDir,
         string bestRef)
@@ -170,7 +276,7 @@ public sealed class NuGetAssemblySource : IAssemblySource
     /// <param name="dir">Directory to scan (must exist).</param>
     /// <param name="pattern">File pattern.</param>
     /// <returns>OrdinalIgnoreCase set of filenames without extensions.</returns>
-    private static HashSet<string> CollectFileNamesWithoutExtension(string dir, string pattern)
+    internal static HashSet<string> CollectFileNamesWithoutExtension(string dir, string pattern)
     {
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 

@@ -67,7 +67,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     public static string PathFor(ApiType type)
     {
         ArgumentNullException.ThrowIfNull(type);
-        var stem = type.Uid.Length > 0 ? DocfxCommentId.ToUid(type.Uid) : type.FullName;
+        var stem = type.Uid is [_, ..] ? DocfxCommentId.ToUid(type.Uid) : type.FullName;
         return DocfxInternalHelpers.SanitiseFileStem(stem) + FileExtension;
     }
 
@@ -94,6 +94,20 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
             pages++;
         }
 
+        // Namespace pages: docfx emits one Namespace.yml per namespace
+        // listing every type in it as children. Required so xrefmap
+        // builds can resolve N: commentIds and the navigation tree
+        // shows the namespace nodes.
+        var namespacePages = DocfxNamespacePages.BuildNamespacePages(types);
+        for (var i = 0; i < namespacePages.Length; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var page = namespacePages[i];
+            var fullPath = Path.Combine(outputRoot, DocfxNamespacePages.PathFor(page.Namespace));
+            await File.WriteAllTextAsync(fullPath, DocfxNamespacePages.Render(page), cancellationToken).ConfigureAwait(false);
+            pages++;
+        }
+
         return pages;
     }
 
@@ -107,8 +121,8 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     /// <returns>Distinct references in declaration order.</returns>
     internal static ApiTypeReference[] CollectReferences(ApiType type)
     {
-        var references = new List<ApiTypeReference>(capacity: 8 + (type.Interfaces.Length * 2));
-        var seen = new HashSet<string>(StringComparer.Ordinal);
+        List<ApiTypeReference> references = new(capacity: 8 + (type.Interfaces.Length * 2));
+        HashSet<string> seen = new(StringComparer.Ordinal);
 
         if (type.BaseType is { } baseRef)
         {
@@ -121,7 +135,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
         }
 
         var members = MembersOf(type);
-        if (members is not null)
+        if (members is [_, ..])
         {
             for (var i = 0; i < members.Length; i++)
             {

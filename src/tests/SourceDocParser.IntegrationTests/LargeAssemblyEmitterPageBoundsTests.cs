@@ -42,18 +42,37 @@ public class LargeAssemblyEmitterPageBoundsTests
 
         var result = await extractor.RunAsync(source, output, emitter);
 
-        var emittedFiles = Directory.EnumerateFiles(output, "*.md", SearchOption.AllDirectories).Count();
+        var emittedFiles = 0;
+        foreach (var unused in Directory.EnumerateFiles(output, "*.md", SearchOption.AllDirectories))
+        {
+            emittedFiles++;
+        }
 
         // Each type-page sits next to a directory of the same stem
         // holding its per-overload-group member pages; counting the
         // files in those sibling directories tells us which types are
         // contributing the long tail.
-        var perTypeCounts = Directory.EnumerateDirectories(output, "*", SearchOption.AllDirectories)
-            .Select(static dir => (dir, count: Directory.EnumerateFiles(dir, "*.md", SearchOption.TopDirectoryOnly).Count()))
-            .Where(static t => t.count > 0)
-            .OrderByDescending(static t => t.count)
-            .Take(20)
-            .ToList();
+        List<(string dir, int count)> perTypeCounts = [];
+        foreach (var dir in Directory.EnumerateDirectories(output, "*", SearchOption.AllDirectories))
+        {
+            var count = 0;
+            foreach (var unused in Directory.EnumerateFiles(dir, "*.md", SearchOption.TopDirectoryOnly))
+            {
+                count++;
+            }
+
+            if (count > 0)
+            {
+                perTypeCounts.Add((dir, count));
+            }
+        }
+
+        perTypeCounts.Sort(static (a, b) => b.count.CompareTo(a.count));
+
+        if (perTypeCounts.Count > 20)
+        {
+            perTypeCounts.RemoveRange(20, perTypeCounts.Count - 20);
+        }
 
         Console.WriteLine($"Pipeline: {result.CanonicalTypes} canonical types, {emittedFiles} pages " +
             $"(ratio {(double)emittedFiles / result.CanonicalTypes:F1}x). Top contributors:");

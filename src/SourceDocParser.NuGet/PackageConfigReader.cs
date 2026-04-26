@@ -52,7 +52,7 @@ internal static class PackageConfigReader
     /// <param name="root">Root JSON object.</param>
     /// <param name="propertyName">UTF-8 encoded property name to read.</param>
     /// <returns>The string values, in document order.</returns>
-    private static string[] ReadStringArray(in JsonElement root, ReadOnlySpan<byte> propertyName)
+    private static string[] ReadStringArray(in JsonElement root, in ReadOnlySpan<byte> propertyName)
     {
         if (!root.TryGetProperty(propertyName, out var element) || element is not { ValueKind: JsonValueKind.Array })
         {
@@ -125,7 +125,7 @@ internal static class PackageConfigReader
     /// <param name="root">Root JSON object.</param>
     /// <param name="propertyName">UTF-8 encoded property name to read.</param>
     /// <returns>An ordinal dictionary keyed by JSON property name.</returns>
-    private static Dictionary<string, string> ReadStringDictionary(in JsonElement root, ReadOnlySpan<byte> propertyName)
+    private static Dictionary<string, string> ReadStringDictionary(in JsonElement root, in ReadOnlySpan<byte> propertyName)
     {
         if (!root.TryGetProperty(propertyName, out var element) || element is not { ValueKind: JsonValueKind.Object })
         {
@@ -149,7 +149,7 @@ internal static class PackageConfigReader
     /// <param name="parentPath">Parent property name, included in the exception message for context.</param>
     /// <returns>The required string value.</returns>
     /// <exception cref="JsonException">When the property is missing, null, or not a string.</exception>
-    private static string GetRequiredString(in JsonElement element, ReadOnlySpan<byte> propertyName, ReadOnlySpan<byte> parentPath)
+    private static string GetRequiredString(in JsonElement element, in ReadOnlySpan<byte> propertyName, in ReadOnlySpan<byte> parentPath)
     {
         if (!element.TryGetProperty(propertyName, out var value) || value is not { ValueKind: JsonValueKind.String })
         {
@@ -165,7 +165,7 @@ internal static class PackageConfigReader
     /// <param name="element">Object containing the property.</param>
     /// <param name="propertyName">UTF-8 encoded property name to read.</param>
     /// <returns>The string value, or null.</returns>
-    private static string? GetOptionalString(in JsonElement element, ReadOnlySpan<byte> propertyName) =>
+    private static string? GetOptionalString(in JsonElement element, in ReadOnlySpan<byte> propertyName) =>
         element.TryGetProperty(propertyName, out var value) && value is { ValueKind: JsonValueKind.String }
             ? value.GetString()
             : null;
@@ -175,7 +175,7 @@ internal static class PackageConfigReader
     /// </summary>
     /// <param name="propertyName">The UTF-8 property name.</param>
     /// <returns>A string representation of the property name.</returns>
-    private static string GetDisplayName(ReadOnlySpan<byte> propertyName) =>
+    private static string GetDisplayName(in ReadOnlySpan<byte> propertyName) =>
         propertyName switch
         {
             _ when propertyName.SequenceEqual("id"u8) => "id",

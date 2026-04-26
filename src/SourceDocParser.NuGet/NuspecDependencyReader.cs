@@ -78,6 +78,25 @@ internal static class NuspecDependencyReader
     }
 
     /// <summary>
+    /// Reads dependency IDs straight from a sidecar nuspec file on
+    /// disk — written by the fetcher next to each cached nupkg so
+    /// the transitive-dep walk doesn't have to re-OpenRead the zip
+    /// just to read a few hundred bytes of XML.
+    /// </summary>
+    /// <param name="nuspecPath">Absolute path to the on-disk .nuspec.</param>
+    /// <param name="cancellationToken">Token observed across the parse.</param>
+    /// <returns>Distinct dependency IDs as an array.</returns>
+    public static async Task<string[]> ReadDependencyIdsFromFileAsync(string nuspecPath, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(nuspecPath);
+        var stream = new FileStream(nuspecPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, FileOptions.SequentialScan | FileOptions.Asynchronous);
+        await using (stream.ConfigureAwait(false))
+        {
+            return await ReadDependencyIdsAsync(stream, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
     /// Stream-based overload — useful for tests that want to feed
     /// canned nuspec XML without zipping it first. Reads dependency
     /// elements regardless of which nuspec schema namespace the file
@@ -166,7 +185,7 @@ internal static class NuspecDependencyReader
         }
 
         var ns = reader.NamespaceURI;
-        return ns.Length == 0
+        return ns is []
             || ns.StartsWith(NuspecNamespacePrefix, StringComparison.Ordinal);
     }
 }
