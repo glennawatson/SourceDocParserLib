@@ -111,7 +111,7 @@ public class DocfxYamlEmitterTests
             new("Friday", "F:Day.Friday", "5", ApiDocumentation.Empty, null),
             new("Saturday", "F:Day.Saturday", "6", ApiDocumentation.Empty, null),
         };
-        var type = TestData.EnumType("Day") with { Values = values };
+        var type = TestData.EnumType("Day") with { Values = [.. values] };
 
         var yaml = DocfxYamlEmitter.Render(type);
         var items = (YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("items")];
@@ -288,7 +288,7 @@ public class DocfxYamlEmitterTests
             TestData.DelegateType("Handler"),
         };
 
-        var pages = await new DocfxYamlEmitter().EmitAsync(types, scratch.Path);
+        var pages = await new DocfxYamlEmitter().EmitAsync([.. types], scratch.Path);
 
         await Assert.That(pages).IsEqualTo(3);
         await Assert.That(File.Exists(Path.Combine(scratch.Path, "Foo.yml"))).IsTrue();
@@ -501,7 +501,7 @@ public class DocfxYamlEmitterTests
             SourceUrl: null,
             AppliesTo: [],
             Members: [],
-            Cases: caseRefs);
+            Cases: [.. caseRefs]);
 
         var yaml = DocfxYamlEmitter.Render(union);
         var refs = (YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("references")];
@@ -622,7 +622,7 @@ public class DocfxYamlEmitterTests
             members.Add(NewMember($"Method{i:D3}", $"M:Foo.Method{i:D3}"));
         }
 
-        var type = TestData.ObjectType("Foo") with { Members = members };
+        var type = TestData.ObjectType("Foo") with { Members = [.. members] };
 
         var yaml = DocfxYamlEmitter.Render(type);
         var items = (YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("items")];

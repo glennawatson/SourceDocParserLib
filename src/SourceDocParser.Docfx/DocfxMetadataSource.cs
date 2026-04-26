@@ -11,4 +11,4 @@ namespace SourceDocParser.Docfx;
 /// </summary>
 /// <param name="Src">Repository-relative path to the source directory (for example <c>api/lib/net10.0</c>).</param>
 /// <param name="Files">Explicit list of file names within <see cref="Src"/> that docfx should consume. Filenames only; the path comes from <see cref="Src"/>.</param>
-public sealed record DocfxMetadataSource(string Src, List<string> Files);
+public sealed record DocfxMetadataSource(string Src, string[] Files);

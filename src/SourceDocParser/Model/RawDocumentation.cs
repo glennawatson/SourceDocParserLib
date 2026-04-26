@@ -23,11 +23,11 @@ internal sealed record RawDocumentation(
     string Remarks,
     string Returns,
     string Value,
-    List<string> Examples,
-    List<DocEntry> Parameters,
-    List<DocEntry> TypeParameters,
-    List<DocEntry> Exceptions,
-    List<string> SeeAlso,
+    string[] Examples,
+    DocEntry[] Parameters,
+    DocEntry[] TypeParameters,
+    DocEntry[] Exceptions,
+    string[] SeeAlso,
     bool HasInheritDoc,
     string? InheritDocCref)
 {
@@ -55,10 +55,10 @@ internal sealed record RawDocumentation(
         && Remarks.Length == 0
         && Returns.Length == 0
         && Value.Length == 0
-        && Examples.Count == 0
-        && Parameters.Count == 0
-        && TypeParameters.Count == 0
-        && Exceptions.Count == 0
-        && SeeAlso.Count == 0
+        && Examples.Length == 0
+        && Parameters.Length == 0
+        && TypeParameters.Length == 0
+        && Exceptions.Length == 0
+        && SeeAlso.Length == 0
         && !HasInheritDoc;
 }

@@ -35,7 +35,7 @@ public static class MemberPageEmitter
     /// <param name="memberName">The member name.</param>
     /// <param name="overloads">The overloads to render.</param>
     /// <returns>The rendered Markdown.</returns>
-    public static string Render(ApiType containingType, string memberName, List<ApiMember> overloads)
+    public static string Render(ApiType containingType, string memberName, ApiMember[] overloads)
     {
         ArgumentNullException.ThrowIfNull(containingType);
         ArgumentException.ThrowIfNullOrWhiteSpace(memberName);
@@ -61,7 +61,7 @@ public static class MemberPageEmitter
         if (containingType.AppliesTo is [_, ..] appliesTo)
         {
             sb.Append("!!! tip \"Applies to\"\n    ");
-            for (var i = 0; i < appliesTo.Count; i++)
+            for (var i = 0; i < appliesTo.Length; i++)
             {
                 if (i > 0)
                 {
@@ -81,7 +81,7 @@ public static class MemberPageEmitter
         else
         {
             AppendOverloadList(sb, overloads);
-            for (var i = 0; i < overloads.Count; i++)
+            for (var i = 0; i < overloads.Length; i++)
             {
                 AppendNumberedOverload(sb, overloads[i], i + 1);
             }
@@ -116,7 +116,7 @@ public static class MemberPageEmitter
     /// <param name="memberName">Shared overload group name.</param>
     /// <param name="overloads">The overloads to render.</param>
     /// <param name="outputRoot">Directory that contains the api/ tree.</param>
-    public static void RenderToFile(ApiType containingType, string memberName, List<ApiMember> overloads, string outputRoot)
+    public static void RenderToFile(ApiType containingType, string memberName, ApiMember[] overloads, string outputRoot)
     {
         var relativePath = PathFor(containingType, memberName);
         var fullPath = Path.Combine(outputRoot, relativePath);
@@ -145,7 +145,7 @@ public static class MemberPageEmitter
     /// </summary>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="overloads">The overloads.</param>
-    private static void AppendOverloadList(StringBuilder sb, List<ApiMember> overloads)
+    private static void AppendOverloadList(StringBuilder sb, ApiMember[] overloads)
     {
         sb.Append("""
 
@@ -153,7 +153,7 @@ public static class MemberPageEmitter
 
             """);
 
-        for (var i = 0; i < overloads.Count; i++)
+        for (var i = 0; i < overloads.Length; i++)
         {
             sb.Append(i + 1).Append(". `").Append(overloads[i].Signature).AppendLine("`").AppendLine();
         }
@@ -277,7 +277,7 @@ public static class MemberPageEmitter
     private static void AppendTypeParametersSection(StringBuilder sb, ApiMember member, ApiDocumentation doc)
     {
         sb.Append("**Type parameters**\n\n| Name | Description |\n| ---- | ----------- |\n");
-        for (var i = 0; i < member.TypeParameters.Count; i++)
+        for (var i = 0; i < member.TypeParameters.Length; i++)
         {
             var name = member.TypeParameters[i];
             sb.Append("| `").Append(name).Append("` | ").Append(TableEscape(LookupDescription(doc.TypeParameters, name))).Append(" |\n");
@@ -297,7 +297,7 @@ public static class MemberPageEmitter
     private static void AppendParametersSection(StringBuilder sb, ApiMember member, ApiDocumentation doc)
     {
         sb.Append("**Parameters**\n\n| Name | Type | Description |\n| ---- | ---- | ----------- |\n");
-        for (var i = 0; i < member.Parameters.Count; i++)
+        for (var i = 0; i < member.Parameters.Length; i++)
         {
             var p = member.Parameters[i];
             var modifier = ModifierLabel(p);
@@ -336,10 +336,10 @@ public static class MemberPageEmitter
     /// </summary>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="exceptions">Exception entries.</param>
-    private static void AppendExceptionsSection(StringBuilder sb, List<DocEntry> exceptions)
+    private static void AppendExceptionsSection(StringBuilder sb, DocEntry[] exceptions)
     {
         sb.Append("**Exceptions**\n\n| Type | Condition |\n| ---- | --------- |\n");
-        for (var i = 0; i < exceptions.Count; i++)
+        for (var i = 0; i < exceptions.Length; i++)
         {
             var (name, value) = exceptions[i];
             sb.Append("| ").Append(FormatXref(name)).Append(" | ").Append(TableEscape(value)).Append(" |\n");
@@ -353,10 +353,10 @@ public static class MemberPageEmitter
     /// </summary>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="examples">Example bodies.</param>
-    private static void AppendExamplesSection(StringBuilder sb, List<string> examples)
+    private static void AppendExamplesSection(StringBuilder sb, string[] examples)
     {
         sb.Append("**Examples**\n\n");
-        for (var i = 0; i < examples.Count; i++)
+        for (var i = 0; i < examples.Length; i++)
         {
             sb.Append(examples[i]).Append("\n\n");
         }
@@ -367,10 +367,10 @@ public static class MemberPageEmitter
     /// </summary>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="seeAlso">Related symbol UIDs.</param>
-    private static void AppendSeeAlsoSection(StringBuilder sb, List<string> seeAlso)
+    private static void AppendSeeAlsoSection(StringBuilder sb, string[] seeAlso)
     {
         sb.Append("**See also**\n\n");
-        for (var i = 0; i < seeAlso.Count; i++)
+        for (var i = 0; i < seeAlso.Length; i++)
         {
             sb.Append("- ").AppendLine(FormatXref(seeAlso[i]));
         }
@@ -415,9 +415,9 @@ public static class MemberPageEmitter
     /// <param name="entries">Documentation entries.</param>
     /// <param name="name">Name to look up.</param>
     /// <returns>The description text.</returns>
-    private static string LookupDescription(List<DocEntry> entries, string name)
+    private static string LookupDescription(DocEntry[] entries, string name)
     {
-        for (var i = 0; i < entries.Count; i++)
+        for (var i = 0; i < entries.Length; i++)
         {
             if (string.Equals(entries[i].Name, name, StringComparison.Ordinal))
             {

@@ -13,5 +13,5 @@ namespace SourceDocParser.Docfx;
 /// <param name="Metadata">Ordered list of metadata entries — one per lib TFM that has matching reference assemblies.</param>
 /// <param name="Build">The build section, copied from the template with the content array patched to include platform-specific outputs.</param>
 public sealed record DocfxConfig(
-    List<DocfxMetadataEntry> Metadata,
+    DocfxMetadataEntry[] Metadata,
     DocfxBuildSection Build);

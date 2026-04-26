@@ -145,7 +145,7 @@ public static class TypePageEmitter
         }
 
         sb.Append("\n## Values\n\n| Name | Value | Description |\n| --- | --- | --- |\n");
-        for (var i = 0; i < enumType.Values.Count; i++)
+        for (var i = 0; i < enumType.Values.Length; i++)
         {
             var value = enumType.Values[i];
             var summary = value.Documentation.Summary is [_, ..] documentedSummary
@@ -180,7 +180,7 @@ public static class TypePageEmitter
         }
 
         sb.Append("\n## Parameters\n\n| Name | Type |\n| --- | --- |\n");
-        for (var i = 0; i < invoke.Parameters.Count; i++)
+        for (var i = 0; i < invoke.Parameters.Length; i++)
         {
             var p = invoke.Parameters[i];
             sb.Append("| `").Append(p.Name)
@@ -247,7 +247,7 @@ public static class TypePageEmitter
                 .Append("    ").Append(baseNode).Append(" <|-- ").AppendLine(typeNode);
         }
 
-        for (var i = 0; i < type.Interfaces.Count; i++)
+        for (var i = 0; i < type.Interfaces.Length; i++)
         {
             var iface = type.Interfaces[i];
             var ifaceNode = MermaidNodeName(iface.DisplayName);
@@ -268,7 +268,7 @@ public static class TypePageEmitter
     /// </remarks>
     /// <param name="sb">The destination string builder.</param>
     /// <param name="appliesTo">The ordered TFM list.</param>
-    private static void AppendAppliesTo(StringBuilder sb, List<string> appliesTo)
+    private static void AppendAppliesTo(StringBuilder sb, string[] appliesTo)
     {
         if (appliesTo is [])
         {
@@ -290,10 +290,10 @@ public static class TypePageEmitter
     /// </summary>
     /// <param name="appliesTo">The TFMs to join.</param>
     /// <returns>A comma-separated list of formatted TFMs.</returns>
-    private static string JoinTfms(List<string> appliesTo)
+    private static string JoinTfms(string[] appliesTo)
     {
-        var sb = new StringBuilder(capacity: appliesTo.Count * InitialModifierCapacity);
-        for (var i = 0; i < appliesTo.Count; i++)
+        var sb = new StringBuilder(capacity: appliesTo.Length * InitialModifierCapacity);
+        for (var i = 0; i < appliesTo.Length; i++)
         {
             if (i > 0)
             {
@@ -349,14 +349,14 @@ public static class TypePageEmitter
     /// <param name="cases">The case type references.</param>
     /// <param name="unionNode">The pre-formatted Mermaid node name for the union.</param>
     /// <returns>The union diagram body lines.</returns>
-    private static string RenderUnionDiagramBody(List<ApiTypeReference> cases, string unionNode)
+    private static string RenderUnionDiagramBody(ApiTypeReference[] cases, string unionNode)
     {
-        var sb = new StringBuilder(capacity: cases.Count * InitialModifierCapacity);
+        var sb = new StringBuilder(capacity: cases.Length * InitialModifierCapacity);
         sb.Append("    class ").Append(unionNode).AppendLine(" {")
             .AppendLine("        <<union>>")
             .AppendLine("    }");
 
-        for (var i = 0; i < cases.Count; i++)
+        for (var i = 0; i < cases.Length; i++)
         {
             var caseRef = cases[i];
             var caseNode = MermaidNodeName(caseRef.DisplayName);
@@ -372,12 +372,12 @@ public static class TypePageEmitter
     /// </summary>
     /// <param name="cases">The case type references.</param>
     /// <returns>The Markdown table rows for the union cases.</returns>
-    private static string RenderUnionCaseRows(List<ApiTypeReference> cases)
+    private static string RenderUnionCaseRows(ApiTypeReference[] cases)
     {
-        var sb = new StringBuilder(capacity: cases.Count * InitialPageCapacity / 16);
+        var sb = new StringBuilder(capacity: cases.Length * InitialPageCapacity / 16);
         sb.Append("| Case | Description |\n| ---- | ----------- |\n");
 
-        for (var i = 0; i < cases.Count; i++)
+        for (var i = 0; i < cases.Length; i++)
         {
             sb.Append("| ").Append(FormatReference(cases[i])).AppendLine(" |  |");
         }
@@ -390,10 +390,10 @@ public static class TypePageEmitter
     /// </summary>
     /// <param name="references">The references to format.</param>
     /// <returns>A comma-separated list of formatted references.</returns>
-    private static string FormatReferenceList(List<ApiTypeReference> references)
+    private static string FormatReferenceList(ApiTypeReference[] references)
     {
-        var sb = new StringBuilder(capacity: references.Count * InitialModifierCapacity);
-        for (var i = 0; i < references.Count; i++)
+        var sb = new StringBuilder(capacity: references.Length * InitialModifierCapacity);
+        for (var i = 0; i < references.Length; i++)
         {
             if (i > 0)
             {
@@ -481,9 +481,9 @@ public static class TypePageEmitter
     /// </remarks>
     /// <param name="sb">The destination string builder.</param>
     /// <param name="examples">The example XML fragments.</param>
-    private static void AppendExamples(StringBuilder sb, List<string> examples)
+    private static void AppendExamples(StringBuilder sb, string[] examples)
     {
-        if (examples.Count == 0)
+        if (examples.Length == 0)
         {
             return;
         }
@@ -494,7 +494,7 @@ public static class TypePageEmitter
 
             """);
 
-        for (var i = 0; i < examples.Count; i++)
+        for (var i = 0; i < examples.Length; i++)
         {
             sb.AppendLine().AppendLine(examples[i]);
         }
@@ -517,7 +517,7 @@ public static class TypePageEmitter
             _ => null,
         };
 
-        if (members is not { Count: > 0 })
+        if (members is not { Length: > 0 })
         {
             return;
         }
@@ -526,7 +526,7 @@ public static class TypePageEmitter
         // uses every kind, but it's a tight upper bound and avoids
         // any growth.
         var byKind = new Dictionary<ApiMemberKind, List<ApiMember>>(capacity: ApiMemberKindCount);
-        for (var i = 0; i < members.Count; i++)
+        for (var i = 0; i < members.Length; i++)
         {
             var member = members[i];
             if (!byKind.TryGetValue(member.Kind, out var bucket))

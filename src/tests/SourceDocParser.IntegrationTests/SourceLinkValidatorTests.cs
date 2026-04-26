@@ -40,7 +40,7 @@ public class SourceLinkValidatorTests
     public async Task ValidatesRealReactiveUiSourceLinkAsHealthy()
     {
         var validator = new SourceLinkValidator();
-        List<SourceLinkEntry> entries = [new("T:ReactiveUI.ReactiveObject", KnownLiveUrl)];
+        SourceLinkEntry[] entries = [new("T:ReactiveUI.ReactiveObject", KnownLiveUrl)];
 
         var brokenCount = await validator.ValidateAsync(entries).ConfigureAwait(false);
 
@@ -58,7 +58,7 @@ public class SourceLinkValidatorTests
     public async Task FlagsHttpFailureAsBroken()
     {
         var validator = new SourceLinkValidator();
-        List<SourceLinkEntry> entries = [new("T:ReactiveUI.Missing", KnownMissingUrl)];
+        SourceLinkEntry[] entries = [new("T:ReactiveUI.Missing", KnownMissingUrl)];
 
         var brokenCount = await validator.ValidateAsync(entries).ConfigureAwait(false);
 
@@ -76,7 +76,7 @@ public class SourceLinkValidatorTests
     public async Task DedupesAndReportsOnlyBrokenAcrossMixedInput()
     {
         var validator = new SourceLinkValidator();
-        List<SourceLinkEntry> entries =
+        SourceLinkEntry[] entries =
         [
             new("T:ReactiveUI.ReactiveObject", KnownLiveUrl),
             new("M:ReactiveUI.ReactiveObject.RaisePropertyChanged", KnownLiveUrl),
@@ -97,7 +97,7 @@ public class SourceLinkValidatorTests
     public async Task EmptyInputReturnsZeroWithoutTouchingNetwork()
     {
         var validator = new SourceLinkValidator();
-        List<SourceLinkEntry> entries = [];
+        SourceLinkEntry[] entries = [];
 
         var brokenCount = await validator.ValidateAsync(entries).ConfigureAwait(false);
 
@@ -115,7 +115,7 @@ public class SourceLinkValidatorTests
     public async Task FailOnBrokenThrowsForBrokenLink()
     {
         var validator = new SourceLinkValidator();
-        List<SourceLinkEntry> entries = [new("T:ReactiveUI.Missing", KnownMissingUrl)];
+        SourceLinkEntry[] entries = [new("T:ReactiveUI.Missing", KnownMissingUrl)];
 
         await Assert.That(() => validator.ValidateAsync(entries, failOnBroken: true))
             .Throws<InvalidOperationException>();

@@ -16,7 +16,7 @@ namespace SourceDocParser.Docfx;
 /// <param name="Src">The set of source directories and files this metadata entry consumes.</param>
 /// <param name="Dest">Output directory (relative to the docfx working directory) for the generated YAML.</param>
 public sealed record DocfxMetadataEntry(
-    List<DocfxMetadataSource> Src,
+    DocfxMetadataSource[] Src,
     string Dest)
 {
     /// <summary>

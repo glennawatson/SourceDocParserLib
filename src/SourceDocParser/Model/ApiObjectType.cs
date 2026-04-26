@@ -41,12 +41,12 @@ public sealed record ApiObjectType(
     string AssemblyName,
     ApiDocumentation Documentation,
     ApiTypeReference? BaseType,
-    List<ApiTypeReference> Interfaces,
+    ApiTypeReference[] Interfaces,
     string? SourceUrl,
-    List<string> AppliesTo,
+    string[] AppliesTo,
     ApiObjectKind Kind,
     bool IsReadOnly,
     bool IsByRefLike,
-    List<ApiMember> Members) : ApiType(
+    ApiMember[] Members) : ApiType(
         Name, FullName, Uid, Namespace, Arity, IsStatic, IsSealed, IsAbstract,
         AssemblyName, Documentation, BaseType, Interfaces, SourceUrl, AppliesTo);

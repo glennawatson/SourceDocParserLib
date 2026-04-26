@@ -56,7 +56,7 @@ public sealed class StreamingTypeMerger
                 throw new InvalidOperationException("StreamingTypeMerger has already been built; further Add calls are not allowed.");
             }
 
-            for (var i = 0; i < types.Count; i++)
+            for (var i = 0; i < types.Length; i++)
             {
                 var type = types[i];
                 var uid = type.Uid;
@@ -80,8 +80,8 @@ public sealed class StreamingTypeMerger
     /// Produces the merged canonical list and seals the merger so further
     /// <see cref="Add"/> calls throw.
     /// </summary>
-    /// <returns>A sorted list of canonical <see cref="ApiType"/>s.</returns>
-    public List<ApiType> Build()
+    /// <returns>A sorted array of canonical <see cref="ApiType"/>s.</returns>
+    public ApiType[] Build()
     {
         lock (_lock)
         {
@@ -120,11 +120,11 @@ public sealed class StreamingTypeMerger
                 }
             }
 
-            merged.Add(canonical with { AppliesTo = appliesTo, SourceUrl = sourceUrl });
+            merged.Add(canonical with { AppliesTo = [.. appliesTo], SourceUrl = sourceUrl });
         }
 
         merged.Sort(static (a, b) => string.CompareOrdinal(a.FullName, b.FullName));
-        return merged;
+        return [.. merged];
     }
 
     /// <summary>

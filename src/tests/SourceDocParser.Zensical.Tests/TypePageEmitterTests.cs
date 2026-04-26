@@ -34,7 +34,7 @@ public class TypePageEmitterTests
             new("Red", "F:Color.Red", "0", ApiDocumentation.Empty, null),
             new("Green", "F:Color.Green", "1", ApiDocumentation.Empty, null),
         };
-        var enumType = TestData.EnumType("Color") with { Values = values };
+        var enumType = TestData.EnumType("Color") with { Values = [.. values] };
 
         var page = TypePageEmitter.Render(enumType);
 

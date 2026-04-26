@@ -43,7 +43,7 @@ public class PipelinePhaseBenchmarks
     private List<ApiCatalog> _walkedCatalogs = [];
 
     /// <summary>Merged canonical types produced by an upfront merge; consumed by <see cref="EmitBench"/>.</summary>
-    private List<ApiType> _mergedTypes = [];
+    private ApiType[] _mergedTypes = [];
 
     /// <summary>
     /// Pre-loaded compilations held alive for the lifetime of the benchmark
@@ -95,11 +95,13 @@ public class PipelinePhaseBenchmarks
         // Capture catalogs from an upfront walk for MergeBench.
         _walkedCatalogs = [];
         var walker = new SymbolWalker();
-        foreach (var group in _groups)
+        for (var groupIndex = 0; groupIndex < _groups.Count; groupIndex++)
         {
+            var group = _groups[groupIndex];
             using var loader = new CompilationLoader();
-            foreach (var path in group.AssemblyPaths)
+            for (var pathIndex = 0; pathIndex < group.AssemblyPaths.Length; pathIndex++)
             {
+                var path = group.AssemblyPaths[pathIndex];
                 try
                 {
                     var (compilation, assembly) = loader.Load(path, group.FallbackIndex);
@@ -120,12 +122,14 @@ public class PipelinePhaseBenchmarks
         // WalkOnlyBench measures only the walker and not the loader.
         _preLoaded = [];
         _preLoadedLoaders = [];
-        foreach (var group in _groups)
+        for (var groupIndex = 0; groupIndex < _groups.Count; groupIndex++)
         {
+            var group = _groups[groupIndex];
             var loader = new CompilationLoader();
             _preLoadedLoaders.Add(loader);
-            foreach (var path in group.AssemblyPaths)
+            for (var pathIndex = 0; pathIndex < group.AssemblyPaths.Length; pathIndex++)
             {
+                var path = group.AssemblyPaths[pathIndex];
                 try
                 {
                     var (compilation, assembly) = loader.Load(path, group.FallbackIndex);
@@ -169,14 +173,14 @@ public class PipelinePhaseBenchmarks
     [GlobalCleanup]
     public void GlobalCleanup()
     {
-        foreach (var entry in _preLoaded)
+        for (var i = 0; i < _preLoaded.Count; i++)
         {
-            entry.SourceLinks.Dispose();
+            _preLoaded[i].SourceLinks.Dispose();
         }
 
-        foreach (var loader in _preLoadedLoaders)
+        for (var i = 0; i < _preLoadedLoaders.Count; i++)
         {
-            loader.Dispose();
+            _preLoadedLoaders[i].Dispose();
         }
 
         if (!Directory.Exists(_scratchRoot))
@@ -219,11 +223,13 @@ public class PipelinePhaseBenchmarks
     {
         var walker = new SymbolWalker();
         var produced = 0;
-        foreach (var group in _groups)
+        for (var groupIndex = 0; groupIndex < _groups.Count; groupIndex++)
         {
+            var group = _groups[groupIndex];
             using var loader = new CompilationLoader();
-            foreach (var path in group.AssemblyPaths)
+            for (var pathIndex = 0; pathIndex < group.AssemblyPaths.Length; pathIndex++)
             {
+                var path = group.AssemblyPaths[pathIndex];
                 try
                 {
                     var (compilation, assembly) = loader.Load(path, group.FallbackIndex);
@@ -244,7 +250,7 @@ public class PipelinePhaseBenchmarks
     /// <summary>Runs <see cref="TypeMerger.Merge"/> on the catalogs captured during setup.</summary>
     /// <returns>The number of canonical types produced.</returns>
     [Benchmark]
-    public int MergeBench() => TypeMerger.Merge(_walkedCatalogs).Count;
+    public int MergeBench() => TypeMerger.Merge(_walkedCatalogs).Length;
 
     /// <summary>Hands the pre-merged canonical types to the Zensical emitter.</summary>
     /// <returns>The number of pages emitted.</returns>
@@ -261,11 +267,13 @@ public class PipelinePhaseBenchmarks
     public int LoadOnlyBench()
     {
         var loaded = 0;
-        foreach (var group in _groups)
+        for (var groupIndex = 0; groupIndex < _groups.Count; groupIndex++)
         {
+            var group = _groups[groupIndex];
             using var loader = new CompilationLoader();
-            foreach (var path in group.AssemblyPaths)
+            for (var pathIndex = 0; pathIndex < group.AssemblyPaths.Length; pathIndex++)
             {
+                var path = group.AssemblyPaths[pathIndex];
                 try
                 {
                     loader.Load(path, group.FallbackIndex);
@@ -308,10 +316,12 @@ public class PipelinePhaseBenchmarks
     public int SourceLinkOnlyBench()
     {
         var made = 0;
-        foreach (var group in _groups)
+        for (var groupIndex = 0; groupIndex < _groups.Count; groupIndex++)
         {
-            foreach (var path in group.AssemblyPaths)
+            var group = _groups[groupIndex];
+            for (var pathIndex = 0; pathIndex < group.AssemblyPaths.Length; pathIndex++)
             {
+                var path = group.AssemblyPaths[pathIndex];
                 using var sourceLinks = new SourceLinkResolver(path);
                 made++;
             }

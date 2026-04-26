@@ -15,13 +15,13 @@ namespace SourceDocParser.Zensical;
 public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
 {
     /// <inheritdoc />
-    public Task<int> EmitAsync(List<ApiType> types, string outputRoot, CancellationToken cancellationToken = default)
+    public Task<int> EmitAsync(ApiType[] types, string outputRoot, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(types);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputRoot);
 
         var pages = 0;
-        for (var i = 0; i < types.Count; i++)
+        for (var i = 0; i < types.Length; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -54,13 +54,13 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
             _ => null,
         };
 
-        if (members is not { Count: > 0 })
+        if (members is not { Length: > 0 })
         {
             return 0;
         }
 
-        var groups = new Dictionary<string, List<ApiMember>>(capacity: members.Count, StringComparer.Ordinal);
-        for (var i = 0; i < members.Count; i++)
+        var groups = new Dictionary<string, List<ApiMember>>(capacity: members.Length, StringComparer.Ordinal);
+        for (var i = 0; i < members.Length; i++)
         {
             var member = members[i];
             if (!groups.TryGetValue(member.Name, out var bucket))
@@ -75,7 +75,7 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
         var pages = 0;
         foreach (var group in groups)
         {
-            MemberPageEmitter.RenderToFile(type, group.Key, group.Value, outputRoot);
+            MemberPageEmitter.RenderToFile(type, group.Key, [.. group.Value], outputRoot);
             pages++;
         }
 

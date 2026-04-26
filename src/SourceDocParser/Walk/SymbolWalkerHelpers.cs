@@ -166,19 +166,19 @@ internal static class SymbolWalkerHelpers
     /// </summary>
     /// <param name="type">Type whose declared interfaces to inspect.</param>
     /// <param name="cache">Type reference cache.</param>
-    /// <returns>The list of declared interface references.</returns>
-    public static List<ApiTypeReference> BuildInterfaceReferences(INamedTypeSymbol type, TypeReferenceCache cache)
+    /// <returns>The declared interface references.</returns>
+    public static ApiTypeReference[] BuildInterfaceReferences(INamedTypeSymbol type, TypeReferenceCache cache)
     {
         if (type.Interfaces.IsEmpty)
         {
             return [];
         }
 
-        var refs = new List<ApiTypeReference>(type.Interfaces.Length);
+        var refs = new ApiTypeReference[type.Interfaces.Length];
         for (var i = 0; i < type.Interfaces.Length; i++)
         {
             var iface = type.Interfaces[i];
-            refs.Add(cache.GetOrAdd(iface, BuildReference));
+            refs[i] = cache.GetOrAdd(iface, BuildReference);
         }
 
         return refs;
@@ -193,8 +193,8 @@ internal static class SymbolWalkerHelpers
     /// </summary>
     /// <param name="type">Union base to inspect.</param>
     /// <param name="cache">Type-reference cache.</param>
-    /// <returns>The list of union case type references.</returns>
-    public static List<ApiTypeReference> BuildUnionCases(INamedTypeSymbol type, TypeReferenceCache cache)
+    /// <returns>The union case type references.</returns>
+    public static ApiTypeReference[] BuildUnionCases(INamedTypeSymbol type, TypeReferenceCache cache)
     {
         // Walk every named type in the same assembly looking for direct
         // derivations of this base. Same-assembly is the closure rule
@@ -223,7 +223,7 @@ internal static class SymbolWalkerHelpers
             }
         }
 
-        return cases;
+        return [.. cases];
     }
 
     /// <summary>
@@ -234,7 +234,7 @@ internal static class SymbolWalkerHelpers
     /// <param name="type">Enum type symbol.</param>
     /// <param name="context">Per-walk state bundle.</param>
     /// <returns>The declared values, in source order.</returns>
-    public static List<ApiEnumValue> BuildEnumValues(INamedTypeSymbol type, SymbolWalkContext context)
+    public static ApiEnumValue[] BuildEnumValues(INamedTypeSymbol type, SymbolWalkContext context)
     {
         var members = type.GetMembers();
         var values = new List<ApiEnumValue>(members.Length);
@@ -259,7 +259,7 @@ internal static class SymbolWalkerHelpers
                 SourceUrl: context.SourceLinks.Resolve(field)));
         }
 
-        return values;
+        return [.. values];
     }
 
     /// <summary>
@@ -274,10 +274,10 @@ internal static class SymbolWalkerHelpers
     public static ApiDelegateSignature BuildDelegateInvoke(INamedTypeSymbol type, SymbolWalkContext context)
     {
         var invoke = type.DelegateInvokeMethod;
-        var typeParameters = new List<string>(type.TypeParameters.Length);
+        var typeParameters = new string[type.TypeParameters.Length];
         for (var i = 0; i < type.TypeParameters.Length; i++)
         {
-            typeParameters.Add(type.TypeParameters[i].Name);
+            typeParameters[i] = type.TypeParameters[i].Name;
         }
 
         if (invoke is null)
@@ -297,8 +297,8 @@ internal static class SymbolWalkerHelpers
     /// </summary>
     /// <param name="member">Member whose parameters to read.</param>
     /// <param name="typeRefs">Type-reference cache.</param>
-    /// <returns>The list of parameters.</returns>
-    public static List<ApiParameter> BuildParameters(ISymbol member, TypeReferenceCache typeRefs)
+    /// <returns>The parameters.</returns>
+    public static ApiParameter[] BuildParameters(ISymbol member, TypeReferenceCache typeRefs)
     {
         var parameters = member switch
         {
@@ -312,11 +312,11 @@ internal static class SymbolWalkerHelpers
             return [];
         }
 
-        var result = new List<ApiParameter>(parameters.Length);
+        var result = new ApiParameter[parameters.Length];
         for (var i = 0; i < parameters.Length; i++)
         {
             var p = parameters[i];
-            result.Add(new(
+            result[i] = new(
                 Name: p.Name,
                 Type: typeRefs.GetOrAdd(p.Type, BuildReference),
                 IsOptional: p.IsOptional,
@@ -324,7 +324,7 @@ internal static class SymbolWalkerHelpers
                 IsIn: p.RefKind is RefKind.In or RefKind.RefReadOnlyParameter,
                 IsOut: p.RefKind is RefKind.Out,
                 IsRef: p.RefKind is RefKind.Ref,
-                DefaultValue: p.HasExplicitDefaultValue ? FormatLiteral(p.ExplicitDefaultValue) : null));
+                DefaultValue: p.HasExplicitDefaultValue ? FormatLiteral(p.ExplicitDefaultValue) : null);
         }
 
         return result;
@@ -334,18 +334,18 @@ internal static class SymbolWalkerHelpers
     /// Returns generic type-parameter names for a member.
     /// </summary>
     /// <param name="member">Member to inspect.</param>
-    /// <returns>The list of type parameter names.</returns>
-    public static List<string> BuildTypeParameters(ISymbol member)
+    /// <returns>The type parameter names.</returns>
+    public static string[] BuildTypeParameters(ISymbol member)
     {
         if (member is not IMethodSymbol { TypeParameters: { Length: > 0 } typeParams })
         {
             return [];
         }
 
-        var result = new List<string>(typeParams.Length);
+        var result = new string[typeParams.Length];
         for (var i = 0; i < typeParams.Length; i++)
         {
-            result.Add(typeParams[i].Name);
+            result[i] = typeParams[i].Name;
         }
 
         return result;

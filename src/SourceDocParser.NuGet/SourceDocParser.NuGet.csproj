@@ -11,6 +11,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="SourceDocParser.NuGet.Tests" />
+    <InternalsVisibleTo Include="SourceDocParser.IntegrationTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Polly" />
     <PackageReference Include="NuGet.Versioning" />
   </ItemGroup>

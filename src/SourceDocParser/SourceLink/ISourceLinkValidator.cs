@@ -17,5 +17,5 @@ public interface ISourceLinkValidator
     /// <param name="failOnBroken">When true, throws if any URL fails to resolve.</param>
     /// <param name="logger">Optional logger; defaults to a no-op logger.</param>
     /// <returns>Count of broken URLs.</returns>
-    Task<int> ValidateAsync(List<SourceLinkEntry> entries, bool failOnBroken = false, ILogger? logger = null);
+    Task<int> ValidateAsync(SourceLinkEntry[] entries, bool failOnBroken = false, ILogger? logger = null);
 }

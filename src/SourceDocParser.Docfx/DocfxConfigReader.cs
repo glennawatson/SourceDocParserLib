@@ -50,14 +50,15 @@ public static class DocfxConfigReader
     /// </summary>
     /// <param name="root">Root JSON object.</param>
     /// <returns>Ordered metadata entries.</returns>
-    private static List<DocfxMetadataEntry> ReadMetadataArray(in JsonElement root)
+    private static DocfxMetadataEntry[] ReadMetadataArray(in JsonElement root)
     {
         if (!root.TryGetProperty("metadata"u8, out var array) || array is not { ValueKind: JsonValueKind.Array })
         {
             return [];
         }
 
-        var entries = new List<DocfxMetadataEntry>(array.GetArrayLength());
+        var entries = new DocfxMetadataEntry[array.GetArrayLength()];
+        var index = 0;
         foreach (var item in array.EnumerateArray())
         {
             if (item is not { ValueKind: JsonValueKind.Object })
@@ -68,10 +69,10 @@ public static class DocfxConfigReader
             var dest = item.TryGetProperty("dest"u8, out var destEl) && destEl is { ValueKind: JsonValueKind.String }
                 ? destEl.GetString() ?? string.Empty
                 : string.Empty;
-            entries.Add(new(ReadMetadataSources(item), dest)
+            entries[index++] = new(ReadMetadataSources(item), dest)
             {
                 Extra = ReadExtra(item, IsKnownMetadataProperty),
-            });
+            };
         }
 
         return entries;
@@ -82,14 +83,15 @@ public static class DocfxConfigReader
     /// </summary>
     /// <param name="entry">Metadata entry.</param>
     /// <returns>Ordered source records.</returns>
-    private static List<DocfxMetadataSource> ReadMetadataSources(in JsonElement entry)
+    private static DocfxMetadataSource[] ReadMetadataSources(in JsonElement entry)
     {
         if (!entry.TryGetProperty("src"u8, out var array) || array is not { ValueKind: JsonValueKind.Array })
         {
             return [];
         }
 
-        var sources = new List<DocfxMetadataSource>(array.GetArrayLength());
+        var sources = new DocfxMetadataSource[array.GetArrayLength()];
+        var index = 0;
         foreach (var item in array.EnumerateArray())
         {
             if (item is not { ValueKind: JsonValueKind.Object })
@@ -100,7 +102,7 @@ public static class DocfxConfigReader
             var src = item.TryGetProperty("src"u8, out var srcEl) && srcEl is { ValueKind: JsonValueKind.String }
                 ? srcEl.GetString() ?? string.Empty
                 : string.Empty;
-            sources.Add(new(src, ReadStringArray(item, "files"u8)));
+            sources[index++] = new(src, ReadStringArray(item, "files"u8));
         }
 
         return sources;
@@ -129,14 +131,15 @@ public static class DocfxConfigReader
     /// </summary>
     /// <param name="build">Build section element.</param>
     /// <returns>Ordered content entries.</returns>
-    private static List<DocfxBuildContent> ReadBuildContent(in JsonElement build)
+    private static DocfxBuildContent[] ReadBuildContent(in JsonElement build)
     {
         if (!build.TryGetProperty("content"u8, out var array) || array is not { ValueKind: JsonValueKind.Array })
         {
             return [];
         }
 
-        var entries = new List<DocfxBuildContent>(array.GetArrayLength());
+        var entries = new DocfxBuildContent[array.GetArrayLength()];
+        var index = 0;
         foreach (var item in array.EnumerateArray())
         {
             if (item is not { ValueKind: JsonValueKind.Object })
@@ -148,10 +151,10 @@ public static class DocfxConfigReader
                 ? ReadStringList(filesEl)
                 : null;
 
-            entries.Add(new(files)
+            entries[index++] = new(files)
             {
                 Extra = ReadExtra(item, IsKnownBuildContentProperty),
-            });
+            };
         }
 
         return entries;
@@ -163,7 +166,7 @@ public static class DocfxConfigReader
     /// <param name="element">Containing object.</param>
     /// <param name="propertyName">UTF-8 encoded property name to read.</param>
     /// <returns>String values in document order.</returns>
-    private static List<string> ReadStringArray(in JsonElement element, ReadOnlySpan<byte> propertyName)
+    private static string[] ReadStringArray(in JsonElement element, ReadOnlySpan<byte> propertyName)
     {
         if (!element.TryGetProperty(propertyName, out var array) || array is not { ValueKind: JsonValueKind.Array })
         {
@@ -178,12 +181,13 @@ public static class DocfxConfigReader
     /// </summary>
     /// <param name="array">JSON array element.</param>
     /// <returns>String values in document order.</returns>
-    private static List<string> ReadStringList(in JsonElement array)
+    private static string[] ReadStringList(in JsonElement array)
     {
-        var values = new List<string>(array.GetArrayLength());
+        var values = new string[array.GetArrayLength()];
+        var index = 0;
         foreach (var item in array.EnumerateArray())
         {
-            values.Add(item.GetString() ?? string.Empty);
+            values[index++] = item.GetString() ?? string.Empty;
         }
 
         return values;

@@ -27,4 +27,4 @@ internal sealed record SymbolWalkContext(
     TypeReferenceCache TypeRefs,
     ISourceLinkResolver SourceLinks,
     NamespaceDisplayNameCache NamespaceDisplayNames,
-    List<string> AppliesTo);
+    string[] AppliesTo);

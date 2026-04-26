@@ -217,33 +217,33 @@ public sealed class DocResolver : IDocResolver
     /// <param name="child">Child entries (preserved in order, all included).</param>
     /// <param name="parent">Parent entries (only those with keys not in child are appended).</param>
     /// <returns>The merged list of entries.</returns>
-    private static List<DocEntry> MergeKeyed(
-        List<DocEntry> child,
-        List<DocEntry> parent)
+    private static DocEntry[] MergeKeyed(
+        DocEntry[] child,
+        DocEntry[] parent)
     {
-        if (child.Count == 0)
+        if (child.Length == 0)
         {
             return parent;
         }
 
-        if (parent.Count == 0)
+        if (parent.Length == 0)
         {
             return child;
         }
 
-        var childKeys = new HashSet<string>(child.Count, StringComparer.Ordinal);
-        for (var i = 0; i < child.Count; i++)
+        var childKeys = new HashSet<string>(child.Length, StringComparer.Ordinal);
+        for (var i = 0; i < child.Length; i++)
         {
             childKeys.Add(child[i].Name);
         }
 
-        var merged = new List<DocEntry>(child.Count + parent.Count);
-        for (var i = 0; i < child.Count; i++)
+        var merged = new List<DocEntry>(child.Length + parent.Length);
+        for (var i = 0; i < child.Length; i++)
         {
             merged.Add(child[i]);
         }
 
-        for (var i = 0; i < parent.Count; i++)
+        for (var i = 0; i < parent.Length; i++)
         {
             if (!childKeys.Contains(parent[i].Name))
             {
@@ -251,7 +251,7 @@ public sealed class DocResolver : IDocResolver
             }
         }
 
-        return merged;
+        return [.. merged];
     }
 
     /// <summary>
@@ -418,11 +418,11 @@ public sealed class DocResolver : IDocResolver
             Remarks: remarks,
             Returns: returns,
             Value: value,
-            Examples: examples,
-            Parameters: parameters,
-            TypeParameters: typeParameters,
-            Exceptions: exceptions,
-            SeeAlso: seeAlso,
+            Examples: [.. examples],
+            Parameters: [.. parameters],
+            TypeParameters: [.. typeParameters],
+            Exceptions: [.. exceptions],
+            SeeAlso: [.. seeAlso],
             HasInheritDoc: hasInheritDoc,
             InheritDocCref: inheritDocCref);
     }

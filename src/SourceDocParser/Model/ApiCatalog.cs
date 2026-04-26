@@ -9,4 +9,4 @@ namespace SourceDocParser;
 /// </summary>
 /// <param name="Tfm">The TFM these types were extracted from.</param>
 /// <param name="Types">Documented public types in deterministic order.</param>
-public sealed record ApiCatalog(string Tfm, List<ApiType> Types);
+public sealed record ApiCatalog(string Tfm, ApiType[] Types);

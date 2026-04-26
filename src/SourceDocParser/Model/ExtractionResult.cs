@@ -21,4 +21,4 @@ public sealed record ExtractionResult(
     int CanonicalTypes,
     int PagesEmitted,
     int LoadFailures,
-    List<SourceLinkEntry> SourceLinks);
+    SourceLinkEntry[] SourceLinks);

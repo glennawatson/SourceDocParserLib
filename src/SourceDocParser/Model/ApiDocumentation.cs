@@ -22,11 +22,11 @@ public sealed record ApiDocumentation(
     string Remarks,
     string Returns,
     string Value,
-    List<string> Examples,
-    List<DocEntry> Parameters,
-    List<DocEntry> TypeParameters,
-    List<DocEntry> Exceptions,
-    List<string> SeeAlso,
+    string[] Examples,
+    DocEntry[] Parameters,
+    DocEntry[] TypeParameters,
+    DocEntry[] Exceptions,
+    string[] SeeAlso,
     string? InheritedFrom)
 {
     /// <summary>

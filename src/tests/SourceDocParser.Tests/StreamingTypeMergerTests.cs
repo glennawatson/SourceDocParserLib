@@ -24,7 +24,7 @@ public class StreamingTypeMergerTests
 
         var merged = merger.Build();
 
-        await Assert.That(merged.Count).IsEqualTo(1);
+        await Assert.That(merged.Length).IsEqualTo(1);
         await Assert.That(merged[0].FullName).IsEqualTo("Foo.Bar");
         await Assert.That(merged[0].AppliesTo).IsEquivalentTo((List<string>)["net10.0"]);
     }
@@ -43,7 +43,7 @@ public class StreamingTypeMergerTests
 
         var merged = merger.Build();
 
-        await Assert.That(merged.Count).IsEqualTo(1);
+        await Assert.That(merged.Length).IsEqualTo(1);
         var sorted = merged[0].AppliesTo.OrderBy(static s => s, StringComparer.Ordinal).ToList();
         await Assert.That(sorted).IsEquivalentTo((List<string>)["net10.0", "net9.0"]);
     }
@@ -60,7 +60,7 @@ public class StreamingTypeMergerTests
 
         var merged = merger.Build();
 
-        await Assert.That(merged.Count).IsEqualTo(1);
+        await Assert.That(merged.Length).IsEqualTo(1);
         await Assert.That(merged[0].FullName).IsEqualTo("Foo.Bar");
     }
 
@@ -108,11 +108,11 @@ public class StreamingTypeMergerTests
                 batch.Add(BuildType($"Worker{w}.Type{i:D3}"));
             }
 
-            merger.Add(new("net10.0", batch));
+            merger.Add(new("net10.0", [.. batch]));
         });
 
         var merged = merger.Build();
-        await Assert.That(merged.Count).IsEqualTo(workerCount * typesPerWorker);
+        await Assert.That(merged.Length).IsEqualTo(workerCount * typesPerWorker);
     }
 
     /// <summary>

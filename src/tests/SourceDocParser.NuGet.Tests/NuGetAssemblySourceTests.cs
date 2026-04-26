@@ -62,7 +62,7 @@ public class NuGetAssemblySourceTests
 
         await Assert.That(groups.Count).IsEqualTo(1);
         await Assert.That(groups[0].Tfm).IsEqualTo("net10.0");
-        await Assert.That(groups[0].AssemblyPaths.Count).IsEqualTo(1);
+        await Assert.That(groups[0].AssemblyPaths.Length).IsEqualTo(1);
         await Assert.That(Path.GetFileName(groups[0].AssemblyPaths[0])).IsEqualTo("Package.dll");
     }
 

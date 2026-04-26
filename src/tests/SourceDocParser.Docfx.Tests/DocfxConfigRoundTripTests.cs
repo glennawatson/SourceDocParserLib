@@ -51,8 +51,8 @@ public class DocfxConfigRoundTripTests
         var first = ReadFromString(original);
         var rewritten = WriteAndRead(first);
 
-        await Assert.That(rewritten.Metadata.Count).IsEqualTo(first.Metadata.Count);
-        await Assert.That(rewritten.Build.Content.Count).IsEqualTo(first.Build.Content.Count);
+        await Assert.That(rewritten.Metadata.Length).IsEqualTo(first.Metadata.Length);
+        await Assert.That(rewritten.Build.Content.Length).IsEqualTo(first.Build.Content.Length);
 
         // Extras on the metadata entry survive verbatim.
         var firstEntry = first.Metadata[0];
@@ -83,8 +83,8 @@ public class DocfxConfigRoundTripTests
     {
         var config = ReadFromString("{}");
 
-        await Assert.That(config.Metadata.Count).IsEqualTo(0);
-        await Assert.That(config.Build.Content.Count).IsEqualTo(0);
+        await Assert.That(config.Metadata.Length).IsEqualTo(0);
+        await Assert.That(config.Build.Content.Length).IsEqualTo(0);
     }
 
     /// <summary>
@@ -155,20 +155,22 @@ public class DocfxConfigRoundTripTests
 
         writer.WritePropertyName("metadata");
         writer.WriteStartArray();
-        foreach (var entry in config.Metadata)
+        for (var entryIndex = 0; entryIndex < config.Metadata.Length; entryIndex++)
         {
+            var entry = config.Metadata[entryIndex];
             writer.WriteStartObject();
             writer.WritePropertyName("src");
             writer.WriteStartArray();
-            foreach (var src in entry.Src)
+            for (var srcIndex = 0; srcIndex < entry.Src.Length; srcIndex++)
             {
+                var src = entry.Src[srcIndex];
                 writer.WriteStartObject();
                 writer.WriteString("src", src.Src);
                 writer.WritePropertyName("files");
                 writer.WriteStartArray();
-                foreach (var f in src.Files)
+                for (var fileIndex = 0; fileIndex < src.Files.Length; fileIndex++)
                 {
-                    writer.WriteStringValue(f);
+                    writer.WriteStringValue(src.Files[fileIndex]);
                 }
 
                 writer.WriteEndArray();
@@ -187,16 +189,17 @@ public class DocfxConfigRoundTripTests
         writer.WriteStartObject();
         writer.WritePropertyName("content");
         writer.WriteStartArray();
-        foreach (var c in config.Build.Content)
+        for (var contentIndex = 0; contentIndex < config.Build.Content.Length; contentIndex++)
         {
+            var c = config.Build.Content[contentIndex];
             writer.WriteStartObject();
             if (c.Files is { } files)
             {
                 writer.WritePropertyName("files");
                 writer.WriteStartArray();
-                foreach (var f in files)
+                for (var fileIndex = 0; fileIndex < files.Length; fileIndex++)
                 {
-                    writer.WriteStringValue(f);
+                    writer.WriteStringValue(files[fileIndex]);
                 }
 
                 writer.WriteEndArray();

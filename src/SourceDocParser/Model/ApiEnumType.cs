@@ -38,10 +38,10 @@ public sealed record ApiEnumType(
     string AssemblyName,
     ApiDocumentation Documentation,
     ApiTypeReference? BaseType,
-    List<ApiTypeReference> Interfaces,
+    ApiTypeReference[] Interfaces,
     string? SourceUrl,
-    List<string> AppliesTo,
+    string[] AppliesTo,
     ApiTypeReference UnderlyingType,
-    List<ApiEnumValue> Values) : ApiType(
+    ApiEnumValue[] Values) : ApiType(
         Name, FullName, Uid, Namespace, Arity, IsStatic, IsSealed, IsAbstract,
         AssemblyName, Documentation, BaseType, Interfaces, SourceUrl, AppliesTo);

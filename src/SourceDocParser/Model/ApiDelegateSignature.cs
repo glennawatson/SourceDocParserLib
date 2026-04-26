@@ -17,5 +17,5 @@ namespace SourceDocParser;
 public sealed record ApiDelegateSignature(
     string Signature,
     ApiTypeReference? ReturnType,
-    List<ApiParameter> Parameters,
-    List<string> TypeParameters);
+    ApiParameter[] Parameters,
+    string[] TypeParameters);

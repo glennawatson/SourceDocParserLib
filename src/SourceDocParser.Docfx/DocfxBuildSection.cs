@@ -14,7 +14,7 @@ namespace SourceDocParser.Docfx;
 /// preserve verbatim from the template.
 /// </summary>
 /// <param name="Content">Ordered list of build content entries. Patched in place: previously-injected platform entries are removed and a fresh set is appended.</param>
-public sealed record DocfxBuildSection(List<DocfxBuildContent> Content)
+public sealed record DocfxBuildSection(DocfxBuildContent[] Content)
 {
     /// <summary>
     /// Gets a catch-all bag of non-<c>content</c> properties of the build section

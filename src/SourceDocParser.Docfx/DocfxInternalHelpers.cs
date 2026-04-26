@@ -107,10 +107,10 @@ internal static class DocfxInternalHelpers
     /// <param name="template">Build section from the template.</param>
     /// <param name="platformLabels">Platform labels to inject content entries for, in deterministic order.</param>
     /// <returns>The patched build section.</returns>
-    public static DocfxBuildSection PatchBuildSection(DocfxBuildSection template, List<string> platformLabels)
+    public static DocfxBuildSection PatchBuildSection(DocfxBuildSection template, string[] platformLabels)
     {
-        var content = new List<DocfxBuildContent>(template.Content.Count + platformLabels.Count);
-        for (var i = 0; i < template.Content.Count; i++)
+        var content = new List<DocfxBuildContent>(template.Content.Length + platformLabels.Length);
+        for (var i = 0; i < template.Content.Length; i++)
         {
             var item = template.Content[i];
             if (!IsInjectedPlatformEntry(item))
@@ -119,13 +119,13 @@ internal static class DocfxInternalHelpers
             }
         }
 
-        for (var i = 0; i < platformLabels.Count; i++)
+        for (var i = 0; i < platformLabels.Length; i++)
         {
             var label = platformLabels[i];
             content.Add(new(Files: [$"api-{label}/**.yml", $"api-{label}/index.md"]));
         }
 
-        return template with { Content = content };
+        return template with { Content = [.. content] };
     }
 
     /// <summary>
@@ -135,7 +135,7 @@ internal static class DocfxInternalHelpers
     /// <returns>True if the entry was previously injected.</returns>
     public static bool IsInjectedPlatformEntry(DocfxBuildContent entry)
     {
-        if (entry.Files is not { Count: > 0 } files)
+        if (entry.Files is not { Length: > 0 } files)
         {
             return false;
         }

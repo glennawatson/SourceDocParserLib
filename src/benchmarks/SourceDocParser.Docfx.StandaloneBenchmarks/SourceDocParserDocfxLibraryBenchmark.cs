@@ -54,8 +54,10 @@ public class SourceDocParserDocfxLibraryBenchmark
         _extractor = new();
         _sourcePerTfm = new(StringComparer.Ordinal);
 
-        foreach (var tfm in new[] { "net8.0", "net9.0", "net10.0", "net472" })
+        string[] tfms = ["net8.0", "net9.0", "net10.0", "net472"];
+        for (var i = 0; i < tfms.Length; i++)
         {
+            var tfm = tfms[i];
             var tfmRoot = Path.Combine(_scratchRoot, tfm);
             Directory.CreateDirectory(tfmRoot);
 

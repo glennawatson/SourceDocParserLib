@@ -34,22 +34,23 @@ public class TypeMergerBenchmarks
     public void GlobalSetup()
     {
         _catalogs = new(Tfms.Length);
-        foreach (var tfm in Tfms)
+        for (var tfmIndex = 0; tfmIndex < Tfms.Length; tfmIndex++)
         {
+            var tfm = Tfms[tfmIndex];
             var types = new List<ApiType>(TypeCount);
             for (var i = 0; i < TypeCount; i++)
             {
                 types.Add(BuildType($"Type{i:D5}"));
             }
 
-            _catalogs.Add(new(tfm, types));
+            _catalogs.Add(new(tfm, [.. types]));
         }
     }
 
     /// <summary>Measures one merge over the pre-built catalogs.</summary>
     /// <returns>The merged canonical types.</returns>
     [Benchmark]
-    public List<ApiType> Merge() => TypeMerger.Merge(_catalogs);
+    public ApiType[] Merge() => TypeMerger.Merge(_catalogs);
 
     /// <summary>
     /// Builds a minimal <see cref="ApiType"/> with the supplied UID. All

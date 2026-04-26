@@ -37,9 +37,9 @@ public sealed record ApiDelegateType(
     string AssemblyName,
     ApiDocumentation Documentation,
     ApiTypeReference? BaseType,
-    List<ApiTypeReference> Interfaces,
+    ApiTypeReference[] Interfaces,
     string? SourceUrl,
-    List<string> AppliesTo,
+    string[] AppliesTo,
     ApiDelegateSignature Invoke) : ApiType(
         Name, FullName, Uid, Namespace, Arity, IsStatic, IsSealed, IsAbstract,
         AssemblyName, Documentation, BaseType, Interfaces, SourceUrl, AppliesTo);

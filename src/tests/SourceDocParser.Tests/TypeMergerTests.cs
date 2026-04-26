@@ -25,7 +25,7 @@ public class TypeMergerTests
 
         var merged = TypeMerger.Merge([net8, net9, net10]);
 
-        await Assert.That(merged.Count).IsEqualTo(1);
+        await Assert.That(merged.Length).IsEqualTo(1);
         await Assert.That(merged[0].Uid).IsEqualTo("Foo");
     }
 
@@ -74,7 +74,7 @@ public class TypeMergerTests
 
         var merged = TypeMerger.Merge([net10]);
 
-        await Assert.That(merged.Count).IsEqualTo(2);
+        await Assert.That(merged.Length).IsEqualTo(2);
     }
 
     /// <summary>
@@ -111,7 +111,7 @@ public class TypeMergerTests
 
         var merged = TypeMerger.Merge([net10]);
 
-        await Assert.That(merged.Count).IsEqualTo(1);
+        await Assert.That(merged.Length).IsEqualTo(1);
         await Assert.That(merged[0].Uid).IsEqualTo("Real");
     }
 }

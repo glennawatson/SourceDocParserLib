@@ -24,8 +24,8 @@ public static class TypeMerger
     /// Merges per-TFM catalogs into a single ordered list of types.
     /// </summary>
     /// <param name="catalogs">The collections of per-TFM catalogs to merge.</param>
-    /// <returns>A sorted list of canonical <see cref="ApiType"/>s.</returns>
-    public static List<ApiType> Merge(List<ApiCatalog> catalogs)
+    /// <returns>A sorted array of canonical <see cref="ApiType"/>s.</returns>
+    public static ApiType[] Merge(List<ApiCatalog> catalogs)
     {
         ArgumentNullException.ThrowIfNull(catalogs);
 
@@ -35,7 +35,7 @@ public static class TypeMerger
         {
             var (tfmString, types) = catalogs[catalogIndex];
             var tfm = Tfm.Parse(tfmString);
-            for (var i = 0; i < types.Count; i++)
+            for (var i = 0; i < types.Length; i++)
             {
                 var type = types[i];
                 var uid = type.Uid;
@@ -86,11 +86,11 @@ public static class TypeMerger
                 }
             }
 
-            merged.Add(canonical with { AppliesTo = appliesTo, SourceUrl = sourceUrl });
+            merged.Add(canonical with { AppliesTo = [.. appliesTo], SourceUrl = sourceUrl });
         }
 
         merged.Sort(static (a, b) => string.CompareOrdinal(a.FullName, b.FullName));
-        return merged;
+        return [.. merged];
     }
 
     /// <summary>

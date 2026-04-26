@@ -135,7 +135,7 @@ public sealed class SymbolWalker : ISymbolWalker
         DrainPendingTypes(pendingTypes, types, seenTypeUids, context);
 
         types.Sort(static (a, b) => string.CompareOrdinal(a.FullName, b.FullName));
-        return new(tfm, types);
+        return new(tfm, [.. types]);
     }
 
     /// <summary>
@@ -313,8 +313,8 @@ public sealed class SymbolWalker : ISymbolWalker
     /// <param name="containingTypeName">Display name of the containing type.</param>
     /// <param name="containingTypeUid">Roslyn UID of the containing type.</param>
     /// <param name="context">Per-walk state bundle.</param>
-    /// <returns>The list of documented members.</returns>
-    private static List<ApiMember> BuildMembers(
+    /// <returns>The documented members.</returns>
+    private static ApiMember[] BuildMembers(
         INamedTypeSymbol type,
         string containingTypeName,
         string containingTypeUid,
@@ -362,6 +362,6 @@ public sealed class SymbolWalker : ISymbolWalker
                 Documentation: context.Docs.Resolve(member)));
         }
 
-        return members;
+        return [.. members];
     }
 }

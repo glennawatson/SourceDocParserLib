@@ -69,7 +69,7 @@ public class ZensicalDocumentationEmitterTests
             values.Add(new($"Value{i}", $"F:DemoEnum.Value{i}", i.ToString(System.Globalization.CultureInfo.InvariantCulture), ApiDocumentation.Empty, null));
         }
 
-        var type = TestData.EnumType("DemoEnum") with { Values = values };
+        var type = TestData.EnumType("DemoEnum") with { Values = [.. values] };
         var pages = await new ZensicalDocumentationEmitter().EmitAsync([type], scratch.Path);
 
         await Assert.That(pages).IsEqualTo(1);
@@ -127,7 +127,7 @@ public class ZensicalDocumentationEmitterTests
                 Documentation: ApiDocumentation.Empty));
         }
 
-        return TestData.ObjectType(name) with { Members = members };
+        return TestData.ObjectType(name) with { Members = [.. members] };
     }
 
     /// <summary>Counts every markdown file under <paramref name="root"/>.</summary>

@@ -88,7 +88,7 @@ public class DocfxInternalHelpersTests
 
         var patched = DocfxInternalHelpers.PatchBuildSection(template, ["android", "ios"]);
 
-        await Assert.That(patched.Content.Count).IsEqualTo(4);
+        await Assert.That(patched.Content.Length).IsEqualTo(4);
         await Assert.That(patched.Content[0].Files![0]).IsEqualTo("**.md");
         await Assert.That(patched.Content[1].Files![0]).IsEqualTo("api/**.yml");
         await Assert.That(patched.Content[2].Files![0]).IsEqualTo("api-android/**.yml");

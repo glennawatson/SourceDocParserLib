@@ -145,6 +145,6 @@ public class EmitterBenchmarks
             Kind: ApiObjectKind.Class,
             IsReadOnly: false,
             IsByRefLike: false,
-            Members: members);
+            Members: [.. members]);
     }
 }

@@ -66,7 +66,7 @@ internal static class DocfxYamlBuilderExtensions
             return sb;
         }
 
-        for (var i = 0; i < members.Count; i++)
+        for (var i = 0; i < members.Length; i++)
         {
             sb.AppendMemberItem(type, members[i]);
         }
@@ -81,7 +81,7 @@ internal static class DocfxYamlBuilderExtensions
     /// <param name="sb">Destination builder.</param>
     /// <param name="references">Distinct reference list.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
-    public static StringBuilder AppendPageReferences(this StringBuilder sb, List<ApiTypeReference> references)
+    public static StringBuilder AppendPageReferences(this StringBuilder sb, ApiTypeReference[] references)
     {
         if (references is [])
         {
@@ -89,7 +89,7 @@ internal static class DocfxYamlBuilderExtensions
         }
 
         sb.Append("references:\n");
-        for (var i = 0; i < references.Count; i++)
+        for (var i = 0; i < references.Length; i++)
         {
             sb.AppendReference(references[i]);
         }
@@ -135,7 +135,7 @@ internal static class DocfxYamlBuilderExtensions
         }
 
         sb.Append("  children:\n");
-        for (var i = 0; i < members.Count; i++)
+        for (var i = 0; i < members.Length; i++)
         {
             sb.AppendChild(members[i]);
         }
@@ -188,7 +188,7 @@ internal static class DocfxYamlBuilderExtensions
     /// <param name="sb">Destination builder.</param>
     /// <param name="interfaces">Interface references to enumerate.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
-    public static StringBuilder AppendImplements(this StringBuilder sb, List<ApiTypeReference> interfaces)
+    public static StringBuilder AppendImplements(this StringBuilder sb, ApiTypeReference[] interfaces)
     {
         if (interfaces is [])
         {
@@ -196,7 +196,7 @@ internal static class DocfxYamlBuilderExtensions
         }
 
         sb.Append("  implements:\n");
-        for (var i = 0; i < interfaces.Count; i++)
+        for (var i = 0; i < interfaces.Length; i++)
         {
             sb.AppendInterface(interfaces[i]);
         }
@@ -250,7 +250,7 @@ internal static class DocfxYamlBuilderExtensions
             .AppendLine()
             .Append("    parameters:\n");
 
-        for (var i = 0; i < type.Values.Count; i++)
+        for (var i = 0; i < type.Values.Length; i++)
         {
             sb.AppendEnumValue(type.Values[i]);
         }
@@ -381,7 +381,7 @@ internal static class DocfxYamlBuilderExtensions
     /// <param name="parameters">Parameter list to render.</param>
     /// <param name="indent">Indent prefix (typically <c>"    "</c>).</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
-    public static StringBuilder AppendParameters(this StringBuilder sb, List<ApiParameter> parameters, string indent)
+    public static StringBuilder AppendParameters(this StringBuilder sb, ApiParameter[] parameters, string indent)
     {
         if (parameters is [])
         {
@@ -389,7 +389,7 @@ internal static class DocfxYamlBuilderExtensions
         }
 
         sb.Append(indent).Append("parameters:\n");
-        for (var i = 0; i < parameters.Count; i++)
+        for (var i = 0; i < parameters.Length; i++)
         {
             sb.AppendParameter(parameters[i], indent);
         }
@@ -666,7 +666,7 @@ internal static class DocfxYamlBuilderExtensions
     /// </summary>
     /// <param name="type">Type to inspect.</param>
     /// <returns>The member list, or <see langword="null"/>.</returns>
-    private static List<ApiMember>? MembersOf(ApiType type) => type switch
+    private static ApiMember[]? MembersOf(ApiType type) => type switch
     {
         ApiObjectType o => o.Members,
         ApiUnionType u => u.Members,

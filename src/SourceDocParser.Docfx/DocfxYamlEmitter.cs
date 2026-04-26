@@ -72,13 +72,13 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     }
 
     /// <inheritdoc />
-    public async Task<int> EmitAsync(List<ApiType> types, string outputRoot, CancellationToken cancellationToken = default)
+    public async Task<int> EmitAsync(ApiType[] types, string outputRoot, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(types);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputRoot);
 
         var pages = 0;
-        for (var i = 0; i < types.Count; i++)
+        for (var i = 0; i < types.Length; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -105,9 +105,9 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     /// </summary>
     /// <param name="type">Type whose references to collect.</param>
     /// <returns>Distinct references in declaration order.</returns>
-    internal static List<ApiTypeReference> CollectReferences(ApiType type)
+    internal static ApiTypeReference[] CollectReferences(ApiType type)
     {
-        var references = new List<ApiTypeReference>(capacity: 8 + (type.Interfaces.Count * 2));
+        var references = new List<ApiTypeReference>(capacity: 8 + (type.Interfaces.Length * 2));
         var seen = new HashSet<string>(StringComparer.Ordinal);
 
         if (type.BaseType is { } baseRef)
@@ -115,7 +115,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
             AddReference(references, seen, baseRef);
         }
 
-        for (var i = 0; i < type.Interfaces.Count; i++)
+        for (var i = 0; i < type.Interfaces.Length; i++)
         {
             AddReference(references, seen, type.Interfaces[i]);
         }
@@ -123,14 +123,14 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
         var members = MembersOf(type);
         if (members is not null)
         {
-            for (var i = 0; i < members.Count; i++)
+            for (var i = 0; i < members.Length; i++)
             {
                 CollectMemberReferences(members[i], references, seen);
             }
         }
 
         CollectKindSpecificReferences(type, references, seen);
-        return references;
+        return [.. references];
     }
 
     /// <summary>
@@ -172,7 +172,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     /// </summary>
     /// <param name="type">Type to inspect.</param>
     /// <returns>The member list, or <see langword="null"/>.</returns>
-    private static List<ApiMember>? MembersOf(ApiType type) => type switch
+    private static ApiMember[]? MembersOf(ApiType type) => type switch
     {
         ApiObjectType o => o.Members,
         ApiUnionType u => u.Members,
@@ -193,7 +193,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
             AddReference(references, seen, ret);
         }
 
-        for (var p = 0; p < member.Parameters.Count; p++)
+        for (var p = 0; p < member.Parameters.Length; p++)
         {
             AddReference(references, seen, member.Parameters[p].Type);
         }
@@ -243,7 +243,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
             AddReference(references, seen, ret);
         }
 
-        for (var p = 0; p < type.Invoke.Parameters.Count; p++)
+        for (var p = 0; p < type.Invoke.Parameters.Length; p++)
         {
             AddReference(references, seen, type.Invoke.Parameters[p].Type);
         }
@@ -255,7 +255,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     /// <param name="seen">Dedup set keyed on UID / display name.</param>
     private static void CollectUnionReferences(ApiUnionType type, List<ApiTypeReference> references, HashSet<string> seen)
     {
-        for (var c = 0; c < type.Cases.Count; c++)
+        for (var c = 0; c < type.Cases.Length; c++)
         {
             AddReference(references, seen, type.Cases[c]);
         }

@@ -93,7 +93,7 @@ public sealed class NuGetAssemblySource : IAssemblySource
                 ? AssemblyResolution.BuildFallbackIndex([Path.Combine(refsDir, bestRef), libTfmDir], _logger)
                 : AssemblyResolution.BuildFallbackIndex([libTfmDir], _logger);
 
-            yield return new(tfm, packageDlls, fallbackIndex);
+            yield return new(tfm, [.. packageDlls], fallbackIndex);
         }
     }
 

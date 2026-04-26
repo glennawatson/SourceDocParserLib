@@ -48,8 +48,9 @@ public static class Program
         Console.WriteLine("| TFM      | Wall time | Allocated |");
         Console.WriteLine("|----------|----------:|----------:|");
 
-        foreach (var tfm in Tfms)
+        for (var i = 0; i < Tfms.Length; i++)
         {
+            var tfm = Tfms[i];
             bench.Tfm = tfm;
             bench.IterationSetup();
 

@@ -13,5 +13,5 @@ namespace SourceDocParser;
 /// <param name="FallbackIndex">Filename to absolute path map for resolver fallback.</param>
 public sealed record AssemblyGroup(
     string Tfm,
-    List<string> AssemblyPaths,
+    string[] AssemblyPaths,
     Dictionary<string, string> FallbackIndex);

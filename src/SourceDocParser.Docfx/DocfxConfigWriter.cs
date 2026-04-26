@@ -61,7 +61,7 @@ public static partial class DocfxConfigWriter
         LogDiscoveredRefsTfms(logger, refsTfms);
 
         var template = ReadTemplate();
-        var sharedExtra = ExtractSharedMetadataExtras(template.Metadata.Count > 0 ? template.Metadata[0] : null);
+        var sharedExtra = ExtractSharedMetadataExtras(template.Metadata.Length > 0 ? template.Metadata[0] : null);
 
         var metadataEntries = new List<DocfxMetadataEntry>(libTfms.Count);
         var platformLabels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -94,7 +94,7 @@ public static partial class DocfxConfigWriter
             }
 
             metadataEntries.Add(new(
-                Src: [new($"api/lib/{tfm}", packageDlls)],
+                Src: [new($"api/lib/{tfm}", [.. packageDlls])],
                 Dest: dest)
             {
                 Extra = sharedExtra,
@@ -106,8 +106,8 @@ public static partial class DocfxConfigWriter
         var orderedPlatforms = new List<string>(platformLabels);
         orderedPlatforms.Sort(StringComparer.Ordinal);
 
-        var patchedBuild = DocfxInternalHelpers.PatchBuildSection(template.Build, orderedPlatforms);
-        var generated = new DocfxConfig(metadataEntries, patchedBuild);
+        var patchedBuild = DocfxInternalHelpers.PatchBuildSection(template.Build, [.. orderedPlatforms]);
+        var generated = new DocfxConfig([.. metadataEntries], patchedBuild);
 
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
         WriteConfig(generated, outputPath);
@@ -172,7 +172,7 @@ public static partial class DocfxConfigWriter
 
         writer.WritePropertyName("metadata");
         writer.WriteStartArray();
-        for (var i = 0; i < config.Metadata.Count; i++)
+        for (var i = 0; i < config.Metadata.Length; i++)
         {
             WriteMetadataEntry(writer, config.Metadata[i]);
         }
@@ -198,7 +198,7 @@ public static partial class DocfxConfigWriter
 
         writer.WritePropertyName("src");
         writer.WriteStartArray();
-        for (var i = 0; i < entry.Src.Count; i++)
+        for (var i = 0; i < entry.Src.Length; i++)
         {
             WriteMetadataSource(writer, entry.Src[i]);
         }
@@ -237,7 +237,7 @@ public static partial class DocfxConfigWriter
 
         writer.WritePropertyName("content");
         writer.WriteStartArray();
-        for (var i = 0; i < build.Content.Count; i++)
+        for (var i = 0; i < build.Content.Length; i++)
         {
             WriteBuildContent(writer, build.Content[i]);
         }
@@ -274,10 +274,10 @@ public static partial class DocfxConfigWriter
     /// </summary>
     /// <param name="writer">Destination writer.</param>
     /// <param name="values">Strings to emit.</param>
-    private static void WriteStringArray(Utf8JsonWriter writer, List<string> values)
+    private static void WriteStringArray(Utf8JsonWriter writer, string[] values)
     {
         writer.WriteStartArray();
-        for (var i = 0; i < values.Count; i++)
+        for (var i = 0; i < values.Length; i++)
         {
             writer.WriteStringValue(values[i]);
         }

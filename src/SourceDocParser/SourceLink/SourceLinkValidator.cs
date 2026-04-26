@@ -30,7 +30,7 @@ public sealed partial class SourceLinkValidator : ISourceLinkValidator
 
     /// <inheritdoc />
     /// <exception cref="ArgumentNullException">When <paramref name="entries"/> is null.</exception>
-    public async Task<int> ValidateAsync(List<SourceLinkEntry> entries, bool failOnBroken = false, ILogger? logger = null)
+    public async Task<int> ValidateAsync(SourceLinkEntry[] entries, bool failOnBroken = false, ILogger? logger = null)
     {
         ArgumentNullException.ThrowIfNull(entries);
         logger ??= NullLogger.Instance;
@@ -42,7 +42,7 @@ public sealed partial class SourceLinkValidator : ISourceLinkValidator
         }
 
         var byFileUrl = GroupByFileUrl(entries);
-        LogValidating(logger, byFileUrl.Count, entries.Count);
+        LogValidating(logger, byFileUrl.Count, entries.Length);
 
         var rateLimiter = BuildRateLimiter();
         try
@@ -76,12 +76,12 @@ public sealed partial class SourceLinkValidator : ISourceLinkValidator
 
                         if (response is { IsSuccessStatusCode: false })
                         {
-                            broken.Add(new BrokenLink(url, kvp.Value, $"HTTP {(int)response.StatusCode}"));
+                            broken.Add(new BrokenLink(url, [.. kvp.Value], $"HTTP {(int)response.StatusCode}"));
                         }
                     }
                     catch (Exception ex)
                     {
-                        broken.Add(new BrokenLink(url, kvp.Value, ex.Message));
+                        broken.Add(new BrokenLink(url, [.. kvp.Value], ex.Message));
                     }
                 }).ConfigureAwait(false);
 
@@ -99,11 +99,11 @@ public sealed partial class SourceLinkValidator : ISourceLinkValidator
     /// </summary>
     /// <param name="entries">Entries to group.</param>
     /// <returns>A dictionary mapping file URLs to lists of symbol UIDs.</returns>
-    private static Dictionary<string, List<string>> GroupByFileUrl(List<SourceLinkEntry> entries)
+    private static Dictionary<string, List<string>> GroupByFileUrl(SourceLinkEntry[] entries)
     {
-        var byFileUrl = new Dictionary<string, List<string>>(entries.Count, StringComparer.Ordinal);
+        var byFileUrl = new Dictionary<string, List<string>>(entries.Length, StringComparer.Ordinal);
 
-        for (var i = 0; i < entries.Count; i++)
+        for (var i = 0; i < entries.Length; i++)
         {
             var entry = entries[i];
             var fileUrl = SourceUrlRewriter.StripAnchor(entry.Url);
@@ -168,7 +168,7 @@ public sealed partial class SourceLinkValidator : ISourceLinkValidator
         LogValidationFoundBroken(logger, broken.Count, totalChecked);
         foreach (var entry in broken)
         {
-            LogBrokenEntry(logger, entry.Reason, entry.Url, entry.Uids.Count);
+            LogBrokenEntry(logger, entry.Reason, entry.Url, entry.Uids.Length);
         }
 
         if (!failOnBroken)
@@ -225,5 +225,5 @@ public sealed partial class SourceLinkValidator : ISourceLinkValidator
     /// <param name="Url">Broken URL.</param>
     /// <param name="Uids">Symbols referencing this URL.</param>
     /// <param name="Reason">Reason for failure.</param>
-    private sealed record BrokenLink(string Url, List<string> Uids, string Reason);
+    private sealed record BrokenLink(string Url, string[] Uids, string Reason);
 }

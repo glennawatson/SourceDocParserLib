@@ -38,6 +38,6 @@ public abstract record ApiType(
     string AssemblyName,
     ApiDocumentation Documentation,
     ApiTypeReference? BaseType,
-    List<ApiTypeReference> Interfaces,
+    ApiTypeReference[] Interfaces,
     string? SourceUrl,
-    List<string> AppliesTo);
+    string[] AppliesTo);

@@ -79,7 +79,7 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
         await foreach (var group in source.DiscoverAsync(cancellationToken).ConfigureAwait(false))
         {
             var loader = loaderRegistry.Track(_loaderFactory(logger));
-            groups.Add(new(group, loader, group.AssemblyPaths.Count));
+            groups.Add(new(group, loader, group.AssemblyPaths.Length));
         }
 
         if (groups.Count == 0)
@@ -145,14 +145,14 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
         LogWalkComplete(logger, catalogCount.Value);
         var merged = merger.Build();
 
-        LogEmitting(logger, merged.Count, outputRoot, emitter.GetType().Name);
+        LogEmitting(logger, merged.Length, outputRoot, emitter.GetType().Name);
         var pagesEmitted = await emitter.EmitAsync(merged, outputRoot, cancellationToken).ConfigureAwait(false);
 
         var sourceLinks = CollectSourceLinks(merged);
-        LogEmitComplete(logger, merged.Count, pagesEmitted, sourceLinks.Count, loadFailures);
+        LogEmitComplete(logger, merged.Length, pagesEmitted, sourceLinks.Length, loadFailures);
 
         return new(
-            CanonicalTypes: merged.Count,
+            CanonicalTypes: merged.Length,
             PagesEmitted: pagesEmitted,
             LoadFailures: loadFailures,
             SourceLinks: sourceLinks);
@@ -165,11 +165,11 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
     /// </summary>
     /// <param name="merged">Merged canonical types.</param>
     /// <returns>One entry per documented source URL.</returns>
-    private static List<SourceLinkEntry> CollectSourceLinks(List<ApiType> merged)
+    private static SourceLinkEntry[] CollectSourceLinks(ApiType[] merged)
     {
-        var entries = new List<SourceLinkEntry>(merged.Count * 5);
+        var entries = new List<SourceLinkEntry>(merged.Length * 5);
 
-        for (var t = 0; t < merged.Count; t++)
+        for (var t = 0; t < merged.Length; t++)
         {
             var type = merged[t];
             if (type.SourceUrl is { Length: > 0 } typeUrl)
@@ -189,7 +189,7 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
                 continue;
             }
 
-            for (var m = 0; m < members.Count; m++)
+            for (var m = 0; m < members.Length; m++)
             {
                 var member = members[m];
                 if (member.SourceUrl is { Length: > 0 } memberUrl)
@@ -199,7 +199,7 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
             }
         }
 
-        return entries;
+        return [.. entries];
     }
 
     /// <summary>
@@ -215,7 +215,7 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
         var total = 0;
         for (var i = 0; i < groups.Count; i++)
         {
-            total += groups[i].Group.AssemblyPaths.Count;
+            total += groups[i].Group.AssemblyPaths.Length;
         }
 
         var items = new List<AssemblyWorkItem>(total);
@@ -223,7 +223,7 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
         {
             var owner = groups[i];
             var paths = owner.Group.AssemblyPaths;
-            for (var j = 0; j < paths.Count; j++)
+            for (var j = 0; j < paths.Length; j++)
             {
                 items.Add(new(owner, paths[j], context));
             }
@@ -258,7 +258,7 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
                 logger,
                 LogLevel.Trace,
                 tfm,
-                catalog.Types.Count,
+                catalog.Types.Length,
                 work.AssemblyPath,
                 static assemblyPath => Path.GetFileNameWithoutExtension(assemblyPath),
                 static (l, walkTfm, typeCount, assemblyName) => LogAssemblyWalked(l, walkTfm, assemblyName, typeCount));

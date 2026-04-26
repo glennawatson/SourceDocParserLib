@@ -18,5 +18,5 @@ public interface IDocumentationEmitter
     /// <param name="outputRoot">Destination directory, already cleaned.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Total pages written.</returns>
-    Task<int> EmitAsync(List<ApiType> types, string outputRoot, CancellationToken cancellationToken = default);
+    Task<int> EmitAsync(ApiType[] types, string outputRoot, CancellationToken cancellationToken = default);
 }

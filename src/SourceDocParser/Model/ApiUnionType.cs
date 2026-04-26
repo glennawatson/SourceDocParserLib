@@ -42,10 +42,10 @@ public sealed record ApiUnionType(
     string AssemblyName,
     ApiDocumentation Documentation,
     ApiTypeReference? BaseType,
-    List<ApiTypeReference> Interfaces,
+    ApiTypeReference[] Interfaces,
     string? SourceUrl,
-    List<string> AppliesTo,
-    List<ApiMember> Members,
-    List<ApiTypeReference> Cases) : ApiType(
+    string[] AppliesTo,
+    ApiMember[] Members,
+    ApiTypeReference[] Cases) : ApiType(
         Name, FullName, Uid, Namespace, Arity, IsStatic, IsSealed, IsAbstract,
         AssemblyName, Documentation, BaseType, Interfaces, SourceUrl, AppliesTo);

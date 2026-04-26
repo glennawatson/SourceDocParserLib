@@ -183,9 +183,9 @@ public class XmlDocToMarkdownTests
         await Assert.That(ActReaderWithTokenAsync).Throws<ArgumentNullException>();
         return;
 
-        Task ActReaderAsync() => _converter.ConvertAsync((XmlReader)null!);
+        Task ActReaderAsync() => _converter.ConvertAsync(null!);
 
-        Task ActReaderWithTokenAsync() => _converter.ConvertAsync((XmlReader)null!, CancellationToken.None);
+        Task ActReaderWithTokenAsync() => _converter.ConvertAsync(null!, CancellationToken.None);
     }
 
     /// <summary>

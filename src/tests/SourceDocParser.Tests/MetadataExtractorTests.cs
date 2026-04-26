@@ -88,17 +88,17 @@ public class MetadataExtractorTests
     private sealed class RecordingEmitter : IDocumentationEmitter
     {
         /// <summary>Gets the catalog captured on the most recent invocation.</summary>
-        public List<ApiType> CapturedTypes { get; private set; } = [];
+        public ApiType[] CapturedTypes { get; private set; } = [];
 
         /// <summary>Gets the output root captured on the most recent invocation.</summary>
         public string CapturedOutputRoot { get; private set; } = string.Empty;
 
         /// <inheritdoc />
-        public Task<int> EmitAsync(List<ApiType> types, string outputRoot, CancellationToken cancellationToken = default)
+        public Task<int> EmitAsync(ApiType[] types, string outputRoot, CancellationToken cancellationToken = default)
         {
             CapturedTypes = types;
             CapturedOutputRoot = outputRoot;
-            return Task.FromResult(types.Count);
+            return Task.FromResult(types.Length);
         }
     }
 
@@ -112,8 +112,9 @@ public class MetadataExtractorTests
         /// <inheritdoc />
         public async IAsyncEnumerable<AssemblyGroup> DiscoverAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            foreach (var group in groups)
+            for (var i = 0; i < groups.Count; i++)
             {
+                var group = groups[i];
                 cancellationToken.ThrowIfCancellationRequested();
                 yield return group;
                 await Task.Yield();

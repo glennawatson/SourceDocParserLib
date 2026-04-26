@@ -112,7 +112,109 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         await FetchGroupAsync(libDir, cacheDir, allPackages, config.TfmPreference, logger, cancellationToken).ConfigureAwait(false);
 
         cancellationToken.ThrowIfCancellationRequested();
+
+        // Walk transitive package dependencies via each downloaded
+        // .nupkg's nuspec. Splat → Splat.Core/Splat.Logging/Splat.Builder
+        // is the canonical case — without these the walker can't follow
+        // the type-forwards in the umbrella assembly.
+        await ResolveTransitiveDependenciesAsync(
+            libDir,
+            cacheDir,
+            seenIds,
+            excludeSet,
+            excludePrefixes,
+            config.TfmOverrides,
+            config.TfmPreference,
+            logger,
+            cancellationToken).ConfigureAwait(false);
+
+        cancellationToken.ThrowIfCancellationRequested();
         CopyRefsIntoLibDirs(libDir, refsDir, logger);
+    }
+
+    /// <summary>
+    /// Reads each cached <c>.nupkg</c>'s declared dependency IDs and
+    /// fetches any not yet pulled. Loops until no new IDs surface (or
+    /// a depth cap trips), so a chain like
+    /// <c>Splat → Splat.Core → Microsoft.Bcl.AsyncInterfaces</c>
+    /// resolves end-to-end without manual <c>nuget-packages.json</c>
+    /// edits. Excludes still apply.
+    /// </summary>
+    /// <param name="libDir">Per-TFM lib directory root.</param>
+    /// <param name="cacheDir">Cache directory the FetchGroupAsync downloads land in.</param>
+    /// <param name="seenIds">Already-resolved package IDs — mutated as new ones are queued.</param>
+    /// <param name="excludeSet">Exact-match exclude set.</param>
+    /// <param name="excludePrefixes">Prefix-match excludes.</param>
+    /// <param name="tfmOverrides">Per-package TFM overrides applied to newly-resolved packages.</param>
+    /// <param name="tfmPreference">TFM preference passed through to FetchGroupAsync.</param>
+    /// <param name="logger">Per-iteration progress logger.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A task representing the asynchronous closure.</returns>
+    private static async Task ResolveTransitiveDependenciesAsync(
+        string libDir,
+        string cacheDir,
+        HashSet<string> seenIds,
+        HashSet<string> excludeSet,
+        string[] excludePrefixes,
+        Dictionary<string, string> tfmOverrides,
+        string[] tfmPreference,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        const int maxDepth = 8;
+        var processedNupkgs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        for (var depth = 0; depth < maxDepth; depth++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var newIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var nupkgPath in Directory.EnumerateFiles(cacheDir, "*.nupkg"))
+            {
+                if (!processedNupkgs.Add(nupkgPath))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    foreach (var depId in NuspecDependencyReader.ReadDependencyIds(nupkgPath))
+                    {
+                        if (IsExcluded(depId, excludeSet, excludePrefixes))
+                        {
+                            continue;
+                        }
+
+                        if (seenIds.Add(depId))
+                        {
+                            newIds.Add(depId);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogNuspecReadFailed(logger, ex, nupkgPath);
+                }
+            }
+
+            if (newIds.Count == 0)
+            {
+                return;
+            }
+
+            var newPackages = new (string Id, string? Version, string? Tfm)[newIds.Count];
+            var idx = 0;
+            foreach (var id in newIds)
+            {
+                tfmOverrides.TryGetValue(id, out var tfm);
+                newPackages[idx++] = (id, null, tfm);
+            }
+
+            LogFetchingTransitiveDeps(logger, depth + 1, newPackages.Length);
+            await FetchGroupAsync(libDir, cacheDir, newPackages, tfmPreference, logger, cancellationToken).ConfigureAwait(false);
+        }
+
+        LogTransitiveDepLimitReached(logger, maxDepth);
     }
 
     /// <summary>
@@ -860,6 +962,26 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// <param name="packageCount">Total packages queued for download.</param>
     [LoggerMessage(Level = LogLevel.Information, Message = "Fetching {PackageCount} packages...")]
     private static partial void LogFetchingPackages(ILogger logger, int packageCount);
+
+    /// <summary>Logs each transitive-dependency fetch round.</summary>
+    /// <param name="logger">Target logger.</param>
+    /// <param name="round">1-based round number (depth into the dep graph).</param>
+    /// <param name="count">Number of newly-discovered packages queued in this round.</param>
+    [LoggerMessage(Level = LogLevel.Information, Message = "Fetching transitive dep round {Round}: {Count} new package(s)")]
+    private static partial void LogFetchingTransitiveDeps(ILogger logger, int round, int count);
+
+    /// <summary>Logs a per-nupkg nuspec read failure — non-fatal, the closure loop skips it.</summary>
+    /// <param name="logger">Target logger.</param>
+    /// <param name="ex">Exception thrown while reading the nuspec.</param>
+    /// <param name="nupkgPath">Path to the package whose nuspec we couldn't read.</param>
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not read nuspec dependencies from {NupkgPath}; skipping its transitive deps")]
+    private static partial void LogNuspecReadFailed(ILogger logger, Exception ex, string nupkgPath);
+
+    /// <summary>Logs that we hit the depth cap before reaching a fixed point.</summary>
+    /// <param name="logger">Target logger.</param>
+    /// <param name="maxDepth">Cap value that was hit.</param>
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Transitive dep walk reached depth cap ({MaxDepth}); some deps may not have been resolved")]
+    private static partial void LogTransitiveDepLimitReached(ILogger logger, int maxDepth);
 
     /// <summary>Logs reference assemblies copied from a refs/ TFM into a lib/ TFM directory.</summary>
     /// <param name="logger">Target logger.</param>

@@ -40,12 +40,12 @@ public class MemberPageEmitterTests
     public async Task RenderEmitsEverySignatureForOverloadBucket()
     {
         var type = TestData.ObjectType("Foo");
-        var overloads = new List<ApiMember>
-        {
+        ApiMember[] overloads =
+        [
             NewMember("Run", "void Run()"),
             NewMember("Run", "void Run(int count)"),
             NewMember("Run", "void Run(int count, string label)"),
-        };
+        ];
 
         var page = MemberPageEmitter.Render(type, "Run", overloads);
 

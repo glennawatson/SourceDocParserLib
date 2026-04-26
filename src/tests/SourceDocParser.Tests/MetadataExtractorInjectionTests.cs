@@ -286,8 +286,8 @@ public class MetadataExtractorInjectionTests
     private sealed class RecordingEmitter : IDocumentationEmitter
     {
         /// <inheritdoc />
-        public Task<int> EmitAsync(List<ApiType> types, string outputRoot, CancellationToken cancellationToken = default) =>
-            Task.FromResult(types.Count);
+        public Task<int> EmitAsync(ApiType[] types, string outputRoot, CancellationToken cancellationToken = default) =>
+            Task.FromResult(types.Length);
     }
 
     /// <summary>
@@ -299,8 +299,9 @@ public class MetadataExtractorInjectionTests
         /// <inheritdoc />
         public async IAsyncEnumerable<AssemblyGroup> DiscoverAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            foreach (var group in groups)
+            for (var i = 0; i < groups.Count; i++)
             {
+                var group = groups[i];
                 cancellationToken.ThrowIfCancellationRequested();
                 yield return group;
                 await Task.Yield();

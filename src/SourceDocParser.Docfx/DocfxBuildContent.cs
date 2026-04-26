@@ -14,7 +14,7 @@ namespace SourceDocParser.Docfx;
 /// <see cref="Extra"/>.
 /// </summary>
 /// <param name="Files">Optional list of file globs the entry consumes. <see langword="null"/> for entries that only carry extension data.</param>
-public sealed record DocfxBuildContent(List<string>? Files = null)
+public sealed record DocfxBuildContent(string[]? Files = null)
 {
     /// <summary>
     /// Gets a catch-all bag of additional properties present on the entry in the
