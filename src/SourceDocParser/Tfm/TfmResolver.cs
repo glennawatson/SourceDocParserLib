@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Globalization;
 using NuGet.Frameworks;
 
 namespace SourceDocParser;
@@ -21,6 +22,9 @@ public static class TfmResolver
     /// and reusable; one instance amortises the internal lookup tables across every call.
     /// </summary>
     private static readonly FrameworkReducer _frameworkReducer = new();
+
+    /// <summary>Version-aware comparer — embedded digits compare as numbers (net10 &gt; net9).</summary>
+    private static readonly StringComparer _versionAware = StringComparer.Create(CultureInfo.InvariantCulture, CompareOptions.NumericOrdering);
 
     /// <summary>
     /// Selects every TFM in availableTfms that the resolver would accept.
@@ -158,7 +162,11 @@ public static class TfmResolver
                 continue;
             }
 
-            if (bestNetstandard is null || string.CompareOrdinal(tfm, bestNetstandard) > 0)
+            // NumericOrdering compares embedded version digits as
+            // numbers — netstandard2.1 sorts after netstandard2.0,
+            // and a hypothetical netstandard10.0 sorts after both
+            // (which ordinal would get wrong).
+            if (bestNetstandard is null || _versionAware.Compare(tfm, bestNetstandard) > 0)
             {
                 bestNetstandard = tfm;
             }

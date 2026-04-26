@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.InteropServices;
 using Microsoft.CodeAnalysis;
 
 namespace SourceDocParser;
@@ -27,13 +28,12 @@ internal sealed class NamespaceDisplayNameCache
     /// <returns>The formatted display name.</returns>
     public string GetOrAdd(INamespaceSymbol ns)
     {
-        if (_byNamespace.TryGetValue(ns, out var cached))
+        ref var slot = ref CollectionsMarshal.GetValueRefOrAddDefault(_byNamespace, ns, out var exists);
+        if (!exists)
         {
-            return cached;
+            slot = ns.ToDisplayString();
         }
 
-        var formatted = ns.ToDisplayString();
-        _byNamespace[ns] = formatted;
-        return formatted;
+        return slot!;
     }
 }

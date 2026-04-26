@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.InteropServices;
 using Microsoft.CodeAnalysis;
 
 namespace SourceDocParser;
@@ -30,13 +31,15 @@ internal sealed class TypeReferenceCache
     /// <returns>A formatted <see cref="ApiTypeReference"/>.</returns>
     public ApiTypeReference GetOrAdd(ITypeSymbol type, Func<ITypeSymbol, ApiTypeReference> builder)
     {
-        if (_byType.TryGetValue(type, out var cached))
+        // GetValueRefOrAddDefault collapses TryGetValue + indexer-set
+        // into a single hash lookup; the ref lets us write into the
+        // dictionary's slot directly on a cache miss.
+        ref var slot = ref CollectionsMarshal.GetValueRefOrAddDefault(_byType, type, out var exists);
+        if (!exists)
         {
-            return cached;
+            slot = builder(type);
         }
 
-        var created = builder(type);
-        _byType[type] = created;
-        return created;
+        return slot!;
     }
 }

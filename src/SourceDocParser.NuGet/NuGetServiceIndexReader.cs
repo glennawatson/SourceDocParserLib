@@ -21,13 +21,15 @@ internal static class NuGetServiceIndexReader
     /// </summary>
     private const string FlatContainerTypePrefix = "PackageBaseAddress/3.0.0";
 
+    /// <summary>Strict parse options — duplicate keys throw rather than silently last-one-wins.</summary>
+    private static readonly JsonDocumentOptions _strictDocOptions = new() { AllowDuplicateProperties = false };
+
     /// <summary>Reads the flat-container URL from <paramref name="indexJson"/>.</summary>
     /// <param name="indexJson">UTF-8 bytes of the v3 service-index document.</param>
     /// <returns>The flat-container base URL ending with <c>/</c>; null when none declared.</returns>
     public static string? ReadFlatContainerUrl(ReadOnlySpan<byte> indexJson)
     {
-        var reader = new Utf8JsonReader(indexJson);
-        using var doc = JsonDocument.ParseValue(ref reader);
+        using var doc = JsonDocument.Parse(indexJson.ToArray(), _strictDocOptions);
 
         if (!doc.RootElement.TryGetProperty("resources"u8, out var resources) || resources.ValueKind != JsonValueKind.Array)
         {

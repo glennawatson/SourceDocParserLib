@@ -14,6 +14,9 @@ namespace SourceDocParser.NuGet;
 /// </summary>
 internal static class PackageConfigReader
 {
+    /// <summary>Strict parse options — duplicate keys throw rather than silently last-one-wins.</summary>
+    private static readonly JsonDocumentOptions _strictOptions = new() { AllowDuplicateProperties = false };
+
     /// <summary>
     /// Reads <c>nuget-packages.json</c> at <paramref name="path"/> and
     /// materialises a <see cref="PackageConfig"/>.
@@ -26,7 +29,7 @@ internal static class PackageConfigReader
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-        using var doc = JsonDocument.Parse(File.ReadAllBytes(path));
+        using var doc = JsonDocument.Parse(File.ReadAllBytes(path), _strictOptions);
         var root = doc.RootElement;
 
         if (root.ValueKind != JsonValueKind.Object)
