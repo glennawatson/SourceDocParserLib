@@ -1,0 +1,62 @@
+# Minimal Zensical config for a site that consumes the
+# SourceDocParser.Zensical emitter output under `docs/api/`.
+# Mirrors the mkdocs-Material settings in the sibling mkdocs.yml.
+
+[project]
+name = "My Library"
+url  = "https://example.org/"
+
+# Hand-author top tabs; subdirectories under `api/` are picked up
+# automatically by Zensical's directory walker.
+nav = [
+  { title = "Home", path = "index.md" },
+  { title = "Docs", path = "docs/" },
+  { title = "API",  path = "api/" },
+]
+
+[repository]
+url        = "https://github.com/example/my-library"
+edit       = true
+edit_path  = "edit/main/docs/"
+
+[theme]
+name = "material"
+
+[theme.palette.light]
+scheme = "default"
+
+[theme.palette.dark]
+scheme = "slate"
+
+[theme.features]
+navigation = ["tabs", "sections", "indexes", "tracking"]
+toc        = ["follow"]
+content    = ["code.copy", "code.annotate", "tabs.link"]
+search     = ["suggest", "highlight"]
+
+[plugins]
+search   = {}
+autorefs = {}
+
+# These are required by the emitter output. Mirrors the
+# extension list documented in the package README.
+[markdown.extensions]
+attr_list   = {}
+admonition  = {}
+md_in_html  = {}
+tables      = {}
+def_list    = {}
+footnotes   = {}
+toc         = { permalink = true }
+
+"pymdownx.details"     = {}
+"pymdownx.superfences" = { custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences:fence_code_format" },
+] }
+"pymdownx.tabbed"      = { alternate_style = true }
+"pymdownx.highlight"   = { anchor_linenums = true, line_spans = "__span", pygments_lang_class = true }
+"pymdownx.inlinehilite" = {}
+"pymdownx.snippets"    = {}
+"pymdownx.emoji"       = {}
+"pymdownx.tasklist"    = {}
+"pymdownx.keys"        = {}

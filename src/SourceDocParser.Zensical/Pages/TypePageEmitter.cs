@@ -63,17 +63,30 @@ public static class TypePageEmitter
         var relativePath = PathFor(type, options);
         var fullPath = Path.Combine(outputRoot, relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        File.WriteAllText(fullPath, Render(type));
+        File.WriteAllText(fullPath, Render(type, options));
     }
 
     /// <summary>
-    /// Renders the supplied ApiType into a Markdown string.
+    /// Renders the supplied ApiType into a Markdown string with
+    /// the legacy default cross-link routing (autoref UID
+    /// everywhere, no Microsoft Learn redirects).
     /// </summary>
     /// <param name="type">The type to render.</param>
     /// <returns>The rendered Markdown string.</returns>
-    public static string Render(ApiType type)
+    public static string Render(ApiType type) => Render(type, ZensicalEmitterOptions.Default);
+
+    /// <summary>
+    /// Renders the supplied ApiType into a Markdown string,
+    /// honouring the cross-link routing rules in <paramref name="options"/>
+    /// (BCL types redirect to Microsoft Learn).
+    /// </summary>
+    /// <param name="type">The type to render.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    /// <returns>The rendered Markdown string.</returns>
+    public static string Render(ApiType type, ZensicalEmitterOptions options)
     {
         ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(options);
         var heading = RenderHeading(type);
         var fullDisplayName = ZensicalEmitterHelpers.FormatDisplayTypeName(type.FullName, type.Arity);
         var summary = type.Documentation.Summary is [_, ..] documentedSummary
@@ -103,8 +116,8 @@ public static class TypePageEmitter
             """);
 
         AppendAppliesTo(sb, type.AppliesTo);
-        AppendHierarchy(sb, type);
-        AppendUnionCases(sb, type);
+        AppendHierarchy(sb, type, options);
+        AppendUnionCases(sb, type, options);
 
         if (type.Documentation.Remarks is [_, ..] remarks)
         {
@@ -219,7 +232,8 @@ public static class TypePageEmitter
     /// </remarks>
     /// <param name="sb">The destination string builder.</param>
     /// <param name="type">The type to diagram.</param>
-    private static void AppendHierarchy(StringBuilder sb, ApiType type)
+    /// <param name="options">Routing + cross-link tunables.</param>
+    private static void AppendHierarchy(StringBuilder sb, ApiType type, ZensicalEmitterOptions options)
     {
         if (type is ApiDelegateType or ApiEnumType)
         {
@@ -234,10 +248,10 @@ public static class TypePageEmitter
         var typeNode = MermaidNodeName(type.Name, type.Arity);
         var diagramBody = RenderDiagramBody(type, typeNode);
         var inheritsLine = type.BaseType is { } baseTypeRef
-            ? $"**Inherits from:** {FormatReference(baseTypeRef)}\n\n"
+            ? $"**Inherits from:** {FormatReference(baseTypeRef, options)}\n\n"
             : string.Empty;
         var implementsLine = type.Interfaces is [_, ..]
-            ? $"**Implements:** {FormatReferenceList(type.Interfaces)}\n\n"
+            ? $"**Implements:** {FormatReferenceList(type.Interfaces, options)}\n\n"
             : string.Empty;
 
         sb.Append($"""
@@ -337,7 +351,8 @@ public static class TypePageEmitter
     /// </remarks>
     /// <param name="sb">The destination string builder.</param>
     /// <param name="type">The type to render.</param>
-    private static void AppendUnionCases(StringBuilder sb, ApiType type)
+    /// <param name="options">Routing + cross-link tunables.</param>
+    private static void AppendUnionCases(StringBuilder sb, ApiType type, ZensicalEmitterOptions options)
     {
         if (type is not ApiUnionType { Cases: [_, ..] } union)
         {
@@ -346,7 +361,7 @@ public static class TypePageEmitter
 
         var unionNode = MermaidNodeName(union.Name, union.Arity);
         var diagramBody = RenderUnionDiagramBody(union.Cases, unionNode);
-        var caseRows = RenderUnionCaseRows(union.Cases);
+        var caseRows = RenderUnionCaseRows(union.Cases, options);
 
         sb.Append($"""
 
@@ -394,15 +409,16 @@ public static class TypePageEmitter
     /// Renders the union-cases table.
     /// </summary>
     /// <param name="cases">The case type references.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
     /// <returns>The Markdown table rows for the union cases.</returns>
-    private static string RenderUnionCaseRows(ApiTypeReference[] cases)
+    private static string RenderUnionCaseRows(ApiTypeReference[] cases, ZensicalEmitterOptions options)
     {
         var sb = new StringBuilder(capacity: cases.Length * InitialPageCapacity / 16);
         sb.Append("| Case | Description |\n| ---- | ----------- |\n");
 
         for (var i = 0; i < cases.Length; i++)
         {
-            sb.Append("| ").Append(FormatReference(cases[i])).AppendLine(" |  |");
+            sb.Append("| ").Append(FormatReference(cases[i], options)).AppendLine(" |  |");
         }
 
         return sb.ToString();
@@ -412,8 +428,9 @@ public static class TypePageEmitter
     /// Joins a list of type references into a comma-separated Markdown string.
     /// </summary>
     /// <param name="references">The references to format.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
     /// <returns>A comma-separated list of formatted references.</returns>
-    private static string FormatReferenceList(ApiTypeReference[] references)
+    private static string FormatReferenceList(ApiTypeReference[] references, ZensicalEmitterOptions options)
     {
         var sb = new StringBuilder(capacity: references.Length * InitialModifierCapacity);
         for (var i = 0; i < references.Length; i++)
@@ -423,24 +440,22 @@ public static class TypePageEmitter
                 sb.Append(", ");
             }
 
-            sb.Append(FormatReference(references[i]));
+            sb.Append(FormatReference(references[i], options));
         }
 
         return sb.ToString();
     }
 
     /// <summary>
-    /// Renders an <see cref="ApiTypeReference"/> as a Markdown string.
+    /// Renders an <see cref="ApiTypeReference"/> as a Markdown string —
+    /// autoref key for primary-package types, Microsoft Learn URL
+    /// for BCL types, inline code as the final fallback.
     /// </summary>
-    /// <remarks>
-    /// Renders as an autorefs link if a UID is present; otherwise, as inline code.
-    /// </remarks>
     /// <param name="reference">The reference to render.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
     /// <returns>The formatted reference string.</returns>
-    private static string FormatReference(ApiTypeReference reference) =>
-        reference.Uid is [_, ..] uid
-            ? $"[{reference.DisplayName}][{uid}]"
-            : $"`{reference.DisplayName}`";
+    private static string FormatReference(ApiTypeReference reference, ZensicalEmitterOptions options) =>
+        CrossLinkRouter.Format(reference, options);
 
     /// <summary>
     /// Builds a Mermaid-safe node name from a type display name.

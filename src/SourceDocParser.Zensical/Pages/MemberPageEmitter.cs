@@ -35,15 +35,28 @@ public static class MemberPageEmitter
     /// <param name="memberName">The member name.</param>
     /// <param name="overloads">The overloads to render.</param>
     /// <returns>The rendered Markdown.</returns>
-    public static string Render(ApiType containingType, string memberName, ApiMember[] overloads)
+    public static string Render(ApiType containingType, string memberName, ApiMember[] overloads) =>
+        Render(containingType, memberName, overloads, ZensicalEmitterOptions.Default);
+
+    /// <summary>
+    /// Renders the Markdown for a set of overloads, honouring
+    /// per-package routing rules from <paramref name="options"/>.
+    /// </summary>
+    /// <param name="containingType">The declaring type.</param>
+    /// <param name="memberName">The member name.</param>
+    /// <param name="overloads">The overloads to render.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    /// <returns>The rendered Markdown.</returns>
+    public static string Render(ApiType containingType, string memberName, ApiMember[] overloads, ZensicalEmitterOptions options)
     {
         ArgumentNullException.ThrowIfNull(containingType);
         ArgumentException.ThrowIfNullOrWhiteSpace(memberName);
         ArgumentNullException.ThrowIfNull(overloads);
+        ArgumentNullException.ThrowIfNull(options);
         var first = overloads[0];
         var heading = $"{containingType.Name}.{memberName}";
         var kindLabel = MemberKindLabel(first.Kind);
-        var typePagePath = TypePageEmitter.PathFor(containingType);
+        var typePagePath = TypePageEmitter.PathFor(containingType, options);
         var typeName = ZensicalEmitterHelpers.FormatDisplayTypeName(containingType.Name, containingType.Arity);
 
         var sb = new StringBuilder(capacity: InitialPageCapacity);
@@ -76,14 +89,14 @@ public static class MemberPageEmitter
 
         if (overloads is [var single])
         {
-            AppendSingleOverload(sb, single);
+            AppendSingleOverload(sb, single, options);
             return sb.ToString();
         }
 
         AppendOverloadList(sb, overloads);
         for (var i = 0; i < overloads.Length; i++)
         {
-            AppendNumberedOverload(sb, overloads[i], i + 1);
+            AppendNumberedOverload(sb, overloads[i], i + 1, options);
         }
 
         return sb.ToString();
@@ -150,7 +163,7 @@ public static class MemberPageEmitter
         var relativePath = PathFor(containingType, memberName, options);
         var fullPath = Path.Combine(outputRoot, relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        File.WriteAllText(fullPath, Render(containingType, memberName, overloads));
+        File.WriteAllText(fullPath, Render(containingType, memberName, overloads, options));
     }
 
     /// <summary>
@@ -159,10 +172,11 @@ public static class MemberPageEmitter
     /// </summary>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="member">Member to render.</param>
-    private static void AppendSingleOverload(StringBuilder sb, ApiMember member)
+    /// <param name="options">Routing + cross-link tunables.</param>
+    private static void AppendSingleOverload(StringBuilder sb, ApiMember member, ZensicalEmitterOptions options)
     {
         AppendSignatureBlock(sb, member);
-        AppendSections(sb, member);
+        AppendSections(sb, member, options);
     }
 
     /// <summary>
@@ -198,11 +212,12 @@ public static class MemberPageEmitter
     /// <param name="sb">Destination buffer.</param>
     /// <param name="member">Overload to render.</param>
     /// <param name="ordinal">1-based overload index for the heading.</param>
-    private static void AppendNumberedOverload(StringBuilder sb, ApiMember member, int ordinal)
+    /// <param name="options">Routing + cross-link tunables.</param>
+    private static void AppendNumberedOverload(StringBuilder sb, ApiMember member, int ordinal, ZensicalEmitterOptions options)
     {
         sb.Append("\n### ").Append(ordinal).Append(". Overload\n\n");
         AppendSignatureBlock(sb, member);
-        AppendSections(sb, member);
+        AppendSections(sb, member, options);
     }
 
     /// <summary>
@@ -233,7 +248,8 @@ public static class MemberPageEmitter
     /// </summary>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="member">Member to render.</param>
-    private static void AppendSections(StringBuilder sb, ApiMember member)
+    /// <param name="options">Routing + cross-link tunables.</param>
+    private static void AppendSections(StringBuilder sb, ApiMember member, ZensicalEmitterOptions options)
     {
         var doc = member.Documentation;
 
@@ -259,12 +275,12 @@ public static class MemberPageEmitter
 
         if (member.Parameters is [_, ..])
         {
-            AppendParametersSection(sb, member, doc);
+            AppendParametersSection(sb, member, doc, options);
         }
 
         if (member.ReturnType is { } returnType)
         {
-            AppendReturnsSection(sb, returnType, doc.Returns);
+            AppendReturnsSection(sb, returnType, doc.Returns, options);
         }
 
         if (doc.Value is [_, ..] val)
@@ -279,7 +295,7 @@ public static class MemberPageEmitter
 
         if (doc.Exceptions is [_, ..] exceptions)
         {
-            AppendExceptionsSection(sb, exceptions);
+            AppendExceptionsSection(sb, exceptions, options);
         }
 
         if (doc.Examples is [_, ..] examples)
@@ -292,7 +308,7 @@ public static class MemberPageEmitter
             return;
         }
 
-        AppendSeeAlsoSection(sb, doc.SeeAlso);
+        AppendSeeAlsoSection(sb, doc.SeeAlso, options);
     }
 
     /// <summary>
@@ -323,7 +339,8 @@ public static class MemberPageEmitter
     /// <param name="sb">Destination buffer.</param>
     /// <param name="member">Member with the parameters.</param>
     /// <param name="doc">Member documentation containing the param descriptions.</param>
-    private static void AppendParametersSection(StringBuilder sb, ApiMember member, ApiDocumentation doc)
+    /// <param name="options">Routing + cross-link tunables.</param>
+    private static void AppendParametersSection(StringBuilder sb, ApiMember member, ApiDocumentation doc, ZensicalEmitterOptions options)
     {
         sb.Append("**Parameters**\n\n| Name | Type | Description |\n| ---- | ---- | ----------- |\n");
         for (var i = 0; i < member.Parameters.Length; i++)
@@ -336,7 +353,7 @@ public static class MemberPageEmitter
                 sb.Append(" = ").Append(def);
             }
 
-            sb.Append("` | ").Append(FormatTypeReference(p.Type))
+            sb.Append("` | ").Append(FormatTypeReference(p.Type, options))
               .Append(" | ").Append(TableEscape(LookupDescription(doc.Parameters, p.Name))).Append(" |\n");
         }
 
@@ -348,10 +365,11 @@ public static class MemberPageEmitter
     /// </summary>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="returnType">The return type reference.</param>
-    /// <param name="returnsDoc">The &lt;returns&gt; doc text, or empty.</param>
-    private static void AppendReturnsSection(StringBuilder sb, ApiTypeReference returnType, string returnsDoc)
+    /// <param name="returnsDoc">The returns doc text, or empty.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    private static void AppendReturnsSection(StringBuilder sb, ApiTypeReference returnType, string returnsDoc, ZensicalEmitterOptions options)
     {
-        sb.Append("**Returns:** ").Append(FormatTypeReference(returnType));
+        sb.Append("**Returns:** ").Append(FormatTypeReference(returnType, options));
         if (returnsDoc is [_, ..])
         {
             sb.Append(" — ").Append(returnsDoc);
@@ -365,13 +383,14 @@ public static class MemberPageEmitter
     /// </summary>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="exceptions">Exception entries.</param>
-    private static void AppendExceptionsSection(StringBuilder sb, DocEntry[] exceptions)
+    /// <param name="options">Routing + cross-link tunables.</param>
+    private static void AppendExceptionsSection(StringBuilder sb, DocEntry[] exceptions, ZensicalEmitterOptions options)
     {
         sb.Append("**Exceptions**\n\n| Type | Condition |\n| ---- | --------- |\n");
         for (var i = 0; i < exceptions.Length; i++)
         {
             var (name, value) = exceptions[i];
-            sb.Append("| ").Append(FormatXref(name)).Append(" | ").Append(TableEscape(value)).Append(" |\n");
+            sb.Append("| ").Append(FormatXref(name, options)).Append(" | ").Append(TableEscape(value)).Append(" |\n");
         }
 
         sb.Append('\n');
@@ -396,12 +415,13 @@ public static class MemberPageEmitter
     /// </summary>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="seeAlso">Related symbol UIDs.</param>
-    private static void AppendSeeAlsoSection(StringBuilder sb, string[] seeAlso)
+    /// <param name="options">Routing + cross-link tunables.</param>
+    private static void AppendSeeAlsoSection(StringBuilder sb, string[] seeAlso, ZensicalEmitterOptions options)
     {
         sb.Append("**See also**\n\n");
         for (var i = 0; i < seeAlso.Length; i++)
         {
-            sb.Append("- ").AppendLine(FormatXref(seeAlso[i]));
+            sb.Append("- ").AppendLine(FormatXref(seeAlso[i], options));
         }
 
         sb.AppendLine();
@@ -461,20 +481,21 @@ public static class MemberPageEmitter
     /// Renders a type reference.
     /// </summary>
     /// <param name="reference">The reference.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
     /// <returns>The rendered text.</returns>
-    private static string FormatTypeReference(ApiTypeReference reference) =>
-        reference.Uid is [_, ..] uid
-            ? $"[`{reference.DisplayName}`][{uid}]"
-            : $"`{reference.DisplayName}`";
+    private static string FormatTypeReference(ApiTypeReference reference, ZensicalEmitterOptions options) =>
+        CrossLinkRouter.Format(reference, options);
 
     /// <summary>
-    /// Renders a cross-reference.
+    /// Renders a cross-reference cref UID by routing it through
+    /// the same BCL/autoref/fallback rules as type references.
     /// </summary>
     /// <param name="cref">The cref UID.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
     /// <returns>The rendered link.</returns>
-    private static string FormatXref(string cref) =>
+    private static string FormatXref(string cref, ZensicalEmitterOptions options) =>
         cref is [_, ':', ..]
-            ? $"[`{cref[2..]}`][{cref}]"
+            ? CrossLinkRouter.Format(new ApiTypeReference(cref[2..], cref), options)
             : $"`{cref}`";
 
     /// <summary>
