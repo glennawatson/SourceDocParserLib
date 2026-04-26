@@ -6,4 +6,4 @@
 // trees, and emit pages — all heavy disk + network I/O. Run the
 // whole assembly serially so concurrent tests don't fan out the
 // /tmp scratch usage or fight over the shared global package cache.
-[assembly: TUnit.Core.NotInParallel]
+[assembly: NotInParallel]

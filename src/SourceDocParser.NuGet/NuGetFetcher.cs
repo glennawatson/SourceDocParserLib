@@ -5,6 +5,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
 using System.Reflection.PortableExecutable;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using NuGet.Versioning;
@@ -25,29 +26,6 @@ namespace SourceDocParser.NuGet;
 /// </remarks>
 public sealed partial class NuGetFetcher : INuGetFetcher
 {
-    /// <summary>Default-skip prefixes for the transitive-dep walk — packages that ship native code or RID-specific runtime payloads with zero managed types our walker can do anything with.</summary>
-    /// <remarks>
-    /// Concrete sizes seen in the wild:
-    /// <list type="bullet">
-    ///   <item><c>runtime.win10-x64.microsoft.net.native.sharedlibrary</c> — 94 MB pure native Windows DLLs</item>
-    ///   <item><c>Microsoft.NETCore.UniversalWindowsPlatform</c> — UWP umbrella, hundreds of MB across deps</item>
-    ///   <item><c>runtime.&lt;rid&gt;.runtime.native.System.Security.Cryptography.OpenSsl</c> — Linux distro-specific OpenSSL natives</item>
-    /// </list>
-    /// User-supplied <c>additionalPackages</c> with these IDs still get fetched (the override path); the skip only fires on transitive discovery.
-    /// </remarks>
-    internal static readonly string[] DefaultTransitiveSkipPrefixes =
-    [
-        "runtime.",
-        "Microsoft.NET.Native.",
-        "Microsoft.NETCore.Native.",
-        "Microsoft.NETCore.UniversalWindowsPlatform",
-        "Microsoft.NETCore.Targets",
-        "Microsoft.NETCore.Platforms",
-        "Microsoft.NETCore.Jit",
-        "Microsoft.NETCore.Runtime.",
-        "Microsoft.NETCore.Portable.",
-    ];
-
     /// <summary>
     /// Maximum number of NuGet packages downloaded in parallel. Kept small
     /// to stay friendly to the NuGet feed and avoid rate-limit responses.
@@ -59,12 +37,6 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// surfacing the failure.
     /// </summary>
     private const int RetryAttempts = 6;
-
-    /// <summary>
-    /// The NuGet search service interface implemented by the endpoint we
-    /// consult. Pinned to 3.5.0 because it returns owner-filtered results.
-    /// </summary>
-    private const string SearchQueryServiceType = "SearchQueryService/3.5.0";
 
     /// <summary>
     /// Base URI of the NuGet v3 service index used for endpoint discovery.
@@ -94,7 +66,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         Directory.CreateDirectory(cacheDir);
         Directory.CreateDirectory(refsDir);
 
-        if (config.ReferencePackages.Length > 0)
+        if (config.ReferencePackages is [_, ..])
         {
             await FetchReferencePackagesAsync(config.ReferencePackages, refsDir, cacheDir, logger, cancellationToken).ConfigureAwait(false);
         }
@@ -183,16 +155,16 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     {
         for (var i = 0; i < excludeIds.Length; i++)
         {
-            if (string.Equals(id, excludeIds[i], StringComparison.OrdinalIgnoreCase))
+            if (id.Equals(excludeIds[i], StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
         }
 
+        var idSpan = id.AsSpan();
         for (var i = 0; i < excludePrefixes.Length; i++)
         {
-            var prefix = excludePrefixes[i];
-            if (id.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            if (idSpan.StartsWith(excludePrefixes[i], StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
@@ -213,15 +185,63 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     internal static bool IsDefaultTransitiveSkip(string id)
     {
         ArgumentNullException.ThrowIfNull(id);
-        for (var i = 0; i < DefaultTransitiveSkipPrefixes.Length; i++)
+
+        ReadOnlySpan<char> s = id.AsSpan();
+
+        if (s.Length == 0)
         {
-            if (id.StartsWith(DefaultTransitiveSkipPrefixes[i], StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
+            return false;
         }
 
-        return false;
+        return (s[0] | 0x20) switch
+        {
+            'r' => s.StartsWith("runtime.", StringComparison.OrdinalIgnoreCase),
+            'm' => IsMicrosoftDefaultTransitiveSkip(s),
+            _ => false
+        };
+    }
+
+    /// <summary>
+    /// Determines whether the specified identifier represents a Microsoft default transitive dependency
+    /// that should be skipped during processing.
+    /// </summary>
+    /// <param name="s">The span of characters representing the identifier to evaluate.</param>
+    /// <returns>
+    /// <c>true</c> if the identifier matches patterns for Microsoft default transitive dependencies
+    /// that are to be skipped; otherwise, <c>false</c>.
+    /// </returns>
+    internal static bool IsMicrosoftDefaultTransitiveSkip(ReadOnlySpan<char> s)
+    {
+        const string microsoftNet = "Microsoft.NET";
+
+        if (!s.StartsWith(microsoftNet, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        s = s[microsoftNet.Length..];
+
+        if (s.StartsWith(".Native.", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        const string core = "Core.";
+
+        if (!s.StartsWith(core, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        s = s[core.Length..];
+
+        return s.StartsWith("Native.", StringComparison.OrdinalIgnoreCase)
+               || s.StartsWith("UniversalWindowsPlatform", StringComparison.OrdinalIgnoreCase)
+               || s.StartsWith("Targets", StringComparison.OrdinalIgnoreCase)
+               || s.StartsWith("Platforms", StringComparison.OrdinalIgnoreCase)
+               || s.StartsWith("Jit", StringComparison.OrdinalIgnoreCase)
+               || s.StartsWith("Runtime.", StringComparison.OrdinalIgnoreCase)
+               || s.StartsWith("Portable.", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -630,9 +650,6 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// <param name="cancellationToken">Cancellation token honoured by the HTTP request.</param>
     /// <returns>The resolved search endpoint URI.</returns>
     /// <exception cref="InvalidOperationException">Thrown when the service index does not advertise the required search service type.</exception>
-    /// <remarks>
-    /// Consults the service index for the type registered as <see cref="SearchQueryServiceType"/>.
-    /// </remarks>
     private static async Task<Uri> ResolveSearchEndpointAsync(
         HttpClient client,
         AsyncRetryPolicy retryPolicy,
@@ -651,7 +668,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
 
                 foreach (var resource in doc.RootElement.GetProperty("resources"u8).EnumerateArray())
                 {
-                    if (resource.GetProperty("@type"u8).GetString() != SearchQueryServiceType)
+                    if (!resource.GetProperty("@type"u8).ValueEquals("SearchQueryService/3.5.0"u8))
                     {
                         continue;
                     }
@@ -667,7 +684,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
             cancellationToken).ConfigureAwait(false);
 
         return endpoint ?? throw new InvalidOperationException(
-            $"Could not find {SearchQueryServiceType} in NuGet service index");
+            $"Could not find {Encoding.UTF8.GetString("SearchQueryService/3.5.0"u8)} in NuGet service index");
     }
 
     /// <summary>

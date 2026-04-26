@@ -60,8 +60,9 @@ internal static class PackageConfigReader
         }
 
         var result = new string[element.GetArrayLength()];
+        var array = element.EnumerateArray();
         var i = 0;
-        foreach (var item in element.EnumerateArray())
+        foreach (var item in array)
         {
             result[i++] = item.GetString() ?? string.Empty;
         }
@@ -82,8 +83,9 @@ internal static class PackageConfigReader
         }
 
         var result = new AdditionalPackage[element.GetArrayLength()];
+        var array = element.EnumerateArray();
         var i = 0;
-        foreach (var item in element.EnumerateArray())
+        foreach (var item in array)
         {
             result[i++] = new(
                 Id: GetRequiredString(item, "id"u8, "additionalPackages"u8),
@@ -106,8 +108,9 @@ internal static class PackageConfigReader
         }
 
         var result = new ReferencePackage[element.GetArrayLength()];
+        var array = element.EnumerateArray();
         var i = 0;
-        foreach (var item in element.EnumerateArray())
+        foreach (var item in array)
         {
             result[i++] = new(
                 Id: GetRequiredString(item, "id"u8, "referencePackages"u8),
@@ -184,6 +187,11 @@ internal static class PackageConfigReader
             _ when propertyName.SequenceEqual("pathPrefix"u8) => "pathPrefix",
             _ when propertyName.SequenceEqual("additionalPackages"u8) => "additionalPackages",
             _ when propertyName.SequenceEqual("referencePackages"u8) => "referencePackages",
+            _ when propertyName.SequenceEqual("nugetPackageOwners"u8) => "nugetPackageOwners",
+            _ when propertyName.SequenceEqual("tfmPreference"u8) => "tfmPreference",
+            _ when propertyName.SequenceEqual("excludePackages"u8) => "excludePackages",
+            _ when propertyName.SequenceEqual("excludePackagePrefixes"u8) => "excludePackagePrefixes",
+            _ when propertyName.SequenceEqual("tfmOverrides"u8) => "tfmOverrides",
             _ => "unknown"
         };
 }

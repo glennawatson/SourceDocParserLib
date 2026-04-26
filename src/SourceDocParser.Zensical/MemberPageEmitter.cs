@@ -77,14 +77,13 @@ public static class MemberPageEmitter
         if (overloads is [var single])
         {
             AppendSingleOverload(sb, single);
+            return sb.ToString();
         }
-        else
+
+        AppendOverloadList(sb, overloads);
+        for (var i = 0; i < overloads.Length; i++)
         {
-            AppendOverloadList(sb, overloads);
-            for (var i = 0; i < overloads.Length; i++)
-            {
-                AppendNumberedOverload(sb, overloads[i], i + 1);
-            }
+            AppendNumberedOverload(sb, overloads[i], i + 1);
         }
 
         return sb.ToString();
@@ -258,12 +257,12 @@ public static class MemberPageEmitter
             AppendExamplesSection(sb, examples);
         }
 
-        if (doc.SeeAlso is not [_, ..] seeAlso)
+        if (doc.SeeAlso is not [_, ..])
         {
             return;
         }
 
-        AppendSeeAlsoSection(sb, seeAlso);
+        AppendSeeAlsoSection(sb, doc.SeeAlso);
     }
 
     /// <summary>

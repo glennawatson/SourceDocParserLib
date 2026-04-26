@@ -443,3 +443,9 @@ site/
 
 # NuGet pack output (generated locally by GeneratePackageOnBuild)
 artifacts/
+
+# JetBrains Rider / IntelliJ IDEA per-user / per-project state.
+.idea/
+*.iml
+*.iws
+*.ipr

@@ -159,12 +159,12 @@ internal static class NuspecDependencyReader
     public static bool IsRootNuspecEntry(string entryName)
     {
         ArgumentNullException.ThrowIfNull(entryName);
-        if (!entryName.EndsWith(".nuspec", StringComparison.OrdinalIgnoreCase))
+        if (entryName is not [.., '.', 'n', 'u', 's', 'p', 'e', 'c'] && !entryName.EndsWith(".nuspec", StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
 
-        return entryName.IndexOf('/') < 0 && entryName.IndexOf('\\') < 0;
+        return entryName.AsSpan().IndexOfAny('/', '\\') < 0;
     }
 
     /// <summary>
@@ -185,7 +185,6 @@ internal static class NuspecDependencyReader
         }
 
         var ns = reader.NamespaceURI;
-        return ns is []
-            || ns.StartsWith(NuspecNamespacePrefix, StringComparison.Ordinal);
+        return ns is [] || ns.StartsWith(NuspecNamespacePrefix, StringComparison.Ordinal);
     }
 }

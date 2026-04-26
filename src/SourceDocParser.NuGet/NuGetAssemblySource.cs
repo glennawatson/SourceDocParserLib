@@ -124,7 +124,7 @@ public sealed class NuGetAssemblySource : IAssemblySource
     internal static string[] BuildPrimaryPrefixes(PackageConfig config)
     {
         ArgumentNullException.ThrowIfNull(config);
-        if (config.AdditionalPackages.Length == 0)
+        if (config.AdditionalPackages is not [_, ..])
         {
             return [];
         }
@@ -133,7 +133,7 @@ public sealed class NuGetAssemblySource : IAssemblySource
         for (var i = 0; i < config.AdditionalPackages.Length; i++)
         {
             var id = config.AdditionalPackages[i].Id;
-            if (string.IsNullOrEmpty(id))
+            if (id is null or [])
             {
                 continue;
             }
@@ -161,11 +161,12 @@ public sealed class NuGetAssemblySource : IAssemblySource
     {
         ArgumentNullException.ThrowIfNull(dllNameWithoutExt);
         ArgumentNullException.ThrowIfNull(primaryPrefixes);
-        if (primaryPrefixes.Length == 0)
+        if (primaryPrefixes is not [_, ..])
         {
             return true;
         }
 
+        var dllNameSpan = dllNameWithoutExt.AsSpan();
         for (var i = 0; i < primaryPrefixes.Length; i++)
         {
             var prefix = primaryPrefixes[i];
@@ -175,8 +176,8 @@ public sealed class NuGetAssemblySource : IAssemblySource
             // BuildPrimaryPrefixes layout pairs them so this single loop
             // handles both shapes without a second pass.
             if ((i & 1) == 0
-                ? dllNameWithoutExt.Equals(prefix, StringComparison.OrdinalIgnoreCase)
-                : dllNameWithoutExt.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                ? dllNameSpan.Equals(prefix, StringComparison.OrdinalIgnoreCase)
+                : dllNameSpan.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
