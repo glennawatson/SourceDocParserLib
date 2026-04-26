@@ -46,7 +46,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     /// </summary>
     /// <param name="type">Type whose page to render.</param>
     /// <returns>The full YAML page text.</returns>
-    public static string Render(ApiType type) => Render(type, _emptyUidSet);
+    public static string Render(ApiType type) => Render(type, _emptyUidSet, DocfxCatalogIndexes.Empty);
 
     /// <summary>
     /// Renders a single docfx ManagedReference page using
@@ -57,15 +57,30 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     /// <param name="type">Type whose page to render.</param>
     /// <param name="internalUids">UIDs of every type emitted by the current run.</param>
     /// <returns>The full YAML page text.</returns>
-    public static string Render(ApiType type, HashSet<string> internalUids)
+    public static string Render(ApiType type, HashSet<string> internalUids) =>
+        Render(type, internalUids, DocfxCatalogIndexes.Empty);
+
+    /// <summary>
+    /// Catalog-aware render: in addition to the reference enrichment
+    /// performed by the two-arg overload, populates the type item with
+    /// the <c>derivedClasses</c>, <c>inheritedMembers</c>, and
+    /// <c>extensionMethods</c> rollups pre-computed by
+    /// <see cref="DocfxCatalogIndexes.Build"/>.
+    /// </summary>
+    /// <param name="type">Type whose page to render.</param>
+    /// <param name="internalUids">UIDs of every type emitted by the current run.</param>
+    /// <param name="indexes">Catalog rollups; pass <see cref="DocfxCatalogIndexes.Empty"/> to skip them.</param>
+    /// <returns>The full YAML page text.</returns>
+    public static string Render(ApiType type, HashSet<string> internalUids, DocfxCatalogIndexes indexes)
     {
         ArgumentNullException.ThrowIfNull(type);
         ArgumentNullException.ThrowIfNull(internalUids);
+        ArgumentNullException.ThrowIfNull(indexes);
 
         return new StringBuilder(InitialPageCapacity)
             .Append(YamlMimeHeader).Append('\n')
             .Append("items:\n")
-            .AppendTypeItem(type)
+            .AppendTypeItem(type, indexes)
             .AppendMemberItems(type)
             .AppendPageReferences(CollectReferences(type), internalUids)
             .ToString();
@@ -93,6 +108,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
         ArgumentException.ThrowIfNullOrWhiteSpace(outputRoot);
 
         var internalUids = BuildInternalUidSet(types);
+        var indexes = DocfxCatalogIndexes.Build(types);
         var pages = 0;
         for (var i = 0; i < types.Length; i++)
         {
@@ -111,7 +127,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
                 Directory.CreateDirectory(directory);
             }
 
-            await File.WriteAllTextAsync(fullPath, Render(type, internalUids), cancellationToken).ConfigureAwait(false);
+            await File.WriteAllTextAsync(fullPath, Render(type, internalUids, indexes), cancellationToken).ConfigureAwait(false);
             pages++;
         }
 

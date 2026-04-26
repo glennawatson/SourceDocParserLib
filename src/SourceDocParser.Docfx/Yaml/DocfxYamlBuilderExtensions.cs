@@ -28,7 +28,23 @@ internal static class DocfxYamlBuilderExtensions
     /// <param name="sb">Destination builder.</param>
     /// <param name="type">Type whose item entry to write.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
-    public static StringBuilder AppendTypeItem(this StringBuilder sb, ApiType type)
+    public static StringBuilder AppendTypeItem(this StringBuilder sb, ApiType type) =>
+        sb.AppendTypeItem(type, DocfxCatalogIndexes.Empty);
+
+    /// <summary>
+    /// Catalog-aware overload of <see cref="AppendTypeItem(StringBuilder, ApiType)"/>.
+    /// Emits the same type item plus the <c>derivedClasses</c>,
+    /// <c>inheritedMembers</c>, <c>extensionMethods</c>, and
+    /// <c>seealso</c> blocks pulled from <paramref name="indexes"/> —
+    /// whichever entries exist for the type. Fields are written in
+    /// docfx's display order so the output diffs cleanly against
+    /// <c>dotnet docfx metadata</c>.
+    /// </summary>
+    /// <param name="sb">Destination builder.</param>
+    /// <param name="type">Type whose item entry to write.</param>
+    /// <param name="indexes">Pre-built catalog rollups; supply <see cref="DocfxCatalogIndexes.Empty"/> to skip the rollups.</param>
+    /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
+    public static StringBuilder AppendTypeItem(this StringBuilder sb, ApiType type, DocfxCatalogIndexes indexes)
     {
         sb.Append("- uid: ").AppendScalar(DocfxCommentId.ToUid(type.Uid)).AppendLine()
             .AppendIfPresent("  commentId: ", DocfxCommentId.ForType(type))
@@ -48,6 +64,10 @@ internal static class DocfxYamlBuilderExtensions
             .AppendBlockScalar("  summary: ", type.Documentation.Summary)
             .AppendBlockScalar("  remarks: ", type.Documentation.Remarks)
             .AppendInheritance(type)
+            .AppendDerivedClasses(indexes.GetDerived(type.Uid))
+            .AppendInheritedMembers(indexes.GetInherited(type.Uid))
+            .AppendExtensionMethods(indexes.GetExtensions(type.Uid))
+            .AppendSeealso(type.Documentation.SeeAlso)
             .AppendKindSpecificSyntax(type)
             .AppendAttributes(type.Attributes);
         return sb;
@@ -227,6 +247,109 @@ internal static class DocfxYamlBuilderExtensions
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendInterface(this StringBuilder sb, ApiTypeReference iface) =>
         sb.Append("  - ").AppendScalar(iface is { Uid: [_, ..] uid } ? DocfxCommentId.ToUid(uid) : iface.DisplayName).AppendLine();
+
+    /// <summary>
+    /// Writes the <c>derivedClasses:</c> block listing immediate
+    /// subclasses found during the catalog pre-pass. No-op when the
+    /// type has no derivers — the empty-list path is the singleton
+    /// the shared <see cref="Array.Empty{T}"/> singleton, so the early
+    /// return is branch-and-bail with no allocation.
+    /// </summary>
+    /// <param name="sb">Destination builder.</param>
+    /// <param name="derived">Derived-class refs from <see cref="DocfxCatalogIndexes.GetDerived"/>.</param>
+    /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
+    public static StringBuilder AppendDerivedClasses(this StringBuilder sb, ApiTypeReference[] derived)
+    {
+        if (derived is [])
+        {
+            return sb;
+        }
+
+        sb.Append("  derivedClasses:\n");
+        for (var i = 0; i < derived.Length; i++)
+        {
+            var reference = derived[i];
+            sb.Append("  - ").AppendScalar(reference.Uid is [_, ..] uid ? DocfxCommentId.ToUid(uid) : reference.DisplayName).AppendLine();
+        }
+
+        return sb;
+    }
+
+    /// <summary>
+    /// Writes the <c>inheritedMembers:</c> block — uids the catalog
+    /// index pre-computed (one base level + the System.Object baseline
+    /// for class types). No-op when the list is empty.
+    /// </summary>
+    /// <param name="sb">Destination builder.</param>
+    /// <param name="inherited">Inherited member uids from <see cref="DocfxCatalogIndexes.GetInherited"/>.</param>
+    /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
+    public static StringBuilder AppendInheritedMembers(this StringBuilder sb, string[] inherited)
+    {
+        if (inherited is [])
+        {
+            return sb;
+        }
+
+        sb.Append("  inheritedMembers:\n");
+        for (var i = 0; i < inherited.Length; i++)
+        {
+            sb.Append("  - ").AppendScalar(inherited[i]).AppendLine();
+        }
+
+        return sb;
+    }
+
+    /// <summary>
+    /// Writes the <c>extensionMethods:</c> block — uids of static
+    /// methods on other types whose first parameter targets this type.
+    /// No-op when the list is empty.
+    /// </summary>
+    /// <param name="sb">Destination builder.</param>
+    /// <param name="extensions">Extension members from <see cref="DocfxCatalogIndexes.GetExtensions"/>.</param>
+    /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
+    public static StringBuilder AppendExtensionMethods(this StringBuilder sb, ApiMember[] extensions)
+    {
+        if (extensions is [])
+        {
+            return sb;
+        }
+
+        sb.Append("  extensionMethods:\n");
+        for (var i = 0; i < extensions.Length; i++)
+        {
+            sb.Append("  - ").AppendScalar(DocfxCommentId.ToUid(extensions[i].Uid)).AppendLine();
+        }
+
+        return sb;
+    }
+
+    /// <summary>
+    /// Writes the <c>seealso:</c> block — one entry per cref in the
+    /// type's documentation. Each entry carries the docfx-canonical
+    /// <c>linkType: CRef</c> + <c>commentId</c> + <c>altText</c>
+    /// triple. No-op when there are no seealso entries.
+    /// </summary>
+    /// <param name="sb">Destination builder.</param>
+    /// <param name="seealso">SeeAlso cref strings from <see cref="ApiDocumentation.SeeAlso"/>.</param>
+    /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
+    public static StringBuilder AppendSeealso(this StringBuilder sb, string[] seealso)
+    {
+        if (seealso is [])
+        {
+            return sb;
+        }
+
+        sb.Append("  seealso:\n");
+        for (var i = 0; i < seealso.Length; i++)
+        {
+            var cref = seealso[i];
+            sb.Append("  - linkType: CRef\n")
+                .Append("    commentId: ").AppendScalar(cref).AppendLine()
+                .Append("    altText: ").AppendScalar(cref is [_, ':', ..] ? cref[2..] : cref).AppendLine();
+        }
+
+        return sb;
+    }
 
     /// <summary>
     /// Dispatches the type-page <c>syntax:</c> block to the right

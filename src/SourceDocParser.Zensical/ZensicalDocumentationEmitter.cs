@@ -39,6 +39,7 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
 
         var pages = 0;
         var hasRouting = _options.PackageRouting.Length > 0;
+        var indexes = ZensicalCatalogIndexes.Build(types);
         for (var i = 0; i < types.Length; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -64,7 +65,7 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
                 continue;
             }
 
-            TypePageEmitter.RenderToFile(type, outputRoot, _options);
+            TypePageEmitter.RenderToFile(type, outputRoot, _options, indexes);
             pages++;
             pages += EmitMemberPages(type, outputRoot, _options);
         }

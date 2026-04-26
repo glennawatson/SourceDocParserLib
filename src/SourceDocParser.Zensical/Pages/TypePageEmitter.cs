@@ -57,13 +57,27 @@ public static class TypePageEmitter
     /// <param name="type">The type to render.</param>
     /// <param name="outputRoot">The directory that contains the api/ tree.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
-    public static void RenderToFile(ApiType type, string outputRoot, ZensicalEmitterOptions options)
+    public static void RenderToFile(ApiType type, string outputRoot, ZensicalEmitterOptions options) =>
+        RenderToFile(type, outputRoot, options, ZensicalCatalogIndexes.Empty);
+
+    /// <summary>
+    /// Catalog-aware <see cref="RenderToFile(ApiType, string, ZensicalEmitterOptions)"/>
+    /// — threads <paramref name="indexes"/> through to the page render
+    /// so the type page picks up the "Derived types", "Inherited
+    /// members", and "Extension methods" sections.
+    /// </summary>
+    /// <param name="type">The type to render.</param>
+    /// <param name="outputRoot">The directory that contains the api/ tree.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    /// <param name="indexes">Pre-built catalog rollups.</param>
+    public static void RenderToFile(ApiType type, string outputRoot, ZensicalEmitterOptions options, ZensicalCatalogIndexes indexes)
     {
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(indexes);
         var relativePath = PathFor(type, options);
         var fullPath = Path.Combine(outputRoot, relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        File.WriteAllText(fullPath, Render(type, options));
+        File.WriteAllText(fullPath, Render(type, options, indexes));
     }
 
     /// <summary>
@@ -83,10 +97,24 @@ public static class TypePageEmitter
     /// <param name="type">The type to render.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
     /// <returns>The rendered Markdown string.</returns>
-    public static string Render(ApiType type, ZensicalEmitterOptions options)
+    public static string Render(ApiType type, ZensicalEmitterOptions options) =>
+        Render(type, options, ZensicalCatalogIndexes.Empty);
+
+    /// <summary>
+    /// Catalog-aware render: in addition to the per-type metadata,
+    /// renders "Derived types", "Inherited members", and
+    /// "Extension methods" sections pulled from
+    /// <paramref name="indexes"/> when the type has matching entries.
+    /// </summary>
+    /// <param name="type">The type to render.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    /// <param name="indexes">Catalog rollups; pass <see cref="ZensicalCatalogIndexes.Empty"/> to skip them.</param>
+    /// <returns>The rendered Markdown string.</returns>
+    public static string Render(ApiType type, ZensicalEmitterOptions options, ZensicalCatalogIndexes indexes)
     {
         ArgumentNullException.ThrowIfNull(type);
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(indexes);
         var heading = RenderHeading(type);
         var fullDisplayName = ZensicalEmitterHelpers.FormatDisplayTypeName(type.FullName, type.Arity);
         var summary = type.Documentation.Summary is [_, ..] documentedSummary
@@ -137,6 +165,10 @@ public static class TypePageEmitter
         AppendMembers(sb, type);
         AppendEnumValues(sb, type);
         AppendDelegateSignature(sb, type);
+        AppendDerivedTypes(sb, indexes.GetDerived(type.Uid), options);
+        AppendInheritedMembers(sb, indexes.GetInherited(type.Uid));
+        AppendExtensionMethods(sb, indexes.GetExtensions(type.Uid), options);
+        AppendSeeAlso(sb, type.Documentation.SeeAlso, options);
 
         return sb.ToString();
     }
@@ -165,6 +197,98 @@ public static class TypePageEmitter
         var basePath = ZensicalEmitterHelpers.BuildTypePath(type.Namespace, type.Name, type.Arity, FileExtension);
         var packageFolder = PackageRouter.ResolveFolder(type.AssemblyName, options.PackageRouting);
         return packageFolder is null ? basePath : Path.Combine(packageFolder, basePath);
+    }
+
+    /// <summary>
+    /// Renders the "Derived types" section as a bullet list of
+    /// autoref links. No-op when the type has no derivers — the empty-
+    /// array check is branch-and-bail with no allocation.
+    /// </summary>
+    /// <param name="sb">Destination buffer.</param>
+    /// <param name="derived">Derived class refs from <see cref="ZensicalCatalogIndexes.GetDerived"/>.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    internal static void AppendDerivedTypes(StringBuilder sb, ApiTypeReference[] derived, ZensicalEmitterOptions options)
+    {
+        if (derived is [])
+        {
+            return;
+        }
+
+        sb.Append("\n## Derived types\n\n");
+        for (var i = 0; i < derived.Length; i++)
+        {
+            sb.Append("- ").AppendLine(CrossLinkRouter.Format(derived[i], options));
+        }
+    }
+
+    /// <summary>
+    /// Renders an "Inherited members" collapsible admonition. No-op
+    /// when there are no inherited entries — the empty-array path
+    /// allocates nothing.
+    /// </summary>
+    /// <param name="sb">Destination buffer.</param>
+    /// <param name="inherited">Inherited member uids from <see cref="ZensicalCatalogIndexes.GetInherited"/>.</param>
+    internal static void AppendInheritedMembers(StringBuilder sb, string[] inherited)
+    {
+        if (inherited is [])
+        {
+            return;
+        }
+
+        sb.Append("\n??? abstract \"Inherited members\"\n");
+        for (var i = 0; i < inherited.Length; i++)
+        {
+            var uid = inherited[i];
+            var label = uid is [_, ':', ..] ? uid[2..] : uid;
+            sb.Append("    - [`").Append(label).Append("`][").Append(uid).Append("]\n");
+        }
+    }
+
+    /// <summary>
+    /// Renders the "Extension methods" section listing static methods
+    /// from other types whose first parameter targets this type.
+    /// No-op when there are none.
+    /// </summary>
+    /// <param name="sb">Destination buffer.</param>
+    /// <param name="extensions">Extension members from <see cref="ZensicalCatalogIndexes.GetExtensions"/>.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    internal static void AppendExtensionMethods(StringBuilder sb, ApiMember[] extensions, ZensicalEmitterOptions options)
+    {
+        if (extensions is [])
+        {
+            return;
+        }
+
+        sb.Append("\n## Extension methods\n\n");
+        for (var i = 0; i < extensions.Length; i++)
+        {
+            var member = extensions[i];
+            var label = $"{member.ContainingTypeName}.{member.Name}";
+            sb.Append("- [`").Append(label).Append("`][").Append(member.Uid).Append("]\n");
+        }
+    }
+
+    /// <summary>
+    /// Renders the "See also" section listing each cref from the
+    /// type's documentation as an autoref link. No-op when empty.
+    /// </summary>
+    /// <param name="sb">Destination buffer.</param>
+    /// <param name="seealso">SeeAlso cref strings from <see cref="ApiDocumentation.SeeAlso"/>.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    internal static void AppendSeeAlso(StringBuilder sb, string[] seealso, ZensicalEmitterOptions options)
+    {
+        if (seealso is [])
+        {
+            return;
+        }
+
+        sb.Append("\n## See also\n\n");
+        for (var i = 0; i < seealso.Length; i++)
+        {
+            var cref = seealso[i];
+            var displayName = cref is [_, ':', ..] ? cref[2..] : cref;
+            sb.Append("- ").AppendLine(CrossLinkRouter.Format(new ApiTypeReference(displayName, cref), options));
+        }
     }
 
     /// <summary>
