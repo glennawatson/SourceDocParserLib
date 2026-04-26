@@ -1,19 +1,70 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
+# Dependabot version updates.
 # https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+#
+# Groupings keep PR volume manageable: bumps that share a release cadence
+# land together. Group order matters — Dependabot assigns each package
+# to the first group whose patterns match, so narrower groups
+# (roslyn, nuget-clients, polly, test-stack, analyzers) are listed before
+# the catch-all microsoft group.
 
 version: 2
 updates:
-  - package-ecosystem: "nuget" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  - package-ecosystem: "nuget"
+    directory: "/"
     schedule:
       interval: "weekly"
-  - package-ecosystem: "github-actions" # See documentation for possible values
-    directory: "/" # Location of package manifests
+    groups:
+      roslyn:
+        patterns:
+          - "Microsoft.CodeAnalysis*"
+          - "ICSharpCode.Decompiler"
+      nuget-clients:
+        patterns:
+          - "NuGet.*"
+      polly:
+        patterns:
+          - "Polly*"
+      analyzers:
+        patterns:
+          - "*.Analyzers"
+          - "stylecop.analyzers"
+      test-stack:
+        patterns:
+          - "TUnit*"
+          - "Verify.TUnit"
+          - "NSubstitute"
+          - "Microsoft.Testing.*"
+          - "BenchmarkDotNet*"
+      microsoft:
+        # Catch-all for the rest of the Microsoft / System extensions we
+        # ride on (Microsoft.Extensions.*, Microsoft.SourceLink.*,
+        # System.* runtime out-of-band packages, etc).
+        patterns:
+          - "Microsoft.*"
+          - "System.*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
     schedule:
       interval: "weekly"
-  - package-ecosystem: "pip" # See documentation for possible values
-    directory: "/" # Location of package manifests
+    groups:
+      actions:
+        patterns:
+          - "actions/*"
+          - "dotnet/*"
+
+  - package-ecosystem: "pip"
+    # The only requirements.txt in the repo is the integration-tests
+    # zensical mock-site fixture; the root has no Python manifest.
+    directory: "/src/tests/SourceDocParser.IntegrationTests/zensical"
     schedule:
       interval: "weekly"
+    groups:
+      docs-stack:
+        # Zensical + the Python-Markdown extension kit; treated as a unit
+        # because they release in lock-step. Future mkdocs-material /
+        # mkdocs-* additions land here too.
+        patterns:
+          - "zensical"
+          - "pymdown-extensions"
+          - "mkdocs*"
