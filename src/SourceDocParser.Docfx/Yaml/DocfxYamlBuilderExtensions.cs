@@ -260,8 +260,8 @@ internal static class DocfxYamlBuilderExtensions
             return sb;
         }
 
-        sb.Append("  syntax:\n    content: ")
-            .AppendScalar($"public enum {type.Name}").AppendLine()
+        sb.Append("  syntax:\n")
+            .AppendSyntaxContent(type.Attributes, $"public enum {type.Name}", indent: "    ")
             .Append("    return:\n      type: ")
             .AppendScalar(type.UnderlyingType is { Uid: [_, ..] uid } ? DocfxCommentId.ToUid(uid) : type.UnderlyingType.DisplayName)
             .AppendLine()
@@ -292,7 +292,8 @@ internal static class DocfxYamlBuilderExtensions
     /// <param name="type">Delegate type to render.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendDelegateSyntax(this StringBuilder sb, ApiDelegateType type) => sb
-        .Append("  syntax:\n    content: ").AppendScalar(type.Invoke.Signature).AppendLine()
+        .Append("  syntax:\n")
+        .AppendSyntaxContent(type.Attributes, type.Invoke.Signature, indent: "    ")
         .AppendParameters(type.Invoke.Parameters, indent: "    ")
         .AppendReturnIfPresent(type.Invoke.ReturnType, indent: "    ");
 
@@ -445,15 +446,108 @@ internal static class DocfxYamlBuilderExtensions
     /// <summary>
     /// Writes the syntax block for a member item — content + parameters
     /// + return for methods/operators/constructors, content + return for
-    /// properties, content for fields/events.
+    /// properties, content for fields/events. The content field uses a
+    /// folded <c>&gt;-</c> block with the member's surviving attributes
+    /// stacked above the signature line, mirroring docfx's own shape;
+    /// when no attributes survive the filter, the original short-scalar
+    /// path is taken so the fast path stays branch-free.
     /// </summary>
     /// <param name="sb">Destination builder.</param>
     /// <param name="member">Member whose syntax to emit.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendMemberSyntax(this StringBuilder sb, ApiMember member) => sb
-        .Append("  syntax:\n    content: ").AppendScalar(member.Signature).AppendLine()
+        .Append("  syntax:\n")
+        .AppendSyntaxContent(member.Attributes, member.Signature, indent: "    ")
         .AppendParameters(member.Parameters, indent: "    ")
         .AppendReturnIfPresent(member.ReturnType, indent: "    ");
+
+    /// <summary>
+    /// Writes the <c>content:</c> line of a syntax block. When
+    /// <paramref name="attributes"/> survives the
+    /// <see cref="DocfxAttributeFilter"/> denylist, the attributes
+    /// render as <c>[Name(args)]</c> lines stacked above the signature
+    /// inside a folded <c>&gt;-</c> block. The empty-attribute fast
+    /// path preserves the previous short-scalar behaviour exactly —
+    /// no extra allocation, no folded-block setup work.
+    /// </summary>
+    /// <param name="sb">Destination builder.</param>
+    /// <param name="attributes">Walker-emitted attribute list (will be filtered).</param>
+    /// <param name="signature">The C# source signature for the symbol.</param>
+    /// <param name="indent">Indent prefix for the value lines (e.g. <c>"    "</c>).</param>
+    /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
+    public static StringBuilder AppendSyntaxContent(
+        this StringBuilder sb,
+        ApiAttribute[] attributes,
+        string signature,
+        string indent)
+    {
+        var filtered = DocfxAttributeFilter.Filter(attributes);
+        if (filtered is [])
+        {
+            // Fast path: no surviving attributes — keep the legacy
+            // single-line scalar form so output diffs against the
+            // pre-tier-1c baseline are zero on the dominant case.
+            return sb.Append(indent).Append("content: ").AppendScalar(signature).AppendLine();
+        }
+
+        sb.Append(indent).AppendLine("content: >-");
+        for (var i = 0; i < filtered.Length; i++)
+        {
+            sb.Append(indent).Append('[').Append(RenderAttributeUsage(filtered[i])).Append(']').AppendLine();
+        }
+
+        // Blank line between the attribute prefix and the signature so
+        // a YAML folded scalar reader keeps them on separate output
+        // lines (folded form joins adjacent lines with a space; an
+        // empty separator line preserves the linebreak).
+        return sb
+            .AppendLine(indent)
+            .Append(indent).AppendLine(signature);
+    }
+
+    /// <summary>
+    /// Formats one attribute usage for the syntax-content prefix —
+    /// <c>Name</c> when there are no arguments, <c>Name(arg, Named=val)</c>
+    /// otherwise. Arguments come pre-formatted by the walker.
+    /// </summary>
+    /// <param name="attribute">Attribute to render.</param>
+    /// <returns>The bracket-less usage string (caller adds the surrounding <c>[]</c>).</returns>
+    public static string RenderAttributeUsage(ApiAttribute attribute)
+    {
+        if (attribute.Arguments is [])
+        {
+            return attribute.DisplayName;
+        }
+
+        var totalLength = ComputeAttributeUsageLength(attribute);
+        return string.Create(totalLength, attribute, static (span, attr) =>
+        {
+            attr.DisplayName.AsSpan().CopyTo(span);
+            var cursor = attr.DisplayName.Length;
+            span[cursor++] = '(';
+            for (var i = 0; i < attr.Arguments.Length; i++)
+            {
+                if (i > 0)
+                {
+                    ", ".AsSpan().CopyTo(span[cursor..]);
+                    cursor += 2;
+                }
+
+                var arg = attr.Arguments[i];
+                if (arg.Name is { Length: > 0 } name)
+                {
+                    name.AsSpan().CopyTo(span[cursor..]);
+                    cursor += name.Length;
+                    span[cursor++] = '=';
+                }
+
+                arg.Value.AsSpan().CopyTo(span[cursor..]);
+                cursor += arg.Value.Length;
+            }
+
+            span[cursor] = ')';
+        });
+    }
 
     /// <summary>
     /// Writes the parameters list under a syntax block at the supplied
@@ -766,10 +860,35 @@ internal static class DocfxYamlBuilderExtensions
     /// </summary>
     /// <param name="type">Type to inspect.</param>
     /// <returns>The member list, or <see langword="null"/>.</returns>
-    private static ApiMember[]? MembersOf(ApiType type) => type switch
+    internal static ApiMember[]? MembersOf(ApiType type) => type switch
     {
         ApiObjectType o => o.Members,
         ApiUnionType u => u.Members,
         _ => null,
     };
+
+    /// <summary>Sums the final character count of a rendered attribute usage so <see cref="string.Create{TState}"/> allocates exactly the right span size.</summary>
+    /// <param name="attribute">Attribute whose usage length to compute.</param>
+    /// <returns>The total character count, including the surrounding parens and any <c>", "</c> / <c>"="</c> separators.</returns>
+    internal static int ComputeAttributeUsageLength(ApiAttribute attribute)
+    {
+        var total = attribute.DisplayName.Length + 2;
+        for (var i = 0; i < attribute.Arguments.Length; i++)
+        {
+            if (i > 0)
+            {
+                total += 2;
+            }
+
+            var arg = attribute.Arguments[i];
+            if (arg.Name is { Length: > 0 } name)
+            {
+                total += name.Length + 1;
+            }
+
+            total += arg.Value.Length;
+        }
+
+        return total;
+    }
 }
