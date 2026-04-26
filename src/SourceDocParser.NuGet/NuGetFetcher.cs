@@ -25,6 +25,29 @@ namespace SourceDocParser.NuGet;
 /// </remarks>
 public sealed partial class NuGetFetcher : INuGetFetcher
 {
+    /// <summary>Default-skip prefixes for the transitive-dep walk — packages that ship native code or RID-specific runtime payloads with zero managed types our walker can do anything with.</summary>
+    /// <remarks>
+    /// Concrete sizes seen in the wild:
+    /// <list type="bullet">
+    ///   <item><c>runtime.win10-x64.microsoft.net.native.sharedlibrary</c> — 94 MB pure native Windows DLLs</item>
+    ///   <item><c>Microsoft.NETCore.UniversalWindowsPlatform</c> — UWP umbrella, hundreds of MB across deps</item>
+    ///   <item><c>runtime.&lt;rid&gt;.runtime.native.System.Security.Cryptography.OpenSsl</c> — Linux distro-specific OpenSSL natives</item>
+    /// </list>
+    /// User-supplied <c>additionalPackages</c> with these IDs still get fetched (the override path); the skip only fires on transitive discovery.
+    /// </remarks>
+    internal static readonly string[] DefaultTransitiveSkipPrefixes =
+    [
+        "runtime.",
+        "Microsoft.NET.Native.",
+        "Microsoft.NETCore.Native.",
+        "Microsoft.NETCore.UniversalWindowsPlatform",
+        "Microsoft.NETCore.Targets",
+        "Microsoft.NETCore.Platforms",
+        "Microsoft.NETCore.Jit",
+        "Microsoft.NETCore.Runtime.",
+        "Microsoft.NETCore.Portable.",
+    ];
+
     /// <summary>
     /// Maximum number of NuGet packages downloaded in parallel. Kept small
     /// to stay friendly to the NuGet feed and avoid rate-limit responses.
@@ -149,6 +172,59 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     internal static string NuspecSidecarPath(string nupkgPath) => nupkgPath + ".nuspec";
 
     /// <summary>
+    /// Returns true when the package id should be skipped per the
+    /// user's configured exclude lists.
+    /// </summary>
+    /// <param name="id">Package identifier to test.</param>
+    /// <param name="excludeIds">Exact-match exclude IDs (linear scan; expected single-digit size).</param>
+    /// <param name="excludePrefixes">Prefix-match excludes, OrdinalIgnoreCase.</param>
+    /// <returns><see langword="true"/> if the package should be skipped; otherwise, <see langword="false"/>.</returns>
+    internal static bool IsExcluded(string id, string[] excludeIds, string[] excludePrefixes)
+    {
+        for (var i = 0; i < excludeIds.Length; i++)
+        {
+            if (string.Equals(id, excludeIds[i], StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        for (var i = 0; i < excludePrefixes.Length; i++)
+        {
+            var prefix = excludePrefixes[i];
+            if (id.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Returns true when the transitive walk should skip
+    /// <paramref name="id"/> because it's a native / RID-specific
+    /// runtime package that contributes zero managed types — checked
+    /// in addition to the user's own <c>excludePackages</c> /
+    /// <c>excludePackagePrefixes</c>.
+    /// </summary>
+    /// <param name="id">Discovered transitive package ID.</param>
+    /// <returns>True when the package should be skipped on transitive discovery.</returns>
+    internal static bool IsDefaultTransitiveSkip(string id)
+    {
+        ArgumentNullException.ThrowIfNull(id);
+        for (var i = 0; i < DefaultTransitiveSkipPrefixes.Length; i++)
+        {
+            if (id.StartsWith(DefaultTransitiveSkipPrefixes[i], StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Returns true when the file at <paramref name="destPath"/> already
     /// matches <paramref name="entry"/>'s uncompressed length and last
     /// write time — cheap fingerprint that lets the extract loop
@@ -248,6 +324,16 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                             continue;
                         }
 
+                        // Default-skip native/RID runtime packages — the
+                        // single biggest disk waster on heavy fixtures.
+                        // User overrides via additionalPackages still
+                        // win because that path bypasses the transitive
+                        // walk entirely.
+                        if (IsDefaultTransitiveSkip(depId))
+                        {
+                            continue;
+                        }
+
                         if (seenIds.Add(depId))
                         {
                             newIds.Add(depId);
@@ -280,40 +366,6 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         }
 
         LogTransitiveDepLimitReached(logger, maxDepth);
-    }
-
-    /// <summary>
-    /// Returns true when the package id should be skipped.
-    /// </summary>
-    /// <param name="id">Package identifier to test.</param>
-    /// <param name="excludeIds">Exact-match exclude IDs (linear scan; expected single-digit size).</param>
-    /// <param name="excludePrefixes">Prefix-match excludes, OrdinalIgnoreCase.</param>
-    /// <returns><see langword="true"/> if the package should be skipped; otherwise, <see langword="false"/>.</returns>
-    /// <remarks>
-    /// Matches an exact exclude or starts with one of the configured
-    /// exclude prefixes. Linear scan beats HashSet.Contains for the
-    /// single-digit exclude lists every real nuget-packages.json carries.
-    /// </remarks>
-    private static bool IsExcluded(string id, string[] excludeIds, string[] excludePrefixes)
-    {
-        for (var i = 0; i < excludeIds.Length; i++)
-        {
-            if (string.Equals(id, excludeIds[i], StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        for (var i = 0; i < excludePrefixes.Length; i++)
-        {
-            var prefix = excludePrefixes[i];
-            if (id.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>
