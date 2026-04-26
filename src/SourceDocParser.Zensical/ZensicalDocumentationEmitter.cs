@@ -50,6 +50,14 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
             return 0;
         }
 
+        // Enums and delegates have no callable surface a per-overload
+        // page could meaningfully describe — the type page already shows
+        // every enum value and the delegate signature inline.
+        if (type.Kind is ApiTypeKind.Enum or ApiTypeKind.Delegate)
+        {
+            return 0;
+        }
+
         var groups = new Dictionary<string, List<ApiMember>>(capacity: type.Members.Count, StringComparer.Ordinal);
         for (var i = 0; i < type.Members.Count; i++)
         {

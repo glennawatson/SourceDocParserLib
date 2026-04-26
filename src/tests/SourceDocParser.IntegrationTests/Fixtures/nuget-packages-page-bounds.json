@@ -1,0 +1,31 @@
+{
+  "_comment": "Heavy fixture for LargeAssemblyEmitterPageBoundsTests. Pulls a small set of UI-control + icon-font-enum packages so the test exercises the worst-case page-emission paths: wide WPF control classes with many dependency properties, plus large enums whose values must NOT each become a per-value page.",
+  "nugetPackageOwners": [],
+  "tfmPreference": [
+    "net10.0",
+    "net9.0",
+    "net8.0",
+    "net10.0-windows10.0.19041.0",
+    "net9.0-windows10.0.19041.0",
+    "net10.0-android",
+    "net10.0-ios",
+    "net10.0-maccatalyst",
+    "net481"
+  ],
+  "additionalPackages": [
+    { "id": "CrissCross" },
+    { "id": "CrissCross.WPF" },
+    { "id": "CrissCross.WPF.UI" },
+    { "id": "CrissCross.Avalonia" },
+    { "id": "CrissCross.MAUI" }
+  ],
+  "excludePackages": [],
+  "excludePackagePrefixes": [],
+  "referencePackages": [
+    { "id": "Microsoft.NETCore.App.Ref", "version": "10.0.0", "targetTfm": "net10.0", "pathPrefix": "ref/net10.0" },
+    { "id": "Microsoft.NETCore.App.Ref", "version": "9.0.0",  "targetTfm": "net9.0",  "pathPrefix": "ref/net9.0" },
+    { "id": "Microsoft.NETCore.App.Ref", "version": "8.0.0",  "targetTfm": "net8.0",  "pathPrefix": "ref/net8.0" },
+    { "id": "Microsoft.NETFramework.ReferenceAssemblies.net481", "targetTfm": "net481", "pathPrefix": "build/.NETFramework/v4.8.1" }
+  ],
+  "tfmOverrides": {}
+}

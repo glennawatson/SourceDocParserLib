@@ -2,14 +2,15 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-namespace SourceDocParser.Tests;
+namespace SourceDocParser.TestHelpers;
 
 /// <summary>
 /// Tiny factory helpers for assembling <see cref="ApiType"/> /
 /// <see cref="ApiCatalog"/> instances without having to spell out every
-/// record positional parameter at every call site.
+/// record positional parameter at every call site. Shared across the
+/// per-package test projects.
 /// </summary>
-internal static class TestData
+public static class TestData
 {
     /// <summary>
     /// Creates a minimal <see cref="ApiType"/> in a deterministic shape.

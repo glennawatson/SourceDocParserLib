@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using SourceDocParser.NuGet;
+using SourceDocParser.TestHelpers;
 using SourceDocParser.Zensical;
 
 namespace SourceDocParser.IntegrationTests;
@@ -24,7 +25,7 @@ public class EndToEndPipelineTests
     [Test]
     public async Task RunsFullPipelineAgainstFixtureConfig()
     {
-        using var scratch = new ScratchDirectory();
+        using var scratch = new ScratchDirectory("sdp-int");
         File.Copy(
             Path.Combine(AppContext.BaseDirectory, "Fixtures", "nuget-packages.json"),
             Path.Combine(scratch.Path, "nuget-packages.json"));
@@ -43,34 +44,5 @@ public class EndToEndPipelineTests
         await Assert.That(result.PagesEmitted).IsGreaterThan(0);
         await Assert.That(result.LoadFailures).IsEqualTo(0);
         await Assert.That(Directory.EnumerateFiles(output, "*.md", SearchOption.AllDirectories).Any()).IsTrue();
-    }
-
-    /// <summary>
-    /// Disposable scratch directory the test deletes on dispose.
-    /// </summary>
-    private sealed class ScratchDirectory : IDisposable
-    {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="ScratchDirectory"/> class.
-        /// </summary>
-        public ScratchDirectory()
-        {
-            Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"sdp-int-{Guid.NewGuid():N}");
-            Directory.CreateDirectory(Path);
-        }
-
-        /// <summary>Gets the absolute path of the scratch directory.</summary>
-        public string Path { get; }
-
-        /// <inheritdoc />
-        public void Dispose()
-        {
-            if (!Directory.Exists(Path))
-            {
-                return;
-            }
-
-            Directory.Delete(Path, recursive: true);
-        }
     }
 }
