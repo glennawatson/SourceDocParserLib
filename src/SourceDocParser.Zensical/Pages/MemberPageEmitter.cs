@@ -60,7 +60,7 @@ public static class MemberPageEmitter
         var typeName = ZensicalEmitterHelpers.FormatDisplayTypeName(containingType.Name, containingType.Arity);
 
         var sb = new StringBuilder(capacity: InitialPageCapacity)
-            .Append(PageFrontmatter.ForMember(containingType, first.Kind, options))
+            .Append(PageFrontmatter.ForMember(containingType, first, options))
             .Append($"""
             # {heading} {kindLabel}
 
@@ -230,6 +230,20 @@ public static class MemberPageEmitter
     /// <param name="member">Member to render.</param>
     private static void AppendSignatureBlock(StringBuilder sb, ApiMember member)
     {
+        if (member.IsObsolete)
+        {
+            var detail = member.ObsoleteMessage is { Length: > 0 } message
+                ? message
+                : "This API is obsolete and may be removed in a future release.";
+            sb.Append("!!! danger \"Deprecated\"\n    ").Append(detail).Append("\n\n");
+        }
+
+        var attributesLine = AttributeFilter.RenderInlineList(member.Attributes);
+        if (attributesLine.Length > 0)
+        {
+            sb.Append("**Attributes:** ").Append(attributesLine).Append("\n\n");
+        }
+
         sb.Append("```csharp\n").Append(member.Signature).Append("\n```\n\n");
 
         if (member.SourceUrl is not { Length: > 0 } url)

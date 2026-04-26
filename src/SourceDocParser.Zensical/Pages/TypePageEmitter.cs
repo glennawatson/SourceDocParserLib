@@ -100,9 +100,12 @@ public static class TypePageEmitter
             : string.Empty;
         var modifiers = JoinModifiers(type);
 
+        var frontmatter = PageFrontmatter.ForType(type, options);
+        var deprecation = RenderDeprecationAdmonition(type.IsObsolete, type.ObsoleteMessage);
+        var attributesLine = RenderAttributesLine(type.Attributes);
         var sb = new StringBuilder($"""
-            # {heading}
-
+            {frontmatter}# {heading}
+            {deprecation}{attributesLine}
             !!! info "Defined in"
                 Namespace: `{(type.Namespace is [_, ..] ns ? ns : "(global)")}`
                 Assembly: `{type.AssemblyName}.dll`
@@ -456,6 +459,40 @@ public static class TypePageEmitter
     /// <returns>The formatted reference string.</returns>
     private static string FormatReference(ApiTypeReference reference, ZensicalEmitterOptions options) =>
         CrossLinkRouter.Format(reference, options);
+
+    /// <summary>
+    /// Renders the danger-style admonition shown when a symbol is
+    /// decorated with <c>[Obsolete]</c>. Returns the empty string for
+    /// non-obsolete symbols so it can be unconditionally interpolated
+    /// into the page template.
+    /// </summary>
+    /// <param name="isObsolete">Whether the symbol is obsolete.</param>
+    /// <param name="message">Optional message from <c>[Obsolete(...)]</c>.</param>
+    /// <returns>The deprecation admonition with a leading and trailing blank line, or empty.</returns>
+    private static string RenderDeprecationAdmonition(bool isObsolete, string? message)
+    {
+        if (!isObsolete)
+        {
+            return string.Empty;
+        }
+
+        var body = message is { Length: > 0 } detail ? detail : "This API is obsolete and may be removed in a future release.";
+        return $"\n!!! danger \"Deprecated\"\n    {body}\n\n";
+    }
+
+    /// <summary>
+    /// Renders the inline attributes line (e.g. <c>**Attributes:** [Foo] [Bar(true)]</c>)
+    /// that sits under the type heading. Compiler-emitted markers are
+    /// dropped via <see cref="AttributeFilter"/>; if nothing survives,
+    /// returns empty so no section is emitted at all.
+    /// </summary>
+    /// <param name="attributes">Attributes attached to the symbol.</param>
+    /// <returns>The attributes line with a trailing blank line, or empty.</returns>
+    private static string RenderAttributesLine(ApiAttribute[] attributes)
+    {
+        var rendered = AttributeFilter.RenderInlineList(attributes);
+        return rendered is { Length: > 0 } ? $"\n**Attributes:** {rendered}\n\n" : string.Empty;
+    }
 
     /// <summary>
     /// Builds a Mermaid-safe node name from a type display name.

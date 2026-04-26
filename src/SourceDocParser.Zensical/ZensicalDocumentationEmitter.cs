@@ -55,6 +55,15 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
                 continue;
             }
 
+            // Compiler-generated artefacts (display classes, async
+            // state machines, anonymous types) are name-mangled with
+            // angle brackets in metadata. Match docfx's heuristic and
+            // skip them rather than emitting nonsensical pages.
+            if (IsCompilerGenerated(type.Name))
+            {
+                continue;
+            }
+
             TypePageEmitter.RenderToFile(type, outputRoot, _options);
             pages++;
             pages += EmitMemberPages(type, outputRoot, _options);
@@ -95,6 +104,18 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
         for (var i = 0; i < members.Length; i++)
         {
             var member = members[i];
+
+            // Property and event accessors are emitted by Roslyn as
+            // standalone methods named `<get_Foo>k__BackingField` /
+            // `get_Foo` etc. The angle-bracketed forms catch backing
+            // fields and similar artefacts; the get_/set_/add_/remove_
+            // pattern catches accessors which the property/event page
+            // already covers.
+            if (IsCompilerGenerated(member.Name))
+            {
+                continue;
+            }
+
             if (!groups.TryGetValue(member.Name, out var bucket))
             {
                 bucket = [];
@@ -113,4 +134,17 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
 
         return pages;
     }
+
+    /// <summary>
+    /// Tests whether a metadata <paramref name="symbolName"/> is a
+    /// compiler-generated artefact that shouldn't surface as a doc
+    /// page. Mirrors the docfx heuristic: any name containing an
+    /// angle bracket is a mangled identifier (display classes,
+    /// async / iterator state machines, anonymous types, lambda
+    /// closures, backing fields).
+    /// </summary>
+    /// <param name="symbolName">The symbol's metadata name.</param>
+    /// <returns>True when the symbol should be skipped.</returns>
+    private static bool IsCompilerGenerated(string symbolName) =>
+        symbolName.AsSpan().IndexOfAny('<', '>') >= 0;
 }
