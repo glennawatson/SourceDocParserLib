@@ -2,56 +2,24 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Diagnostics.CodeAnalysis;
 using Microsoft.CodeAnalysis;
 using SourceDocParser.SourceLink;
-using static Microsoft.CodeAnalysis.SymbolDisplayDelegateStyle;
-using static Microsoft.CodeAnalysis.SymbolDisplayExtensionMethodStyle;
-using static Microsoft.CodeAnalysis.SymbolDisplayGenericsOptions;
-using static Microsoft.CodeAnalysis.SymbolDisplayGlobalNamespaceStyle;
-using static Microsoft.CodeAnalysis.SymbolDisplayMemberOptions;
-using static Microsoft.CodeAnalysis.SymbolDisplayMiscellaneousOptions;
-using static Microsoft.CodeAnalysis.SymbolDisplayParameterOptions;
-using static Microsoft.CodeAnalysis.SymbolDisplayPropertyStyle;
-using static Microsoft.CodeAnalysis.SymbolDisplayTypeQualificationStyle;
 
 namespace SourceDocParser;
 
 /// <summary>
-/// Walks an IAssemblySymbol public surface to produce an ApiCatalog.
-/// Stateless apart from a per-walk DocResolver that memoizes XML doc parses.
-/// Iteration uses explicit Stacks to avoid closure allocations from recursion,
-/// improving performance across large assemblies.
+/// Walks an <see cref="IAssemblySymbol"/>'s public surface to
+/// produce an <see cref="ApiCatalog"/>. Stateless apart from the
+/// per-walk <see cref="IDocResolver"/> that memoizes XML doc
+/// parses. Iteration uses explicit stacks to avoid closure
+/// allocations from recursion. Per-symbol extraction is delegated
+/// to <see cref="TypeBuilder"/>, <see cref="MemberBuilder"/>,
+/// <see cref="ExtensionBlockBuilder"/>, and
+/// <see cref="NamespaceDisplayResolver"/> so each piece is unit-
+/// testable in isolation against synthesised Roslyn symbols.
 /// </summary>
 public sealed class SymbolWalker : ISymbolWalker
 {
-    /// <summary>
-    /// Display format for full member signatures including accessibility,
-    /// modifiers, parameter names, and default values.
-    /// </summary>
-    [SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1118:Parameter should not span multiple lines", Justification = "Due to line complexity justified")]
-    private static readonly SymbolDisplayFormat _signatureFormat = new(
-        globalNamespaceStyle: OmittedAsContaining,
-        typeQualificationStyle: NameAndContainingTypes,
-        genericsOptions: IncludeTypeParameters | IncludeVariance | IncludeTypeConstraints,
-        memberOptions: SymbolDisplayMemberOptions.IncludeType
-                       | IncludeParameters
-                       | IncludeAccessibility
-                       | SymbolDisplayMemberOptions.IncludeModifiers
-                       | IncludeRef
-                       | IncludeExplicitInterface,
-        delegateStyle: NameAndSignature,
-        extensionMethodStyle: StaticMethod,
-        parameterOptions: IncludeParamsRefOut
-                          | SymbolDisplayParameterOptions.IncludeType
-                          | IncludeName
-                          | IncludeDefaultValue
-                          | IncludeExtensionThis,
-        propertyStyle: ShowReadWriteDescriptor,
-        miscellaneousOptions: UseSpecialTypes
-                              | EscapeKeywordIdentifiers
-                              | IncludeNullableReferenceTypeModifier);
-
     /// <summary>Factory invoked once per <see cref="Walk"/> to create the per-compilation doc resolver.</summary>
     private readonly Func<Compilation, IDocResolver> _docResolverFactory;
 
@@ -67,7 +35,7 @@ public sealed class SymbolWalker : ISymbolWalker
     /// </summary>
     /// <param name="tfm">The TFM the assembly was extracted from; recorded on the catalog so downstream consumers know which compilation it came from.</param>
     /// <param name="assembly">Assembly symbol to walk.</param>
-    /// <param name="compilation">Compilation that produced the assembly symbol - passed through to the DocResolver for cref resolution on inheritdoc.</param>
+    /// <param name="compilation">Compilation that produced the assembly symbol — passed through to the DocResolver for cref resolution on inheritdoc.</param>
     /// <param name="sourceLinks">SourceLink resolver scoped to the assembly being walked. Populates <see cref="ApiMember.SourceUrl"/> and <see cref="ApiType.SourceUrl"/> when PDB + SourceLink data is available; otherwise contributes nothing and the URLs stay null.</param>
     /// <returns>The generated API catalog.</returns>
     public ApiCatalog Walk(string tfm, IAssemblySymbol assembly, Compilation compilation, ISourceLinkResolver sourceLinks)
@@ -81,15 +49,15 @@ public sealed class SymbolWalker : ISymbolWalker
 
     /// <summary>
     /// Static implementation of <see cref="Walk"/>. Kept separate so the
-    /// instance method is a one-liner and the body remains pure / shareable
-    /// across walker instances without per-instance state.
+    /// instance method is a one-liner and the body remains pure /
+    /// shareable across walker instances without per-instance state.
     /// </summary>
     /// <param name="tfm">TFM the assembly was extracted from.</param>
     /// <param name="assembly">Assembly symbol to walk.</param>
     /// <param name="docs">Doc resolver scoped to the compilation that produced <paramref name="assembly"/>.</param>
     /// <param name="sourceLinks">Resolver scoped to <paramref name="assembly"/>.</param>
     /// <returns>The generated API catalog.</returns>
-    private static ApiCatalog WalkCore(string tfm, IAssemblySymbol assembly, IDocResolver docs, ISourceLinkResolver sourceLinks)
+    internal static ApiCatalog WalkCore(string tfm, IAssemblySymbol assembly, IDocResolver docs, ISourceLinkResolver sourceLinks)
     {
         var context = new SymbolWalkContext(
             AssemblyName: assembly.Name,
@@ -100,7 +68,7 @@ public sealed class SymbolWalker : ISymbolWalker
             NamespaceDisplayNames: new(),
             AppliesTo: [tfm]);
 
-        // Total count isn't known upfront - typical assemblies land in
+        // Total count isn't known upfront — typical assemblies land in
         // the low hundreds of public types — so let the list grow
         // dynamically rather than picking an arbitrary capacity.
         List<ApiType> types = [];
@@ -143,15 +111,14 @@ public sealed class SymbolWalker : ISymbolWalker
     /// shared visibility / build-or-skip / nested-push pipeline, and
     /// records each successfully built type's UID in
     /// <paramref name="seenTypeUids"/> so a later forwarded-type pass
-    /// can skip duplicates. Lifted out of <see cref="WalkCore"/> so the
-    /// namespace walk and the forwarded-type walk share one drain
-    /// loop.
+    /// can skip duplicates. Internal so tests can drive the drain
+    /// loop directly with synthesised symbols.
     /// </summary>
     /// <param name="pendingTypes">Stack of types to drain.</param>
     /// <param name="types">Catalog list to append into.</param>
     /// <param name="seenTypeUids">UIDs already produced — used for dedupe.</param>
     /// <param name="context">Per-walk state bundle.</param>
-    private static void DrainPendingTypes(
+    internal static void DrainPendingTypes(
         Stack<INamedTypeSymbol> pendingTypes,
         List<ApiType> types,
         HashSet<string> seenTypeUids,
@@ -169,7 +136,7 @@ public sealed class SymbolWalker : ISymbolWalker
                 continue;
             }
 
-            // C# 14 extension declarations surface as synthesized
+            // C# 14 extension declarations surface as synthesised
             // grouping / marker types alongside their classic
             // [Extension] impl method on the parent container; emit
             // only the impl, drop the marker.
@@ -184,7 +151,7 @@ public sealed class SymbolWalker : ISymbolWalker
                 continue;
             }
 
-            if (TryBuildType(type, context) is { } apiType)
+            if (TypeBuilder.TryBuild(type, context) is { } apiType)
             {
                 types.Add(apiType);
                 if (apiType.Uid.Length > 0)
@@ -195,246 +162,5 @@ public sealed class SymbolWalker : ISymbolWalker
 
             TypeForwardingHelpers.PushNested(type, pendingTypes);
         }
-    }
-
-    /// <summary>
-    /// Returns the cached display string for <paramref name="ns"/>, lazily
-    /// populating <see cref="SymbolWalkContext.NamespaceDisplayNames"/> on
-    /// the first encounter. Without the cache every type re-formats its
-    /// containing namespace via <c>ToDisplayString</c>, which is one of
-    /// the heaviest per-type allocations in the walk.
-    /// </summary>
-    /// <param name="context">Per-walk context owning the namespace cache.</param>
-    /// <param name="ns">Namespace symbol to format.</param>
-    /// <returns>The cached display string, or empty for the global namespace.</returns>
-    private static string GetNamespaceDisplayName(SymbolWalkContext context, INamespaceSymbol? ns)
-    {
-        if (ns is not { IsGlobalNamespace: false })
-        {
-            return string.Empty;
-        }
-
-        return context.NamespaceDisplayNames.GetOrAdd(ns);
-    }
-
-    /// <summary>
-    /// Builds an ApiType for one Roslyn INamedTypeSymbol. Returns null for types
-    /// that cannot be classified (error symbols, modules, etc.).
-    /// </summary>
-    /// <param name="type">Source type symbol.</param>
-    /// <param name="context">Per-walk state bundle.</param>
-    /// <returns>The generated API type, or null if it could not be built.</returns>
-    private static ApiType? TryBuildType(INamedTypeSymbol type, SymbolWalkContext context)
-    {
-        var uid = type.GetDocumentationCommentId() ?? string.Empty;
-        var ns = GetNamespaceDisplayName(context, type.ContainingNamespace);
-        var fullName = ns is [] ? type.Name : $"{ns}.{type.Name}";
-        var documentation = context.Docs.Resolve(type);
-        var baseTypeRef = SymbolWalkerHelpers.BuildBaseTypeReference(type, context.TypeRefs);
-        var interfaces = SymbolWalkerHelpers.BuildInterfaceReferences(type, context.TypeRefs);
-        var sourceUrl = context.SourceLinks.Resolve(type);
-        var attributes = AttributeExtractor.Extract(type);
-        var (isObsolete, obsoleteMessage) = AttributeExtractor.ResolveObsolete(type);
-
-        return type.TypeKind switch
-        {
-            // Closed-hierarchy unions (C# 15+) are class-shaped and have to
-            // be checked before the generic class branch — otherwise we'd
-            // emit them as a plain class and lose the case list.
-            TypeKind.Class when SymbolWalkerHelpers.IsUnion(type) => new ApiUnionType(
-                Name: type.Name,
-                FullName: fullName,
-                Uid: uid,
-                Namespace: ns,
-                Arity: type.Arity,
-                IsStatic: type.IsStatic,
-                IsSealed: type.IsSealed,
-                IsAbstract: type.IsAbstract,
-                AssemblyName: context.AssemblyName,
-                Documentation: documentation,
-                BaseType: baseTypeRef,
-                Interfaces: interfaces,
-                SourceUrl: sourceUrl,
-                AppliesTo: context.AppliesTo,
-                IsObsolete: isObsolete,
-                ObsoleteMessage: obsoleteMessage,
-                Attributes: attributes,
-                Members: BuildMembers(type, type.Name, uid, context),
-                Cases: SymbolWalkerHelpers.BuildUnionCases(type, context.TypeRefs)),
-            TypeKind.Enum => new ApiEnumType(
-                Name: type.Name,
-                FullName: fullName,
-                Uid: uid,
-                Namespace: ns,
-                Arity: type.Arity,
-                IsStatic: type.IsStatic,
-                IsSealed: type.IsSealed,
-                IsAbstract: type.IsAbstract,
-                AssemblyName: context.AssemblyName,
-                Documentation: documentation,
-                BaseType: baseTypeRef,
-                Interfaces: interfaces,
-                SourceUrl: sourceUrl,
-                AppliesTo: context.AppliesTo,
-                IsObsolete: isObsolete,
-                ObsoleteMessage: obsoleteMessage,
-                Attributes: attributes,
-                UnderlyingType: context.TypeRefs.GetOrAdd(
-                    type.EnumUnderlyingType ?? type,
-                    SymbolWalkerHelpers.BuildReference),
-                Values: SymbolWalkerHelpers.BuildEnumValues(type, context)),
-            TypeKind.Delegate => new ApiDelegateType(
-                Name: type.Name,
-                FullName: fullName,
-                Uid: uid,
-                Namespace: ns,
-                Arity: type.Arity,
-                IsStatic: type.IsStatic,
-                IsSealed: type.IsSealed,
-                IsAbstract: type.IsAbstract,
-                AssemblyName: context.AssemblyName,
-                Documentation: documentation,
-                BaseType: baseTypeRef,
-                Interfaces: interfaces,
-                SourceUrl: sourceUrl,
-                AppliesTo: context.AppliesTo,
-                IsObsolete: isObsolete,
-                ObsoleteMessage: obsoleteMessage,
-                Attributes: attributes,
-                Invoke: SymbolWalkerHelpers.BuildDelegateInvoke(type, context)),
-            _ => SymbolWalkerHelpers.ClassifyObjectKind(type) is not { } kind
-                ? null
-                : new ApiObjectType(
-                    Name: type.Name,
-                    FullName: fullName,
-                    Uid: uid,
-                    Namespace: ns,
-                    Arity: type.Arity,
-                    IsStatic: type.IsStatic,
-                    IsSealed: type.IsSealed,
-                    IsAbstract: type.IsAbstract,
-                    AssemblyName: context.AssemblyName,
-                    Documentation: documentation,
-                    BaseType: baseTypeRef,
-                    Interfaces: interfaces,
-                    SourceUrl: sourceUrl,
-                    AppliesTo: context.AppliesTo,
-                    IsObsolete: isObsolete,
-                    ObsoleteMessage: obsoleteMessage,
-                    Attributes: attributes,
-                    Kind: kind,
-                    IsReadOnly: type.IsReadOnly,
-                    IsByRefLike: type.IsRefLikeType,
-                    Members: BuildMembers(type, type.Name, uid, context),
-                    ExtensionBlocks: BuildExtensionBlocks(type, context))
-        };
-    }
-
-    /// <summary>
-    /// Walks the immediate members of a type and returns the documented ones.
-    /// Skips compiler-generated and non-public members.
-    /// </summary>
-    /// <param name="type">Containing type.</param>
-    /// <param name="containingTypeName">Display name of the containing type.</param>
-    /// <param name="containingTypeUid">Roslyn UID of the containing type.</param>
-    /// <param name="context">Per-walk state bundle.</param>
-    /// <returns>The documented members.</returns>
-    private static ApiMember[] BuildMembers(
-        INamedTypeSymbol type,
-        string containingTypeName,
-        string containingTypeUid,
-        SymbolWalkContext context)
-    {
-        // Pre-size to the raw member count from Roslyn - we'll filter
-        // some out (non-public, implicitly declared, unsupported kinds)
-        // but it's a tight upper bound that avoids List growth on the
-        // chunkier types.
-        var rawMembers = type.GetMembers();
-        var members = new List<ApiMember>(rawMembers.Length);
-
-        for (var i = 0; i < rawMembers.Length; i++)
-        {
-            var member = rawMembers[i];
-            if (member.IsImplicitlyDeclared || !SymbolWalkerHelpers.IsExternallyVisible(member.DeclaredAccessibility))
-            {
-                continue;
-            }
-
-            if (SymbolWalkerHelpers.TryClassifyMember(member) is not { } kind)
-            {
-                continue;
-            }
-
-            var uid = member.GetDocumentationCommentId() ?? string.Empty;
-            var memberAttributes = AttributeExtractor.Extract(member);
-            var (memberObsolete, memberObsoleteMessage) = AttributeExtractor.ResolveObsolete(member);
-            members.Add(new(
-                Name: member.Name,
-                Uid: uid,
-                Kind: kind,
-                IsStatic: member.IsStatic,
-                IsExtension: member is IMethodSymbol { IsExtensionMethod: true },
-                IsRequired: SymbolWalkerHelpers.IsRequiredMember(member),
-                IsVirtual: member.IsVirtual,
-                IsOverride: member.IsOverride,
-                IsAbstract: member.IsAbstract,
-                IsSealed: member.IsSealed,
-                Signature: member.ToDisplayString(_signatureFormat),
-                Parameters: SymbolWalkerHelpers.BuildParameters(member, context.TypeRefs),
-                TypeParameters: SymbolWalkerHelpers.BuildTypeParameters(member),
-                ReturnType: SymbolWalkerHelpers.BuildReturnTypeReference(member, context.TypeRefs),
-                ContainingTypeUid: containingTypeUid,
-                ContainingTypeName: containingTypeName,
-                SourceUrl: context.SourceLinks.Resolve(member),
-                Documentation: context.Docs.Resolve(member),
-                IsObsolete: memberObsolete,
-                ObsoleteMessage: memberObsoleteMessage,
-                Attributes: memberAttributes));
-        }
-
-        return [.. members];
-    }
-
-    /// <summary>
-    /// Walks <paramref name="type"/>'s nested types looking for the
-    /// synthesised C# 14 extension grouping markers
-    /// (<see cref="INamedTypeSymbol.IsExtension"/>) and converts each
-    /// to an <see cref="ApiExtensionBlock"/>: the receiver parameter
-    /// (name + type ref) plus the conceptual members declared inside
-    /// the block. The classic <c>[Extension]</c> implementation
-    /// methods on the parent container come through the regular
-    /// member surface and are unaffected.
-    /// </summary>
-    /// <param name="type">Container type whose extension blocks to collect.</param>
-    /// <param name="context">Per-walk state bundle.</param>
-    /// <returns>The extension blocks declared on the type.</returns>
-    private static ApiExtensionBlock[] BuildExtensionBlocks(INamedTypeSymbol type, SymbolWalkContext context)
-    {
-        var nested = type.GetTypeMembers();
-        if (nested.IsDefaultOrEmpty)
-        {
-            return [];
-        }
-
-        List<ApiExtensionBlock> blocks = [];
-        for (var i = 0; i < nested.Length; i++)
-        {
-            var marker = nested[i];
-            if (!SymbolWalkerHelpers.IsExtensionDeclaration(marker))
-            {
-                continue;
-            }
-
-            if (marker.ExtensionParameter is not { } receiverParam)
-            {
-                continue;
-            }
-
-            var receiverRef = context.TypeRefs.GetOrAdd(receiverParam.Type, SymbolWalkerHelpers.BuildReference);
-            var blockMembers = BuildMembers(marker, marker.Name, marker.GetDocumentationCommentId() ?? string.Empty, context);
-            blocks.Add(new ApiExtensionBlock(receiverParam.Name, receiverRef, blockMembers));
-        }
-
-        return [.. blocks];
     }
 }

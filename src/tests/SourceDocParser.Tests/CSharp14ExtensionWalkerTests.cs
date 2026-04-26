@@ -2,15 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using SourceDocParser.SourceLink;
 
 namespace SourceDocParser.Tests;
 
 /// <summary>
 /// Drives <see cref="SymbolWalker"/> against a real
-/// <see cref="CSharpCompilation"/> that uses the C# 14
+/// in-memory compilation that uses the C# 14
 /// <c>extension(T receiver) { ... }</c> block syntax. Verifies that
 /// the walker (a) drops the synthesised marker types instead of
 /// emitting bogus pages for them and (b) populates
@@ -24,7 +22,7 @@ public class CSharp14ExtensionWalkerTests
     [Test]
     public async Task ExtensionBlockSurfacesOnParentObjectType()
     {
-        var compilation = BuildCompilation(
+        var compilation = WalkerTestFixtures.Compile(
             """
             public static class Helpers
             {
@@ -53,7 +51,7 @@ public class CSharp14ExtensionWalkerTests
     [Test]
     public async Task MarkerTypeDoesNotSurfaceAsApiType()
     {
-        var compilation = BuildCompilation(
+        var compilation = WalkerTestFixtures.Compile(
             """
             public static class Helpers
             {
@@ -73,30 +71,11 @@ public class CSharp14ExtensionWalkerTests
         await Assert.That(catalog.Types[0].Name).IsEqualTo("Helpers");
     }
 
-    /// <summary>Builds an in-memory compilation against the runtime's BCL references with C# preview features enabled.</summary>
-    /// <param name="source">C# source text to compile.</param>
-    /// <returns>The compiled (but not emitted) compilation.</returns>
-    private static CSharpCompilation BuildCompilation(string source)
-    {
-        var tree = CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Preview));
-        List<MetadataReference> references =
-        [
-            .. AppDomain.CurrentDomain.GetAssemblies()
-                .Where(static a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-                .Select(static a => MetadataReference.CreateFromFile(a.Location)),
-        ];
-        return CSharpCompilation.Create(
-            "CSharp14ExtTest",
-            [tree],
-            references,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
-    }
-
     /// <summary>SourceLink resolver that returns null for every symbol — keeps the walker tests free of a real PDB dependency.</summary>
     private sealed class NullSourceLinkResolver : ISourceLinkResolver
     {
         /// <inheritdoc />
-        public string? Resolve(ISymbol symbol) => null;
+        public string? Resolve(Microsoft.CodeAnalysis.ISymbol symbol) => null;
 
         /// <inheritdoc />
         public void Dispose()
