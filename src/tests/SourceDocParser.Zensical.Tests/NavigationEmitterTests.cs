@@ -32,19 +32,19 @@ public class NavigationEmitterTests
         await Assert.That(yaml).Contains("      - Foo: ReactiveUI/ReactiveUI/Foo.md");
     }
 
-    /// <summary>YAML output buckets unrouted types under the API fallback folder.</summary>
+    /// <summary>Without explicit rules the assembly name is the package folder.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task EmitYamlFallsBackToApiFolderWhenUnrouted()
+    public async Task EmitYamlDefaultsPackageToAssemblyName()
     {
         var emitter = new NavigationEmitter(ZensicalEmitterOptions.Default);
-        var type = TestData.ObjectType("Foo") with { Namespace = "Bar" };
+        var type = TestData.ObjectType("Foo", assemblyName: "Splat") with { Namespace = "Bar" };
 
         var yaml = emitter.EmitYaml([type]);
 
-        await Assert.That(yaml).Contains("  - API:");
+        await Assert.That(yaml).Contains("  - Splat:");
         await Assert.That(yaml).Contains("    - Bar:");
-        await Assert.That(yaml).Contains("      - Foo: Bar/Foo.md");
+        await Assert.That(yaml).Contains("      - Foo: Splat/Bar/Foo.md");
     }
 
     /// <summary>TOML output uses the project.nav array-of-tables shape Zensical expects.</summary>
@@ -53,14 +53,15 @@ public class NavigationEmitterTests
     public async Task EmitTomlProducesProjectNavArray()
     {
         var emitter = new NavigationEmitter(ZensicalEmitterOptions.Default);
-        var type = TestData.ObjectType("Foo") with { Namespace = "Bar" };
+        var type = TestData.ObjectType("Foo", assemblyName: "Splat") with { Namespace = "Bar" };
 
         var toml = emitter.EmitToml([type]);
 
         await Assert.That(toml).Contains("[[project.nav]]");
         await Assert.That(toml).Contains("title = \"API\"");
+        await Assert.That(toml).Contains("{ title = \"Splat\", nav = [");
         await Assert.That(toml).Contains("{ title = \"Bar\", nav = [");
-        await Assert.That(toml).Contains("{ title = \"Foo\", path = \"Bar/Foo.md\" }");
+        await Assert.That(toml).Contains("{ title = \"Foo\", path = \"Splat/Bar/Foo.md\" }");
     }
 
     /// <summary>Types within a namespace are sorted ordinally so output is deterministic.</summary>

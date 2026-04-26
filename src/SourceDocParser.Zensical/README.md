@@ -11,7 +11,7 @@ For each walked `ApiType`:
 - `<package>/<Namespace>/<TypeName>.md` — the type page (summary, hierarchy mermaid diagram, applies-to, members table, enum values / delegate signature where applicable).
 - `<package>/<Namespace>/<TypeName>/<MemberName>.md` — one page per overload group (constructor / property / method / event / field / operator).
 
-The leading `<package>/` segment only appears when you configure `PackageRoutingRule`s (see below). Without routing, layout is a flat namespace tree.
+`<package>` defaults to the type's assembly name. Configure `PackageRoutingRule`s to override the folder name (e.g. group several related assemblies under one folder) and to act as a walk filter (types from non-matching assemblies are skipped).
 
 ## Cross-link routing
 
@@ -46,7 +46,7 @@ Match is **first-rule-wins**, prefix-with-dot semantics: `AssemblyPrefix: "React
 
 When any rules are configured, types from non-matching assemblies are skipped from the walk — they are referenced via cross-links rather than getting their own pages. Use this to keep transient package types out of your site without needing per-page filtering.
 
-Without rules (`ZensicalEmitterOptions.Default`), every walked type produces a page in the legacy flat namespace layout.
+Without rules (`ZensicalEmitterOptions.Default`), every walked type produces a page; the package folder defaults to the assembly name. This keeps clashing namespaces across packages (e.g. the `ReactiveUI` namespace in both `ReactiveUI` and `ReactiveUI.Wpf`) cleanly separated.
 
 ## Required mkdocs-Material extensions
 

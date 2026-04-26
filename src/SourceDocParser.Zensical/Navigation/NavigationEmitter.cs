@@ -18,9 +18,6 @@ namespace SourceDocParser.Zensical;
 /// </summary>
 public sealed class NavigationEmitter
 {
-    /// <summary>Folder name used when no <see cref="PackageRoutingRule"/> matches a type's assembly.</summary>
-    private const string UnroutedFolderName = "API";
-
     /// <summary>Characters that force a YAML scalar to be quoted.</summary>
     private static readonly SearchValues<char> _yamlReservedChars = SearchValues.Create(":#'\"[]{},&*!|>%@`");
 
@@ -148,7 +145,12 @@ public sealed class NavigationEmitter
         for (var i = 0; i < types.Length; i++)
         {
             var type = types[i];
-            var package = PackageRouter.ResolveFolder(type.AssemblyName, _options.PackageRouting) ?? UnroutedFolderName;
+            var package = PackageRouter.ResolveFolder(type.AssemblyName, _options.PackageRouting);
+            if (package is null)
+            {
+                continue;
+            }
+
             var ns = type.Namespace is [_, ..] ? type.Namespace : "(global)";
 
             if (!tree.TryGetValue(package, out var nsBucket))

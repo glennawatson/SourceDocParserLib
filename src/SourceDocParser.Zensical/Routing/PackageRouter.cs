@@ -6,21 +6,34 @@ namespace SourceDocParser.Zensical;
 
 /// <summary>
 /// Resolves which per-package folder a given <see cref="ApiType"/>
-/// belongs in, by matching its <see cref="ApiType.AssemblyName"/>
-/// against the configured <see cref="PackageRoutingRule"/> list.
-/// First-match-wins; no match returns null and the caller falls
-/// back to the legacy namespace-only layout.
+/// belongs in. Default behaviour: the folder name is the assembly
+/// name. When the caller supplies a <see cref="PackageRoutingRule"/>
+/// list, the rules act both as a filter (types from non-matching
+/// assemblies are excluded) and as a folder-name override (e.g. to
+/// group several related assemblies under a single package folder).
+/// First-match-wins.
 /// </summary>
 internal static class PackageRouter
 {
-    /// <summary>Returns the folder name for <paramref name="assemblyName"/> per <paramref name="rules"/>; null when none match.</summary>
+    /// <summary>
+    /// Returns the folder name for <paramref name="assemblyName"/>.
+    /// When <paramref name="rules"/> is empty, the folder is the
+    /// assembly name itself. When rules are present, returns the
+    /// matched rule's <see cref="PackageRoutingRule.FolderName"/>;
+    /// null when no rule matches (caller should skip the type).
+    /// </summary>
     /// <param name="assemblyName">Assembly the type lives in (e.g. <c>Splat.Core</c>).</param>
-    /// <param name="rules">Ordered routing rules from the user's options.</param>
-    /// <returns>The folder name, or null when the assembly isn't a primary package (System.*, transient deps).</returns>
+    /// <param name="rules">Ordered routing rules from the user's options; may be empty.</param>
+    /// <returns>The folder name, or null when rules are configured and none match.</returns>
     public static string? ResolveFolder(string assemblyName, PackageRoutingRule[] rules)
     {
         ArgumentNullException.ThrowIfNull(assemblyName);
         ArgumentNullException.ThrowIfNull(rules);
+
+        if (rules.Length == 0)
+        {
+            return assemblyName;
+        }
 
         for (var i = 0; i < rules.Length; i++)
         {

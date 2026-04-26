@@ -67,7 +67,7 @@ public class MemberPageEmitterTests
 
         var path = MemberPageEmitter.PathFor(type, "Run");
 
-        await Assert.That(path).IsEqualTo("My/Lib/Foo/Run.md");
+        await Assert.That(path).IsEqualTo(Path.Combine("Test", "My", "Lib", "Foo", "Run.md"));
     }
 
     /// <summary>

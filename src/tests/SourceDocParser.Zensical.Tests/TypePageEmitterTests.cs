@@ -59,9 +59,11 @@ public class TypePageEmitterTests
     }
 
     /// <summary>
-    /// Path layout: <c>Namespace/Type.md</c> for namespaced types,
-    /// <c>_global/Type.md</c> for global-namespace types so the api
-    /// tree stays well-formed.
+    /// Default path layout: <c>Assembly/Namespace/Type.md</c> for
+    /// namespaced types and <c>Assembly/_global/Type.md</c> for global-
+    /// namespace types. The assembly-name folder lets multi-package
+    /// sites keep clashing namespaces (e.g. <c>ReactiveUI</c> in both
+    /// <c>ReactiveUI</c> and <c>ReactiveUI.Wpf</c>) cleanly separated.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -70,8 +72,8 @@ public class TypePageEmitterTests
         var withNamespace = TestData.ObjectType("Foo") with { Namespace = "My.Lib" };
         var globalNs = TestData.ObjectType("Bar");
 
-        await Assert.That(TypePageEmitter.PathFor(withNamespace)).IsEqualTo("My/Lib/Foo.md");
-        await Assert.That(TypePageEmitter.PathFor(globalNs)).IsEqualTo("_global/Bar.md");
+        await Assert.That(TypePageEmitter.PathFor(withNamespace)).IsEqualTo(Path.Combine("Test", "My", "Lib", "Foo.md"));
+        await Assert.That(TypePageEmitter.PathFor(globalNs)).IsEqualTo(Path.Combine("Test", "_global", "Bar.md"));
     }
 
     /// <summary>
