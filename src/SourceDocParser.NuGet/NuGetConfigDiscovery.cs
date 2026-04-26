@@ -14,6 +14,9 @@ namespace SourceDocParser.NuGet;
 /// </summary>
 internal static class NuGetConfigDiscovery
 {
+    /// <summary>The fallback feed used when no config along the chain declares any package sources.</summary>
+    public static readonly PackageSource DefaultNuGetOrgSource = new("nuget.org", "https://api.nuget.org/v3/index.json");
+
     /// <summary>Both filename casings NuGet honours on case-sensitive filesystems.</summary>
     private static readonly string[] _configFileNames = ["nuget.config", "NuGet.Config"];
 
@@ -119,5 +122,59 @@ internal static class NuGetConfigDiscovery
     {
         var configValue = await ResolveGlobalPackagesFolderAsync(workingFolder, cancellationToken).ConfigureAwait(false);
         return NuGetGlobalCache.ResolveGlobalPackagesFolder(configValue);
+    }
+
+    /// <summary>
+    /// Walks the discovery chain rooted at
+    /// <paramref name="workingFolder"/> and returns the merged
+    /// list of <c>&lt;packageSources&gt;</c> entries — closer
+    /// files' <c>&lt;clear/&gt;</c> wipes parents, closer files'
+    /// <c>&lt;add&gt;</c> entries take precedence over the same
+    /// key in less-specific files. When no config along the
+    /// chain declares any sources, returns the well-known
+    /// nuget.org default so the fetcher always has at least one
+    /// place to look.
+    /// </summary>
+    /// <param name="workingFolder">Repository / project root to start the walk from.</param>
+    /// <param name="cancellationToken">Token observed across each parse.</param>
+    /// <returns>Ordered, deduplicated package sources — first entry has highest discovery precedence.</returns>
+    public static async Task<PackageSource[]> ResolvePackageSourcesAsync(string workingFolder, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(workingFolder);
+
+        // Walk most-specific first so closer files' adds upsert
+        // first (their value wins via the seenKeys gate). Stop
+        // walking when a closer file invoked <clear/> — its clear
+        // erases anything the less-specific configs would have
+        // contributed.
+        var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var merged = new List<PackageSource>();
+
+        foreach (var configPath in EnumerateConfigPaths(workingFolder))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var fileResult = await PackageSourcesReader.ReadPackageSourcesAsync(configPath, cancellationToken).ConfigureAwait(false);
+
+            for (var i = 0; i < fileResult.Sources.Length; i++)
+            {
+                var source = fileResult.Sources[i];
+                if (seenKeys.Add(source.Key))
+                {
+                    merged.Add(source);
+                }
+            }
+
+            if (fileResult.ClearedSeen)
+            {
+                return [.. merged];
+            }
+        }
+
+        if (merged.Count == 0)
+        {
+            return [DefaultNuGetOrgSource];
+        }
+
+        return [.. merged];
     }
 }

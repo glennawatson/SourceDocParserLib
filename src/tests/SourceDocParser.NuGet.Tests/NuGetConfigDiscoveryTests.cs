@@ -111,4 +111,70 @@ public class NuGetConfigDiscoveryTests
 
         await Assert.That(first).IsEqualTo(Path.Combine(fixture, "nuget.config"));
     }
+
+    /// <summary>
+    /// ResolvePackageSourcesAsync returns the file's declared
+    /// sources for a config that doesn't <c>&lt;clear/&gt;</c>
+    /// — closer file's adds upsert into the merged set first.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ResolvesPackageSourcesFromConfigInWorkingFolder()
+    {
+        var fixture = Path.Combine(AppContext.BaseDirectory, "Fixtures", "with-sources");
+
+        var sources = await NuGetConfigDiscovery.ResolvePackageSourcesAsync(fixture).ConfigureAwait(false);
+
+        await Assert.That(sources.Length).IsEqualTo(2);
+        await Assert.That(sources[0].Key).IsEqualTo("nuget.org");
+        await Assert.That(sources[1].Key).IsEqualTo("github");
+    }
+
+    /// <summary>
+    /// A closer file's <c>&lt;clear/&gt;</c> stops the walk —
+    /// less-specific configs are not consulted, so only this
+    /// file's post-clear adds remain.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ClearStopsWalkAndDropsParentSources()
+    {
+        var fixture = Path.Combine(AppContext.BaseDirectory, "Fixtures", "sources-clear");
+
+        var sources = await NuGetConfigDiscovery.ResolvePackageSourcesAsync(fixture).ConfigureAwait(false);
+
+        await Assert.That(sources.Length).IsEqualTo(1);
+        await Assert.That(sources[0].Key).IsEqualTo("github");
+    }
+
+    /// <summary>
+    /// With no config at all along the chain, the resolver hands
+    /// back the well-known nuget.org default so the fetcher
+    /// always has a feed to query.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task FallsBackToNuGetOrgWhenNoSourcesDeclared()
+    {
+        var emptyFolder = Path.Combine(Path.GetTempPath(), $"sdp-empty-sources-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(emptyFolder);
+
+        try
+        {
+            var sources = await NuGetConfigDiscovery.ResolvePackageSourcesAsync(emptyFolder).ConfigureAwait(false);
+
+            // Caller may have user-scoped configs that contribute
+            // sources too — but our well-known nuget.org default is
+            // always present at minimum.
+            await Assert.That(sources.Length).IsGreaterThan(0);
+            await Assert.That(sources.Any(s => s.Key == "nuget.org" || s.Url.Contains("api.nuget.org", StringComparison.OrdinalIgnoreCase))).IsTrue();
+        }
+        finally
+        {
+            if (Directory.Exists(emptyFolder))
+            {
+                Directory.Delete(emptyFolder, recursive: true);
+            }
+        }
+    }
 }

@@ -670,7 +670,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                         continue;
                     }
 
-                    if (resource.GetProperty("@id"u8).GetString() is { } id)
+                    if (resource.TryGetProperty("@id"u8, out var idEl) && idEl.GetString() is { } id)
                     {
                         endpoint = new(id);
                     }

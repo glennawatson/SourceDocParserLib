@@ -25,7 +25,7 @@ internal static class PackageInstallLock
     private const string LockFileSuffix = ".lock";
 
     /// <summary>How long to wait between lock retries.</summary>
-    private static readonly TimeSpan _retryDelay = TimeSpan.FromMilliseconds(50);
+    private static readonly TimeSpan _retryDelay = TimeSpan.FromMilliseconds(50L);
 
     /// <summary>Default cap on lock-acquire wall time — surface a clear error rather than hang the build forever.</summary>
     private static readonly TimeSpan _defaultMaxWait = TimeSpan.FromMinutes(5);
@@ -44,8 +44,7 @@ internal static class PackageInstallLock
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(globalPackagesFolder);
         ArgumentException.ThrowIfNullOrWhiteSpace(packageInstallPath);
-        var key = ComputeLockKey(packageInstallPath);
-        return Path.Combine(globalPackagesFolder, LocksFolderName, key + LockFileSuffix);
+        return Path.Combine(globalPackagesFolder, LocksFolderName, ComputeLockKey(packageInstallPath) + LockFileSuffix);
     }
 
     /// <summary>
@@ -134,9 +133,25 @@ internal static class PackageInstallLock
     /// <returns>Lower-case hex SHA-256 of the UTF-8 bytes.</returns>
     private static string ComputeLockKey(string packageInstallPath)
     {
-        Span<byte> hash = stackalloc byte[32];
-        var bytes = Encoding.UTF8.GetBytes(packageInstallPath);
-        SHA256.HashData(bytes, hash);
-        return Convert.ToHexStringLower(hash);
+        var maxBytes = Encoding.UTF8.GetMaxByteCount(packageInstallPath.Length);
+        byte[]? rented = null;
+        var buffer = maxBytes <= 512
+            ? stackalloc byte[512]
+            : (rented = System.Buffers.ArrayPool<byte>.Shared.Rent(maxBytes));
+
+        try
+        {
+            var written = Encoding.UTF8.GetBytes(packageInstallPath, buffer);
+            Span<byte> hash = stackalloc byte[32];
+            SHA256.HashData(buffer[..written], hash);
+            return string.Create(64, hash, static (dest, h) => Convert.TryToHexStringLower(h, dest, out _));
+        }
+        finally
+        {
+            if (rented != null)
+            {
+                System.Buffers.ArrayPool<byte>.Shared.Return(rented);
+            }
+        }
     }
 }
