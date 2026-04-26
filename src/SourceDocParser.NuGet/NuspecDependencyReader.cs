@@ -34,25 +34,47 @@ internal static class NuspecDependencyReader
     private const string IdAttributeName = "id";
 
     /// <summary>
+    /// Reader settings shared across every parse — async on so the
+    /// XmlReader can pump from <see cref="ZipArchiveEntry.OpenAsync"/>'s
+    /// async stream without the runtime throwing on sync .Read().
+    /// </summary>
+    private static readonly XmlReaderSettings _readerSettings = new()
+    {
+        Async = true,
+        IgnoreComments = true,
+        IgnoreWhitespace = true,
+        DtdProcessing = DtdProcessing.Prohibit,
+    };
+
+    /// <summary>
     /// Returns the set of dependency package IDs declared anywhere in
-    /// the nupkg's nuspec, deduplicated across TFM groups. Stream-only
-    /// — no XDocument materialisation, no per-element allocation
-    /// beyond the IDs themselves and the returned set.
+    /// the nupkg's nuspec, deduplicated across TFM groups. Uses the
+    /// .NET 10 async ZIP APIs (<see cref="ZipFile.OpenReadAsync(string, CancellationToken)"/>
+    /// + <see cref="ZipArchiveEntry.OpenAsync(CancellationToken)"/>) so
+    /// the entire read is non-blocking and integrates with the
+    /// fetcher's async pipeline.
     /// </summary>
     /// <param name="nupkgPath">Absolute path to the .nupkg on disk.</param>
-    /// <returns>Distinct dependency IDs as an OrdinalIgnoreCase set.</returns>
-    public static HashSet<string> ReadDependencyIds(string nupkgPath)
+    /// <param name="cancellationToken">Token observed across the open + parse.</param>
+    /// <returns>Distinct dependency IDs as an array (dedupe happens internally; callers iterate by index).</returns>
+    public static async Task<string[]> ReadDependencyIdsAsync(string nupkgPath, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(nupkgPath);
-        using var archive = ZipFile.OpenRead(nupkgPath);
-        var nuspec = FindNuspecEntry(archive);
-        if (nuspec is null)
+        var archive = await ZipFile.OpenReadAsync(nupkgPath, cancellationToken).ConfigureAwait(false);
+        await using (archive.ConfigureAwait(false))
         {
-            return new(StringComparer.OrdinalIgnoreCase);
-        }
+            var nuspec = FindNuspecEntry(archive);
+            if (nuspec is null)
+            {
+                return [];
+            }
 
-        using var stream = nuspec.Open();
-        return ReadDependencyIds(stream);
+            var stream = await nuspec.OpenAsync(cancellationToken).ConfigureAwait(false);
+            await using (stream.ConfigureAwait(false))
+            {
+                return await ReadDependencyIdsAsync(stream, cancellationToken).ConfigureAwait(false);
+            }
+        }
     }
 
     /// <summary>
@@ -62,22 +84,17 @@ internal static class NuspecDependencyReader
     /// declares.
     /// </summary>
     /// <param name="nuspecStream">Open stream positioned at the start of the nuspec XML.</param>
-    /// <returns>Distinct dependency IDs as an OrdinalIgnoreCase set.</returns>
-    public static HashSet<string> ReadDependencyIds(Stream nuspecStream)
+    /// <param name="cancellationToken">Token observed across the parse.</param>
+    /// <returns>Distinct dependency IDs as an array.</returns>
+    public static async Task<string[]> ReadDependencyIdsAsync(Stream nuspecStream, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(nuspecStream);
         var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        var settings = new XmlReaderSettings
+        using var reader = XmlReader.Create(nuspecStream, _readerSettings);
+        while (await reader.ReadAsync().ConfigureAwait(false))
         {
-            IgnoreComments = true,
-            IgnoreWhitespace = true,
-            DtdProcessing = DtdProcessing.Prohibit,
-        };
-
-        using var reader = XmlReader.Create(nuspecStream, settings);
-        while (reader.Read())
-        {
+            cancellationToken.ThrowIfCancellationRequested();
             if (reader is { NodeType: XmlNodeType.Element } && IsDependencyElement(reader))
             {
                 var id = reader.GetAttribute(IdAttributeName);
@@ -88,7 +105,7 @@ internal static class NuspecDependencyReader
             }
         }
 
-        return ids;
+        return [.. ids];
     }
 
     /// <summary>

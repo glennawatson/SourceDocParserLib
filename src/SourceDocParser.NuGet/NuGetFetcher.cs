@@ -169,8 +169,10 @@ public sealed partial class NuGetFetcher : INuGetFetcher
             cancellationToken.ThrowIfCancellationRequested();
             var newIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var nupkgPath in Directory.EnumerateFiles(cacheDir, "*.nupkg"))
+            var nupkgPaths = Directory.GetFiles(cacheDir, "*.nupkg");
+            for (var n = 0; n < nupkgPaths.Length; n++)
             {
+                var nupkgPath = nupkgPaths[n];
                 if (!processedNupkgs.Add(nupkgPath))
                 {
                     continue;
@@ -178,8 +180,10 @@ public sealed partial class NuGetFetcher : INuGetFetcher
 
                 try
                 {
-                    foreach (var depId in NuspecDependencyReader.ReadDependencyIds(nupkgPath))
+                    var deps = await NuspecDependencyReader.ReadDependencyIdsAsync(nupkgPath, cancellationToken).ConfigureAwait(false);
+                    for (var d = 0; d < deps.Length; d++)
                     {
+                        var depId = deps[d];
                         if (IsExcluded(depId, excludeSet, excludePrefixes))
                         {
                             continue;
@@ -202,12 +206,14 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                 return;
             }
 
-            var newPackages = new (string Id, string? Version, string? Tfm)[newIds.Count];
-            var idx = 0;
-            foreach (var id in newIds)
+            var newIdArray = new string[newIds.Count];
+            newIds.CopyTo(newIdArray);
+            var newPackages = new (string Id, string? Version, string? Tfm)[newIdArray.Length];
+            for (var i = 0; i < newIdArray.Length; i++)
             {
+                var id = newIdArray[i];
                 tfmOverrides.TryGetValue(id, out var tfm);
-                newPackages[idx++] = (id, null, tfm);
+                newPackages[i] = (id, null, tfm);
             }
 
             LogFetchingTransitiveDeps(logger, depth + 1, newPackages.Length);

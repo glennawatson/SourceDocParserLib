@@ -45,7 +45,7 @@ public class NuspecDependencyReaderTests
             </package>
             """;
 
-        var ids = NuspecDependencyReader.ReadDependencyIds(StreamFor(nuspecXml));
+        var ids = await NuspecDependencyReader.ReadDependencyIdsAsync(StreamFor(nuspecXml)).ConfigureAwait(false);
 
         await Assert.That(ids.Count).IsEqualTo(3);
         await Assert.That(ids).Contains("Splat.Core");
@@ -72,7 +72,7 @@ public class NuspecDependencyReaderTests
             </package>
             """;
 
-        var ids = NuspecDependencyReader.ReadDependencyIds(StreamFor(nuspecXml));
+        var ids = await NuspecDependencyReader.ReadDependencyIdsAsync(StreamFor(nuspecXml)).ConfigureAwait(false);
 
         await Assert.That(ids.Count).IsEqualTo(0);
     }
@@ -99,7 +99,7 @@ public class NuspecDependencyReaderTests
             </package>
             """;
 
-        var ids = NuspecDependencyReader.ReadDependencyIds(StreamFor(nuspecXml));
+        var ids = await NuspecDependencyReader.ReadDependencyIdsAsync(StreamFor(nuspecXml)).ConfigureAwait(false);
 
         await Assert.That(ids).Contains("Old.Core");
     }
@@ -120,7 +120,7 @@ public class NuspecDependencyReaderTests
             </foreign>
             """;
 
-        var ids = NuspecDependencyReader.ReadDependencyIds(StreamFor(nuspecXml));
+        var ids = await NuspecDependencyReader.ReadDependencyIdsAsync(StreamFor(nuspecXml)).ConfigureAwait(false);
 
         await Assert.That(ids.Count).IsEqualTo(0);
     }
@@ -148,7 +148,7 @@ public class NuspecDependencyReaderTests
             </package>
             """;
 
-        var ids = NuspecDependencyReader.ReadDependencyIds(StreamFor(nuspecXml));
+        var ids = await NuspecDependencyReader.ReadDependencyIdsAsync(StreamFor(nuspecXml)).ConfigureAwait(false);
 
         await Assert.That(ids.Count).IsEqualTo(1);
         await Assert.That(ids).Contains("Real");
@@ -203,7 +203,7 @@ public class NuspecDependencyReaderTests
                 await writer.WriteAsync(nuspecXml).ConfigureAwait(false);
             }
 
-            var ids = NuspecDependencyReader.ReadDependencyIds(nupkgPath);
+            var ids = await NuspecDependencyReader.ReadDependencyIdsAsync(nupkgPath).ConfigureAwait(false);
 
             await Assert.That(ids).Contains("Inner");
         }
