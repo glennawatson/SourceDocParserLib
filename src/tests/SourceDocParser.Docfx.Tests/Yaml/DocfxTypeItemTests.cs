@@ -8,7 +8,7 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 
 /// <summary>
 /// Pins individual fields on the docfx type item — anything emitted
-/// directly by <see cref="DocfxYamlBuilderExtensions.AppendTypeItem"/>
+/// directly by <see cref="DocfxYamlBuilderExtensions.AppendTypeItem(System.Text.StringBuilder, ApiType)"/>
 /// that doesn't have its own dedicated test fixture lands here.
 /// </summary>
 public class DocfxTypeItemTests
@@ -25,7 +25,7 @@ public class DocfxTypeItemTests
         await Assert.That(yaml).Contains("  parent: My.Lib");
     }
 
-    /// <summary>Global-namespace types skip the <c>parent:</c> field entirely.</summary>
+    /// <summary>Global-namespace types skip the type-item <c>parent:</c> field entirely (reference entries may still carry their own).</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task TypeItemSkipsParentForGlobalNamespace()
@@ -34,7 +34,11 @@ public class DocfxTypeItemTests
 
         var yaml = DocfxYamlEmitter.Render(type);
 
-        await Assert.That(yaml).DoesNotContain("parent:");
+        // Type item lays out as `id: Foo` then directly `langs:` —
+        // any inserted `parent:` would land between them. Reference
+        // entries render their own `parent:` deeper in the file but
+        // those don't affect the type item's own header.
+        await Assert.That(yaml).Contains("id: Foo\n  langs:");
     }
 
     /// <summary>Constructor item id quotes <c>'#ctor'</c> and emits the friendly name + overload anchor.</summary>

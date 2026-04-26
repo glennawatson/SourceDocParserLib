@@ -208,14 +208,17 @@ public class DocfxYamlEmitterTests
         var refs = (YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("references")];
 
         // String shows up twice (return + parameter) but should be
-        // deduplicated; Int32 shows up once.
-        await Assert.That(refs.Children).Count().IsEqualTo(2);
+        // deduplicated; Int32 shows up once. System.Object is added by
+        // the well-known-base synthesis for class types, bringing the
+        // expected count to 3.
+        await Assert.That(refs.Children).Count().IsEqualTo(3);
         var refUids = refs.Children
             .Cast<YamlMappingNode>()
             .Select(static n => n[new YamlScalarNode("uid")].ToString())
             .ToList();
         await Assert.That(refUids).Contains("System.String");
         await Assert.That(refUids).Contains("System.Int32");
+        await Assert.That(refUids).Contains("System.Object");
     }
 
     /// <summary>
@@ -471,11 +474,14 @@ public class DocfxYamlEmitterTests
         var items = (YamlSequenceNode)root.Children[new YamlScalarNode("items")];
         var typeItem = (YamlMappingNode)items.Children[0];
 
+        // The well-known-base synthesis adds an `inheritance: System.Object`
+        // line and a corresponding `references:` entry even for types
+        // with no walked base, so those two keys now exist.
         await Assert.That(items.Children).Count().IsEqualTo(1);
         await Assert.That(typeItem.Children).DoesNotContainKey(new YamlScalarNode("children"));
-        await Assert.That(typeItem.Children).DoesNotContainKey(new YamlScalarNode("inheritance"));
         await Assert.That(typeItem.Children).DoesNotContainKey(new YamlScalarNode("implements"));
-        await Assert.That(root.Children).DoesNotContainKey(new YamlScalarNode("references"));
+        await Assert.That(typeItem.Children).ContainsKey(new YamlScalarNode("inheritance"));
+        await Assert.That(root.Children).ContainsKey(new YamlScalarNode("references"));
     }
 
     /// <summary>

@@ -67,6 +67,7 @@ internal static class DocfxYamlBuilderExtensions
             .AppendDerivedClasses(indexes.GetDerived(type.Uid))
             .AppendInheritedMembers(indexes.GetInherited(type.Uid))
             .AppendExtensionMethods(indexes.GetExtensions(type.Uid))
+            .AppendExtensionBlocks(type is ApiObjectType obj ? obj.ExtensionBlocks : [])
             .AppendSeealso(type.Documentation.SeeAlso)
             .AppendKindSpecificSyntax(type)
             .AppendAttributes(type.Attributes);
@@ -205,10 +206,14 @@ internal static class DocfxYamlBuilderExtensions
     /// <param name="sb">Destination builder.</param>
     /// <param name="type">Type the references belong to.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
-    public static StringBuilder AppendInheritance(this StringBuilder sb, ApiType type) =>
-        type is ApiObjectType or ApiUnionType
-            ? sb.AppendBaseType(type.BaseType).AppendImplements(type.Interfaces)
-            : sb;
+    public static StringBuilder AppendInheritance(this StringBuilder sb, ApiType type) => type switch
+    {
+        ApiObjectType or ApiUnionType => sb
+            .AppendBaseType(type.BaseType ?? DocfxWellKnownBases.For(type))
+            .AppendImplements(type.Interfaces),
+        ApiEnumType or ApiDelegateType => sb.AppendBaseType(DocfxWellKnownBases.For(type)),
+        _ => sb,
+    };
 
     /// <summary>Writes the single-entry <c>inheritance:</c> block.</summary>
     /// <param name="sb">Destination builder.</param>
@@ -318,6 +323,42 @@ internal static class DocfxYamlBuilderExtensions
         for (var i = 0; i < extensions.Length; i++)
         {
             sb.Append("  - ").AppendScalar(DocfxCommentId.ToUid(extensions[i].Uid)).AppendLine();
+        }
+
+        return sb;
+    }
+
+    /// <summary>
+    /// Writes the C# 14 <c>extensionBlocks:</c> field — one entry
+    /// per <see cref="ApiExtensionBlock"/> declared on the type. Each
+    /// entry carries the receiver name + type uid plus the conceptual
+    /// member uids declared inside the block. No-op when the type
+    /// declares no extension blocks (the dominant case).
+    /// </summary>
+    /// <param name="sb">Destination builder.</param>
+    /// <param name="blocks">Extension blocks declared on the type.</param>
+    /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
+    public static StringBuilder AppendExtensionBlocks(this StringBuilder sb, ApiExtensionBlock[] blocks)
+    {
+        if (blocks is [])
+        {
+            return sb;
+        }
+
+        sb.Append("  extensionBlocks:\n");
+        for (var i = 0; i < blocks.Length; i++)
+        {
+            var block = blocks[i];
+            var receiverUid = block.Receiver is { Uid: [_, ..] uid }
+                ? DocfxCommentId.ToUid(uid)
+                : block.Receiver.DisplayName;
+            sb.Append("  - receiverName: ").AppendScalar(block.ReceiverName).AppendLine()
+                .Append("    receiverType: ").AppendScalar(receiverUid).AppendLine()
+                .Append("    members:\n");
+            for (var m = 0; m < block.Members.Length; m++)
+            {
+                sb.Append("    - ").AppendScalar(DocfxCommentId.ToUid(block.Members[m].Uid)).AppendLine();
+            }
         }
 
         return sb;

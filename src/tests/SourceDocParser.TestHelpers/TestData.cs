@@ -47,7 +47,8 @@ public static class TestData
             Kind: kind,
             IsReadOnly: false,
             IsByRefLike: false,
-            Members: []);
+            Members: [],
+            ExtensionBlocks: []);
 
     /// <summary>
     /// Creates a minimal <see cref="ApiEnumType"/> in a deterministic shape.

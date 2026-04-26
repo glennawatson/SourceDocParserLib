@@ -104,6 +104,22 @@ internal static class SymbolWalkerHelpers
         or Accessibility.ProtectedOrInternal;
 
     /// <summary>
+    /// Returns true when <paramref name="type"/> is one of the
+    /// synthesized grouping / marker types Roslyn surfaces for a
+    /// C# 14 <c>extension(T receiver) { ... }</c> block. The members
+    /// declared inside the block are also emitted by the compiler as
+    /// classic <c>[Extension]</c> static methods on the parent
+    /// container, so the marker type itself is metadata-only noise:
+    /// skipping it keeps the walked catalog free of <c>&lt;&gt;E__N</c>
+    /// pages while losing nothing user-visible (the impl methods
+    /// already arrive via the parent's member list).
+    /// </summary>
+    /// <param name="type">Candidate type to inspect.</param>
+    /// <returns>True when the type is a C# 14 extension marker.</returns>
+    public static bool IsExtensionDeclaration(INamedTypeSymbol type) =>
+        type.IsExtension;
+
+    /// <summary>
     /// Returns true when the member carries the C# 11 <c>required</c> modifier.
     /// </summary>
     /// <param name="member">Member to check.</param>

@@ -32,6 +32,7 @@ namespace SourceDocParser;
 /// <param name="IsReadOnly">Whether the type is <c>readonly</c> (struct/record-struct only; otherwise <see langword="false"/>).</param>
 /// <param name="IsByRefLike">Whether the type is a <c>ref struct</c>.</param>
 /// <param name="Members">Documented members declared on the type.</param>
+/// <param name="ExtensionBlocks">C# 14 <c>extension(T receiver)</c> blocks declared on this type (only populated for static container types). Empty for non-static and non-host types.</param>
 public sealed record ApiObjectType(
     string Name,
     string FullName,
@@ -53,7 +54,8 @@ public sealed record ApiObjectType(
     ApiObjectKind Kind,
     bool IsReadOnly,
     bool IsByRefLike,
-    ApiMember[] Members) : ApiType(
+    ApiMember[] Members,
+    ApiExtensionBlock[] ExtensionBlocks) : ApiType(
         Name,
         FullName,
         Uid,

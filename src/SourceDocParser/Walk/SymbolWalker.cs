@@ -169,6 +169,16 @@ public sealed class SymbolWalker : ISymbolWalker
                 continue;
             }
 
+            // C# 14 extension declarations surface as synthesized
+            // grouping / marker types alongside their classic
+            // [Extension] impl method on the parent container; emit
+            // only the impl, drop the marker.
+            if (SymbolWalkerHelpers.IsExtensionDeclaration(type))
+            {
+                TypeForwardingHelpers.PushNested(type, pendingTypes);
+                continue;
+            }
+
             if (TypeForwardingHelpers.IsAlreadyCollected(type, seenTypeUids))
             {
                 continue;
@@ -315,7 +325,8 @@ public sealed class SymbolWalker : ISymbolWalker
                     Kind: kind,
                     IsReadOnly: type.IsReadOnly,
                     IsByRefLike: type.IsRefLikeType,
-                    Members: BuildMembers(type, type.Name, uid, context))
+                    Members: BuildMembers(type, type.Name, uid, context),
+                    ExtensionBlocks: BuildExtensionBlocks(type, context))
         };
     }
 
@@ -382,5 +393,48 @@ public sealed class SymbolWalker : ISymbolWalker
         }
 
         return [.. members];
+    }
+
+    /// <summary>
+    /// Walks <paramref name="type"/>'s nested types looking for the
+    /// synthesised C# 14 extension grouping markers
+    /// (<see cref="INamedTypeSymbol.IsExtension"/>) and converts each
+    /// to an <see cref="ApiExtensionBlock"/>: the receiver parameter
+    /// (name + type ref) plus the conceptual members declared inside
+    /// the block. The classic <c>[Extension]</c> implementation
+    /// methods on the parent container come through the regular
+    /// member surface and are unaffected.
+    /// </summary>
+    /// <param name="type">Container type whose extension blocks to collect.</param>
+    /// <param name="context">Per-walk state bundle.</param>
+    /// <returns>The extension blocks declared on the type.</returns>
+    private static ApiExtensionBlock[] BuildExtensionBlocks(INamedTypeSymbol type, SymbolWalkContext context)
+    {
+        var nested = type.GetTypeMembers();
+        if (nested.IsDefaultOrEmpty)
+        {
+            return [];
+        }
+
+        List<ApiExtensionBlock> blocks = [];
+        for (var i = 0; i < nested.Length; i++)
+        {
+            var marker = nested[i];
+            if (!SymbolWalkerHelpers.IsExtensionDeclaration(marker))
+            {
+                continue;
+            }
+
+            if (marker.ExtensionParameter is not { } receiverParam)
+            {
+                continue;
+            }
+
+            var receiverRef = context.TypeRefs.GetOrAdd(receiverParam.Type, SymbolWalkerHelpers.BuildReference);
+            var blockMembers = BuildMembers(marker, marker.Name, marker.GetDocumentationCommentId() ?? string.Empty, context);
+            blocks.Add(new ApiExtensionBlock(receiverParam.Name, receiverRef, blockMembers));
+        }
+
+        return [.. blocks];
     }
 }

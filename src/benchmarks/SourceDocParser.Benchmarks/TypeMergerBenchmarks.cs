@@ -81,5 +81,6 @@ public class TypeMergerBenchmarks
             Kind: ApiObjectKind.Class,
             IsReadOnly: false,
             IsByRefLike: false,
-            Members: []);
+            Members: [],
+            ExtensionBlocks: []);
 }

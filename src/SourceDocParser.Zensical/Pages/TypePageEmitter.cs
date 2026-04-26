@@ -168,6 +168,7 @@ public static class TypePageEmitter
         AppendDerivedTypes(sb, indexes.GetDerived(type.Uid), options);
         AppendInheritedMembers(sb, indexes.GetInherited(type.Uid));
         AppendExtensionMethods(sb, indexes.GetExtensions(type.Uid), options);
+        AppendExtensionBlocks(sb, type is ApiObjectType obj ? obj.ExtensionBlocks : [], options);
         AppendSeeAlso(sb, type.Documentation.SeeAlso, options);
 
         return sb.ToString();
@@ -288,6 +289,39 @@ public static class TypePageEmitter
             var cref = seealso[i];
             var displayName = cref is [_, ':', ..] ? cref[2..] : cref;
             sb.Append("- ").AppendLine(CrossLinkRouter.Format(new ApiTypeReference(displayName, cref), options));
+        }
+    }
+
+    /// <summary>
+    /// Renders the "Extension blocks" section listing each C# 14
+    /// <c>extension(T receiver)</c> block declared on the type.
+    /// Each block surfaces under a <c>### extension(Type receiver)</c>
+    /// subheading with its conceptual members listed as autoref
+    /// links. No-op when the type declares no blocks.
+    /// </summary>
+    /// <param name="sb">Destination buffer.</param>
+    /// <param name="blocks">Extension blocks declared on the type.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    internal static void AppendExtensionBlocks(StringBuilder sb, ApiExtensionBlock[] blocks, ZensicalEmitterOptions options)
+    {
+        if (blocks is [])
+        {
+            return;
+        }
+
+        sb.Append("\n## Extension blocks\n\n");
+        for (var i = 0; i < blocks.Length; i++)
+        {
+            var block = blocks[i];
+            sb.Append("### extension(").Append(CrossLinkRouter.Format(block.Receiver, options))
+              .Append(' ').Append(block.ReceiverName).Append(")\n\n");
+            for (var m = 0; m < block.Members.Length; m++)
+            {
+                var member = block.Members[m];
+                sb.Append("- [`").Append(member.Name).Append("`][").Append(member.Uid).Append("]\n");
+            }
+
+            sb.Append('\n');
         }
     }
 

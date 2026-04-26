@@ -165,6 +165,14 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
         {
             AddReference(references, seen, baseRef);
         }
+        else if (DocfxWellKnownBases.For(type) is { } implicitBase)
+        {
+            // Walker filters System.Object / ValueType / Enum /
+            // MulticastDelegate from BaseType to keep the model lean;
+            // docfx itself emits them as references and as the
+            // inheritance: line, so synthesise here.
+            AddReference(references, seen, implicitBase);
+        }
 
         for (var i = 0; i < type.Interfaces.Length; i++)
         {
