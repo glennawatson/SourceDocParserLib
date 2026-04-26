@@ -76,12 +76,12 @@ public sealed partial class SourceLinkValidator : ISourceLinkValidator
 
                         if (response is { IsSuccessStatusCode: false })
                         {
-                            broken.Add(new BrokenLink(url, [.. kvp.Value], $"HTTP {(int)response.StatusCode}"));
+                            broken.Add(new(url, [.. kvp.Value], $"HTTP {(int)response.StatusCode}"));
                         }
                     }
                     catch (Exception ex)
                     {
-                        broken.Add(new BrokenLink(url, [.. kvp.Value], ex.Message));
+                        broken.Add(new(url, [.. kvp.Value], ex.Message));
                     }
                 }).ConfigureAwait(false);
 

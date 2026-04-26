@@ -64,6 +64,12 @@ internal static class NuGetConfigDiscovery
                 yield return userScoped[i];
             }
         }
+
+        var machineScoped = NuGetGlobalCache.GetMachineNuGetConfigPaths();
+        for (var i = 0; i < machineScoped.Length; i++)
+        {
+            yield return machineScoped[i];
+        }
     }
 
     /// <summary>
@@ -173,6 +179,91 @@ internal static class NuGetConfigDiscovery
         if (merged.Count == 0)
         {
             return [DefaultNuGetOrgSource];
+        }
+
+        return [.. merged];
+    }
+
+    /// <summary>
+    /// Walks the chain rooted at <paramref name="workingFolder"/>
+    /// and unions every disabled-source key. There's no clear
+    /// semantics for this section — once a config disables a
+    /// source, the union prevents the fetcher from ever using it.
+    /// </summary>
+    /// <param name="workingFolder">Repository / project root.</param>
+    /// <param name="cancellationToken">Token observed across each parse.</param>
+    /// <returns>Set of disabled source keys.</returns>
+    public static async Task<HashSet<string>> ResolveDisabledSourcesAsync(string workingFolder, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(workingFolder);
+        var disabled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var configPath in EnumerateConfigPaths(workingFolder))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var fileSet = await DisabledPackageSourcesReader.ReadAsync(configPath, cancellationToken).ConfigureAwait(false);
+            disabled.UnionWith(fileSet);
+        }
+
+        return disabled;
+    }
+
+    /// <summary>
+    /// Walks the chain and merges credential blocks — closer
+    /// configs' values win on key collision.
+    /// </summary>
+    /// <param name="workingFolder">Repository / project root.</param>
+    /// <param name="cancellationToken">Token observed across each parse.</param>
+    /// <returns>Credentials by source key.</returns>
+    public static async Task<Dictionary<string, PackageSourceCredential>> ResolveCredentialsAsync(string workingFolder, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(workingFolder);
+        var merged = new Dictionary<string, PackageSourceCredential>(StringComparer.OrdinalIgnoreCase);
+        foreach (var configPath in EnumerateConfigPaths(workingFolder))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var fileEntries = await PackageSourceCredentialsReader.ReadAsync(configPath, cancellationToken).ConfigureAwait(false);
+            foreach (var (key, cred) in fileEntries)
+            {
+                if (!merged.ContainsKey(key))
+                {
+                    merged[key] = cred;
+                }
+            }
+        }
+
+        return merged;
+    }
+
+    /// <summary>
+    /// Walks the chain and merges fallback-folder paths, honouring
+    /// <c>&lt;clear/&gt;</c> as the section-stop signal so a closer
+    /// config can scope away parents.
+    /// </summary>
+    /// <param name="workingFolder">Repository / project root.</param>
+    /// <param name="cancellationToken">Token observed across each parse.</param>
+    /// <returns>Ordered fallback folder paths (closest config first).</returns>
+    public static async Task<string[]> ResolveFallbackFoldersAsync(string workingFolder, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(workingFolder);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var merged = new List<string>();
+
+        foreach (var configPath in EnumerateConfigPaths(workingFolder))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var fileResult = await FallbackPackageFoldersReader.ReadAsync(configPath, cancellationToken).ConfigureAwait(false);
+            for (var i = 0; i < fileResult.Folders.Length; i++)
+            {
+                if (seen.Add(fileResult.Folders[i]))
+                {
+                    merged.Add(fileResult.Folders[i]);
+                }
+            }
+
+            if (fileResult.ClearedSeen)
+            {
+                break;
+            }
         }
 
         return [.. merged];

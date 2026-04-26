@@ -120,16 +120,12 @@ internal static class NuGetGlobalCache
 
     /// <summary>
     /// Returns the standard locations (in precedence order) to
-    /// search for a user-scoped <c>nuget.config</c>. The first one
-    /// that exists wins — callers that want full nuget.config
-    /// chaining (including walk-from-cwd) should layer that on top.
+    /// search for a user-scoped <c>nuget.config</c>. Caller layers
+    /// walk-from-cwd on top and machine-scoped underneath.
     /// </summary>
     /// <returns>Candidate nuget.config paths in precedence order.</returns>
     public static string[] GetUserNuGetConfigPaths()
     {
-        // Windows convention is %APPDATA%\NuGet\NuGet.Config; Unix
-        // is $HOME/.nuget/NuGet/NuGet.Config (the dotnet SDK and
-        // recent nuget.org clients both honour this).
         if (OperatingSystem.IsWindows())
         {
             var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
@@ -155,5 +151,30 @@ internal static class NuGetGlobalCache
             Path.Combine(userProfile, ".nuget", "NuGet", "NuGet.Config"),
             Path.Combine(userProfile, ".config", "NuGet", "NuGet.Config"),
         ];
+    }
+
+    /// <summary>
+    /// Returns every <c>*.config</c> file under the machine-wide
+    /// NuGet config root — NuGet recursively reads them all so
+    /// admins can drop multiple files alongside the default
+    /// (e.g. <c>NuGetDefaults.Config</c>). Windows uses
+    /// <c>%ProgramData%\NuGet\Config\</c>; Unix uses
+    /// <c>/etc/opt/NuGet/Config/</c>.
+    /// </summary>
+    /// <returns>Existing <c>*.config</c> paths under the machine root, sorted ordinal.</returns>
+    public static string[] GetMachineNuGetConfigPaths()
+    {
+        var root = OperatingSystem.IsWindows()
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "NuGet", "Config")
+            : "/etc/opt/NuGet/Config";
+
+        if (string.IsNullOrEmpty(root) || !Directory.Exists(root))
+        {
+            return [];
+        }
+
+        var files = Directory.GetFiles(root, "*.config", SearchOption.AllDirectories);
+        Array.Sort(files, StringComparer.Ordinal);
+        return files;
     }
 }

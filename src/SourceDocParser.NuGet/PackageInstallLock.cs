@@ -73,7 +73,7 @@ internal static class PackageInstallLock
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                return new FileStream(
+                return new(
                     lockFilePath,
                     FileMode.OpenOrCreate,
                     FileAccess.ReadWrite,
