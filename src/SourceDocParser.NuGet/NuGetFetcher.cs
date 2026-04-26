@@ -295,26 +295,17 @@ public sealed partial class NuGetFetcher : INuGetFetcher
             cancellationToken.ThrowIfCancellationRequested();
             var newIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            var nupkgPaths = Directory.GetFiles(cacheDir, "*.nupkg");
-            for (var n = 0; n < nupkgPaths.Length; n++)
+            var sidecarPaths = Directory.GetFiles(cacheDir, "*.nupkg.nuspec");
+            for (var n = 0; n < sidecarPaths.Length; n++)
             {
-                var nupkgPath = nupkgPaths[n];
-                if (!processedNupkgs.Add(nupkgPath))
+                var sidecarPath = sidecarPaths[n];
+                if (!processedNupkgs.Add(sidecarPath))
                 {
                     continue;
                 }
 
                 try
                 {
-                    // Read the nuspec sidecar that ExtractAssemblies wrote
-                    // alongside the nupkg. The zip is never re-opened;
-                    // we just stream a few hundred bytes of XML.
-                    var sidecarPath = NuspecSidecarPath(nupkgPath);
-                    if (!File.Exists(sidecarPath))
-                    {
-                        continue;
-                    }
-
                     var deps = await NuspecDependencyReader.ReadDependencyIdsFromFileAsync(sidecarPath, cancellationToken).ConfigureAwait(false);
                     for (var d = 0; d < deps.Length; d++)
                     {
@@ -324,11 +315,6 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                             continue;
                         }
 
-                        // Default-skip native/RID runtime packages — the
-                        // single biggest disk waster on heavy fixtures.
-                        // User overrides via additionalPackages still
-                        // win because that path bypasses the transitive
-                        // walk entirely.
                         if (IsDefaultTransitiveSkip(depId))
                         {
                             continue;
@@ -342,7 +328,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                 }
                 catch (Exception ex)
                 {
-                    LogNuspecReadFailed(logger, ex, nupkgPath);
+                    LogNuspecReadFailed(logger, ex, sidecarPath);
                 }
             }
 
@@ -831,18 +817,39 @@ public sealed partial class NuGetFetcher : INuGetFetcher
 
                     var versionLower = version.ToLowerInvariant();
                     var nupkgPath = Path.Combine(state.CacheDir, $"{idLower}.{versionLower}.nupkg");
-                    if (!File.Exists(nupkgPath))
-                    {
-                        LogDownloadingPackage(state.Logger, pkg.Id, version);
-                        await DownloadNupkgAsync(state.Client, state.RetryPolicy, idLower, versionLower, nupkgPath, ct).ConfigureAwait(false);
-                    }
-                    else
+                    var nuspecSidecarPath = NuspecSidecarPath(nupkgPath);
+
+                    if (File.Exists(nuspecSidecarPath))
                     {
                         LogUsingCachedPackage(state.Logger, pkg.Id, version);
+                        return;
                     }
 
-                    ExtractAssemblies(nupkgPath, state.LibDir, pkg.Id, pkg.Tfm, state.TfmPreference, state.Logger);
-                    LogExtractedPackage(state.Logger, pkg.Id, version);
+                    var lockPath = PackageInstallLock.GetLockFilePath(state.CacheDir, nupkgPath);
+                    await PackageInstallLock.RunUnderLockAsync(
+                        lockPath,
+                        alreadyDone: () => File.Exists(nuspecSidecarPath),
+                        work: async lockCt =>
+                        {
+                            if (!File.Exists(nupkgPath))
+                            {
+                                LogDownloadingPackage(state.Logger, pkg.Id, version);
+                                await DownloadNupkgAsync(state.Client, state.RetryPolicy, idLower, versionLower, nupkgPath, lockCt).ConfigureAwait(false);
+                            }
+
+                            ExtractAssemblies(nupkgPath, state.LibDir, pkg.Id, pkg.Tfm, state.TfmPreference, state.Logger);
+                            LogExtractedPackage(state.Logger, pkg.Id, version);
+
+                            try
+                            {
+                                File.Delete(nupkgPath);
+                            }
+                            catch
+                            {
+                                // Best-effort.
+                            }
+                        },
+                        ct).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
