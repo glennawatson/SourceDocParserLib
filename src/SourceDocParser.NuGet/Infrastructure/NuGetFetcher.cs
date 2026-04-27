@@ -1044,7 +1044,15 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     }
 
     /// <summary>
-    /// Resolves the concrete version to use for a package, honouring pinned versions.
+    /// Resolves the concrete version to use for a package, honouring
+    /// pinned versions and short-circuiting via the on-disk cache when
+    /// possible. The cache probe matters: warm-cache discovery hits
+    /// this method once per top-level package + once per transitive
+    /// dependency, and going to nuget.org for "what's the latest" each
+    /// time turns the warm-cache <c>DiscoverAsync</c> into a fan-out of
+    /// HTTP round-trips. We honour the cached version exclusively
+    /// when no version was pinned — same contract as before, just
+    /// without the redundant network call.
     /// </summary>
     /// <param name="state">Per-package fetch state.</param>
     /// <param name="idLower">Lowercased package identifier.</param>
@@ -1058,6 +1066,11 @@ public sealed partial class NuGetFetcher : INuGetFetcher
             return pkg.Version;
         }
 
+        if (TryGetCachedPackageVersion(state.CacheDir, idLower) is { } cached)
+        {
+            return cached;
+        }
+
         LogResolvingVersion(state.Logger, pkg.Id);
         var version = await ResolveLatestStableVersionAsync(state.Client, state.RetryPolicy, idLower, cancellationToken).ConfigureAwait(false);
         if (version is null)
@@ -1066,6 +1079,58 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         }
 
         return version;
+    }
+
+    /// <summary>
+    /// Returns the version of an already-installed package by reading
+    /// its sidecar nuspec filename — <c>{idLower}.{versionLower}.nupkg.nuspec</c>.
+    /// Returns null when no sidecar matches; the caller falls back to a
+    /// network resolve. When multiple cached versions exist (rare —
+    /// happens after a manifest version bump that left the prior file
+    /// behind), the highest-sorting version is returned so the rest of
+    /// the pipeline keeps using the newest cached copy. The first
+    /// character of the version segment must be a digit so the glob
+    /// doesn't false-positive on packages whose IDs are prefixes of
+    /// each other (e.g. <c>Microsoft.Extensions</c> matching
+    /// <c>Microsoft.Extensions.Logging.*.nupkg.nuspec</c>).
+    /// </summary>
+    /// <param name="cacheDir">Cache directory holding extracted <c>.nupkg.nuspec</c> sidecars.</param>
+    /// <param name="idLower">Lowercased package identifier.</param>
+    /// <returns>The cached version string, or null when no sidecar exists.</returns>
+    private static string? TryGetCachedPackageVersion(string cacheDir, string idLower)
+    {
+        if (!Directory.Exists(cacheDir))
+        {
+            return null;
+        }
+
+        const string SidecarSuffix = ".nupkg.nuspec";
+        var minLength = idLower.Length + 1 + 1 + SidecarSuffix.Length;
+        string? best = null;
+        foreach (var path in Directory.EnumerateFiles(cacheDir, $"{idLower}.*.nupkg.nuspec"))
+        {
+            var name = Path.GetFileName(path.AsSpan());
+            if (name.Length < minLength)
+            {
+                continue;
+            }
+
+            // Versions always start with a digit; reject when the char
+            // after the id-and-dot prefix is a letter (different package).
+            var versionStart = idLower.Length + 1;
+            if (!char.IsDigit(name[versionStart]))
+            {
+                continue;
+            }
+
+            var version = name[versionStart..^SidecarSuffix.Length].ToString();
+            if (best is null || string.CompareOrdinal(version, best) > 0)
+            {
+                best = version;
+            }
+        }
+
+        return best;
     }
 
     /// <summary>
