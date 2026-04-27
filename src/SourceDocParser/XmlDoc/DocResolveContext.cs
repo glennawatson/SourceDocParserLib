@@ -14,9 +14,7 @@ namespace SourceDocParser.XmlDoc;
 /// seam is the only instance method.
 /// </summary>
 /// <param name="Compilation">Compilation used for cref resolution.</param>
-/// <param name="Converter">Converter used to fold inline doc tags into Markdown.</param>
 /// <param name="Cache">Per-symbol documentation cache scoped to one resolver instance and never shared across parallel resolves.</param>
 internal sealed record DocResolveContext(
     Microsoft.CodeAnalysis.Compilation Compilation,
-    IXmlDocToMarkdownConverter Converter,
     DocResolveCache Cache);

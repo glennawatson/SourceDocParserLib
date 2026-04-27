@@ -221,6 +221,24 @@ public static class TypePageEmitter
     }
 
     /// <summary>
+    /// Render-and-write entry point used by
+    /// <see cref="ZensicalDocumentationEmitter"/>. Folds the doc-render
+    /// pass — XML→Markdown via the resolver in
+    /// <paramref name="context"/> — over the supplied type so the
+    /// existing Markdown-shaped renderer can consume the result
+    /// unchanged.
+    /// </summary>
+    /// <param name="type">Type with raw-XML doc fragments (walker output).</param>
+    /// <param name="outputRoot">Markdown output root.</param>
+    /// <param name="context">Render context built once per emit run.</param>
+    internal static void RenderToFile(ApiType type, string outputRoot, ZensicalEmitContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        var rendered = RenderedTypeFactory.Render(type, context.Converter);
+        RenderToFile(rendered, outputRoot, context.Options, context.Indexes);
+    }
+
+    /// <summary>
     /// Renders the "Derived types" section as a bullet list of
     /// autoref links. No-op when the type has no derivers — the empty-
     /// array check is branch-and-bail with no allocation.

@@ -71,7 +71,7 @@ public static class MemberPageEmitter
         var typeName = ZensicalEmitterHelpers.FormatDisplayTypeName(containingType.Name, containingType.Arity);
 
         var sb = new StringBuilder(capacity: InitialPageCapacity)
-            .Append(PageFrontmatter.ForMember(containingType, first, options))
+            .Append(PageFrontmatter.ForMember(containingType, first, overloads, options))
             .Append($"""
             # {heading} {kindLabel}
 
@@ -175,6 +175,38 @@ public static class MemberPageEmitter
         var fullPath = Path.Combine(outputRoot, relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
         File.WriteAllText(fullPath, Render(containingType, memberName, overloads, options));
+    }
+
+    /// <summary>
+    /// Render-and-write entry point used by
+    /// <see cref="ZensicalDocumentationEmitter"/>. Folds the doc-render
+    /// pass over the containing type and each overload's docs so the
+    /// existing Markdown-shaped renderer can consume the result
+    /// unchanged.
+    /// </summary>
+    /// <param name="containingType">Type the overloads are declared on (raw-XML doc fragments).</param>
+    /// <param name="memberName">Shared overload group name.</param>
+    /// <param name="overloads">The overloads to render.</param>
+    /// <param name="outputRoot">Directory that contains the api/ tree.</param>
+    /// <param name="context">Render context built once per emit run.</param>
+    internal static void RenderToFile(
+        ApiType containingType,
+        string memberName,
+        ApiMember[] overloads,
+        string outputRoot,
+        ZensicalEmitContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(overloads);
+
+        var renderedContaining = RenderedTypeFactory.Render(containingType, context.Converter);
+        var renderedOverloads = new ApiMember[overloads.Length];
+        for (var i = 0; i < overloads.Length; i++)
+        {
+            renderedOverloads[i] = RenderedTypeFactory.Render(overloads[i], context.Converter);
+        }
+
+        RenderToFile(renderedContaining, memberName, renderedOverloads, outputRoot, context.Options);
     }
 
     /// <summary>

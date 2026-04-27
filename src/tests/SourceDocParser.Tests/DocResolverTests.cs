@@ -2,7 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Xml;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using SourceDocParser.Model;
@@ -159,29 +158,30 @@ public class DocResolverTests
     }
 
     /// <summary>
-    /// The injected <see cref="IXmlDocToMarkdownConverter"/> is the one
-    /// the resolver calls — verified via a recording fake.
+    /// The resolver surfaces the raw inner XML of the source
+    /// <c>&lt;summary&gt;</c> tag — it no longer renders Markdown.
+    /// Emitters perform the conversion at render time via
+    /// <see cref="XmlDocToMarkdown"/>.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ResolveUsesInjectedConverter()
+    public async Task ResolveSurfacesRawInnerXml()
     {
         var compilation = BuildCompilation(
             """
             namespace Foo
             {
-                /// <summary>The bar.</summary>
+                /// <summary>The <see cref="T:System.String"/> bar.</summary>
                 public class Bar { }
             }
             """);
-        var converter = new RecordingConverter();
-        var resolver = new DocResolver(compilation, converter);
+        var resolver = new DocResolver(compilation);
         var symbol = compilation.GetTypeByMetadataName("Foo.Bar")!;
 
-        resolver.Resolve(symbol);
+        var doc = resolver.Resolve(symbol);
 
-        // Span overload is what DocResolver.Parse routes through after the scanner refactor.
-        await Assert.That(converter.SpanCalls).IsGreaterThanOrEqualTo(1);
+        // Raw inner XML keeps the <see/> element intact; emitters render it later.
+        await Assert.That(doc.Summary).Contains("<see cref=\"T:System.String\"/>");
     }
 
     /// <summary>Null compilation throws on construction.</summary>
@@ -214,46 +214,5 @@ public class DocResolverTests
             new(
                 outputKind: OutputKind.DynamicallyLinkedLibrary,
                 xmlReferenceResolver: XmlFileResolver.Default));
-    }
-
-    /// <summary>
-    /// Recording <see cref="IXmlDocToMarkdownConverter"/> that counts
-    /// invocations of each overload — used to verify
-    /// <see cref="DocResolver"/> routes through the injected converter.
-    /// </summary>
-    private sealed class RecordingConverter : IXmlDocToMarkdownConverter
-    {
-        /// <summary>Gets the count of string-overload Convert calls.</summary>
-        public int StringCalls { get; private set; }
-
-        /// <summary>Gets the count of async XmlReader-overload Convert calls.</summary>
-        public int ReaderAsyncCalls { get; private set; }
-
-        /// <summary>Gets the count of span-overload Convert calls.</summary>
-        public int SpanCalls { get; private set; }
-
-        /// <inheritdoc />
-        public string Convert(string xmlFragment)
-        {
-            StringCalls++;
-            return xmlFragment;
-        }
-
-        /// <inheritdoc />
-        public string Convert(ReadOnlySpan<char> innerXml)
-        {
-            SpanCalls++;
-            return innerXml.ToString();
-        }
-
-        /// <inheritdoc />
-        public Task<string> ConvertAsync(XmlReader reader) => ConvertAsync(reader, CancellationToken.None);
-
-        /// <inheritdoc />
-        public async Task<string> ConvertAsync(XmlReader reader, CancellationToken cancellationToken)
-        {
-            ReaderAsyncCalls++;
-            return reader.IsEmptyElement ? string.Empty : await reader.ReadInnerXmlAsync().ConfigureAwait(false);
-        }
     }
 }

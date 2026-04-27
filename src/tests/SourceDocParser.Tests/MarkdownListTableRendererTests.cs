@@ -76,7 +76,7 @@ public class MarkdownListTableRendererTests
     [Test]
     public async Task ReadTermAndDescriptionReturnsSpacePlaceholdersForEmptyInner()
     {
-        var (term, description) = MarkdownListTableRenderer.ReadTermAndDescription(string.Empty.AsSpan());
+        var (term, description) = MarkdownListTableRenderer.ReadTermAndDescription(string.Empty.AsSpan(), DefaultCrefResolver.Instance);
 
         await Assert.That(term).IsEqualTo(" ");
         await Assert.That(description).IsEqualTo(" ");
@@ -89,7 +89,7 @@ public class MarkdownListTableRendererTests
     {
         const string inner = "<term>Hello</term><description>World</description>";
 
-        var (term, description) = MarkdownListTableRenderer.ReadTermAndDescription(inner.AsSpan());
+        var (term, description) = MarkdownListTableRenderer.ReadTermAndDescription(inner.AsSpan(), DefaultCrefResolver.Instance);
 
         await Assert.That(term).IsEqualTo("Hello");
         await Assert.That(description).IsEqualTo("World");

@@ -2,7 +2,9 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Frozen;
 using SourceDocParser.Model;
+using SourceDocParser.XmlDoc;
 using SourceDocParser.Zensical.Options;
 using SourceDocParser.Zensical.Pages;
 using SourceDocParser.Zensical.Routing;
@@ -46,42 +48,170 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
         ArgumentNullException.ThrowIfNull(types);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputRoot);
 
-        var pages = 0;
-        var hasRouting = _options.PackageRouting is [_, ..];
         var indexes = ZensicalCatalogIndexes.Build(types);
+        var emittedUids = BuildEmittedUidSet(types, _options);
+        var resolver = new ZensicalCrefResolver(emittedUids, _options);
+        var converter = new XmlDocToMarkdown(resolver);
+        var runOptions = _options with { Resolver = resolver };
+        var context = new ZensicalEmitContext(runOptions, indexes, emittedUids, converter);
+
+        var pages = WriteTypeAndMemberPages(types, outputRoot, context, cancellationToken);
+        pages += LandingPageEmitter.EmitAll(types, outputRoot, context);
+        return Task.FromResult(pages);
+    }
+
+    /// <summary>
+    /// Builds the set of UIDs the emitter is producing pages for —
+    /// types that survive the routing + compiler-generated filter,
+    /// plus the UIDs of every non-compiler-generated member on each
+    /// surviving type (for object and union shapes), plus enum-value
+    /// UIDs. The Zensical cref resolver consults this set so cref
+    /// references that point at non-emitted symbols fall through to
+    /// inline code instead of broken autoref links.
+    /// </summary>
+    /// <param name="types">All canonical types about to be considered for emission.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    /// <returns>The frozen set of UIDs the emitter will produce anchors for.</returns>
+    internal static FrozenSet<string> BuildEmittedUidSet(ApiType[] types, ZensicalEmitterOptions options)
+    {
+        var hasRouting = options.PackageRouting is [_, ..];
+        var collected = new HashSet<string>(types.Length, StringComparer.Ordinal);
+        for (var i = 0; i < types.Length; i++)
+        {
+            var type = types[i];
+            if (ShouldSkipType(type, hasRouting, options))
+            {
+                continue;
+            }
+
+            if (type.Uid is { Length: > 0 })
+            {
+                collected.Add(type.Uid);
+            }
+
+            CollectMemberUids(type, collected);
+        }
+
+        return collected.ToFrozenSet(StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// Walks <paramref name="types"/>, applies the routing + compiler-
+    /// generated filter, and writes the type and member pages for
+    /// each survivor. Split out of
+    /// <see cref="EmitAsync(ApiType[], string, CancellationToken)"/>
+    /// so the orchestrator method stays at low cyclomatic complexity.
+    /// </summary>
+    /// <param name="types">All canonical types about to be considered for emission.</param>
+    /// <param name="outputRoot">The Markdown output root.</param>
+    /// <param name="context">Render context built once for the run.</param>
+    /// <param name="cancellationToken">Cancellation token observed between types.</param>
+    /// <returns>The page count for the type and member emit phase.</returns>
+    private static int WriteTypeAndMemberPages(
+        ApiType[] types,
+        string outputRoot,
+        ZensicalEmitContext context,
+        CancellationToken cancellationToken)
+    {
+        var pages = 0;
+        var hasRouting = context.Options.PackageRouting is [_, ..];
         for (var i = 0; i < types.Length; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
             var type = types[i];
-
-            // Walk-scope filter: when the user has configured
-            // package routing, types from non-primary assemblies
-            // (transient deps, BCL) are skipped — they get
-            // referenced via cross-links to Microsoft Learn /
-            // repo search instead of getting their own pages.
-            if (hasRouting && PackageRouter.ResolveFolder(type.AssemblyName, _options.PackageRouting) is null)
+            if (ShouldSkipType(type, hasRouting, context.Options))
             {
                 continue;
             }
 
-            // Compiler-generated artefacts (display classes, async
-            // state machines, anonymous types) are name-mangled with
-            // angle brackets in metadata. Match docfx's heuristic and
-            // skip them rather than emitting nonsensical pages.
-            if (IsCompilerGenerated(type.Name))
-            {
-                continue;
-            }
-
-            TypePageEmitter.RenderToFile(type, outputRoot, _options, indexes);
+            TypePageEmitter.RenderToFile(type, outputRoot, context);
             pages++;
-            pages += EmitMemberPages(type, outputRoot, _options);
+            pages += EmitMemberPages(type, outputRoot, context);
         }
 
-        pages += LandingPageEmitter.EmitAll(types, outputRoot, _options);
+        return pages;
+    }
 
-        return Task.FromResult(pages);
+    /// <summary>
+    /// Returns true when <paramref name="type"/> should be skipped:
+    /// either it's outside the configured package routing scope or
+    /// its name is a compiler-generated artefact.
+    /// </summary>
+    /// <param name="type">Candidate type.</param>
+    /// <param name="hasRouting">Whether package routing is configured.</param>
+    /// <param name="options">Emitter options carrying the routing rules.</param>
+    /// <returns>True when the type should be skipped.</returns>
+    private static bool ShouldSkipType(ApiType type, bool hasRouting, ZensicalEmitterOptions options)
+    {
+        if (hasRouting && PackageRouter.ResolveFolder(type.AssemblyName, options.PackageRouting) is null)
+        {
+            return true;
+        }
+
+        return IsCompilerGenerated(type.Name);
+    }
+
+    /// <summary>
+    /// Adds the UIDs of <paramref name="type"/>'s members (non-
+    /// compiler-generated) and enum values to <paramref name="collected"/>.
+    /// </summary>
+    /// <param name="type">Owning type.</param>
+    /// <param name="collected">Destination UID set.</param>
+    private static void CollectMemberUids(ApiType type, HashSet<string> collected)
+    {
+        switch (type)
+        {
+            case ApiObjectType obj:
+                {
+                    AddMemberUids(obj.Members, collected);
+                    return;
+                }
+
+            case ApiUnionType union:
+                {
+                    AddMemberUids(union.Members, collected);
+                    return;
+                }
+
+            case ApiEnumType enumType:
+                {
+                    AddEnumValueUids(enumType.Values, collected);
+                    return;
+                }
+
+            default:
+                return;
+        }
+    }
+
+    /// <summary>Adds non-compiler-generated member UIDs to <paramref name="collected"/>.</summary>
+    /// <param name="members">Members to scan.</param>
+    /// <param name="collected">Destination UID set.</param>
+    private static void AddMemberUids(ApiMember[] members, HashSet<string> collected)
+    {
+        for (var i = 0; i < members.Length; i++)
+        {
+            var m = members[i];
+            if (!IsCompilerGenerated(m.Name) && m.Uid is { Length: > 0 })
+            {
+                collected.Add(m.Uid);
+            }
+        }
+    }
+
+    /// <summary>Adds enum-value UIDs to <paramref name="collected"/>.</summary>
+    /// <param name="values">Enum values to scan.</param>
+    /// <param name="collected">Destination UID set.</param>
+    private static void AddEnumValueUids(ApiEnumValue[] values, HashSet<string> collected)
+    {
+        for (var i = 0; i < values.Length; i++)
+        {
+            var v = values[i];
+            if (v.Uid is { Length: > 0 })
+            {
+                collected.Add(v.Uid);
+            }
+        }
     }
 
     /// <summary>
@@ -94,9 +224,9 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
     /// </summary>
     /// <param name="type">Type whose members to emit pages for.</param>
     /// <param name="outputRoot">Markdown output root.</param>
-    /// <param name="options">Routing + cross-link tunables threaded through to the per-overload write.</param>
+    /// <param name="context">Render context — supplies routing options + the doc converter.</param>
     /// <returns>Total page count written.</returns>
-    private static int EmitMemberPages(ApiType type, string outputRoot, ZensicalEmitterOptions options)
+    private static int EmitMemberPages(ApiType type, string outputRoot, ZensicalEmitContext context)
     {
         var members = type switch
         {
@@ -138,7 +268,7 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
         var pages = 0;
         foreach (var group in groups)
         {
-            MemberPageEmitter.RenderToFile(type, group.Key, [.. group.Value], outputRoot, options);
+            MemberPageEmitter.RenderToFile(type, group.Key, [.. group.Value], outputRoot, context);
             pages++;
         }
 

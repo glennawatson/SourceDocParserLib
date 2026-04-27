@@ -27,7 +27,8 @@ internal static class MarkdownListTableRenderer
     /// </summary>
     /// <param name="scanner">Scanner positioned on the list start tag; advanced past the matching end tag.</param>
     /// <param name="sb">Destination buffer.</param>
-    public static void Render(ref DocXmlScanner scanner, StringBuilder sb)
+    /// <param name="resolver">Cref resolver threaded into nested term / description content.</param>
+    public static void Render(ref DocXmlScanner scanner, StringBuilder sb, ICrefResolver resolver)
     {
         var listDepth = scanner.Depth;
         var headerWritten = false;
@@ -48,7 +49,7 @@ internal static class MarkdownListTableRenderer
                 case "listheader":
                     {
                         var inner = scanner.ReadInnerSpan();
-                        var (term, description) = ReadTermAndDescription(inner);
+                        var (term, description) = ReadTermAndDescription(inner, resolver);
                         WriteHeader(sb, term, description);
                         headerWritten = true;
                         break;
@@ -63,7 +64,7 @@ internal static class MarkdownListTableRenderer
                         }
 
                         var inner = scanner.ReadInnerSpan();
-                        var (term, description) = ReadTermAndDescription(inner);
+                        var (term, description) = ReadTermAndDescription(inner, resolver);
                         WriteRow(sb, term, description);
                         break;
                     }
@@ -79,8 +80,9 @@ internal static class MarkdownListTableRenderer
     /// space so the table cell remains visible.
     /// </summary>
     /// <param name="inner">Inner XML span of one item or listheader.</param>
+    /// <param name="resolver">Cref resolver threaded through nested children.</param>
     /// <returns>Tuple of (term, description); each defaults to a single space when empty.</returns>
-    public static (string Term, string Description) ReadTermAndDescription(in ReadOnlySpan<char> inner)
+    public static (string Term, string Description) ReadTermAndDescription(in ReadOnlySpan<char> inner, ICrefResolver resolver)
     {
         var term = string.Empty;
         var description = string.Empty;
@@ -98,14 +100,14 @@ internal static class MarkdownListTableRenderer
                 case "term":
                     {
                         var sub = scanner.ReadInnerSpan();
-                        term = XmlDocToMarkdown.TableEscape(XmlDocToMarkdown.ConvertSpanToMarkdown(sub));
+                        term = XmlDocMarkdownHelper.TableEscape(XmlDocMarkdownHelper.ConvertSpanToMarkdown(sub, resolver));
                         break;
                     }
 
                 case "description":
                     {
                         var sub = scanner.ReadInnerSpan();
-                        description = XmlDocToMarkdown.TableEscape(XmlDocToMarkdown.ConvertSpanToMarkdown(sub));
+                        description = XmlDocMarkdownHelper.TableEscape(XmlDocMarkdownHelper.ConvertSpanToMarkdown(sub, resolver));
                         break;
                     }
             }

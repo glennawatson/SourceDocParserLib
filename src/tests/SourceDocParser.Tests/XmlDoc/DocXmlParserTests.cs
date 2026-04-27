@@ -199,14 +199,16 @@ public class DocXmlParserTests
         await Assert.That(raw.Summary).IsEqualTo("kept");
     }
 
-    /// <summary>Constructs a <see cref="DocResolveContext"/> backed by a real
-    /// converter and an empty Roslyn compilation, then runs <see cref="DocXmlParser.Parse"/>.</summary>
+    /// <summary>Constructs a <see cref="DocResolveContext"/> backed by an
+    /// empty Roslyn compilation, then runs <see cref="DocXmlParser.Parse"/>.
+    /// As of v0.3 the parser captures raw inner XML — the converter is
+    /// no longer invoked at parse time.</summary>
     /// <param name="memberXml">Raw member XML to parse.</param>
     /// <returns>The parsed raw documentation.</returns>
     private static SourceDocParser.Model.RawDocumentation Parse(string memberXml)
     {
         var compilation = CSharpCompilation.Create("Probe");
-        var context = new DocResolveContext(compilation, new XmlDocToMarkdown(), new DocResolveCache());
+        var context = new DocResolveContext(compilation, new DocResolveCache());
         return DocXmlParser.Parse(memberXml, context);
     }
 }

@@ -2,102 +2,53 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using SourceDocParser.Model;
 using SourceDocParser.Zensical.Options;
 
 namespace SourceDocParser.Zensical.Routing;
 
 /// <summary>
-/// Decides how a type reference renders in Markdown. For types we
-/// emit pages for (matched by a <see cref="PackageRoutingRule"/>),
-/// produces an mkdocs-autorefs key the consuming Zensical site
-/// resolves locally. For BCL types we don't walk, produces a
-/// Microsoft Learn URL. Anything else falls back to inline code.
+/// Thin adapter that turns an <see cref="ApiTypeReference"/> into a
+/// Markdown fragment by delegating to a cref <see cref="ICrefResolver"/>.
+/// Centralising the dispatch here keeps the cross-link routing rules —
+/// "is this UID in our emitted set / a BCL type / unknown?" — in
+/// exactly one place: <see cref="ZensicalCrefResolver"/>. Both type
+/// references in member signatures and <c>&lt;see cref&gt;</c> tags in
+/// XML doc comments resolve through the same resolver instance.
 /// </summary>
 internal static class CrossLinkRouter
 {
-    /// <summary>The two namespace prefixes that map to Microsoft Learn rather than autorefs.</summary>
-    private static readonly string[] _bclNamespacePrefixes = ["System", "Microsoft"];
-
     /// <summary>
-    /// Renders <paramref name="reference"/> as an autoref link
-    /// when its UID points at a primary package's type, a
-    /// Microsoft Learn link when it's BCL, or inline code as the
-    /// final fallback.
+    /// Renders <paramref name="reference"/> as Markdown via the
+    /// resolver attached to <paramref name="options"/>. Empty UIDs
+    /// fall back to inline code so display-only references — generic
+    /// constraints, receivers without a bound symbol — never produce a
+    /// broken link.
     /// </summary>
     /// <param name="reference">Type reference to render.</param>
-    /// <param name="options">Routing + Microsoft Learn URL base.</param>
+    /// <param name="options">Emitter options whose <see cref="ZensicalEmitterOptions.Resolver"/> drives the dispatch.</param>
     /// <returns>The Markdown fragment for the reference.</returns>
     public static string Format(ApiTypeReference reference, ZensicalEmitterOptions options)
     {
         ArgumentNullException.ThrowIfNull(reference);
         ArgumentNullException.ThrowIfNull(options);
 
-        if (reference.Uid is not [_, ..] uid)
-        {
-            return $"`{reference.DisplayName}`";
-        }
-
-        var canonicalUid = UidNormaliser.Normalise(uid);
-        if (TryFormatAsMicrosoftLearn(canonicalUid, reference.DisplayName, options, out var learnLink))
-        {
-            return learnLink;
-        }
-
-        return $"[{reference.DisplayName}][{canonicalUid}]";
+        return Format(reference, options.Resolver);
     }
 
     /// <summary>
-    /// Tries to render <paramref name="canonicalUid"/> as a
-    /// Microsoft Learn link. Returns false when the UID doesn't
-    /// belong to a recognised BCL namespace; caller falls back to
-    /// the autoref form.
+    /// Renders <paramref name="reference"/> as Markdown via the
+    /// supplied <paramref name="resolver"/>. Empty UIDs fall back to
+    /// inline code.
     /// </summary>
-    /// <param name="canonicalUid">Normalised commentId UID.</param>
-    /// <param name="displayName">Human-readable name to use as link text.</param>
-    /// <param name="options">Microsoft Learn base URL holder.</param>
-    /// <param name="link">The rendered Markdown link, when the UID matches.</param>
-    /// <returns>True when a Microsoft Learn link was produced.</returns>
-    [SuppressMessage("Minor Code Smell", "S4040:Strings should be normalized to uppercase", Justification = "Microsoft Learn URLs are case-sensitive.")]
-    private static bool TryFormatAsMicrosoftLearn(
-        string canonicalUid,
-        string displayName,
-        ZensicalEmitterOptions options,
-        out string link)
+    /// <param name="reference">Type reference to render.</param>
+    /// <param name="resolver">Cref resolver supplied by the emitter.</param>
+    /// <returns>The Markdown fragment for the reference.</returns>
+    public static string Format(ApiTypeReference reference, ICrefResolver resolver)
     {
-        link = string.Empty;
-        var bareName = canonicalUid is [_, ':', ..] ? canonicalUid[2..] : canonicalUid;
-        if (!StartsWithBclPrefix(bareName))
-        {
-            return false;
-        }
+        ArgumentNullException.ThrowIfNull(reference);
+        ArgumentNullException.ThrowIfNull(resolver);
 
-        // Microsoft Learn URLs lowercase the type and replace the
-        // arity backtick with a hyphen — System.Action`1 becomes
-        // system.action-1.
-        var slug = bareName.ToLower(CultureInfo.InvariantCulture).Replace('`', '-');
-        link = $"[{displayName}]({options.MicrosoftLearnBaseUrl}{slug})";
-        return true;
-    }
-
-    /// <summary>Returns true when <paramref name="bareName"/> starts with one of the BCL namespace prefixes.</summary>
-    /// <param name="bareName">Type name without the commentId prefix.</param>
-    /// <returns>True when the name belongs to <c>System.*</c> or <c>Microsoft.*</c>.</returns>
-    private static bool StartsWithBclPrefix(string bareName)
-    {
-        for (var i = 0; i < _bclNamespacePrefixes.Length; i++)
-        {
-            var prefix = _bclNamespacePrefixes[i];
-            if (bareName.Length > prefix.Length
-                && bareName.StartsWith(prefix, StringComparison.Ordinal)
-                && bareName[prefix.Length] == '.')
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return resolver.Render(reference.Uid ?? string.Empty, reference.DisplayName.AsSpan());
     }
 }

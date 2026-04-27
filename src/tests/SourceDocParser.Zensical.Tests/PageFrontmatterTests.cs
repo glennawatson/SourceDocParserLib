@@ -114,7 +114,7 @@ public class PageFrontmatterTests
         var type = TestData.ObjectType("Foo");
         var member = MakeMember(type, kind);
 
-        var fm = PageFrontmatter.ForMember(type, member, ZensicalEmitterOptions.Default);
+        var fm = PageFrontmatter.ForMember(type, member, [member], ZensicalEmitterOptions.Default);
 
         await Assert.That(fm).Contains(expected);
     }
@@ -127,7 +127,7 @@ public class PageFrontmatterTests
         var type = TestData.ObjectType("Foo") with { Namespace = string.Empty };
         var member = MakeMember(type, ApiMemberKind.Method);
 
-        var fm = PageFrontmatter.ForMember(type, member, ZensicalEmitterOptions.Default);
+        var fm = PageFrontmatter.ForMember(type, member, [member], ZensicalEmitterOptions.Default);
 
         await Assert.That(fm).Contains("namespace/(global)");
     }

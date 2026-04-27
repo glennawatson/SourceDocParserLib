@@ -26,12 +26,38 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
 
     /// <summary>
     /// Pooled StringBuilder reused across top-level Convert calls so each
-    /// per-symbol render doesn't allocate a fresh one. Convert() calls are
-    /// always sequential within a single converter instance because each
-    /// DocResolver creates its own (DocResolver itself is per-walk and
-    /// single-threaded), so no synchronisation is needed.
+    /// per-symbol render doesn't allocate a fresh one. Convert() calls
+    /// must be sequential within a single converter instance — this
+    /// instance is not thread-safe across concurrent Convert calls; a
+    /// parallel emitter should construct one converter per worker.
     /// </summary>
     private readonly StringBuilder _builder = new(InitialBuilderCapacity);
+
+    /// <summary>Cref resolver threaded into <c>&lt;see&gt;</c> / <c>&lt;seealso&gt;</c> rendering.</summary>
+    private readonly ICrefResolver _resolver;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="XmlDocToMarkdown"/>
+    /// class with the default cref resolver — the legacy "always
+    /// autoref" form. Use the <see cref="XmlDocToMarkdown(ICrefResolver)"/>
+    /// overload to inject a custom resolver (e.g. one that knows the
+    /// emitted UID set or routes BCL types to Microsoft Learn).
+    /// </summary>
+    public XmlDocToMarkdown()
+        : this(DefaultCrefResolver.Instance)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="XmlDocToMarkdown"/>
+    /// class with the supplied cref resolver.
+    /// </summary>
+    /// <param name="resolver">Resolver invoked when a <c>&lt;see cref="..."/&gt;</c> reference is rendered.</param>
+    public XmlDocToMarkdown(ICrefResolver resolver)
+    {
+        ArgumentNullException.ThrowIfNull(resolver);
+        _resolver = resolver;
+    }
 
     /// <inheritdoc />
     public string Convert(string xmlFragment) => Convert(xmlFragment.AsSpan());
@@ -55,7 +81,7 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
         }
 
         var scanner = new DocXmlScanner(innerXml);
-        XmlDocMarkdownHelper.WriteFragment(ref scanner, _builder, ListContext.None);
+        XmlDocMarkdownHelper.WriteFragment(ref scanner, _builder, ListContext.None, _resolver);
         return XmlDocMarkdownHelper.CollapseWhitespace(_builder).ToString();
     }
 
@@ -90,26 +116,4 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
         // XmlReader-based renderer — is more code with no real win.
         return await reader.ReadInnerXmlAsync().ConfigureAwait(false);
     }
-
-    /// <summary>
-    /// Renders a captured inner span into Markdown via a fresh scanner.
-    /// Internal so <see cref="MarkdownListTableRenderer"/> can recurse
-    /// into nested term/description content without going through the
-    /// instance-bound public Convert entry point.
-    /// </summary>
-    /// <param name="span">Inner XML span to render.</param>
-    /// <returns>Markdown text.</returns>
-    internal static string ConvertSpanToMarkdown(in ReadOnlySpan<char> span) =>
-        XmlDocMarkdownHelper.ConvertSpanToMarkdown(span);
-
-    /// <summary>
-    /// Escapes pipes and replaces newlines with spaces so a string is
-    /// safe to drop into a GFM table cell. Internal so
-    /// <see cref="MarkdownListTableRenderer"/> can apply the same
-    /// escape to its term/description columns.
-    /// </summary>
-    /// <param name="text">Cell content.</param>
-    /// <returns>The escaped text, or a single space when the input was empty.</returns>
-    internal static string TableEscape(string text) =>
-        XmlDocMarkdownHelper.TableEscape(text);
 }

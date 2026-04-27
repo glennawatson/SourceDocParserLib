@@ -7,6 +7,7 @@ using System.Text;
 using SourceDocParser.Common;
 using SourceDocParser.Docfx.Common;
 using SourceDocParser.Model;
+using SourceDocParser.XmlDoc;
 
 namespace SourceDocParser.Docfx.Yaml;
 
@@ -119,6 +120,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
 
         var internalUids = BuildInternalUidSet(types);
         var indexes = DocfxCatalogIndexes.Build(types);
+        var converter = new XmlDocToMarkdown(DocfxCrefResolver.Instance);
         var pages = 0;
         for (var i = 0; i < types.Length; i++)
         {
@@ -137,7 +139,10 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
                 Directory.CreateDirectory(directory);
             }
 
-            await File.WriteAllTextAsync(fullPath, Render(type, internalUids, indexes), cancellationToken).ConfigureAwait(false);
+            // Render raw-XML doc fragments to Markdown via the docfx
+            // cref resolver before they get embedded as YAML scalars.
+            var rendered = DocfxRenderedTypeFactory.Render(type, converter);
+            await File.WriteAllTextAsync(fullPath, Render(rendered, internalUids, indexes), cancellationToken).ConfigureAwait(false);
             pages++;
         }
 

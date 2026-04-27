@@ -22,50 +22,72 @@ internal static class PageFrontmatter
 {
     /// <summary>
     /// Renders the type-page frontmatter block for <paramref name="type"/>,
-    /// terminated by the closing <c>---</c> and a blank line.
+    /// terminated by the closing <c>---</c>, a hidden mkdocs-autorefs
+    /// anchor for the type's UID, and a blank line. The anchor lets
+    /// other pages link to this type via the
+    /// <c>[Name][T:Full.Type.Name]</c> autoref form.
     /// </summary>
     /// <param name="type">The type whose page is about to render.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
-    /// <returns>The frontmatter block.</returns>
+    /// <returns>The frontmatter block plus the type's UID anchor.</returns>
     public static string ForType(ApiType type, ZensicalEmitterOptions options)
     {
+        ArgumentNullException.ThrowIfNull(type);
         var assembly = type.AssemblyName;
         var package = PackageRouter.ResolveFolder(assembly, options.PackageRouting) ?? assembly;
         var kind = KindLabel(type);
         var ns = type.Namespace is [_, ..] ? type.Namespace : "(global)";
 
-        return BuildBlock(kind: kind, ns: ns, assembly: assembly, package: package, isObsolete: type.IsObsolete);
+        var sb = new StringBuilder(capacity: 192);
+        AppendBlock(sb, kind: kind, ns: ns, assembly: assembly, package: package, isObsolete: type.IsObsolete);
+        AppendUidAnchor(sb, type.Uid);
+        AppendMemberUidAnchors(sb, type);
+        sb.AppendLine();
+        return sb.ToString();
     }
 
     /// <summary>
     /// Renders the member-page frontmatter block, scoping the kind tag
-    /// to the member's <see cref="ApiMemberKind"/>.
+    /// to the member's <see cref="ApiMemberKind"/>. Followed by hidden
+    /// mkdocs-autorefs anchors — one per overload — so cross-references
+    /// to specific overload UIDs resolve to this page.
     /// </summary>
     /// <param name="containingType">The declaring type.</param>
     /// <param name="member">The first overload in the group; supplies kind and obsolete state.</param>
+    /// <param name="overloads">All overloads in the group; one anchor per overload UID.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
-    /// <returns>The frontmatter block.</returns>
-    public static string ForMember(ApiType containingType, ApiMember member, ZensicalEmitterOptions options)
+    /// <returns>The frontmatter block plus a UID anchor per overload.</returns>
+    public static string ForMember(ApiType containingType, ApiMember member, ApiMember[] overloads, ZensicalEmitterOptions options)
     {
+        ArgumentNullException.ThrowIfNull(containingType);
+        ArgumentNullException.ThrowIfNull(member);
+        ArgumentNullException.ThrowIfNull(overloads);
         var assembly = containingType.AssemblyName;
         var package = PackageRouter.ResolveFolder(assembly, options.PackageRouting) ?? assembly;
         var kind = MemberKindLabel(member.Kind);
         var ns = containingType.Namespace is [_, ..] ? containingType.Namespace : "(global)";
 
-        return BuildBlock(kind: kind, ns: ns, assembly: assembly, package: package, isObsolete: member.IsObsolete);
+        var sb = new StringBuilder(capacity: 192 + (overloads.Length * 32));
+        AppendBlock(sb, kind: kind, ns: ns, assembly: assembly, package: package, isObsolete: member.IsObsolete);
+        for (var i = 0; i < overloads.Length; i++)
+        {
+            AppendUidAnchor(sb, overloads[i].Uid);
+        }
+
+        sb.AppendLine();
+        return sb.ToString();
     }
 
-    /// <summary>Produces the frontmatter YAML for the supplied tag values.</summary>
+    /// <summary>Appends the frontmatter YAML for the supplied tag values to <paramref name="sb"/>.</summary>
+    /// <param name="sb">Destination buffer.</param>
     /// <param name="kind">Short kind label (e.g. class, struct, method).</param>
     /// <param name="ns">Namespace (or "(global)").</param>
     /// <param name="assembly">Assembly name.</param>
     /// <param name="package">Package folder name.</param>
     /// <param name="isObsolete">Whether to emit the <c>obsolete</c> tag.</param>
-    /// <returns>The frontmatter block including the closing delimiter and a trailing blank line.</returns>
-    private static string BuildBlock(string kind, string ns, string assembly, string package, bool isObsolete)
+    private static void AppendBlock(StringBuilder sb, string kind, string ns, string assembly, string package, bool isObsolete)
     {
-        var sb = new StringBuilder(capacity: 128)
-            .AppendLine("---")
+        sb.AppendLine("---")
             .AppendLine("tags:")
             .Append("  - kind/").AppendLine(kind)
             .Append("  - namespace/").AppendLine(ns)
@@ -81,7 +103,47 @@ internal static class PageFrontmatter
             sb.AppendLine("  - obsolete");
         }
 
-        return sb.AppendLine("---").AppendLine().ToString();
+        sb.AppendLine("---");
+    }
+
+    /// <summary>
+    /// Appends a hidden mkdocs-autorefs anchor for <paramref name="uid"/>
+    /// — the <c>[](){#UID}</c> form picks up as a cross-reference
+    /// target without rendering anything visible. No-op for empty UIDs.
+    /// </summary>
+    /// <param name="sb">Destination buffer.</param>
+    /// <param name="uid">The UID to register as an anchor.</param>
+    private static void AppendUidAnchor(StringBuilder sb, string? uid)
+    {
+        if (uid is not { Length: > 0 })
+        {
+            return;
+        }
+
+        sb.Append("[](){#").Append(uid).AppendLine("}");
+    }
+
+    /// <summary>
+    /// Appends hidden anchors for the type's contained members so cross-
+    /// references to a specific member resolve to the type page when
+    /// the emitter doesn't produce a separate per-overload page —
+    /// enum values fall into this bucket. Object/union member UIDs
+    /// already get their own anchors on the per-overload page; we
+    /// don't duplicate them here.
+    /// </summary>
+    /// <param name="sb">Destination buffer.</param>
+    /// <param name="type">The owning type.</param>
+    private static void AppendMemberUidAnchors(StringBuilder sb, ApiType type)
+    {
+        if (type is not ApiEnumType { Values: var values })
+        {
+            return;
+        }
+
+        for (var i = 0; i < values.Length; i++)
+        {
+            AppendUidAnchor(sb, values[i].Uid);
+        }
     }
 
     /// <summary>Maps an <see cref="ApiType"/> to its short kind label.</summary>

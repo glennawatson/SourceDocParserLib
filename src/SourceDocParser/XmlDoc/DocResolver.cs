@@ -19,27 +19,20 @@ public sealed class DocResolver : IDocResolver
     private readonly DocResolveContext _context;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="DocResolver"/> class
-    /// using the default XML-to-Markdown converter.
-    /// </summary>
-    /// <param name="compilation">Compilation used for cref resolution.</param>
-    public DocResolver(Compilation compilation)
-        : this(compilation, null)
-    {
-    }
-
-    /// <summary>
     /// Initializes a new instance of the <see cref="DocResolver"/> class.
     /// </summary>
     /// <param name="compilation">Compilation used for cref resolution.</param>
-    /// <param name="converter">Converter used to fold inline doc tags into Markdown. Defaults to a fresh <see cref="XmlDocToMarkdown"/> when null.</param>
-    public DocResolver(Compilation compilation, IXmlDocToMarkdownConverter? converter)
+    /// <remarks>
+    /// As of v0.3 the resolver no longer renders Markdown — the
+    /// produced <see cref="ApiDocumentation"/> carries raw XML doc
+    /// fragments which the emitter converts via
+    /// <see cref="XmlDocToMarkdown"/> at render time. The converter
+    /// parameter that previous versions accepted was therefore removed.
+    /// </remarks>
+    public DocResolver(Compilation compilation)
     {
         ArgumentNullException.ThrowIfNull(compilation);
-        _context = new(
-            compilation,
-            converter ?? new XmlDocToMarkdown(),
-            new());
+        _context = new(compilation, new());
     }
 
     /// <inheritdoc />

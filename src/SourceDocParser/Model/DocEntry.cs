@@ -8,6 +8,12 @@ namespace SourceDocParser.Model;
 /// A single documentation entry, typically a name/description pair.
 /// Used for parameters, type parameters, and exceptions.
 /// </summary>
-/// <param name="Name">The name or cref of the entry.</param>
-/// <param name="Value">The associated documentation text.</param>
+/// <remarks>
+/// As of v0.3 <see cref="Value"/> carries the raw inner XML of the
+/// source documentation tag, not pre-rendered Markdown. Emitters
+/// convert it at render time via
+/// <see cref="SourceDocParser.XmlDoc.XmlDocToMarkdown"/>.
+/// </remarks>
+/// <param name="Name">The name (parameter / type parameter) or cref (exception) of the entry.</param>
+/// <param name="Value">Raw inner XML of the documentation tag.</param>
 public sealed record DocEntry(string Name, string Value);

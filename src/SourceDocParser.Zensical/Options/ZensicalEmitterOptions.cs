@@ -21,4 +21,14 @@ public sealed record ZensicalEmitterOptions(
 
     /// <summary>Gets the legacy default: no per-package routing, no override URLs.</summary>
     public static ZensicalEmitterOptions Default { get; } = new([]);
+
+    /// <summary>
+    /// Gets the cref resolver used by the cross-link router. Defaults
+    /// to <see cref="DefaultCrefResolver.Instance"/>; the documentation
+    /// emitter swaps in a <see cref="ZensicalCrefResolver"/> bound to
+    /// the actual emitted UID set at the start of each emit run, so
+    /// references to walked types resolve as autoref links and
+    /// references to un-walked content fall through cleanly.
+    /// </summary>
+    internal ICrefResolver Resolver { get; init; } = DefaultCrefResolver.Instance;
 }

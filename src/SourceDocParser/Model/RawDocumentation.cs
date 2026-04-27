@@ -7,15 +7,21 @@ namespace SourceDocParser.Model;
 /// <summary>
 /// Intermediate parser output for a single symbol's XML documentation.
 /// </summary>
-/// <param name="Summary">The raw summary text.</param>
-/// <param name="Remarks">The raw remarks text.</param>
-/// <param name="Returns">The raw returns text.</param>
-/// <param name="Value">The raw value text.</param>
-/// <param name="Examples">Markdown example blocks.</param>
-/// <param name="Parameters">Parameter name to description mapping.</param>
-/// <param name="TypeParameters">Type parameter name to description mapping.</param>
-/// <param name="Exceptions">Exception type to description mapping.</param>
-/// <param name="SeeAlso">Related symbol UIDs.</param>
+/// <remarks>
+/// Every text-shaped property holds the raw inner XML of the
+/// corresponding documentation tag, not rendered Markdown. The walker
+/// no longer renders Markdown; emitters do that at render time via
+/// <see cref="SourceDocParser.XmlDoc.XmlDocToMarkdown"/>.
+/// </remarks>
+/// <param name="Summary">Raw inner XML of the <c>&lt;summary/&gt;</c> tag.</param>
+/// <param name="Remarks">Raw inner XML of the <c>&lt;remarks/&gt;</c> tag.</param>
+/// <param name="Returns">Raw inner XML of the <c>&lt;returns/&gt;</c> tag.</param>
+/// <param name="Value">Raw inner XML of the <c>&lt;value/&gt;</c> tag.</param>
+/// <param name="Examples">Raw inner XML of each <c>&lt;example/&gt;</c> tag, in declaration order.</param>
+/// <param name="Parameters">Per-parameter description; <see cref="DocEntry.Value"/> is raw inner XML.</param>
+/// <param name="TypeParameters">Per-type-parameter description; <see cref="DocEntry.Value"/> is raw inner XML.</param>
+/// <param name="Exceptions">Per-exception description; <see cref="DocEntry.Value"/> is raw inner XML.</param>
+/// <param name="SeeAlso">Cref strings collected from top-level <c>&lt;seealso/&gt;</c> tags.</param>
 /// <param name="HasInheritDoc">Whether an inheritdoc element was present.</param>
 /// <param name="InheritDocCref">The inheritdoc cref attribute, if any.</param>
 internal sealed record RawDocumentation(

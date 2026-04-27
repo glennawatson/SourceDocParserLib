@@ -60,6 +60,32 @@ public static class LandingPageEmitter
         return written;
     }
 
+    /// <summary>
+    /// Render-and-write entry point used by
+    /// <see cref="ZensicalDocumentationEmitter"/>. The landing page
+    /// only consumes <see cref="ApiType.Documentation"/> via
+    /// <c>OneLineSummary</c>, so this overload pre-renders each type's
+    /// summary through the run's converter before delegating to
+    /// <see cref="EmitAll(ApiType[], string, ZensicalEmitterOptions)"/>.
+    /// </summary>
+    /// <param name="types">All types that received a type page (raw-XML doc fragments).</param>
+    /// <param name="outputRoot">The directory that contains the api/ tree.</param>
+    /// <param name="context">Render context built once per emit run.</param>
+    /// <returns>The number of landing pages written.</returns>
+    internal static int EmitAll(ApiType[] types, string outputRoot, ZensicalEmitContext context)
+    {
+        ArgumentNullException.ThrowIfNull(types);
+        ArgumentNullException.ThrowIfNull(context);
+
+        var rendered = new ApiType[types.Length];
+        for (var i = 0; i < types.Length; i++)
+        {
+            rendered[i] = RenderedTypeFactory.Render(types[i], context.Converter);
+        }
+
+        return EmitAll(rendered, outputRoot, context.Options);
+    }
+
     /// <summary>Writes the per-package index listing the package's namespaces.</summary>
     /// <param name="outputRoot">The directory that contains the api/ tree.</param>
     /// <param name="packageFolder">The package folder name.</param>
