@@ -2,7 +2,9 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-namespace SourceDocParser;
+using SourceDocParser.Model;
+
+namespace SourceDocParser.Merge;
 
 /// <summary>
 /// Streaming counterpart to <see cref="TypeMerger.Merge"/>. Accepts
@@ -46,7 +48,7 @@ public sealed class StreamingTypeMerger
     {
         ArgumentNullException.ThrowIfNull(catalog);
 
-        var tfm = Tfm.Parse(catalog.Tfm);
+        var tfm = Tfm.Tfm.Parse(catalog.Tfm);
         var types = catalog.Types;
 
         lock (_lock)
@@ -133,5 +135,5 @@ public sealed class StreamingTypeMerger
     /// </summary>
     /// <param name="Tfm">Parsed TFM the variant came from.</param>
     /// <param name="Type">The per-TFM <see cref="ApiType"/>.</param>
-    private readonly record struct TypeVariant(Tfm Tfm, ApiType Type);
+    private readonly record struct TypeVariant(Tfm.Tfm Tfm, ApiType Type);
 }

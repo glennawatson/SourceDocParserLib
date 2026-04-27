@@ -2,7 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-namespace SourceDocParser.Docfx;
+namespace SourceDocParser.Docfx.Config;
 
 /// <summary>
 /// One entry in a docfx metadata <c>src</c> array. Identifies the source

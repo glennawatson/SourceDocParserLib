@@ -3,8 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Text;
+using SourceDocParser.Model;
 
-namespace SourceDocParser.Docfx;
+namespace SourceDocParser.Docfx.Yaml;
 
 /// <summary>
 /// Synthesises the C# declaration line that docfx renders inside

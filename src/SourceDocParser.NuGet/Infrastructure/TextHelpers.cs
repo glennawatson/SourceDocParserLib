@@ -4,7 +4,7 @@
 
 using System.Diagnostics.CodeAnalysis;
 
-namespace SourceDocParser.NuGet;
+namespace SourceDocParser.NuGet.Infrastructure;
 
 /// <summary>
 /// Shared text helpers for low-allocation string checks in the NuGet package.

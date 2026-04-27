@@ -4,13 +4,13 @@
 
 using System.Text;
 using System.Text.Json;
-using SourceDocParser.Docfx;
+using SourceDocParser.Docfx.Config;
 
-namespace SourceDocParser.Tests;
+namespace SourceDocParser.Docfx.Tests.Config;
 
 /// <summary>
 /// Tests that the hand-written <see cref="DocfxConfigReader"/> +
-/// <see cref="DocfxConfigWriter"/> pair preserves arbitrary docfx
+/// <see cref="Docfx.Config.DocfxConfigWriter"/> pair preserves arbitrary docfx
 /// extension data on a round-trip — the test suite for the
 /// JsonExtensionData replacement we built.
 /// </summary>
@@ -106,7 +106,7 @@ public class DocfxConfigRoundTripTests
     }
 
     /// <summary>
-    /// Writes <paramref name="config"/> via <see cref="DocfxConfigWriter"/>'s
+    /// Writes <paramref name="config"/> via <see cref="Docfx.Config.DocfxConfigWriter"/>'s
     /// public Write entry point and re-reads the file. Uses a temp file
     /// because Write currently only writes to disk; the test deletes it
     /// afterwards.

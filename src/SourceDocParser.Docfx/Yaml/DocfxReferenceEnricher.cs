@@ -5,8 +5,9 @@
 using System.Globalization;
 using System.Text;
 using SourceDocParser.Common;
+using SourceDocParser.Model;
 
-namespace SourceDocParser.Docfx;
+namespace SourceDocParser.Docfx.Yaml;
 
 /// <summary>
 /// Renders one entry of a docfx <c>references:</c> block with the
@@ -15,6 +16,8 @@ namespace SourceDocParser.Docfx;
 /// Classification is driven by a set of internal UIDs (types this
 /// emitter wrote pages for) — anything outside that set is treated
 /// as external; BCL types additionally route to Microsoft Learn.
+/// UID parsing / normalization sits in <see cref="UidNormalization"/>;
+/// this class focuses on YAML emission.
 /// </summary>
 internal static class DocfxReferenceEnricher
 {
@@ -39,12 +42,12 @@ internal static class DocfxReferenceEnricher
         var uid = reference is { Uid: [_, ..] u } ? u : "T:" + reference.DisplayName;
         var commentId = uid;
         var displayName = reference.DisplayName;
-        var bareName = StripPrefix(uid);
-        var openGenericUid = ToOpenGenericUid(uid);
+        var bareName = UidNormalization.StripPrefix(uid);
+        var openGenericUid = UidNormalization.ToOpenGenericUid(uid);
         var isInternal = internalUids.Contains(uid) || internalUids.Contains(openGenericUid);
-        var parent = ParentOf(bareName);
+        var parent = UidNormalization.ParentOf(bareName);
 
-        sb.Append("- uid: ").AppendScalar(DocfxCommentId.ToUid(uid)).AppendLine()
+        sb.Append("- uid: ").AppendScalar(CommentIdPrefix.Strip(uid)).AppendLine()
             .Append("  commentId: ").AppendScalar(commentId).AppendLine();
 
         if (parent is { Length: > 0 })
@@ -57,7 +60,7 @@ internal static class DocfxReferenceEnricher
         // Docfx convention: definition uses the bare uid (no T: prefix).
         if (!string.Equals(uid, openGenericUid, StringComparison.Ordinal))
         {
-            sb.Append("  definition: ").AppendScalar(StripPrefix(openGenericUid)).AppendLine();
+            sb.Append("  definition: ").AppendScalar(UidNormalization.StripPrefix(openGenericUid)).AppendLine();
         }
 
         AppendIsExternal(sb, isInternal, indent: "  ");
@@ -70,7 +73,7 @@ internal static class DocfxReferenceEnricher
         // walker already keyword-formatted; only class types need
         // this rewrite.
         var displayLabel = BclTypeAliases.ToKeyword(bareName, displayName);
-        var fullNameLabel = SynthesiseFullName(bareName);
+        var fullNameLabel = UidNormalization.SynthesiseFullName(bareName);
         sb.Append("  name: ").AppendScalar(displayLabel).AppendLine()
             .Append("  nameWithType: ").AppendScalar(displayLabel).AppendLine()
             .Append("  fullName: ").AppendScalar(fullNameLabel).AppendLine();
@@ -81,146 +84,6 @@ internal static class DocfxReferenceEnricher
         }
 
         return sb;
-    }
-
-    /// <summary>
-    /// Synthesises the docfx-style <c>fullName</c> from a bare UID
-    /// (no <c>T:</c> prefix). Non-generic UIDs flow through almost
-    /// unchanged — only BCL primitive aliasing is applied. Generic
-    /// UIDs replace the <c>{…}</c> brace region with the docfx
-    /// <c>&lt;…&gt;</c> form, recursively expanding any nested args
-    /// and stripping the <c>`N</c> arity suffix from the base type.
-    /// All segment names stay fully namespaced — that's the entire
-    /// point of this helper vs the short <c>name</c> field.
-    /// </summary>
-    /// <param name="bareName">UID with the <c>T:</c> prefix already stripped.</param>
-    /// <returns>The fully-qualified docfx-style name.</returns>
-    internal static string SynthesiseFullName(string bareName)
-    {
-        var braceIdx = bareName.IndexOf('{', StringComparison.Ordinal);
-        if (braceIdx < 0)
-        {
-            return BclTypeAliases.ToKeyword(bareName, bareName);
-        }
-
-        var head = bareName[..braceIdx];
-        var argRegion = bareName[(braceIdx + 1)..^1];
-        var baseName = StripArityBacktick(head);
-
-        var sb = new StringBuilder(bareName.Length + 8);
-        sb.Append(BclTypeAliases.ToKeyword(baseName, baseName)).Append('<');
-        var argSegments = SplitTopLevelArgs(argRegion, '{', '}');
-        for (var i = 0; i < argSegments.Count; i++)
-        {
-            if (i > 0)
-            {
-                sb.Append(", ");
-            }
-
-            sb.Append(SynthesiseFullName(argSegments[i].Trim()));
-        }
-
-        return sb.Append('>').ToString();
-    }
-
-    /// <summary>Strips the leading <c>T:</c> / <c>M:</c> / etc. prefix from a UID.</summary>
-    /// <param name="uid">The full UID.</param>
-    /// <returns>The bare name, without any single-letter prefix.</returns>
-    private static string StripPrefix(string uid) =>
-        uid is [_, ':', ..] ? uid[2..] : uid;
-
-    /// <summary>Strips the trailing <c>`N</c> arity suffix from a bare type-name segment.</summary>
-    /// <param name="head">Bare type-name segment (may end in arity backtick).</param>
-    /// <returns>The name with the suffix removed when present.</returns>
-    private static string StripArityBacktick(string head)
-    {
-        var tickIdx = head.LastIndexOf('`');
-        return tickIdx > 0 ? head[..tickIdx] : head;
-    }
-
-    /// <summary>Strips the namespace from a bare type name to get its parent (namespace) part.</summary>
-    /// <param name="bareName">The bare type name.</param>
-    /// <returns>The parent namespace, or an empty string when the name is unqualified.</returns>
-    private static string ParentOf(string bareName)
-    {
-        var lastDot = bareName.LastIndexOf('.');
-        if (lastDot < 0)
-        {
-            return string.Empty;
-        }
-
-        // Constructed generics have the form Foo`1{Bar} — only walk
-        // up to the brace boundary so we don't lop off type-arg dots.
-        var braceIdx = bareName.IndexOf('{', StringComparison.Ordinal);
-        if (braceIdx >= 0 && braceIdx < lastDot)
-        {
-            lastDot = bareName.LastIndexOf('.', braceIdx - 1);
-            if (lastDot < 0)
-            {
-                return string.Empty;
-            }
-        }
-
-        return bareName[..lastDot];
-    }
-
-    /// <summary>
-    /// Converts a constructed-generic UID like <c>T:Foo{Bar}</c>
-    /// into its open-generic form <c>T:Foo`1</c>. Counts the
-    /// top-level type args inside the brace region to reconstruct
-    /// the arity backtick the walker omits, matching the convention
-    /// used by mkdocs-autorefs UIDs in the Zensical layer.
-    /// </summary>
-    /// <param name="uid">The reference UID.</param>
-    /// <returns>The open-generic UID; the input unchanged when not generic.</returns>
-    private static string ToOpenGenericUid(string uid)
-    {
-        var braceIdx = uid.IndexOf('{', StringComparison.Ordinal);
-        if (braceIdx < 0)
-        {
-            return uid;
-        }
-
-        var bareHead = uid[..braceIdx];
-        if (bareHead.Contains('`', StringComparison.Ordinal))
-        {
-            return bareHead;
-        }
-
-        var arity = CountTopLevelArgsInUidBraces(uid, braceIdx);
-        return bareHead + "`" + arity.ToString(CultureInfo.InvariantCulture);
-    }
-
-    /// <summary>Counts top-level type-argument tokens inside a brace region of a UID.</summary>
-    /// <param name="uid">The full UID containing a brace region.</param>
-    /// <param name="openBraceIdx">Index of the opening brace.</param>
-    /// <returns>The number of top-level commas inside the braces, plus one.</returns>
-    private static int CountTopLevelArgsInUidBraces(string uid, int openBraceIdx)
-    {
-        var depth = 0;
-        var count = 1;
-        for (var i = openBraceIdx; i < uid.Length; i++)
-        {
-            var c = uid[i];
-            if (c == '{')
-            {
-                depth++;
-            }
-            else if (c == '}')
-            {
-                depth--;
-                if (depth == 0)
-                {
-                    break;
-                }
-            }
-            else if (c == ',' && depth == 1)
-            {
-                count++;
-            }
-        }
-
-        return count;
     }
 
     /// <summary>
@@ -239,7 +102,7 @@ internal static class DocfxReferenceEnricher
         {
             // Local type: link at the open-generic page (Foo`1.html), since
             // constructed generics share the same page in docfx.
-            var stem = StripPrefix(openGenericUid).Replace('`', '-');
+            var stem = UidNormalization.StripPrefix(openGenericUid).Replace('`', '-');
             return stem + ".html";
         }
 
@@ -250,7 +113,7 @@ internal static class DocfxReferenceEnricher
 
         // Microsoft Learn URLs lowercase the type and rewrite arity
         // backticks to hyphens — System.Action`1 → system.action-1.
-        var slug = StripPrefix(openGenericUid).ToLower(CultureInfo.InvariantCulture).Replace('`', '-');
+        var slug = UidNormalization.StripPrefix(openGenericUid).ToLower(CultureInfo.InvariantCulture).Replace('`', '-');
         return LearnBaseUrl + slug;
     }
 
@@ -306,8 +169,8 @@ internal static class DocfxReferenceEnricher
         sb.AppendLine("  spec.csharp:");
         AppendSpecComponent(sb, openGenericUid, baseName, internalUids);
         sb.AppendLine("  - name: <");
-        var displayArgs = SplitTopLevelArgs(displayArgsRegion, '<', '>');
-        var uidArgs = SplitTopLevelArgs(uidArgsRegion, '{', '}');
+        var displayArgs = UidNormalization.SplitTopLevelArgs(displayArgsRegion, '<', '>');
+        var uidArgs = UidNormalization.SplitTopLevelArgs(uidArgsRegion, '{', '}');
         var argCount = Math.Max(displayArgs.Count, uidArgs.Count);
         for (var i = 0; i < argCount; i++)
         {
@@ -345,10 +208,10 @@ internal static class DocfxReferenceEnricher
     private static void AppendSpecComponent(StringBuilder sb, string uid, string name, HashSet<string> internalUids)
     {
         var isInternal = internalUids.Contains(uid);
-        var href = ResolveHref(uid, ToOpenGenericUid(uid), StripPrefix(uid), isInternal);
+        var href = ResolveHref(uid, UidNormalization.ToOpenGenericUid(uid), UidNormalization.StripPrefix(uid), isInternal);
 
         // Docfx convention: spec.csharp uid is bare (no T: prefix).
-        sb.Append("  - uid: ").AppendScalar(StripPrefix(uid)).AppendLine()
+        sb.Append("  - uid: ").AppendScalar(UidNormalization.StripPrefix(uid)).AppendLine()
             .Append("    name: ").AppendScalar(name).AppendLine();
 
         // spec.csharp components are always referenced as a separate
@@ -423,12 +286,12 @@ internal static class DocfxReferenceEnricher
         var displayRegion = trimmedDisplay[(displayLt + 1)..^1];
         var uidBaseFqn = trimmedUid[..uidBrace];
         var uidRegion = trimmedUid[(uidBrace + 1)..^1];
-        var arity = CountTopLevelArgs(uidRegion, '{', '}');
+        var arity = UidNormalization.CountTopLevelArgs(uidRegion, '{', '}');
         var openUid = "T:" + uidBaseFqn + "`" + arity.ToString(CultureInfo.InvariantCulture);
         AppendSpecComponent(sb, openUid, displayBase, internalUids);
         sb.AppendLine("  - name: <");
-        var nestedDisplayArgs = SplitTopLevelArgs(displayRegion, '<', '>');
-        var nestedUidArgs = SplitTopLevelArgs(uidRegion, '{', '}');
+        var nestedDisplayArgs = UidNormalization.SplitTopLevelArgs(displayRegion, '<', '>');
+        var nestedUidArgs = UidNormalization.SplitTopLevelArgs(uidRegion, '{', '}');
         var nestedCount = Math.Max(nestedDisplayArgs.Count, nestedUidArgs.Count);
         for (var i = 0; i < nestedCount; i++)
         {
@@ -438,66 +301,5 @@ internal static class DocfxReferenceEnricher
         }
 
         sb.AppendLine("  - name: '>'");
-    }
-
-    /// <summary>Splits a comma-separated type-argument list, ignoring commas inside nested bracket pairs.</summary>
-    /// <param name="region">The comma-separated arg list (without the outer brackets).</param>
-    /// <param name="open">Opening bracket character (<c>&lt;</c> for display names, <c>{</c> for UIDs).</param>
-    /// <param name="close">Closing bracket character.</param>
-    /// <returns>The pieces in source order.</returns>
-    private static List<string> SplitTopLevelArgs(string region, char open, char close)
-    {
-        var depth = 0;
-        var start = 0;
-        var pieces = new List<string>();
-        for (var i = 0; i < region.Length; i++)
-        {
-            var c = region[i];
-            if (c == open)
-            {
-                depth++;
-            }
-            else if (c == close)
-            {
-                depth--;
-            }
-            else if (c == ',' && depth == 0)
-            {
-                pieces.Add(region[start..i]);
-                start = i + 1;
-            }
-        }
-
-        pieces.Add(region[start..]);
-        return pieces;
-    }
-
-    /// <summary>Counts top-level type arguments inside a comma-separated arg region.</summary>
-    /// <param name="region">The arg region (without the outer brackets).</param>
-    /// <param name="open">Opening bracket character.</param>
-    /// <param name="close">Closing bracket character.</param>
-    /// <returns>The number of top-level commas plus one.</returns>
-    private static int CountTopLevelArgs(string region, char open, char close)
-    {
-        var depth = 0;
-        var count = 1;
-        for (var i = 0; i < region.Length; i++)
-        {
-            var c = region[i];
-            if (c == open)
-            {
-                depth++;
-            }
-            else if (c == close)
-            {
-                depth--;
-            }
-            else if (c == ',' && depth == 0)
-            {
-                count++;
-            }
-        }
-
-        return count;
     }
 }

@@ -2,9 +2,11 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using SourceDocParser.Docfx.Common;
+using SourceDocParser.Docfx.Config;
 using SourceDocParser.TestHelpers;
 
-namespace SourceDocParser.Docfx.Tests;
+namespace SourceDocParser.Docfx.Tests.Config;
 
 /// <summary>
 /// Direct tests for the internal docfx helper methods that the public

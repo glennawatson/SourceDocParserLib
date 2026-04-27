@@ -4,8 +4,9 @@
 
 using System.Runtime.InteropServices;
 using Microsoft.CodeAnalysis;
+using SourceDocParser.Model;
 
-namespace SourceDocParser;
+namespace SourceDocParser.XmlDoc;
 
 /// <summary>
 /// Per-resolver cache of <see cref="ApiDocumentation"/> instances keyed by <see cref="ISymbol"/>.

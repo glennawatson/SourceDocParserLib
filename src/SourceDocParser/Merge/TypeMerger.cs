@@ -2,7 +2,9 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-namespace SourceDocParser;
+using SourceDocParser.Model;
+
+namespace SourceDocParser.Merge;
 
 /// <summary>
 /// Deduplicates <see cref="ApiType"/>s across multiple TFMs.
@@ -34,7 +36,7 @@ public static class TypeMerger
         for (var catalogIndex = 0; catalogIndex < catalogs.Count; catalogIndex++)
         {
             var (tfmString, types) = catalogs[catalogIndex];
-            var tfm = Tfm.Parse(tfmString);
+            var tfm = Tfm.Tfm.Parse(tfmString);
             for (var i = 0; i < types.Length; i++)
             {
                 var type = types[i];
@@ -100,5 +102,5 @@ public static class TypeMerger
     /// </summary>
     /// <param name="Tfm">Parsed TFM the variant came from.</param>
     /// <param name="Type">The per-TFM <see cref="ApiType"/>.</param>
-    private readonly record struct TypeVariant(Tfm Tfm, ApiType Type);
+    private readonly record struct TypeVariant(Tfm.Tfm Tfm, ApiType Type);
 }

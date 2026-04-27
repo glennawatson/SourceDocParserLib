@@ -3,16 +3,19 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Text;
+using SourceDocParser.Docfx.Yaml;
+using SourceDocParser.Model;
 using SourceDocParser.TestHelpers;
 
 namespace SourceDocParser.Docfx.Tests.Yaml;
 
 /// <summary>
 /// Pins <see cref="DocfxYamlBuilderExtensions.AppendSyntaxContent"/>
-/// and <see cref="DocfxYamlBuilderExtensions.RenderAttributeUsage"/>
 /// — the folded-block path docfx uses to stack attribute usages
 /// above a signature inside <c>syntax.content</c>, plus the empty-
 /// attributes fast path that preserves the legacy short-scalar form.
+/// Per-format tests for the inline attribute usage string itself
+/// live in <see cref="AttributeUsageFormatterTests"/>.
 /// </summary>
 public class DocfxSyntaxContentTests
 {
@@ -58,36 +61,6 @@ public class DocfxSyntaxContentTests
         sb.AppendSyntaxContent(attrs, "public class Foo", indent: "    ");
 
         await Assert.That(sb.ToString()).IsEqualTo("    content: >-\n    [Serializable]\n    \n    public class Foo\n");
-    }
-
-    /// <summary>RenderAttributeUsage keeps a no-arg attribute as the bare display name (no parens).</summary>
-    /// <returns>A task representing the test execution.</returns>
-    [Test]
-    public async Task RenderAttributeUsageNoArgsReturnsBareName()
-    {
-        var rendered = DocfxYamlBuilderExtensions.RenderAttributeUsage(
-            new ApiAttribute("Serializable", "T:System.SerializableAttribute", string.Empty, []));
-
-        await Assert.That(rendered).IsEqualTo("Serializable");
-    }
-
-    /// <summary>RenderAttributeUsage formats positional + named arguments in declaration order.</summary>
-    /// <returns>A task representing the test execution.</returns>
-    [Test]
-    public async Task RenderAttributeUsageFormatsArgumentsInOrder()
-    {
-        var attribute = new ApiAttribute(
-            "StyleTypedProperty",
-            "T:System.Windows.StyleTypedPropertyAttribute",
-            string.Empty,
-            [
-                new ApiAttributeArgument(Name: null, Value: "\"ItemContainerStyle\""),
-                new ApiAttributeArgument(Name: "StyleTargetType", Value: "typeof(ListBoxItem)"),
-            ]);
-
-        var rendered = DocfxYamlBuilderExtensions.RenderAttributeUsage(attribute);
-
-        await Assert.That(rendered).IsEqualTo("StyleTypedProperty(\"ItemContainerStyle\", StyleTargetType=typeof(ListBoxItem))");
     }
 
     /// <summary>End-to-end: a member with a surviving attribute renders the folded syntax block in its YAML page.</summary>

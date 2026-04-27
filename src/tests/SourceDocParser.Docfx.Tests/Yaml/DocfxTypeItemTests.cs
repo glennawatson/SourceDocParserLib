@@ -2,13 +2,15 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using SourceDocParser.Docfx.Yaml;
+using SourceDocParser.Model;
 using SourceDocParser.TestHelpers;
 
 namespace SourceDocParser.Docfx.Tests.Yaml;
 
 /// <summary>
 /// Pins individual fields on the docfx type item — anything emitted
-/// directly by <see cref="DocfxYamlBuilderExtensions.AppendTypeItem(System.Text.StringBuilder, ApiType)"/>
+/// directly by <see cref="DocfxYamlBuilderExtensions.AppendTypeItem(System.Text.StringBuilder,SourceDocParser.Model.ApiType)"/>
 /// that doesn't have its own dedicated test fixture lands here.
 /// </summary>
 public class DocfxTypeItemTests

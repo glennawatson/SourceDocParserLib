@@ -3,6 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using Microsoft.CodeAnalysis;
+using SourceDocParser.LibCompilation;
+using CompilationLoader = SourceDocParser.LibCompilation.CompilationLoader;
 
 namespace SourceDocParser.Tests;
 

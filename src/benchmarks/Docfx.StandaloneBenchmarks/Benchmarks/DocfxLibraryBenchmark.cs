@@ -7,7 +7,7 @@ using System.Text.Json.Nodes;
 using BenchmarkDotNet.Attributes;
 using Docfx.Dotnet;
 
-namespace Docfx.StandaloneBenchmarks;
+namespace Docfx.StandaloneBenchmarks.Benchmarks;
 
 /// <summary>
 /// Standalone docfx metadata-extraction benchmark — bypasses docfx's

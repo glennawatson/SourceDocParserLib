@@ -5,8 +5,12 @@
 using System.Buffers;
 using System.Globalization;
 using System.Text;
+using SourceDocParser.Model;
+using SourceDocParser.Zensical.Options;
+using SourceDocParser.Zensical.Pages;
+using SourceDocParser.Zensical.Routing;
 
-namespace SourceDocParser.Zensical;
+namespace SourceDocParser.Zensical.Navigation;
 
 /// <summary>
 /// Emits a navigation tree fragment (YAML for mkdocs / Zensical

@@ -5,7 +5,7 @@
 using System.Text;
 using System.Xml;
 
-namespace SourceDocParser;
+namespace SourceDocParser.XmlDoc;
 
 /// <summary>
 /// Converts .NET XML documentation fragments into Markdown.
@@ -78,6 +78,87 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
         var scanner = new DocXmlScanner(innerXml);
         WriteFragment(ref scanner, _builder, ListContext.None);
         return CollapseWhitespace(_builder).ToString();
+    }
+
+    /// <summary>
+    /// Renders a captured inner span into Markdown via a fresh scanner.
+    /// Internal so <see cref="MarkdownListTableRenderer"/> can recurse
+    /// into nested term/description content without going through the
+    /// instance-bound public Convert entry point.
+    /// </summary>
+    /// <param name="span">Inner XML span to render.</param>
+    /// <returns>Markdown text.</returns>
+    internal static string ConvertSpanToMarkdown(in ReadOnlySpan<char> span)
+    {
+        if (span.IsEmpty)
+        {
+            return string.Empty;
+        }
+
+        if (span.IndexOf('<') < 0)
+        {
+            var plain = new StringBuilder(span.Length);
+            DocXmlScanner.AppendDecoded(plain, span);
+            return plain.ToString();
+        }
+
+        var sb = new StringBuilder(span.Length);
+        var scanner = new DocXmlScanner(span);
+        WriteFragment(ref scanner, sb, ListContext.None);
+        return CollapseWhitespace(sb).ToString();
+    }
+
+    /// <summary>
+    /// Escapes pipes and replaces newlines with spaces so a string is
+    /// safe to drop into a GFM table cell. Internal so
+    /// <see cref="MarkdownListTableRenderer"/> can apply the same
+    /// escape to its term/description columns.
+    /// </summary>
+    /// <param name="text">Cell content.</param>
+    /// <returns>The escaped text, or a single space when the input was empty.</returns>
+    internal static string TableEscape(string text)
+    {
+        if (text is not [_, ..])
+        {
+            return " ";
+        }
+
+        if (text.AsSpan().IndexOfAny(['|', '\n', '\r']) < 0)
+        {
+            return text;
+        }
+
+        return string.Create(
+            text.Length + CountEscapedPipes(text),
+            text,
+            static (dest, state) =>
+            {
+                var cursor = 0;
+                for (var i = 0; i < state.Length; i++)
+                {
+                    switch (state[i])
+                    {
+                        case '|':
+                        {
+                            dest[cursor++] = '\\';
+                            dest[cursor++] = '|';
+                            break;
+                        }
+
+                        case '\n' or '\r':
+                        {
+                            dest[cursor++] = ' ';
+                            break;
+                        }
+
+                        default:
+                        {
+                            dest[cursor++] = state[i];
+                            break;
+                        }
+                    }
+                }
+            });
     }
 
     /// <summary>
@@ -398,126 +479,15 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
     }
 
     /// <summary>
-    /// Renders a list as a Markdown table — listheader supplies the
-    /// header row, item rows fill it in. A default "Term | Description"
-    /// header is emitted if no listheader is present.
+    /// Renders a list as a Markdown table by delegating to
+    /// <see cref="MarkdownListTableRenderer.Render"/> — kept here as a
+    /// thin shim so the WriteElement dispatcher still names the
+    /// table path explicitly.
     /// </summary>
     /// <param name="scanner">Scanner positioned on the list start tag.</param>
     /// <param name="sb">Destination buffer.</param>
-    private static void WriteListAsTable(ref DocXmlScanner scanner, StringBuilder sb)
-    {
-        var listDepth = scanner.Depth;
-        var headerWritten = false;
-        while (scanner.Read())
-        {
-            if (scanner.Kind == DocTokenKind.EndElement && scanner.Depth < listDepth)
-            {
-                return;
-            }
-
-            if (scanner.Kind != DocTokenKind.StartElement)
-            {
-                continue;
-            }
-
-            switch (scanner.Name)
-            {
-                case "listheader":
-                    {
-                        var inner = scanner.ReadInnerSpan();
-                        var (term, description) = ReadTermAndDescription(inner);
-                        sb.Append("| ").Append(term).Append(" | ").Append(description).Append(" |\n")
-                            .Append("| --- | --- |\n");
-                        headerWritten = true;
-                        break;
-                    }
-
-                case "item":
-                    {
-                        if (!headerWritten)
-                        {
-                            sb.Append("| Term | Description |\n")
-                                .Append("| --- | --- |\n");
-                            headerWritten = true;
-                        }
-
-                        var inner = scanner.ReadInnerSpan();
-                        var (term, description) = ReadTermAndDescription(inner);
-                        sb.Append("| ").Append(term).Append(" | ").Append(description).Append(" |\n");
-                        break;
-                    }
-            }
-        }
-    }
-
-    /// <summary>
-    /// Pulls the term and description children out of an item or
-    /// listheader's inner span. Each is converted via the same
-    /// scanner-based renderer (recursively) and then escaped for
-    /// table-cell context.
-    /// </summary>
-    /// <param name="inner">Inner XML span of one item or listheader.</param>
-    /// <returns>Tuple of (term, description). Each defaults to a single space when empty so the table cell is non-collapsing.</returns>
-    private static (string Term, string Description) ReadTermAndDescription(in ReadOnlySpan<char> inner)
-    {
-        var term = string.Empty;
-        var description = string.Empty;
-
-        var scanner = new DocXmlScanner(inner);
-        while (scanner.Read())
-        {
-            if (scanner.Kind != DocTokenKind.StartElement)
-            {
-                continue;
-            }
-
-            switch (scanner.Name)
-            {
-                case "term":
-                    {
-                        var sub = scanner.ReadInnerSpan();
-                        term = TableEscape(ConvertSpanToMarkdown(sub));
-                        break;
-                    }
-
-                case "description":
-                    {
-                        var sub = scanner.ReadInnerSpan();
-                        description = TableEscape(ConvertSpanToMarkdown(sub));
-                        break;
-                    }
-            }
-        }
-
-        return (term is [_, ..] ? term : " ", description is [_, ..] ? description : " ");
-    }
-
-    /// <summary>
-    /// Renders a captured inner span into Markdown via a fresh scanner.
-    /// Used by the table-row helpers; equivalent to <see cref="Convert(ReadOnlySpan{char})"/>
-    /// but inlined as a static helper so it doesn't need an instance.
-    /// </summary>
-    /// <param name="span">Inner XML span to render.</param>
-    /// <returns>Markdown text.</returns>
-    private static string ConvertSpanToMarkdown(in ReadOnlySpan<char> span)
-    {
-        if (span.IsEmpty)
-        {
-            return string.Empty;
-        }
-
-        if (span.IndexOf('<') < 0)
-        {
-            var plain = new StringBuilder(span.Length);
-            DocXmlScanner.AppendDecoded(plain, span);
-            return plain.ToString();
-        }
-
-        var sb = new StringBuilder(span.Length);
-        var scanner = new DocXmlScanner(span);
-        WriteFragment(ref scanner, sb, ListContext.None);
-        return CollapseWhitespace(sb).ToString();
-    }
+    private static void WriteListAsTable(ref DocXmlScanner scanner, StringBuilder sb) =>
+        MarkdownListTableRenderer.Render(ref scanner, sb);
 
     /// <summary>
     /// Extracts a user-friendly short name from a Roslyn cref. Strips
@@ -628,57 +598,6 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
         sb.Length = write;
         TrimTrailingWhitespace(sb);
         return sb;
-    }
-
-    /// <summary>
-    /// Escapes pipes and replaces newlines with spaces so a string is
-    /// safe to drop into a GFM table cell.
-    /// </summary>
-    /// <param name="text">Cell content.</param>
-    /// <returns>The escaped text, or a single space when the input was empty.</returns>
-    private static string TableEscape(string text)
-    {
-        if (text is not [_, ..])
-        {
-            return " ";
-        }
-
-        if (text.AsSpan().IndexOfAny(['|', '\n', '\r']) < 0)
-        {
-            return text;
-        }
-
-        return string.Create(
-            text.Length + CountEscapedPipes(text),
-            text,
-            static (dest, state) =>
-            {
-                var index = 0;
-                for (var i = 0; i < state.Length; i++)
-                {
-                    switch (state[i])
-                    {
-                        case '|':
-                        {
-                            dest[index++] = '\\';
-                            dest[index++] = '|';
-                            break;
-                        }
-
-                        case '\n' or '\r':
-                        {
-                            dest[index++] = ' ';
-                            break;
-                        }
-
-                        default:
-                        {
-                            dest[index++] = state[i];
-                            break;
-                        }
-                    }
-                }
-            });
     }
 
     /// <summary>

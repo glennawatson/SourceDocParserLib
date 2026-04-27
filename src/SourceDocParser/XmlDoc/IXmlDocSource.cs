@@ -2,7 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-namespace SourceDocParser;
+namespace SourceDocParser.XmlDoc;
 
 /// <summary>
 /// Indexed read-only view over a NuGet-shipped XML doc file. Backs

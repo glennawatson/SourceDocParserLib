@@ -4,8 +4,9 @@
 
 using System.Collections.Frozen;
 using SourceDocParser.Common;
+using SourceDocParser.Model;
 
-namespace SourceDocParser.Zensical;
+namespace SourceDocParser.Zensical.Pages;
 
 /// <summary>
 /// Per-emit catalog rollups consumed by <see cref="TypePageEmitter"/>

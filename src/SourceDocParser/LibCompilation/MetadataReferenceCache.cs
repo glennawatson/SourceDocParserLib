@@ -4,8 +4,9 @@
 
 using System.Collections.Concurrent;
 using Microsoft.CodeAnalysis;
+using SourceDocParser.XmlDoc;
 
-namespace SourceDocParser;
+namespace SourceDocParser.LibCompilation;
 
 /// <summary>
 /// Caches Roslyn <see cref="MetadataReference"/> instances by absolute path per TFM.

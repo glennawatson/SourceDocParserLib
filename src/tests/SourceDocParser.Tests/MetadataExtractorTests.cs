@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using SourceDocParser.Model;
 
 namespace SourceDocParser.Tests;
 

@@ -4,7 +4,7 @@
 
 using SourceDocParser.SourceLink;
 
-namespace SourceDocParser;
+namespace SourceDocParser.Model;
 
 /// <summary>
 /// Lightweight summary of one <see cref="MetadataExtractor.RunAsync"/>

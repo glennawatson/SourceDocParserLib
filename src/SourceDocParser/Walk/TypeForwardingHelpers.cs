@@ -5,7 +5,7 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 
-namespace SourceDocParser;
+namespace SourceDocParser.Walk;
 
 /// <summary>
 /// Small composable helpers for walking type-forwarding metadata on

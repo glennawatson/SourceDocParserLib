@@ -3,8 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Text.Json;
+using SourceDocParser.NuGet.Infrastructure;
 
-namespace SourceDocParser.NuGet;
+namespace SourceDocParser.NuGet.Readers;
 
 /// <summary>
 /// Parses a NuGet v3 service-index JSON document and extracts the

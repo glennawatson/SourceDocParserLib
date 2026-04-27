@@ -8,7 +8,7 @@ using SourceDocParser.TestHelpers;
 namespace SourceDocParser.Docfx.Tests.Config;
 
 /// <summary>
-/// End-to-end pin on <see cref="DocfxConfigWriter.Write"/>: builds a
+/// End-to-end pin on <see cref="Docfx.Config.DocfxConfigWriter.Write"/>: builds a
 /// fixture <c>lib/</c> + <c>refs/</c> directory tree under a scratch
 /// folder, runs the writer, and asserts the generated docfx.json
 /// surfaces the right metadata entries (package DLLs only, ref DLLs
@@ -29,7 +29,7 @@ public class DocfxConfigWriterTests
         WriteEmptyDll(scratch.Path, "refs/net8.0/System.Runtime.dll");
         var output = Path.Combine(scratch.Path, "docfx.json");
 
-        var written = DocfxConfigWriter.Write(scratch.Path, output);
+        var written = Docfx.Config.DocfxConfigWriter.Write(scratch.Path, output);
 
         await Assert.That(written).IsEqualTo(output);
         await Assert.That(File.Exists(output)).IsTrue();
@@ -64,7 +64,7 @@ public class DocfxConfigWriterTests
         WriteEmptyDll(scratch.Path, "refs/net8.0-windows/System.Runtime.dll");
         var output = Path.Combine(scratch.Path, "docfx.json");
 
-        DocfxConfigWriter.Write(scratch.Path, output);
+        Docfx.Config.DocfxConfigWriter.Write(scratch.Path, output);
 
         using var doc = JsonDocument.Parse(await File.ReadAllBytesAsync(output));
         var dest = doc.RootElement.GetProperty("metadata")[0].GetProperty("dest").GetString();
@@ -85,7 +85,7 @@ public class DocfxConfigWriterTests
         WriteEmptyDll(scratch.Path, "refs/net8.0/System.Runtime.dll");
         var output = Path.Combine(scratch.Path, "docfx.json");
 
-        DocfxConfigWriter.Write(scratch.Path, output);
+        Docfx.Config.DocfxConfigWriter.Write(scratch.Path, output);
 
         using var doc = JsonDocument.Parse(await File.ReadAllBytesAsync(output));
         await Assert.That(doc.RootElement.GetProperty("metadata").GetArrayLength()).IsEqualTo(0);
@@ -101,7 +101,7 @@ public class DocfxConfigWriterTests
         WriteEmptyDll(scratch.Path, "refs/net8.0/System.Runtime.dll");
         var output = Path.Combine(scratch.Path, "docfx.json");
 
-        DocfxConfigWriter.Write(scratch.Path, output);
+        Docfx.Config.DocfxConfigWriter.Write(scratch.Path, output);
 
         using var doc = JsonDocument.Parse(await File.ReadAllBytesAsync(output));
         await Assert.That(doc.RootElement.GetProperty("metadata").GetArrayLength()).IsEqualTo(0);
@@ -114,7 +114,7 @@ public class DocfxConfigWriterTests
     {
         using var scratch = new ScratchDirectory("docfxcw");
 
-        await Assert.That(() => DocfxConfigWriter.Write(scratch.Path, Path.Combine(scratch.Path, "docfx.json")))
+        await Assert.That(() => Docfx.Config.DocfxConfigWriter.Write(scratch.Path, Path.Combine(scratch.Path, "docfx.json")))
             .Throws<DirectoryNotFoundException>();
     }
 
@@ -126,7 +126,7 @@ public class DocfxConfigWriterTests
         using var scratch = new ScratchDirectory("docfxcw");
         Directory.CreateDirectory(Path.Combine(scratch.Path, "lib"));
 
-        await Assert.That(() => DocfxConfigWriter.Write(scratch.Path, Path.Combine(scratch.Path, "docfx.json")))
+        await Assert.That(() => Docfx.Config.DocfxConfigWriter.Write(scratch.Path, Path.Combine(scratch.Path, "docfx.json")))
             .Throws<InvalidOperationException>();
     }
 
@@ -135,9 +135,9 @@ public class DocfxConfigWriterTests
     [Test]
     public async Task RejectsBlankArguments()
     {
-        await Assert.That(() => DocfxConfigWriter.Write(string.Empty, "out.json")).Throws<ArgumentException>();
-        await Assert.That(() => DocfxConfigWriter.Write("api", string.Empty)).Throws<ArgumentException>();
-        await Assert.That(() => DocfxConfigWriter.Write("   ", "out.json")).Throws<ArgumentException>();
+        await Assert.That(() => Docfx.Config.DocfxConfigWriter.Write(string.Empty, "out.json")).Throws<ArgumentException>();
+        await Assert.That(() => Docfx.Config.DocfxConfigWriter.Write("api", string.Empty)).Throws<ArgumentException>();
+        await Assert.That(() => Docfx.Config.DocfxConfigWriter.Write("   ", "out.json")).Throws<ArgumentException>();
     }
 
     /// <summary>Creates an empty file at <paramref name="relative"/> under <paramref name="root"/>, creating parent directories as needed.</summary>

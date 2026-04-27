@@ -3,8 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using Microsoft.CodeAnalysis;
+using SourceDocParser.Model;
 
-namespace SourceDocParser;
+namespace SourceDocParser.XmlDoc;
 
 /// <summary>
 /// Resolves merged <see cref="ApiDocumentation"/> for symbols by combining
@@ -22,7 +23,7 @@ public sealed class DocResolver : IDocResolver
     /// </summary>
     /// <param name="compilation">Compilation used for cref resolution.</param>
     /// <param name="converter">Converter used to fold inline doc tags into Markdown. Defaults to a fresh <see cref="XmlDocToMarkdown"/> when null.</param>
-    public DocResolver(Compilation compilation, IXmlDocToMarkdownConverter? converter = null)
+    public DocResolver(Microsoft.CodeAnalysis.Compilation compilation, IXmlDocToMarkdownConverter? converter = null)
     {
         ArgumentNullException.ThrowIfNull(compilation);
         _context = new(
@@ -437,6 +438,6 @@ public sealed class DocResolver : IDocResolver
     /// <param name="cref">cref string from the inheritdoc element.</param>
     /// <param name="compilation">Compilation to use for resolution.</param>
     /// <returns>The resolved symbol, or null if not found.</returns>
-    private static ISymbol? ResolveCref(string cref, Compilation compilation) =>
+    private static ISymbol? ResolveCref(string cref, Microsoft.CodeAnalysis.Compilation compilation) =>
         DocumentationCommentId.GetFirstSymbolForDeclarationId(cref, compilation);
 }

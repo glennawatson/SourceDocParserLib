@@ -5,7 +5,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
-namespace SourceDocParser;
+namespace SourceDocParser.LibCompilation;
 
 /// <summary>
 /// Loads a compiled .NET assembly into a Roslyn <see cref="CSharpCompilation"/>.

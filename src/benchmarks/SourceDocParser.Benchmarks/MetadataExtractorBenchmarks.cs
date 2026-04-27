@@ -3,7 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using BenchmarkDotNet.Attributes;
-using SourceDocParser.NuGet;
+using SourceDocParser.Model;
+using SourceDocParser.NuGet.Infrastructure;
 using SourceDocParser.Zensical;
 
 namespace SourceDocParser.Benchmarks;

@@ -3,9 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using BenchmarkDotNet.Attributes;
-using SourceDocParser.NuGet;
+using SourceDocParser.Docfx.Yaml;
+using SourceDocParser.Model;
+using SourceDocParser.NuGet.Infrastructure;
 
-namespace SourceDocParser.Docfx.StandaloneBenchmarks;
+namespace SourceDocParser.Docfx.StandaloneBenchmarks.Benchmarks;
 
 /// <summary>
 /// Equivalent benchmark for the SourceDocParser.Docfx YAML emitter —

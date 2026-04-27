@@ -2,10 +2,10 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Text.RegularExpressions;
 using System.Xml;
+using SourceDocParser.NuGet.Models;
 
-namespace SourceDocParser.NuGet;
+namespace SourceDocParser.NuGet.Readers;
 
 /// <summary>
 /// Reads <c>&lt;packageSourceCredentials&gt;</c> entries — one
@@ -14,15 +14,14 @@ namespace SourceDocParser.NuGet;
 /// <c>Username</c> + <c>ClearTextPassword</c> + optional
 /// <c>ValidAuthenticationTypes</c> children carry the auth info.
 /// We honour the cleartext path with <c>%ENV%</c> expansion;
-/// encrypted-password blobs (Windows-DPAPI) are skipped.
+/// encrypted-password blobs (Windows-DPAPI) are skipped. The
+/// per-element classification, source-name unescape and env-var
+/// expansion live in <see cref="PackageSourceCredentialParser"/>.
 /// </summary>
-internal static partial class PackageSourceCredentialsReader
+internal static class PackageSourceCredentialsReader
 {
     /// <summary>The XML section name for package source credentials.</summary>
     private const string SectionName = "packageSourceCredentials";
-
-    /// <summary>The XML element name for adding a credential entry.</summary>
-    private const string AddElementName = "add";
 
     /// <summary>The XML attribute name for the key.</summary>
     private const string KeyAttributeName = "key";
@@ -38,9 +37,6 @@ internal static partial class PackageSourceCredentialsReader
 
     /// <summary>The key name for valid authentication types.</summary>
     private const string ValidAuthenticationTypesKey = "ValidAuthenticationTypes";
-
-    /// <summary>The escape sequence for spaces in source names.</summary>
-    private const string SpaceEscape = "_x0020_";
 
     /// <summary>Settings for the XML reader.</summary>
     private static readonly XmlReaderSettings _readerSettings = new()
@@ -121,11 +117,11 @@ internal static partial class PackageSourceCredentialsReader
 
             switch (reader.NodeType)
             {
-                case XmlNodeType.Element when IsCredentialChildElement(reader, currentSourceKey):
+                case XmlNodeType.Element when PackageSourceCredentialParser.IsCredentialChildElement(reader, currentSourceKey):
                     {
                         if (currentSourceKey is null)
                         {
-                            currentSourceKey = UnescapeSourceName(reader.LocalName);
+                            currentSourceKey = PackageSourceCredentialParser.UnescapeSourceName(reader.LocalName);
                             continue;
                         }
 
@@ -133,7 +129,7 @@ internal static partial class PackageSourceCredentialsReader
                         break;
                     }
 
-                case XmlNodeType.EndElement when currentSourceKey is not null && IsSourceContainerEnd(reader, currentSourceKey):
+                case XmlNodeType.EndElement when currentSourceKey is not null && PackageSourceCredentialParser.IsSourceContainerEnd(reader, currentSourceKey):
                     {
                         FlushCurrent(result, ref currentSourceKey, ref username, ref clearTextPassword, ref validAuthTypes);
                         break;
@@ -143,22 +139,6 @@ internal static partial class PackageSourceCredentialsReader
 
         return result;
     }
-
-    /// <summary>Detects whether the reader sits on the per-source container or one of its inner add entries.</summary>
-    /// <param name="reader">Reader positioned on an element.</param>
-    /// <param name="currentSourceKey">Key of the source container we're already inside, or null.</param>
-    /// <returns>True when the element should be processed by the credential walk.</returns>
-    private static bool IsCredentialChildElement(XmlReader reader, string? currentSourceKey) =>
-        currentSourceKey is null
-            ? !reader.LocalName.Equals(AddElementName, StringComparison.OrdinalIgnoreCase)
-            : reader.LocalName.Equals(AddElementName, StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>Returns true when the reader is on the closing tag of the current source container.</summary>
-    /// <param name="reader">Reader positioned on an end element.</param>
-    /// <param name="currentSourceKey">The source key we're currently accumulating credentials for.</param>
-    /// <returns>True when the close tag matches the open container.</returns>
-    private static bool IsSourceContainerEnd(XmlReader reader, string currentSourceKey) =>
-        UnescapeSourceName(reader.LocalName).Equals(currentSourceKey, StringComparison.Ordinal);
 
     /// <summary>Reads one inner add element and updates the matching credential field.</summary>
     /// <param name="reader">The XML reader positioned on the add element.</param>
@@ -176,13 +156,13 @@ internal static partial class PackageSourceCredentialsReader
 
         if (UsernameKey.Equals(key, StringComparison.OrdinalIgnoreCase))
         {
-            username = ExpandEnvVars(value);
+            username = PackageSourceCredentialParser.ExpandEnvironmentVariables(value);
             return;
         }
 
         if (ClearTextPasswordKey.Equals(key, StringComparison.OrdinalIgnoreCase))
         {
-            clearTextPassword = ExpandEnvVars(value);
+            clearTextPassword = PackageSourceCredentialParser.ExpandEnvironmentVariables(value);
             return;
         }
 
@@ -191,7 +171,7 @@ internal static partial class PackageSourceCredentialsReader
             return;
         }
 
-        validAuthTypes = ExpandEnvVars(value);
+        validAuthTypes = PackageSourceCredentialParser.ExpandEnvironmentVariables(value);
     }
 
     /// <summary>Persists the accumulated per-source credential into the result dictionary and resets the accumulators.</summary>
@@ -217,25 +197,4 @@ internal static partial class PackageSourceCredentialsReader
         clearTextPassword = null;
         validAuthTypes = null;
     }
-
-    /// <summary>Decodes the <c>_x0020_</c> space escape NuGet uses for source names with spaces.</summary>
-    /// <param name="elementName">Raw element local-name.</param>
-    /// <returns>The friendly source name.</returns>
-    private static string UnescapeSourceName(string elementName) =>
-        elementName.Replace(SpaceEscape, " ", StringComparison.Ordinal);
-
-    /// <summary>Expands <c>%VAR%</c> sequences against the process environment.</summary>
-    /// <param name="value">Raw value from the config.</param>
-    /// <returns>Value with env-var references substituted; unresolved sequences stay literal.</returns>
-    private static string ExpandEnvVars(string value) =>
-        EnvVarPattern().Replace(value, match =>
-        {
-            var name = match.Groups[1].Value;
-            return Environment.GetEnvironmentVariable(name) ?? match.Value;
-        });
-
-    /// <summary>Cached regex for the <c>%VAR%</c> sequence used by env-var expansion.</summary>
-    /// <returns>The cached regex instance.</returns>
-    [GeneratedRegex(@"%([^%]+)%")]
-    private static partial Regex EnvVarPattern();
 }

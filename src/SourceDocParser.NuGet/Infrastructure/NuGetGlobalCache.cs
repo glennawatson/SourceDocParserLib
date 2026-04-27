@@ -2,7 +2,9 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-namespace SourceDocParser.NuGet;
+using SourceDocParser.NuGet.Readers;
+
+namespace SourceDocParser.NuGet.Infrastructure;
 
 /// <summary>
 /// Cut-down implementation of NuGet's global-packages-folder
@@ -36,7 +38,7 @@ internal static class NuGetGlobalCache
     /// is supplied) → platform default
     /// (<c>~/.nuget/packages</c> on Unix, <c>%USERPROFILE%\.nuget\packages</c>
     /// on Windows). The optional override is the resolved value from
-    /// <see cref="NuGetConfigReader.ReadGlobalPackagesFolderAsync(string, CancellationToken)"/>;
+    /// <see cref="NuGetConfigReader.ReadGlobalPackagesFolderAsync(string,System.Threading.CancellationToken)"/>;
     /// callers that don't care about config-file overrides pass
     /// <see langword="null"/>.
     /// </summary>

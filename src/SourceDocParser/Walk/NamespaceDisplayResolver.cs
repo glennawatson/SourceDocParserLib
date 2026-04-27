@@ -4,7 +4,7 @@
 
 using Microsoft.CodeAnalysis;
 
-namespace SourceDocParser;
+namespace SourceDocParser.Walk;
 
 /// <summary>
 /// Resolves a Roslyn <see cref="INamespaceSymbol"/> to its display

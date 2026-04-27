@@ -4,8 +4,9 @@
 
 using System.Runtime.CompilerServices;
 using SourceDocParser.Common;
+using SourceDocParser.Model;
 
-namespace SourceDocParser.Zensical;
+namespace SourceDocParser.Zensical.Pages;
 
 /// <summary>
 /// Builds the friendly heading text used by

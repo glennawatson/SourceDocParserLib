@@ -5,6 +5,8 @@
 using System.Xml;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using SourceDocParser.Model;
+using SourceDocParser.XmlDoc;
 
 namespace SourceDocParser.Tests;
 

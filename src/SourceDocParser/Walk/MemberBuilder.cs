@@ -4,6 +4,7 @@
 
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.CodeAnalysis;
+using SourceDocParser.Model;
 using static Microsoft.CodeAnalysis.SymbolDisplayDelegateStyle;
 using static Microsoft.CodeAnalysis.SymbolDisplayExtensionMethodStyle;
 using static Microsoft.CodeAnalysis.SymbolDisplayGenericsOptions;
@@ -14,7 +15,7 @@ using static Microsoft.CodeAnalysis.SymbolDisplayParameterOptions;
 using static Microsoft.CodeAnalysis.SymbolDisplayPropertyStyle;
 using static Microsoft.CodeAnalysis.SymbolDisplayTypeQualificationStyle;
 
-namespace SourceDocParser;
+namespace SourceDocParser.Walk;
 
 /// <summary>
 /// Walks the immediate members of a Roslyn type and converts the

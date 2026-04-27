@@ -3,8 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers;
+using SourceDocParser.Docfx.Config;
 
-namespace SourceDocParser.Docfx;
+namespace SourceDocParser.Docfx.Common;
 
 /// <summary>
 /// Internal docfx helpers shared across config generation and YAML emission.

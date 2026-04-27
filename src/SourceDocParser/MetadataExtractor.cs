@@ -4,7 +4,12 @@
 
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging.Abstractions;
+using SourceDocParser.LibCompilation;
+using SourceDocParser.Merge;
+using SourceDocParser.Model;
 using SourceDocParser.SourceLink;
+using SourceDocParser.Walk;
+using CompilationLoader = SourceDocParser.LibCompilation.CompilationLoader;
 
 namespace SourceDocParser;
 

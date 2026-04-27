@@ -4,8 +4,9 @@
 
 using System.Globalization;
 using Microsoft.CodeAnalysis;
+using SourceDocParser.LibCompilation;
 
-namespace SourceDocParser;
+namespace SourceDocParser.XmlDoc;
 
 /// <summary>
 /// Roslyn DocumentationProvider that resolves doc text from an

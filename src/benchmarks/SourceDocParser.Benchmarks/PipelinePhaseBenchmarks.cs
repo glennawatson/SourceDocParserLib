@@ -4,8 +4,12 @@
 
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
-using SourceDocParser.NuGet;
+using SourceDocParser.LibCompilation;
+using SourceDocParser.Merge;
+using SourceDocParser.Model;
+using SourceDocParser.NuGet.Infrastructure;
 using SourceDocParser.SourceLink;
+using SourceDocParser.Walk;
 using SourceDocParser.Zensical;
 
 namespace SourceDocParser.Benchmarks;

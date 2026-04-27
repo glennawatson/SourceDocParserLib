@@ -7,7 +7,7 @@ using System.Text;
 namespace SourceDocParser.NuGet.Tests;
 
 /// <summary>
-/// Pins <see cref="PackageSourceCredentialsReader"/> on the
+/// Pins <see cref="Readers.PackageSourceCredentialsReader"/> on the
 /// with-creds fixture (env-var expansion of GitHub PAT) plus
 /// inline XML for the spaces-in-source-name case.
 /// </summary>
@@ -29,7 +29,7 @@ public class PackageSourceCredentialsReaderTests
         {
             Environment.SetEnvironmentVariable("GITHUB_TOKEN", "ghp_secret_value_xyz");
 
-            var creds = await PackageSourceCredentialsReader.ReadAsync(path).ConfigureAwait(false);
+            var creds = await Readers.PackageSourceCredentialsReader.ReadAsync(path).ConfigureAwait(false);
 
             await Assert.That(creds.ContainsKey("github")).IsTrue();
             var github = creds["github"];
@@ -64,7 +64,7 @@ public class PackageSourceCredentialsReaderTests
             """;
 
         await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(xml));
-        var creds = await PackageSourceCredentialsReader.ReadAsync(stream).ConfigureAwait(false);
+        var creds = await Readers.PackageSourceCredentialsReader.ReadAsync(stream).ConfigureAwait(false);
 
         await Assert.That(creds.ContainsKey("My Feed")).IsTrue();
     }
@@ -91,7 +91,7 @@ public class PackageSourceCredentialsReaderTests
             """;
 
         await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(xml));
-        var creds = await PackageSourceCredentialsReader.ReadAsync(stream).ConfigureAwait(false);
+        var creds = await Readers.PackageSourceCredentialsReader.ReadAsync(stream).ConfigureAwait(false);
 
         await Assert.That(creds["my"].ClearTextPassword).IsEqualTo("%THIS_VAR_DOES_NOT_EXIST_xyz%");
     }
@@ -116,7 +116,7 @@ public class PackageSourceCredentialsReaderTests
             """;
 
         await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(xml));
-        var creds = await PackageSourceCredentialsReader.ReadAsync(stream).ConfigureAwait(false);
+        var creds = await Readers.PackageSourceCredentialsReader.ReadAsync(stream).ConfigureAwait(false);
 
         await Assert.That(creds.Count).IsEqualTo(0);
     }

@@ -5,7 +5,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace SourceDocParser.Docfx;
+namespace SourceDocParser.Docfx.Config;
 
 /// <summary>
 /// One entry in the docfx <c>metadata</c> array. Each entry produces an

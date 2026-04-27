@@ -3,8 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Xml;
+using SourceDocParser.NuGet.Infrastructure;
+using SourceDocParser.NuGet.Models;
 
-namespace SourceDocParser.NuGet;
+namespace SourceDocParser.NuGet.Readers;
 
 /// <summary>
 /// Hand-rolled XmlReader scanner for <c>nuget.config</c> files —

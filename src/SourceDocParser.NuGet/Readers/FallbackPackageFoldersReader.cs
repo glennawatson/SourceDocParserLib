@@ -3,8 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Xml;
+using SourceDocParser.NuGet.Infrastructure;
+using SourceDocParser.NuGet.Models;
 
-namespace SourceDocParser.NuGet;
+namespace SourceDocParser.NuGet.Readers;
 
 /// <summary>
 /// Reads <c>&lt;fallbackPackageFolders&gt;</c> entries — read-only

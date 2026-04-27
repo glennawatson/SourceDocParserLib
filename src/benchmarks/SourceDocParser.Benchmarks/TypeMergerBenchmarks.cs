@@ -3,6 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using BenchmarkDotNet.Attributes;
+using SourceDocParser.Merge;
+using SourceDocParser.Model;
 
 namespace SourceDocParser.Benchmarks;
 

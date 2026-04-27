@@ -3,8 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Text.Json;
+using SourceDocParser.NuGet.Models;
 
-namespace SourceDocParser.NuGet;
+namespace SourceDocParser.NuGet.Readers;
 
 /// <summary>
 /// Reader for <c>nuget-packages.json</c>. Streams the file as UTF-8

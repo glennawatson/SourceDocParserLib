@@ -2,10 +2,12 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using SourceDocParser.Docfx.Yaml;
+using SourceDocParser.Model;
 using SourceDocParser.TestHelpers;
 using YamlDotNet.RepresentationModel;
 
-namespace SourceDocParser.Docfx.Tests;
+namespace SourceDocParser.Docfx.Tests.Yaml;
 
 /// <summary>
 /// Pins the DocfxYamlEmitter contract — header / per-kind item shape /

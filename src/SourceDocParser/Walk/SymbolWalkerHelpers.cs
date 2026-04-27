@@ -4,8 +4,9 @@
 
 using System.Globalization;
 using Microsoft.CodeAnalysis;
+using SourceDocParser.Model;
 
-namespace SourceDocParser;
+namespace SourceDocParser.Walk;
 
 /// <summary>
 /// Pure leaf helpers used by <see cref="SymbolWalker"/>. Each method

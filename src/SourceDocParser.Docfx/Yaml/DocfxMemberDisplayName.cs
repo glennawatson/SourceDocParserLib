@@ -4,8 +4,9 @@
 
 using System.Runtime.CompilerServices;
 using SourceDocParser.Common;
+using SourceDocParser.Model;
 
-namespace SourceDocParser.Docfx;
+namespace SourceDocParser.Docfx.Yaml;
 
 /// <summary>
 /// Builds the <c>name</c> / <c>nameWithType</c> / <c>fullName</c>

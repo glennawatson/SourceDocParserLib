@@ -4,15 +4,18 @@
 
 using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
-using System.Reflection.PortableExecutable;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using NuGet.Versioning;
 using Polly;
 using Polly.Retry;
+using SourceDocParser.LibCompilation;
+using SourceDocParser.NuGet.Models;
+using SourceDocParser.NuGet.Readers;
+using SourceDocParser.Tfm;
 
-namespace SourceDocParser.NuGet;
+namespace SourceDocParser.NuGet.Infrastructure;
 
 /// <summary>
 /// Fetches NuGet packages defined by <c>nuget-packages.json</c>, extracts
@@ -97,7 +100,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         // dispatch through the comparer).
         var excludeIds = config.ExcludePackages;
         var excludePrefixes = config.ExcludePackagePrefixes;
-        discoveredIds.RemoveAll(d => IsExcluded(d.Id, excludeIds, excludePrefixes));
+        discoveredIds.RemoveAll(d => PackageExclusionFilter.IsExcludedByUser(d.Id, excludeIds, excludePrefixes));
 
         var allPackages = new (string Id, string? Version, string? Tfm)[discoveredIds.Count];
         for (var i = 0; i < discoveredIds.Count; i++)
@@ -142,106 +145,6 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// <param name="nupkgPath">Absolute path to the cached <c>.nupkg</c>.</param>
     /// <returns>The sidecar path.</returns>
     internal static string NuspecSidecarPath(string nupkgPath) => nupkgPath + ".nuspec";
-
-    /// <summary>
-    /// Returns true when the package id should be skipped per the
-    /// user's configured exclude lists.
-    /// </summary>
-    /// <param name="id">Package identifier to test.</param>
-    /// <param name="excludeIds">Exact-match exclude IDs (linear scan; expected single-digit size).</param>
-    /// <param name="excludePrefixes">Prefix-match excludes, OrdinalIgnoreCase.</param>
-    /// <returns><see langword="true"/> if the package should be skipped; otherwise, <see langword="false"/>.</returns>
-    internal static bool IsExcluded(string id, string[] excludeIds, string[] excludePrefixes)
-    {
-        for (var i = 0; i < excludeIds.Length; i++)
-        {
-            if (id.Equals(excludeIds[i], StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        var idSpan = id.AsSpan();
-        for (var i = 0; i < excludePrefixes.Length; i++)
-        {
-            if (idSpan.StartsWith(excludePrefixes[i], StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Returns true when the transitive walk should skip
-    /// <paramref name="id"/> because it's a native / RID-specific
-    /// runtime package that contributes zero managed types — checked
-    /// in addition to the user's own <c>excludePackages</c> /
-    /// <c>excludePackagePrefixes</c>.
-    /// </summary>
-    /// <param name="id">Discovered transitive package ID.</param>
-    /// <returns>True when the package should be skipped on transitive discovery.</returns>
-    internal static bool IsDefaultTransitiveSkip(string id)
-    {
-        ArgumentNullException.ThrowIfNull(id);
-
-        var s = id.AsSpan();
-
-        return s.IsEmpty switch
-        {
-            true => false,
-            _ => (s[0] | 0x20) switch
-            {
-                'r' => s.StartsWith("runtime.", StringComparison.OrdinalIgnoreCase),
-                'm' => IsMicrosoftDefaultTransitiveSkip(s),
-                _ => false
-            }
-        };
-    }
-
-    /// <summary>
-    /// Determines whether the specified identifier represents a Microsoft default transitive dependency
-    /// that should be skipped during processing.
-    /// </summary>
-    /// <param name="s">The span of characters representing the identifier to evaluate.</param>
-    /// <returns>
-    /// <c>true</c> if the identifier matches patterns for Microsoft default transitive dependencies
-    /// that are to be skipped; otherwise, <c>false</c>.
-    /// </returns>
-    internal static bool IsMicrosoftDefaultTransitiveSkip(ReadOnlySpan<char> s)
-    {
-        const string microsoftNet = "Microsoft.NET";
-
-        if (!s.StartsWith(microsoftNet, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        s = s[microsoftNet.Length..];
-
-        if (s.StartsWith(".Native.", StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        const string core = "Core.";
-
-        if (!s.StartsWith(core, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        s = s[core.Length..];
-
-        return s.StartsWith("Native.", StringComparison.OrdinalIgnoreCase)
-               || s.StartsWith("UniversalWindowsPlatform", StringComparison.OrdinalIgnoreCase)
-               || s.StartsWith("Targets", StringComparison.OrdinalIgnoreCase)
-               || s.StartsWith("Platforms", StringComparison.OrdinalIgnoreCase)
-               || s.StartsWith("Jit", StringComparison.OrdinalIgnoreCase)
-               || s.StartsWith("Runtime.", StringComparison.OrdinalIgnoreCase)
-               || s.StartsWith("Portable.", StringComparison.OrdinalIgnoreCase);
-    }
 
     /// <summary>
     /// Returns true when the file at <paramref name="destPath"/> already
@@ -329,12 +232,12 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                     for (var d = 0; d < deps.Length; d++)
                     {
                         var depId = deps[d];
-                        if (IsExcluded(depId, excludeIds, excludePrefixes))
+                        if (PackageExclusionFilter.IsExcludedByUser(depId, excludeIds, excludePrefixes))
                         {
                             continue;
                         }
 
-                        if (IsDefaultTransitiveSkip(depId))
+                        if (PackageExclusionFilter.IsDefaultTransitiveSkip(depId))
                         {
                             continue;
                         }
@@ -547,40 +450,17 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     }
 
     /// <summary>
-    /// Returns <see langword="true"/> when the supplied stream contains a pure managed (IL-only) assembly.
-    /// </summary>
-    /// <param name="stream">Stream positioned at the start of a candidate PE file.</param>
-    /// <returns><see langword="true"/> if the assembly is managed and IL-only; otherwise, <see langword="false"/>.</returns>
-    /// <remarks>
-    /// Filters out native and mixed-mode DLLs that Roslyn cannot consume as references
-    /// (for example <c>System.EnterpriseServices.Wrapper.dll</c>).
-    /// </remarks>
-    private static bool IsManagedAssembly(Stream stream)
-    {
-        try
-        {
-            using var peReader = new PEReader(stream, PEStreamOptions.LeaveOpen);
-            return peReader is { HasMetadata: true, PEHeaders.CorHeader: not null }
-                   && peReader.PEHeaders.CorHeader.Flags.HasFlag(CorFlags.ILOnly);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Extracts managed <c>.dll</c> files from a package.
+    /// Extracts managed <c>.dll</c> files from a package. Entry
+    /// selection (path prefix + .dll extension + non-empty filename)
+    /// is delegated to <see cref="ManagedAssemblyExtractor.SelectAssemblyEntries"/>;
+    /// this method handles the per-entry buffer + PE-check + write
+    /// pipeline.
     /// </summary>
     /// <param name="nupkgPath">Path to the <c>.nupkg</c> on disk.</param>
     /// <param name="tfmRefsDir">Destination directory for the extracted assemblies.</param>
     /// <param name="packageId">Package identifier, for logging only.</param>
     /// <param name="pathPrefix">Path prefix inside the archive to extract from (typically <c>ref/</c>).</param>
     /// <param name="logger">Logger for per-entry skip notices and the extraction summary.</param>
-    /// <remarks>
-    /// Extracts every managed <c>.dll</c> under the requested path prefix.
-    /// Native and mixed-mode DLLs are filtered out using <see cref="IsManagedAssembly"/>.
-    /// </remarks>
     private static void ExtractReferenceAssemblies(
         string nupkgPath,
         string tfmRefsDir,
@@ -589,28 +469,10 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         ILogger logger)
     {
         using var archive = ZipFile.OpenRead(nupkgPath);
-        var prefix = pathPrefix.TrimEnd('/') + "/";
         var count = 0;
 
-        for (var i = 0; i < archive.Entries.Count; i++)
+        foreach (var entry in ManagedAssemblyExtractor.SelectAssemblyEntries(archive, pathPrefix))
         {
-            var entry = archive.Entries[i];
-            if (!entry.FullName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            if (entry.Name is [])
-            {
-                continue;
-            }
-
-            var ext = Path.GetExtension(entry.Name).ToLowerInvariant();
-            if (ext is not ".dll")
-            {
-                continue;
-            }
-
             using var entryStream = entry.Open();
 
             // Pre-size to the entry's known uncompressed length so the
@@ -623,7 +485,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
             entryStream.CopyTo(memStream);
 
             memStream.Position = 0;
-            if (!IsManagedAssembly(memStream))
+            if (!ManagedAssemblyExtractor.IsManagedAssembly(memStream))
             {
                 LogSkippingNativeDll(logger, entry.Name);
                 continue;

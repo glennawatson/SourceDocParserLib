@@ -3,8 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Frozen;
+using SourceDocParser.Common;
+using SourceDocParser.Model;
 
-namespace SourceDocParser.Docfx;
+namespace SourceDocParser.Docfx.Yaml;
 
 /// <summary>
 /// Per-emit catalog rollups consumed by <see cref="DocfxYamlEmitter"/>
@@ -61,7 +63,7 @@ public sealed class DocfxCatalogIndexes
     /// <summary>
     /// Builds all three indexes in a single O(N) + O(N×Mext) sweep
     /// over <paramref name="types"/>. Compiler-generated symbols are
-    /// skipped via <see cref="DocfxCompilerGenerated.IsCompilerGenerated"/>
+    /// skipped via <see cref="CompilerGeneratedNames.IsCompilerGenerated(string)"/>
     /// so display-class artefacts don't appear in any rollup.
     /// </summary>
     /// <param name="types">All types about to be rendered.</param>
@@ -111,7 +113,7 @@ public sealed class DocfxCatalogIndexes
         var map = new Dictionary<string, ApiObjectType>(types.Length, StringComparer.Ordinal);
         for (var i = 0; i < types.Length; i++)
         {
-            if (types[i] is ApiObjectType { Uid: [_, ..] uid } obj && !DocfxCompilerGenerated.IsCompilerGenerated(obj.Name))
+            if (types[i] is ApiObjectType { Uid: [_, ..] uid } obj && !CompilerGeneratedNames.IsCompilerGenerated(obj.Name))
             {
                 map[uid] = obj;
             }
@@ -129,7 +131,7 @@ public sealed class DocfxCatalogIndexes
         for (var i = 0; i < types.Length; i++)
         {
             var type = types[i];
-            if (DocfxCompilerGenerated.IsCompilerGenerated(type.Name))
+            if (CompilerGeneratedNames.IsCompilerGenerated(type.Name))
             {
                 continue;
             }
@@ -183,7 +185,7 @@ public sealed class DocfxCatalogIndexes
             for (var m = 0; m < members.Length; m++)
             {
                 var member = members[m];
-                if (!member.IsExtension || member.Parameters is [] || DocfxCompilerGenerated.IsCompilerGenerated(member.Name))
+                if (!member.IsExtension || member.Parameters is [] || CompilerGeneratedNames.IsCompilerGenerated(member.Name))
                 {
                     continue;
                 }
@@ -230,7 +232,7 @@ public sealed class DocfxCatalogIndexes
                 continue;
             }
 
-            if (DocfxCompilerGenerated.IsCompilerGenerated(cls.Name) || cls.Uid is not [_, ..] uid)
+            if (CompilerGeneratedNames.IsCompilerGenerated(cls.Name) || cls.Uid is not [_, ..] uid)
             {
                 continue;
             }
@@ -266,7 +268,7 @@ public sealed class DocfxCatalogIndexes
         for (var i = 0; i < members.Length; i++)
         {
             var member = members[i];
-            if (DocfxCompilerGenerated.IsCompilerGenerated(member.Name) || member.Uid is not [_, ..] uid)
+            if (CompilerGeneratedNames.IsCompilerGenerated(member.Name) || member.Uid is not [_, ..] uid)
             {
                 continue;
             }

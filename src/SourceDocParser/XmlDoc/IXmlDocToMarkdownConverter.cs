@@ -4,7 +4,7 @@
 
 using System.Xml;
 
-namespace SourceDocParser;
+namespace SourceDocParser.XmlDoc;
 
 /// <summary>
 /// Converts a .NET XML documentation fragment into Markdown. Two

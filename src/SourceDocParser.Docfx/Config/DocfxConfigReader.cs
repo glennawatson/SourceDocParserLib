@@ -4,7 +4,7 @@
 
 using System.Text.Json;
 
-namespace SourceDocParser.Docfx;
+namespace SourceDocParser.Docfx.Config;
 
 /// <summary>
 /// Hand-written reader that materialises a <see cref="DocfxConfig"/>

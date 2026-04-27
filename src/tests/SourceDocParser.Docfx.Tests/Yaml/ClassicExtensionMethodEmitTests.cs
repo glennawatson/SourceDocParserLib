@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using SourceDocParser.Docfx.Yaml;
+using SourceDocParser.Model;
 using SourceDocParser.TestHelpers;
 
 namespace SourceDocParser.Docfx.Tests.Yaml;
@@ -42,7 +44,7 @@ public class ClassicExtensionMethodEmitTests
         var yaml = DocfxYamlEmitter.Render(target, BuildInternalUids(target, helpers), indexes);
 
         // Docfx convention strips the M: prefix when emitting member
-        // UIDs in YAML scalar position (DocfxCommentId.ToUid).
+        // UIDs in YAML scalar position (CommentIdPrefix.Strip).
         await Assert.That(yaml).Contains("extensionMethods:");
         await Assert.That(yaml).Contains("- My.Helpers.DoIt");
     }

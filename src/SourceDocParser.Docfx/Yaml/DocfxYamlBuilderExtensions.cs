@@ -5,8 +5,10 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
+using SourceDocParser.Common;
+using SourceDocParser.Model;
 
-namespace SourceDocParser.Docfx;
+namespace SourceDocParser.Docfx.Yaml;
 
 /// <summary>
 /// Fluent <see cref="StringBuilder"/> extensions that compose the docfx
@@ -46,7 +48,7 @@ internal static class DocfxYamlBuilderExtensions
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendTypeItem(this StringBuilder sb, ApiType type, DocfxCatalogIndexes indexes)
     {
-        sb.Append("- uid: ").AppendScalar(DocfxCommentId.ToUid(type.Uid)).AppendLine()
+        sb.Append("- uid: ").AppendScalar(CommentIdPrefix.Strip(type.Uid)).AppendLine()
             .AppendIfPresent("  commentId: ", DocfxCommentId.ForType(type))
             .Append("  id: ").AppendScalar(type.Name).AppendLine()
             .AppendIfPresent("  parent: ", type.Namespace)
@@ -92,7 +94,7 @@ internal static class DocfxYamlBuilderExtensions
 
         for (var i = 0; i < members.Length; i++)
         {
-            if (DocfxCompilerGenerated.IsCompilerGenerated(members[i].Name))
+            if (CompilerGeneratedNames.IsCompilerGenerated(members[i].Name))
             {
                 continue;
             }
@@ -148,7 +150,7 @@ internal static class DocfxYamlBuilderExtensions
             return sb.Append("''");
         }
 
-        return NeedsQuoting(value) ? sb.AppendQuotedScalar(value) : sb.Append(value);
+        return YamlScalarQuoting.NeedsQuoting(value) ? sb.AppendQuotedScalar(value) : sb.Append(value);
     }
 
     /// <summary>
@@ -167,32 +169,11 @@ internal static class DocfxYamlBuilderExtensions
             return sb;
         }
 
-        // Docfx alphabetises children by uid. We collect non-mangled
-        // uids into a single array sized to the kept count, then sort
-        // in-place — O(N log N), one heap allocation, no
-        // intermediate List<T> growth. For typical N=10–50 the
-        // alternatives (binary-insert into a List, SortedSet of
-        // node-allocations) lose on either work or allocation count.
-        var kept = CountNonCompilerGenerated(members);
-        if (kept == 0)
+        var uids = MemberUidProjection.CollectSortedChildUids(members);
+        if (uids is [])
         {
             return sb;
         }
-
-        var uids = new string[kept];
-        var cursor = 0;
-        for (var i = 0; i < members.Length; i++)
-        {
-            var member = members[i];
-            if (DocfxCompilerGenerated.IsCompilerGenerated(member.Name))
-            {
-                continue;
-            }
-
-            uids[cursor++] = DocfxCommentId.ToUid(member.Uid);
-        }
-
-        Array.Sort(uids, StringComparer.Ordinal);
 
         sb.Append("  children:\n");
         for (var i = 0; i < uids.Length; i++)
@@ -203,29 +184,12 @@ internal static class DocfxYamlBuilderExtensions
         return sb;
     }
 
-    /// <summary>Counts non-compiler-generated members so the children buffer can be sized exactly.</summary>
-    /// <param name="members">Member array to scan.</param>
-    /// <returns>The number of members that survive the compiler-gen filter.</returns>
-    public static int CountNonCompilerGenerated(ApiMember[] members)
-    {
-        var kept = 0;
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (!DocfxCompilerGenerated.IsCompilerGenerated(members[i].Name))
-            {
-                kept++;
-            }
-        }
-
-        return kept;
-    }
-
     /// <summary>Writes one entry of the children list.</summary>
     /// <param name="sb">Destination builder.</param>
     /// <param name="member">Member whose UID to emit.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendChild(this StringBuilder sb, ApiMember member) =>
-        sb.Append("  - ").AppendScalar(DocfxCommentId.ToUid(member.Uid)).AppendLine();
+        sb.Append("  - ").AppendScalar(CommentIdPrefix.Strip(member.Uid)).AppendLine();
 
     /// <summary>
     /// Writes the <c>namespace:</c> field, skipped for the global
@@ -261,7 +225,7 @@ internal static class DocfxYamlBuilderExtensions
     public static StringBuilder AppendBaseType(this StringBuilder sb, ApiTypeReference? baseRef) =>
         baseRef is { Uid: var uid }
             ? sb.Append("  inheritance:\n  - ")
-                .AppendScalar(uid is [_, ..] ? DocfxCommentId.ToUid(uid) : baseRef.DisplayName)
+                .AppendScalar(uid is [_, ..] ? CommentIdPrefix.Strip(uid) : baseRef.DisplayName)
                 .AppendLine()
             : sb;
 
@@ -290,7 +254,7 @@ internal static class DocfxYamlBuilderExtensions
     /// <param name="iface">Interface reference to emit.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendInterface(this StringBuilder sb, ApiTypeReference iface) =>
-        sb.Append("  - ").AppendScalar(iface is { Uid: [_, ..] uid } ? DocfxCommentId.ToUid(uid) : iface.DisplayName).AppendLine();
+        sb.Append("  - ").AppendScalar(iface is { Uid: [_, ..] uid } ? CommentIdPrefix.Strip(uid) : iface.DisplayName).AppendLine();
 
     /// <summary>
     /// Writes the <c>derivedClasses:</c> block listing immediate
@@ -313,7 +277,7 @@ internal static class DocfxYamlBuilderExtensions
         for (var i = 0; i < derived.Length; i++)
         {
             var reference = derived[i];
-            sb.Append("  - ").AppendScalar(reference.Uid is [_, ..] uid ? DocfxCommentId.ToUid(uid) : reference.DisplayName).AppendLine();
+            sb.Append("  - ").AppendScalar(reference.Uid is [_, ..] uid ? CommentIdPrefix.Strip(uid) : reference.DisplayName).AppendLine();
         }
 
         return sb;
@@ -361,7 +325,7 @@ internal static class DocfxYamlBuilderExtensions
         sb.Append("  extensionMethods:\n");
         for (var i = 0; i < extensions.Length; i++)
         {
-            sb.Append("  - ").AppendScalar(DocfxCommentId.ToUid(extensions[i].Uid)).AppendLine();
+            sb.Append("  - ").AppendScalar(CommentIdPrefix.Strip(extensions[i].Uid)).AppendLine();
         }
 
         return sb;
@@ -389,14 +353,14 @@ internal static class DocfxYamlBuilderExtensions
         {
             var block = blocks[i];
             var receiverUid = block.Receiver is { Uid: [_, ..] uid }
-                ? DocfxCommentId.ToUid(uid)
+                ? CommentIdPrefix.Strip(uid)
                 : block.Receiver.DisplayName;
             sb.Append("  - receiverName: ").AppendScalar(block.ReceiverName).AppendLine()
                 .Append("    receiverType: ").AppendScalar(receiverUid).AppendLine()
                 .Append("    members:\n");
             for (var m = 0; m < block.Members.Length; m++)
             {
-                sb.Append("    - ").AppendScalar(DocfxCommentId.ToUid(block.Members[m].Uid)).AppendLine();
+                sb.Append("    - ").AppendScalar(CommentIdPrefix.Strip(block.Members[m].Uid)).AppendLine();
             }
         }
 
@@ -482,7 +446,7 @@ internal static class DocfxYamlBuilderExtensions
         sb.Append("  syntax:\n")
             .AppendSyntaxContent(type.Attributes, $"public enum {type.Name}", indent: "    ")
             .Append("    return:\n      type: ")
-            .AppendScalar(type.UnderlyingType is { Uid: [_, ..] uid } ? DocfxCommentId.ToUid(uid) : type.UnderlyingType.DisplayName)
+            .AppendScalar(type.UnderlyingType is { Uid: [_, ..] uid } ? CommentIdPrefix.Strip(uid) : type.UnderlyingType.DisplayName)
             .AppendLine()
             .Append("    parameters:\n");
 
@@ -537,10 +501,10 @@ internal static class DocfxYamlBuilderExtensions
         // overload anchor sits AFTER the syntax block in docfx; an
         // earlier draft placed it after parent which produced a
         // diff-unfriendly drift.
-        sb.Append("- uid: ").AppendScalar(DocfxCommentId.ToUid(member.Uid)).AppendLine()
+        sb.Append("- uid: ").AppendScalar(CommentIdPrefix.Strip(member.Uid)).AppendLine()
             .AppendIfPresent("  commentId: ", DocfxCommentId.ForMember(member))
             .Append("  id: ").AppendScalar(memberId).AppendLine()
-            .Append("  parent: ").AppendScalar(DocfxCommentId.ToUid(type.Uid)).AppendLine()
+            .Append("  parent: ").AppendScalar(CommentIdPrefix.Strip(type.Uid)).AppendLine()
             .AppendLine("  langs:")
             .AppendLine("  - csharp")
             .Append("  name: ").AppendScalar(unqualified).AppendLine()
@@ -554,7 +518,7 @@ internal static class DocfxYamlBuilderExtensions
             .AppendBlockScalar("  summary: ", member.Documentation.Summary)
             .AppendBlockScalar("  remarks: ", member.Documentation.Remarks)
             .AppendMemberSyntax(member)
-            .Append("  overload: ").AppendScalar(DocfxMemberDisplayName.OverloadAnchor(DocfxCommentId.ToUid(member.Uid))).AppendLine()
+            .Append("  overload: ").AppendScalar(DocfxMemberDisplayName.OverloadAnchor(CommentIdPrefix.Strip(member.Uid))).AppendLine()
             .AppendAttributes(member.Attributes);
         return sb;
     }
@@ -660,7 +624,7 @@ internal static class DocfxYamlBuilderExtensions
         // pay for separator.ToString() on top of the unavoidable result
         // allocation. The composite probe walks both halves in one pass
         // instead of running NeedsQuoting twice.
-        if (CompositeNeedsQuoting(left, separator, right))
+        if (YamlScalarQuoting.CompositeNeedsQuoting(left, separator, right))
         {
             var joined = string.Create(
                 left.Length + 1 + right.Length,
@@ -727,7 +691,7 @@ internal static class DocfxYamlBuilderExtensions
         sb.Append(indent).AppendLine("content: >-");
         for (var i = 0; i < filtered.Length; i++)
         {
-            sb.Append(indent).Append('[').Append(RenderAttributeUsage(filtered[i])).Append(']').AppendLine();
+            sb.Append(indent).Append('[').Append(AttributeUsageFormatter.Render(filtered[i])).Append(']').AppendLine();
         }
 
         // Blank line between the attribute prefix and the signature so
@@ -737,50 +701,6 @@ internal static class DocfxYamlBuilderExtensions
         return sb
             .AppendLine(indent)
             .Append(indent).AppendLine(signature);
-    }
-
-    /// <summary>
-    /// Formats one attribute usage for the syntax-content prefix —
-    /// <c>Name</c> when there are no arguments, <c>Name(arg, Named=val)</c>
-    /// otherwise. Arguments come pre-formatted by the walker.
-    /// </summary>
-    /// <param name="attribute">Attribute to render.</param>
-    /// <returns>The bracket-less usage string (caller adds the surrounding <c>[]</c>).</returns>
-    public static string RenderAttributeUsage(ApiAttribute attribute)
-    {
-        if (attribute.Arguments is [])
-        {
-            return attribute.DisplayName;
-        }
-
-        var totalLength = ComputeAttributeUsageLength(attribute);
-        return string.Create(totalLength, attribute, static (span, attr) =>
-        {
-            attr.DisplayName.AsSpan().CopyTo(span);
-            var cursor = attr.DisplayName.Length;
-            span[cursor++] = '(';
-            for (var i = 0; i < attr.Arguments.Length; i++)
-            {
-                if (i > 0)
-                {
-                    ", ".AsSpan().CopyTo(span[cursor..]);
-                    cursor += 2;
-                }
-
-                var arg = attr.Arguments[i];
-                if (arg.Name is { Length: > 0 } name)
-                {
-                    name.AsSpan().CopyTo(span[cursor..]);
-                    cursor += name.Length;
-                    span[cursor++] = '=';
-                }
-
-                arg.Value.AsSpan().CopyTo(span[cursor..]);
-                cursor += arg.Value.Length;
-            }
-
-            span[cursor] = ')';
-        });
     }
 
     /// <summary>
@@ -815,7 +735,7 @@ internal static class DocfxYamlBuilderExtensions
     public static StringBuilder AppendParameter(this StringBuilder sb, ApiParameter parameter, string indent) => sb
         .Append(indent).Append("- id: ").AppendScalar(parameter.Name).AppendLine()
         .Append(indent).Append("  type: ")
-        .AppendScalar(parameter.Type is { Uid: [_, ..] uid } ? DocfxCommentId.ToUid(uid) : parameter.Type.DisplayName).AppendLine()
+        .AppendScalar(parameter.Type is { Uid: [_, ..] uid } ? CommentIdPrefix.Strip(uid) : parameter.Type.DisplayName).AppendLine()
         .AppendDefaultValue(parameter.DefaultValue, indent);
 
     /// <summary>Writes the parameter's <c>defaultValue:</c> field when present.</summary>
@@ -846,7 +766,7 @@ internal static class DocfxYamlBuilderExtensions
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendReturn(this StringBuilder sb, ApiTypeReference returnType, string indent) => sb
         .Append(indent).Append("return:\n").Append(indent).Append("  type: ")
-        .AppendScalar(returnType is { Uid: [_, ..] uid } ? DocfxCommentId.ToUid(uid) : returnType.DisplayName)
+        .AppendScalar(returnType is { Uid: [_, ..] uid } ? CommentIdPrefix.Strip(uid) : returnType.DisplayName)
         .AppendLine();
 
     /// <summary>
@@ -858,7 +778,7 @@ internal static class DocfxYamlBuilderExtensions
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendReference(this StringBuilder sb, ApiTypeReference reference)
     {
-        var key = reference is { Uid: [_, ..] uid } ? DocfxCommentId.ToUid(uid) : reference.DisplayName;
+        var key = reference is { Uid: [_, ..] uid } ? CommentIdPrefix.Strip(uid) : reference.DisplayName;
         var commentId = reference is { Uid: [_, ..] uid2 } ? uid2 : "T:" + reference.DisplayName;
         return sb
             .Append("- uid: ").AppendScalar(key).AppendLine()
@@ -897,38 +817,8 @@ internal static class DocfxYamlBuilderExtensions
         }
 
         return value.Contains('\n')
-            ? sb.AppendLiteralBlock(prefix, value)
+            ? YamlLiteralBlockFormatter.Format(sb, prefix, value)
             : sb.Append(prefix).AppendScalar(value).AppendLine();
-    }
-
-    /// <summary>
-    /// Writes a YAML literal block (<c>|-</c>) — the multi-line variant
-    /// of <see cref="AppendBlockScalar"/>, hoisted out so the inline
-    /// path stays branch-free.
-    /// </summary>
-    /// <param name="sb">Destination builder.</param>
-    /// <param name="prefix">Key + colon + space prefix.</param>
-    /// <param name="value">Body text containing at least one newline.</param>
-    /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
-    public static StringBuilder AppendLiteralBlock(this StringBuilder sb, string prefix, string value)
-    {
-        var prefixSpan = prefix.AsSpan();
-        var indentLength = prefixSpan.IndexOfAnyExcept(' ');
-        if (indentLength < 0)
-        {
-            indentLength = prefixSpan.Length;
-        }
-
-        var indent = new string(' ', indentLength + 2);
-        var key = prefixSpan[indentLength..].TrimEnd();
-        sb.Append(' ', indentLength).Append(key).Append(" |-\n");
-
-        foreach (var line in value.AsSpan().EnumerateLines())
-        {
-            sb.Append(indent).Append(line).AppendLine();
-        }
-
-        return sb;
     }
 
     /// <summary>
@@ -970,107 +860,6 @@ internal static class DocfxYamlBuilderExtensions
     };
 
     /// <summary>
-    /// Returns <see langword="true"/> when <paramref name="value"/> would be
-    /// misparsed by a YAML reader without quoting — first character is
-    /// a reserved indicator, the value matches a boolean/null token, or
-    /// any character along the way needs escaping. Public so the
-    /// trigger set can be unit-tested directly without going through a
-    /// full page render.
-    /// </summary>
-    /// <param name="value">Scalar to inspect (must be non-empty).</param>
-    /// <returns><see langword="true"/> when the scalar must be quoted.</returns>
-    public static bool NeedsQuoting(string value) =>
-        HasReservedLeadingIndicator(value[0])
-        || IsReservedYamlToken(value)
-        || ScanForTerminators(value.AsSpan(), prev: '\0', next: '\0');
-
-    /// <summary>
-    /// Composite-aware variant of <see cref="NeedsQuoting"/> for the
-    /// <c>left + separator + right</c> shape used by
-    /// <see cref="AppendQualifiedScalar"/>. Walks both halves once with
-    /// boundary-aware lookups so the cold quoted-fallback path doesn't
-    /// pay for two separate scans, and skips the reserved-token check
-    /// entirely (a composite with a separator in the middle can't
-    /// equal a single reserved token like <c>null</c>).
-    /// </summary>
-    /// <param name="left">Left half of the composite (must be non-empty).</param>
-    /// <param name="separator">Joining character.</param>
-    /// <param name="right">Right half of the composite (must be non-empty).</param>
-    /// <returns><see langword="true"/> when the composite scalar must be quoted.</returns>
-    public static bool CompositeNeedsQuoting(string left, char separator, string right) =>
-        HasReservedLeadingIndicator(left[0])
-        || ScanForTerminators(left.AsSpan(), prev: '\0', next: separator)
-        || ScanForTerminators(right.AsSpan(), prev: separator, next: '\0');
-
-    /// <summary>
-    /// Returns <see langword="true"/> when <paramref name="first"/> is one of the
-    /// YAML reserved leading indicators that force quoting on a plain
-    /// scalar.
-    /// </summary>
-    /// <param name="first">First character of the scalar.</param>
-    /// <returns><see langword="true"/> when the character is reserved.</returns>
-    internal static bool HasReservedLeadingIndicator(char first) =>
-        first is ' ' or '\t' or '-' or '?' or ':' or ',' or '[' or ']' or '{' or '}' or '#' or '&' or '*' or '!' or '|' or '>' or '\'' or '"' or '%' or '@' or '`';
-
-    /// <summary>
-    /// Returns <see langword="true"/> when <paramref name="value"/> matches one of
-    /// the YAML 1.1 boolean / null reserved tokens that must be quoted
-    /// to round-trip as a string.
-    /// </summary>
-    /// <param name="value">Scalar to test.</param>
-    /// <returns><see langword="true"/> when the scalar matches a reserved token.</returns>
-    internal static bool IsReservedYamlToken(string value) =>
-        value is "true" or "false" or "null" or "True" or "False" or "Null"
-            or "TRUE" or "FALSE" or "NULL" or "~" or "yes" or "no";
-
-    /// <summary>
-    /// Walks <paramref name="value"/> once looking for any character
-    /// that would terminate or otherwise disrupt a YAML plain scalar.
-    /// <paramref name="prev"/> and <paramref name="next"/> let the
-    /// scanner check the context-sensitive <c>:</c>+space and
-    /// space+<c>#</c> rules across composite boundaries — pass <c>'\0'</c>
-    /// when there's no boundary character to consult.
-    /// </summary>
-    /// <param name="value">Scalar segment to scan.</param>
-    /// <param name="prev">Character immediately before the segment, or <c>'\0'</c> for "none".</param>
-    /// <param name="next">Character immediately after the segment, or <c>'\0'</c> for "none".</param>
-    /// <returns><see langword="true"/> when the segment contains a terminator.</returns>
-    internal static bool ScanForTerminators(in ReadOnlySpan<char> value, char prev, char next)
-    {
-        for (var i = 0; i < value.Length; i++)
-        {
-            switch (value[i])
-            {
-                case < ' ' or '"' or '\\':
-                    return true;
-                case ':':
-                    {
-                        var following = i == value.Length - 1 ? next : value[i + 1];
-                        if (following is ' ' or '\t' or '\0')
-                        {
-                            return true;
-                        }
-
-                        break;
-                    }
-
-                case '#':
-                    {
-                        var preceding = i is 0 ? prev : value[i - 1];
-                        if (preceding is ' ' or '\t')
-                        {
-                            return true;
-                        }
-
-                        break;
-                    }
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>
     /// Returns the docfx <c>id:</c> field value for <paramref name="member"/>.
     /// Constructors render as <c>#ctor</c> (or <c>#cctor</c> for the
     /// static ctor) so docfx's xrefmap convention is preserved; every
@@ -1100,29 +889,4 @@ internal static class DocfxYamlBuilderExtensions
         ApiUnionType u => u.Members,
         _ => null,
     };
-
-    /// <summary>Sums the final character count of a rendered attribute usage so <see cref="string.Create{TState}"/> allocates exactly the right span size.</summary>
-    /// <param name="attribute">Attribute whose usage length to compute.</param>
-    /// <returns>The total character count, including the surrounding parens and any <c>", "</c> / <c>"="</c> separators.</returns>
-    internal static int ComputeAttributeUsageLength(ApiAttribute attribute)
-    {
-        var total = attribute.DisplayName.Length + 2;
-        for (var i = 0; i < attribute.Arguments.Length; i++)
-        {
-            if (i > 0)
-            {
-                total += 2;
-            }
-
-            var arg = attribute.Arguments[i];
-            if (arg.Name is { Length: > 0 } name)
-            {
-                total += name.Length + 1;
-            }
-
-            total += arg.Value.Length;
-        }
-
-        return total;
-    }
 }

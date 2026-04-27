@@ -5,7 +5,7 @@
 using System.Runtime.InteropServices;
 using Microsoft.CodeAnalysis;
 
-namespace SourceDocParser;
+namespace SourceDocParser.Walk;
 
 /// <summary>
 /// Per-walk cache of namespace display names keyed by <see cref="INamespaceSymbol"/>.

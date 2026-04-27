@@ -8,8 +8,10 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
+using SourceDocParser.NuGet.Models;
+using SourceDocParser.NuGet.Readers;
 
-namespace SourceDocParser.NuGet;
+namespace SourceDocParser.NuGet.Infrastructure;
 
 /// <summary>
 /// Installs a NuGet package into the SDK-shared global cache

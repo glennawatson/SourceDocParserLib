@@ -4,8 +4,13 @@
 
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging.Abstractions;
+using SourceDocParser.LibCompilation;
+using SourceDocParser.Model;
+using SourceDocParser.NuGet.Models;
+using SourceDocParser.NuGet.Readers;
+using SourceDocParser.Tfm;
 
-namespace SourceDocParser.NuGet;
+namespace SourceDocParser.NuGet.Infrastructure;
 
 /// <summary>
 /// <see cref="IAssemblySource"/> that fetches NuGet packages described

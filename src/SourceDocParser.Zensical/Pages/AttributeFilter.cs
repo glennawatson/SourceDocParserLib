@@ -4,8 +4,9 @@
 
 using System.Text;
 using SourceDocParser.Common;
+using SourceDocParser.Model;
 
-namespace SourceDocParser.Zensical;
+namespace SourceDocParser.Zensical.Pages;
 
 /// <summary>
 /// Filters and renders the attribute list shown above a type or

@@ -4,8 +4,9 @@
 
 using System.Diagnostics;
 using BenchmarkDotNet.Running;
+using SourceDocParser.Docfx.StandaloneBenchmarks.Benchmarks;
 
-namespace SourceDocParser.Docfx.StandaloneBenchmarks;
+namespace SourceDocParser.Docfx.StandaloneBenchmarks.Runner;
 
 /// <summary>
 /// Entry point for our docfx YAML emitter standalone benchmark.

@@ -4,8 +4,10 @@
 
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
+using SourceDocParser.Docfx.Common;
+using SourceDocParser.Tfm;
 
-namespace SourceDocParser.Docfx;
+namespace SourceDocParser.Docfx.Config;
 
 /// <summary>
 /// Generates a docfx configuration file by patching an embedded

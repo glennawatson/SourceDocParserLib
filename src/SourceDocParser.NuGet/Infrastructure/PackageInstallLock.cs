@@ -5,7 +5,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace SourceDocParser.NuGet;
+namespace SourceDocParser.NuGet.Infrastructure;
 
 /// <summary>
 /// Per-package file-system lock for the NuGet global cache —

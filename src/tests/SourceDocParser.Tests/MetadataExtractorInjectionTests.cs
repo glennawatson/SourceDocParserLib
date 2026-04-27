@@ -6,7 +6,10 @@ using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.Extensions.Logging;
+using SourceDocParser.LibCompilation;
+using SourceDocParser.Model;
 using SourceDocParser.SourceLink;
+using SourceDocParser.Walk;
 
 namespace SourceDocParser.Tests;
 

@@ -3,8 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using SourceDocParser.Common;
+using SourceDocParser.Model;
 
-namespace SourceDocParser.Docfx;
+namespace SourceDocParser.Docfx.Yaml;
 
 /// <summary>
 /// Decides which attributes survive into a docfx ManagedReference

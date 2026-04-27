@@ -5,6 +5,7 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using SourceDocParser.SourceLink;
+using SourceDocParser.Walk;
 
 namespace SourceDocParser.Tests;
 

@@ -4,8 +4,9 @@
 
 using System.IO.Compression;
 using System.Xml;
+using SourceDocParser.NuGet.Infrastructure;
 
-namespace SourceDocParser.NuGet;
+namespace SourceDocParser.NuGet.Readers;
 
 /// <summary>
 /// Small composable helpers for pulling a <c>.nupkg</c>'s declared

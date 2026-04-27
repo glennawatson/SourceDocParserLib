@@ -3,8 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Text;
+using SourceDocParser.Model;
+using SourceDocParser.Zensical.Options;
+using SourceDocParser.Zensical.Routing;
 
-namespace SourceDocParser.Zensical;
+namespace SourceDocParser.Zensical.Pages;
 
 /// <summary>
 /// Renders an ApiType as a Zensical-flavoured Markdown page.

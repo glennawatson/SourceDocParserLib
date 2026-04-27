@@ -3,8 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using Microsoft.CodeAnalysis;
+using SourceDocParser.Model;
 
-namespace SourceDocParser;
+namespace SourceDocParser.Walk;
 
 /// <summary>
 /// Converts a Roslyn <see cref="INamedTypeSymbol"/> into the

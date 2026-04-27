@@ -2,9 +2,9 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using Microsoft.CodeAnalysis;
+using SourceDocParser.Walk;
 
-namespace SourceDocParser;
+namespace SourceDocParser.XmlDoc;
 
 /// <summary>
 /// Bundle of per-resolver dependencies threaded through every
@@ -17,6 +17,6 @@ namespace SourceDocParser;
 /// <param name="Converter">Converter used to fold inline doc tags into Markdown.</param>
 /// <param name="Cache">Per-symbol documentation cache scoped to one resolver instance and never shared across parallel resolves.</param>
 internal sealed record DocResolveContext(
-    Compilation Compilation,
+    Microsoft.CodeAnalysis.Compilation Compilation,
     IXmlDocToMarkdownConverter Converter,
     DocResolveCache Cache);

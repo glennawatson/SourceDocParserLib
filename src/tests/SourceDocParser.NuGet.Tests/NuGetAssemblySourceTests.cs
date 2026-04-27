@@ -3,6 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using Microsoft.Extensions.Logging;
+using SourceDocParser.Model;
+using SourceDocParser.NuGet.Infrastructure;
 
 namespace SourceDocParser.NuGet.Tests;
 

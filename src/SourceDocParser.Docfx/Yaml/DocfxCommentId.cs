@@ -2,9 +2,9 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using SourceDocParser.Common;
+using SourceDocParser.Model;
 
-namespace SourceDocParser.Docfx;
+namespace SourceDocParser.Docfx.Yaml;
 
 /// <summary>
 /// Lightweight helper that produces docfx <c>commentId</c> values from
@@ -34,17 +34,4 @@ internal static class DocfxCommentId
     /// <param name="member">Member to format.</param>
     /// <returns>The commentId string, or empty when not present.</returns>
     public static string ForMember(ApiMember member) => member.Uid;
-
-    /// <summary>
-    /// Strips the two-character commentId prefix (<c>T:</c>, <c>M:</c>,
-    /// <c>P:</c>, <c>E:</c>, <c>F:</c>, <c>N:</c>) from a Roslyn-style
-    /// commentId so it can be written as a docfx <c>uid</c> field. Docfx
-    /// keeps the prefix in <c>commentId</c> only; <c>uid</c>, plus every
-    /// cross-reference (<c>parent</c>, <c>children</c>,
-    /// <c>references[].uid</c>), uses the bare canonical name.
-    /// </summary>
-    /// <param name="commentId">The prefixed commentId (e.g. <c>T:Foo.Bar</c>).</param>
-    /// <returns>The bare uid (e.g. <c>Foo.Bar</c>), or the original string when no prefix is present.</returns>
-    public static string ToUid(string commentId) =>
-        CommentIdPrefix.Strip(commentId);
 }

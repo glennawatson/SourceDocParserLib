@@ -5,6 +5,7 @@
 using System.IO.Compression;
 using System.Text;
 using System.Xml;
+using SourceDocParser.NuGet.Readers;
 
 namespace SourceDocParser.NuGet.Tests;
 

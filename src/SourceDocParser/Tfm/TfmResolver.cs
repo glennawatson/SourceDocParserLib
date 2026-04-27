@@ -5,7 +5,7 @@
 using System.Globalization;
 using NuGet.Frameworks;
 
-namespace SourceDocParser;
+namespace SourceDocParser.Tfm;
 
 /// <summary>
 /// Pure helpers for selecting target frameworks from package contents and

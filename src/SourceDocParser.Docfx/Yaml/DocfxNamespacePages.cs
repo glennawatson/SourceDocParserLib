@@ -3,8 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Text;
+using SourceDocParser.Common;
+using SourceDocParser.Docfx.Common;
+using SourceDocParser.Model;
 
-namespace SourceDocParser.Docfx;
+namespace SourceDocParser.Docfx.Yaml;
 
 /// <summary>
 /// Composable helpers for emitting docfx namespace pages — one
@@ -48,12 +51,12 @@ internal static class DocfxNamespacePages
                 continue;
             }
 
-            if (DocfxCompilerGenerated.IsCompilerGenerated(type.Name))
+            if (CompilerGeneratedNames.IsCompilerGenerated(type.Name))
             {
                 continue;
             }
 
-            var uid = DocfxCommentId.ToUid(type.Uid is [_, ..] ? type.Uid : "T:" + type.FullName);
+            var uid = CommentIdPrefix.Strip(type.Uid is [_, ..] ? type.Uid : "T:" + type.FullName);
             if (uid is [])
             {
                 continue;

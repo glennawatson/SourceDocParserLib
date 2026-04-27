@@ -5,7 +5,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace SourceDocParser.Docfx;
+namespace SourceDocParser.Docfx.Config;
 
 /// <summary>
 /// The docfx <c>build</c> section of the configuration file. Holds the

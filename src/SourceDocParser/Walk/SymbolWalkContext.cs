@@ -2,9 +2,11 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using SourceDocParser.Model;
 using SourceDocParser.SourceLink;
+using SourceDocParser.XmlDoc;
 
-namespace SourceDocParser;
+namespace SourceDocParser.Walk;
 
 /// <summary>
 /// Per-walk state bundle threaded through every <see cref="SymbolWalker"/>

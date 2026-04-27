@@ -4,7 +4,10 @@
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using SourceDocParser.Model;
 using SourceDocParser.SourceLink;
+using SourceDocParser.Walk;
+using SourceDocParser.XmlDoc;
 
 namespace SourceDocParser.Tests;
 

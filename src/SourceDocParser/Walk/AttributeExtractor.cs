@@ -5,8 +5,9 @@
 using System.Globalization;
 using System.Text;
 using Microsoft.CodeAnalysis;
+using SourceDocParser.Model;
 
-namespace SourceDocParser;
+namespace SourceDocParser.Walk;
 
 /// <summary>
 /// Pulls attribute metadata off any <see cref="ISymbol"/> and converts

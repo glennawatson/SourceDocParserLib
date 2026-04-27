@@ -4,7 +4,7 @@
 
 using System.Text;
 
-namespace SourceDocParser;
+namespace SourceDocParser.XmlDoc;
 
 /// <summary>
 /// Parses a NuGet-shipped XML doc file once and indexes its member

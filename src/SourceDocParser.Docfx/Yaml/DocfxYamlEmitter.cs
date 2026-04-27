@@ -3,8 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Text;
+using SourceDocParser.Common;
+using SourceDocParser.Docfx.Common;
+using SourceDocParser.Model;
 
-namespace SourceDocParser.Docfx;
+namespace SourceDocParser.Docfx.Yaml;
 
 /// <summary>
 /// <see cref="IDocumentationEmitter"/> implementation that renders the
@@ -97,7 +100,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     public static string PathFor(ApiType type)
     {
         ArgumentNullException.ThrowIfNull(type);
-        var stem = type.Uid is [_, ..] ? DocfxCommentId.ToUid(type.Uid) : type.FullName;
+        var stem = type.Uid is [_, ..] ? CommentIdPrefix.Strip(type.Uid) : type.FullName;
         return DocfxInternalHelpers.SanitiseFileStem(stem) + FileExtension;
     }
 
@@ -115,7 +118,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
             cancellationToken.ThrowIfCancellationRequested();
 
             var type = types[i];
-            if (DocfxCompilerGenerated.IsCompilerGenerated(type.Name))
+            if (CompilerGeneratedNames.IsCompilerGenerated(type.Name))
             {
                 continue;
             }
@@ -184,7 +187,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
         {
             for (var i = 0; i < members.Length; i++)
             {
-                if (DocfxCompilerGenerated.IsCompilerGenerated(members[i].Name))
+                if (CompilerGeneratedNames.IsCompilerGenerated(members[i].Name))
                 {
                     continue;
                 }
@@ -226,7 +229,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
         for (var i = 0; i < types.Length; i++)
         {
             var type = types[i];
-            if (DocfxCompilerGenerated.IsCompilerGenerated(type.Name))
+            if (CompilerGeneratedNames.IsCompilerGenerated(type.Name))
             {
                 continue;
             }

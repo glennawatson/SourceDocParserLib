@@ -3,8 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Globalization;
+using SourceDocParser.Model;
+using SourceDocParser.Zensical.Options;
 
-namespace SourceDocParser.Zensical;
+namespace SourceDocParser.Zensical.Routing;
 
 /// <summary>
 /// Decides how a type reference renders in Markdown. For types we

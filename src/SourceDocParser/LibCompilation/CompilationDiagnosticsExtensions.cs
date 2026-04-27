@@ -4,7 +4,7 @@
 
 using Microsoft.CodeAnalysis;
 
-namespace SourceDocParser;
+namespace SourceDocParser.LibCompilation;
 
 /// <summary>
 /// Extension helpers that walk a <see cref="Compilation"/>'s declaration
@@ -21,7 +21,7 @@ public static partial class CompilationDiagnosticsExtensions
     /// <param name="compilation">The compilation to inspect.</param>
     /// <param name="logger">Logger to receive warning and error diagnostics.</param>
     /// <returns>True when any error-level diagnostics were observed; otherwise false. Reporting stops after 20 errors.</returns>
-    public static bool ReportDiagnostics(this Compilation compilation, ILogger logger)
+    public static bool ReportDiagnostics(this Microsoft.CodeAnalysis.Compilation compilation, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(compilation);
         ArgumentNullException.ThrowIfNull(logger);

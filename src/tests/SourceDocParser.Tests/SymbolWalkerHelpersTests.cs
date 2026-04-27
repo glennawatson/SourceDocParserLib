@@ -4,6 +4,8 @@
 
 using Microsoft.CodeAnalysis;
 using NSubstitute;
+using SourceDocParser.Model;
+using SourceDocParser.Walk;
 
 namespace SourceDocParser.Tests;
 

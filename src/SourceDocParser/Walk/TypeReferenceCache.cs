@@ -4,8 +4,9 @@
 
 using System.Runtime.InteropServices;
 using Microsoft.CodeAnalysis;
+using SourceDocParser.Model;
 
-namespace SourceDocParser;
+namespace SourceDocParser.Walk;
 
 /// <summary>
 /// Per-walk cache of <see cref="ApiTypeReference"/> instances keyed by <see cref="ITypeSymbol"/>.

@@ -3,6 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Text;
+using SourceDocParser.Docfx.Yaml;
+using SourceDocParser.Model;
 using SourceDocParser.TestHelpers;
 
 namespace SourceDocParser.Docfx.Tests.Yaml;

@@ -3,9 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using Microsoft.CodeAnalysis;
+using SourceDocParser.Model;
 using SourceDocParser.SourceLink;
+using SourceDocParser.XmlDoc;
 
-namespace SourceDocParser;
+namespace SourceDocParser.Walk;
 
 /// <summary>
 /// Walks an <see cref="IAssemblySymbol"/>'s public surface to
@@ -21,13 +23,13 @@ namespace SourceDocParser;
 public sealed class SymbolWalker : ISymbolWalker
 {
     /// <summary>Factory invoked once per <see cref="Walk"/> to create the per-compilation doc resolver.</summary>
-    private readonly Func<Compilation, IDocResolver> _docResolverFactory;
+    private readonly Func<Microsoft.CodeAnalysis.Compilation, IDocResolver> _docResolverFactory;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SymbolWalker"/> class.
     /// </summary>
     /// <param name="docResolverFactory">Factory invoked once per <see cref="Walk"/> to create the per-compilation doc resolver. Defaults to <c>c =&gt; new DocResolver(c)</c>.</param>
-    public SymbolWalker(Func<Compilation, IDocResolver>? docResolverFactory = null) =>
+    public SymbolWalker(Func<Microsoft.CodeAnalysis.Compilation, IDocResolver>? docResolverFactory = null) =>
         _docResolverFactory = docResolverFactory ?? (static c => new DocResolver(c));
 
     /// <summary>
@@ -38,7 +40,7 @@ public sealed class SymbolWalker : ISymbolWalker
     /// <param name="compilation">Compilation that produced the assembly symbol — passed through to the DocResolver for cref resolution on inheritdoc.</param>
     /// <param name="sourceLinks">SourceLink resolver scoped to the assembly being walked. Populates <see cref="ApiMember.SourceUrl"/> and <see cref="ApiType.SourceUrl"/> when PDB + SourceLink data is available; otherwise contributes nothing and the URLs stay null.</param>
     /// <returns>The generated API catalog.</returns>
-    public ApiCatalog Walk(string tfm, IAssemblySymbol assembly, Compilation compilation, ISourceLinkResolver sourceLinks)
+    public ApiCatalog Walk(string tfm, IAssemblySymbol assembly, Microsoft.CodeAnalysis.Compilation compilation, ISourceLinkResolver sourceLinks)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tfm);
         ArgumentNullException.ThrowIfNull(assembly);

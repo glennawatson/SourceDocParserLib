@@ -4,7 +4,7 @@
 
 using System.Text;
 
-namespace SourceDocParser;
+namespace SourceDocParser.XmlDoc;
 
 /// <summary>
 /// Forward-only scanner over a span of XML doc text. Replaces XmlReader

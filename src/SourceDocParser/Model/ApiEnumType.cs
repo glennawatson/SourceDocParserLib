@@ -2,7 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-namespace SourceDocParser;
+namespace SourceDocParser.Model;
 
 /// <summary>
 /// An enum. The values are surfaced as a structured list rather than

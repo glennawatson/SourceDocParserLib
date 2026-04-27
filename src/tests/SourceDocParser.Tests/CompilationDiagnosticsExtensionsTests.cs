@@ -6,6 +6,8 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using SourceDocParser.LibCompilation;
+using CompilationDiagnosticsExtensions = SourceDocParser.LibCompilation.CompilationDiagnosticsExtensions;
 
 namespace SourceDocParser.Tests;
 

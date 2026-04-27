@@ -2,14 +2,17 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-namespace SourceDocParser.NuGet;
+using SourceDocParser.NuGet.Models;
+using SourceDocParser.NuGet.Readers;
+
+namespace SourceDocParser.NuGet.Infrastructure;
 
 /// <summary>
 /// Walks the standard NuGet configuration discovery chain from a
 /// caller-supplied working folder — same precedence order the SDK
 /// uses (walk-from-cwd-up first, then user-scoped). Each helper
 /// composes <see cref="NuGetGlobalCache.GetUserNuGetConfigPaths"/>
-/// + <see cref="NuGetConfigReader.ReadGlobalPackagesFolderAsync(string, System.Threading.CancellationToken)"/>
+/// + <see cref="NuGetConfigReader.ReadGlobalPackagesFolderAsync(string,System.Threading.CancellationToken)"/>
 /// so callers don't have to re-implement the path-walk shape.
 /// </summary>
 internal static class NuGetConfigDiscovery
@@ -221,7 +224,7 @@ internal static class NuGetConfigDiscovery
         foreach (var configPath in EnumerateConfigPaths(workingFolder))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var fileEntries = await PackageSourceCredentialsReader.ReadAsync(configPath, cancellationToken).ConfigureAwait(false);
+            var fileEntries = await Readers.PackageSourceCredentialsReader.ReadAsync(configPath, cancellationToken).ConfigureAwait(false);
             foreach (var (key, cred) in fileEntries)
             {
                 if (!merged.ContainsKey(key))

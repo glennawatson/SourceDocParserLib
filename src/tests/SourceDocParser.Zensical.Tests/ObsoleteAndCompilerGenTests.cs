@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using SourceDocParser.TestHelpers;
+using SourceDocParser.Zensical.Pages;
 
 namespace SourceDocParser.Zensical.Tests;
 

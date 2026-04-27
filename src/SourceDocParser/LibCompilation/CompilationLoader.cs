@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using static Microsoft.CodeAnalysis.MetadataImportOptions;
 using static Microsoft.CodeAnalysis.OutputKind;
 
-namespace SourceDocParser;
+namespace SourceDocParser.LibCompilation;
 
 /// <summary>
 /// Loads a compiled .NET assembly into a Roslyn <see cref="CSharpCompilation"/>.

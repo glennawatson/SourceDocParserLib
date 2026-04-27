@@ -4,8 +4,9 @@
 
 using System.Diagnostics;
 using BenchmarkDotNet.Running;
+using Docfx.StandaloneBenchmarks.Benchmarks;
 
-namespace Docfx.StandaloneBenchmarks;
+namespace Docfx.StandaloneBenchmarks.Runner;
 
 /// <summary>
 /// Entry point for the docfx-only standalone benchmark. With no args

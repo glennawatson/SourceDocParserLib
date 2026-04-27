@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Text;
+using SourceDocParser.XmlDoc;
 
 namespace SourceDocParser.Tests;
 
