@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using SourceDocParser.Common;
 
 namespace SourceDocParser.Docfx;
 
@@ -19,9 +20,6 @@ namespace SourceDocParser.Docfx;
 /// </summary>
 internal static class DocfxMemberDisplayName
 {
-    /// <summary>Single comma-space separator — matches docfx's <c>, </c> output.</summary>
-    private const string ParameterSeparator = ", ";
-
     /// <summary>
     /// Returns the unqualified friendly name for <paramref name="member"/>:
     /// <c>TypeName(arg, arg)</c> for constructors, <c>MethodName(arg, arg)</c>
@@ -34,7 +32,7 @@ internal static class DocfxMemberDisplayName
     {
         var label = LabelFor(member, containingType);
         return TakesParens(member.Kind)
-            ? FormatWithParens(label, member.Parameters)
+            ? MemberDisplayFormatter.FormatWithParens(label, ParameterTypeNames(member.Parameters))
             : label;
     }
 
@@ -47,7 +45,7 @@ internal static class DocfxMemberDisplayName
     /// <param name="containingType">Declaring type.</param>
     /// <returns>Qualified friendly name.</returns>
     public static string Qualified(ApiMember member, ApiType containingType) =>
-        Concat(containingType.Name, '.', Unqualified(member, containingType));
+        MemberDisplayFormatter.Concat(containingType.Name, '.', Unqualified(member, containingType));
 
     /// <summary>
     /// Returns <c>Namespace.TypeName.MemberFriendlyName</c> — used for the
@@ -58,7 +56,7 @@ internal static class DocfxMemberDisplayName
     /// <param name="containingType">Declaring type.</param>
     /// <returns>Fully-qualified friendly name.</returns>
     public static string FullyQualified(ApiMember member, ApiType containingType) =>
-        Concat(containingType.FullName, '.', Unqualified(member, containingType));
+        MemberDisplayFormatter.Concat(containingType.FullName, '.', Unqualified(member, containingType));
 
     /// <summary>
     /// Returns the docfx <c>overload:</c> anchor — <c>member.Uid + "*"</c>.
@@ -101,96 +99,25 @@ internal static class DocfxMemberDisplayName
         member.Kind == ApiMemberKind.Constructor ? containingType.Name : member.Name;
 
     /// <summary>
-    /// Builds <paramref name="label"/> + <c>(arg1, arg2)</c>. Zero-param
-    /// fast path returns <c>label + "()"</c> via <see cref="string.Create{TState}"/>.
-    /// Multi-param path computes the exact final length, allocates once,
-    /// and fills the span with no intermediate strings.
+    /// Materialises the parameter type display names into a transient
+    /// <c>string[]</c> the Common formatter consumes. One allocation
+    /// per call (size = parameter count, typically ≤ 5).
     /// </summary>
-    /// <param name="label">Name root (member or type name).</param>
     /// <param name="parameters">Member parameter list.</param>
-    /// <returns>The fully-formatted name.</returns>
-    internal static string FormatWithParens(string label, ApiParameter[] parameters)
+    /// <returns>The display-name array.</returns>
+    private static string[] ParameterTypeNames(ApiParameter[] parameters)
     {
         if (parameters is [])
         {
-            // Fast path: label + "()"; one alloc, no separator work.
-            return string.Create(label.Length + 2, label, static (span, source) =>
-            {
-                source.AsSpan().CopyTo(span);
-                span[^2] = '(';
-                span[^1] = ')';
-            });
+            return [];
         }
 
-        var totalLength = ComputeFormattedLength(label, parameters);
-        return string.Create(totalLength, (label, parameters), static (span, state) =>
-        {
-            var (lbl, parms) = state;
-            lbl.AsSpan().CopyTo(span);
-            var cursor = lbl.Length;
-            span[cursor++] = '(';
-            for (var i = 0; i < parms.Length; i++)
-            {
-                if (i > 0)
-                {
-                    ParameterSeparator.AsSpan().CopyTo(span[cursor..]);
-                    cursor += ParameterSeparator.Length;
-                }
-
-                var typeName = parms[i].Type.DisplayName;
-                typeName.AsSpan().CopyTo(span[cursor..]);
-                cursor += typeName.Length;
-            }
-
-            span[cursor] = ')';
-        });
-    }
-
-    /// <summary>
-    /// Sums the final character count of the formatted name so the
-    /// hot-path <see cref="string.Create{TState}"/> can allocate
-    /// exactly the right span size up front.
-    /// </summary>
-    /// <param name="label">Name root.</param>
-    /// <param name="parameters">Member parameter list (non-empty).</param>
-    /// <returns>Total character count including the surrounding parens and separators.</returns>
-    private static int ComputeFormattedLength(string label, ApiParameter[] parameters)
-    {
-        var total = label.Length + 2;
+        var names = new string[parameters.Length];
         for (var i = 0; i < parameters.Length; i++)
         {
-            if (i > 0)
-            {
-                total += ParameterSeparator.Length;
-            }
-
-            total += parameters[i].Type.DisplayName.Length;
+            names[i] = parameters[i].Type.DisplayName;
         }
 
-        return total;
-    }
-
-    /// <summary>
-    /// Joins three string parts with a single separator character via
-    /// <see cref="string.Create{TState}"/> — zero intermediate allocations.
-    /// Used by <see cref="Qualified"/> and <see cref="FullyQualified"/>.
-    /// </summary>
-    /// <param name="prefix">Left part.</param>
-    /// <param name="separator">Single character to insert between the parts.</param>
-    /// <param name="suffix">Right part.</param>
-    /// <returns>The concatenated string.</returns>
-    private static string Concat(string prefix, char separator, string suffix)
-    {
-        if (prefix is [])
-        {
-            return suffix;
-        }
-
-        return string.Create(prefix.Length + 1 + suffix.Length, (prefix, separator, suffix), static (span, state) =>
-        {
-            state.prefix.AsSpan().CopyTo(span);
-            span[state.prefix.Length] = state.separator;
-            state.suffix.AsSpan().CopyTo(span[(state.prefix.Length + 1)..]);
-        });
+        return names;
     }
 }

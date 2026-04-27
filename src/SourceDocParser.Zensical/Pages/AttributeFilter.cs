@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Text;
+using SourceDocParser.Common;
 
 namespace SourceDocParser.Zensical;
 
@@ -18,32 +19,12 @@ namespace SourceDocParser.Zensical;
 internal static class AttributeFilter
 {
     /// <summary>
-    /// Namespace prefixes whose attributes are dropped from the
-    /// rendered list. Suffix-with-dot semantics — an entry
-    /// <c>System.Runtime.CompilerServices</c> matches every type
-    /// directly under that namespace.
-    /// </summary>
-    private static readonly string[] _excludedNamespacePrefixes =
-    [
-        "System.Runtime.CompilerServices",
-    ];
-
-    /// <summary>
-    /// Attribute UIDs that are explicitly allowed even when they
-    /// fall under a denylisted namespace (mirrors docfx, which keeps
-    /// <c>ExtensionAttribute</c> visible despite being in
-    /// <c>System.Runtime.CompilerServices</c>).
-    /// </summary>
-    private static readonly string[] _allowlistedUids =
-    [
-        "T:System.Runtime.CompilerServices.ExtensionAttribute",
-    ];
-
-    /// <summary>
     /// Renders the user-meaningful attributes from <paramref name="attributes"/>
     /// as a single inline-code line (one usage per attribute, separated
     /// by spaces). Returns the empty string when nothing survives the
     /// filter — the caller can use that to skip the section entirely.
+    /// The denylist + allowlist live in <see cref="AttributeFilterRules"/>
+    /// so every emitter applies the same rule set.
     /// </summary>
     /// <param name="attributes">The full attribute list from the walker.</param>
     /// <returns>The pre-formatted markdown line, or empty when no attributes survive.</returns>
@@ -59,7 +40,7 @@ internal static class AttributeFilter
         for (var i = 0; i < attributes.Length; i++)
         {
             var attribute = attributes[i];
-            if (IsExcluded(attribute))
+            if (AttributeFilterRules.IsExcluded(attribute.Uid))
             {
                 continue;
             }
@@ -80,47 +61,6 @@ internal static class AttributeFilter
         }
 
         return sb.ToString();
-    }
-
-    /// <summary>Tests whether <paramref name="attribute"/> belongs to a denylisted namespace and is not allowlisted.</summary>
-    /// <param name="attribute">The attribute to test.</param>
-    /// <returns>True when the attribute should be dropped from rendered output.</returns>
-    private static bool IsExcluded(ApiAttribute attribute)
-    {
-        if (IsAllowlisted(attribute.Uid))
-        {
-            return false;
-        }
-
-        var bareName = attribute.Uid is [_, ':', ..] ? attribute.Uid.AsSpan(2) : attribute.Uid.AsSpan();
-        for (var i = 0; i < _excludedNamespacePrefixes.Length; i++)
-        {
-            var prefix = _excludedNamespacePrefixes[i];
-            if (bareName.Length > prefix.Length
-                && bareName.StartsWith(prefix, StringComparison.Ordinal)
-                && bareName[prefix.Length] == '.')
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Tests whether <paramref name="uid"/> is on the explicit allowlist.</summary>
-    /// <param name="uid">Attribute type's documentation comment ID.</param>
-    /// <returns>True when the attribute is allowed regardless of namespace denylist matches.</returns>
-    private static bool IsAllowlisted(string uid)
-    {
-        for (var i = 0; i < _allowlistedUids.Length; i++)
-        {
-            if (string.Equals(_allowlistedUids[i], uid, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Appends the constructor and named arguments of an attribute to <paramref name="sb"/>, wrapped in parentheses.</summary>

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using SourceDocParser.Common;
+
 namespace SourceDocParser.Docfx;
 
 /// <summary>
@@ -43,13 +45,6 @@ internal static class DocfxCommentId
     /// </summary>
     /// <param name="commentId">The prefixed commentId (e.g. <c>T:Foo.Bar</c>).</param>
     /// <returns>The bare uid (e.g. <c>Foo.Bar</c>), or the original string when no prefix is present.</returns>
-    public static string ToUid(string commentId)
-    {
-        if (commentId is [_, ':', ..])
-        {
-            return commentId[2..];
-        }
-
-        return commentId;
-    }
+    public static string ToUid(string commentId) =>
+        CommentIdPrefix.Strip(commentId);
 }

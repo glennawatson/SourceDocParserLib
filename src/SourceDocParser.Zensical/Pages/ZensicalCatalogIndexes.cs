@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Frozen;
+using SourceDocParser.Common;
 
 namespace SourceDocParser.Zensical;
 
@@ -112,7 +113,7 @@ public sealed class ZensicalCatalogIndexes
         var map = new Dictionary<string, ApiObjectType>(types.Length, StringComparer.Ordinal);
         for (var i = 0; i < types.Length; i++)
         {
-            if (types[i] is ApiObjectType { Uid: [_, ..] uid } obj && obj.Name.AsSpan().IndexOfAny('<', '>') < 0)
+            if (types[i] is ApiObjectType { Uid: [_, ..] uid } obj && !CompilerGeneratedNames.IsCompilerGenerated(obj.Name))
             {
                 map[uid] = obj;
             }
@@ -130,7 +131,7 @@ public sealed class ZensicalCatalogIndexes
         for (var i = 0; i < types.Length; i++)
         {
             var type = types[i];
-            if (type.Name.AsSpan().IndexOfAny('<', '>') >= 0)
+            if (CompilerGeneratedNames.IsCompilerGenerated(type.Name))
             {
                 continue;
             }
@@ -180,7 +181,7 @@ public sealed class ZensicalCatalogIndexes
             for (var m = 0; m < members.Length; m++)
             {
                 var member = members[m];
-                if (!member.IsExtension || member.Parameters is [] || member.Name.AsSpan().IndexOfAny('<', '>') >= 0)
+                if (!member.IsExtension || member.Parameters is [] || CompilerGeneratedNames.IsCompilerGenerated(member.Name))
                 {
                     continue;
                 }
@@ -224,7 +225,7 @@ public sealed class ZensicalCatalogIndexes
                 continue;
             }
 
-            if (cls.Name.AsSpan().IndexOfAny('<', '>') >= 0 || cls.Uid is not [_, ..] uid)
+            if (CompilerGeneratedNames.IsCompilerGenerated(cls.Name) || cls.Uid is not [_, ..] uid)
             {
                 continue;
             }
@@ -257,7 +258,7 @@ public sealed class ZensicalCatalogIndexes
         for (var i = 0; i < members.Length; i++)
         {
             var member = members[i];
-            if (member.Name.AsSpan().IndexOfAny('<', '>') >= 0 || member.Uid is not [_, ..] uid)
+            if (CompilerGeneratedNames.IsCompilerGenerated(member.Name) || member.Uid is not [_, ..] uid)
             {
                 continue;
             }

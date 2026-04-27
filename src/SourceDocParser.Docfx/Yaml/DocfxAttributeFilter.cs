@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using SourceDocParser.Common;
+
 namespace SourceDocParser.Docfx;
 
 /// <summary>
@@ -14,22 +16,12 @@ namespace SourceDocParser.Docfx;
 /// </summary>
 internal static class DocfxAttributeFilter
 {
-    /// <summary>Namespace prefixes whose attributes are dropped.</summary>
-    private static readonly string[] _excludedNamespacePrefixes =
-    [
-        "System.Runtime.CompilerServices",
-    ];
-
-    /// <summary>UIDs explicitly allowed even when they fall under a denylisted namespace.</summary>
-    private static readonly string[] _allowlistedUids =
-    [
-        "T:System.Runtime.CompilerServices.ExtensionAttribute",
-    ];
-
     /// <summary>
     /// Returns the subset of <paramref name="attributes"/> that should
     /// reach the docfx YAML page; the rest are compiler-emitted noise
-    /// (NullableContext, IsReadOnly, RefSafetyRules, etc.).
+    /// (NullableContext, IsReadOnly, RefSafetyRules, etc.). The denylist
+    /// + allowlist live in <see cref="AttributeFilterRules"/> so every
+    /// emitter applies the same rule set.
     /// </summary>
     /// <param name="attributes">The full list as exposed by the walker.</param>
     /// <returns>The presentation-filtered list, in original order.</returns>
@@ -43,53 +35,12 @@ internal static class DocfxAttributeFilter
         List<ApiAttribute> kept = new(attributes.Length);
         for (var i = 0; i < attributes.Length; i++)
         {
-            if (!IsExcluded(attributes[i]))
+            if (!AttributeFilterRules.IsExcluded(attributes[i].Uid))
             {
                 kept.Add(attributes[i]);
             }
         }
 
         return kept.Count == attributes.Length ? attributes : [.. kept];
-    }
-
-    /// <summary>Tests whether an attribute matches the namespace denylist.</summary>
-    /// <param name="attribute">The attribute to test.</param>
-    /// <returns>True when the attribute should be dropped.</returns>
-    private static bool IsExcluded(ApiAttribute attribute)
-    {
-        if (IsAllowlisted(attribute.Uid))
-        {
-            return false;
-        }
-
-        var bareName = attribute.Uid is [_, ':', ..] ? attribute.Uid.AsSpan(2) : attribute.Uid.AsSpan();
-        for (var i = 0; i < _excludedNamespacePrefixes.Length; i++)
-        {
-            var prefix = _excludedNamespacePrefixes[i];
-            if (bareName.Length > prefix.Length
-                && bareName.StartsWith(prefix, StringComparison.Ordinal)
-                && bareName[prefix.Length] == '.')
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Tests whether a UID appears on the allowlist.</summary>
-    /// <param name="uid">Attribute type's documentation comment ID.</param>
-    /// <returns>True when explicitly allowed despite namespace denylist matches.</returns>
-    private static bool IsAllowlisted(string uid)
-    {
-        for (var i = 0; i < _allowlistedUids.Length; i++)
-        {
-            if (string.Equals(_allowlistedUids[i], uid, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 }
