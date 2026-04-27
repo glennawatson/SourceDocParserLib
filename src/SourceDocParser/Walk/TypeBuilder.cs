@@ -29,7 +29,7 @@ internal static class TypeBuilder
     {
         var uid = type.GetDocumentationCommentId() ?? string.Empty;
         var ns = NamespaceDisplayResolver.Resolve(context, type.ContainingNamespace);
-        var fullName = ns is [] ? type.Name : $"{ns}.{type.Name}";
+        var fullName = BuildFullName(type, ns);
         var documentation = context.Docs.Resolve(type);
         var baseTypeRef = SymbolWalkerHelpers.BuildBaseTypeReference(type, context.TypeRefs);
         var interfaces = SymbolWalkerHelpers.BuildInterfaceReferences(type, context.TypeRefs);
@@ -290,4 +290,45 @@ internal static class TypeBuilder
                 IsByRefLike: type.IsRefLikeType,
                 Members: MemberBuilder.Build(type, type.Name, uid, context),
                 ExtensionBlocks: ExtensionBlockBuilder.Build(type, context));
+
+    /// <summary>
+    /// Composes the namespace-qualified, containing-type-qualified
+    /// name for a type. Top-level types stay as <c>Namespace.Type</c>;
+    /// nested types pick up every outer name on the chain so
+    /// <c>Outer.Nested</c> renders as <c>Namespace.Outer.Nested</c>
+    /// instead of colliding with a sibling top-level <c>Namespace.Nested</c>.
+    /// </summary>
+    /// <param name="type">Type whose full name to compute.</param>
+    /// <param name="ns">Resolved containing-namespace display string; empty for the global namespace.</param>
+    /// <returns>The dotted full name.</returns>
+    private static string BuildFullName(INamedTypeSymbol type, string ns)
+    {
+        if (type.ContainingType is null)
+        {
+            return ns is [] ? type.Name : $"{ns}.{type.Name}";
+        }
+
+        // Walk outwards collecting the containing-type chain so we can
+        // emit Namespace.Outer1.Outer2.Type. Stack push order reverses
+        // the iteration so the outermost type lands first when popped.
+        var chain = new Stack<string>();
+        for (var ct = type.ContainingType; ct is not null; ct = ct.ContainingType)
+        {
+            chain.Push(ct.Name);
+        }
+
+        var sb = new System.Text.StringBuilder(ns.Length + (chain.Count * 16) + type.Name.Length);
+        if (ns is [_, ..])
+        {
+            sb.Append(ns).Append('.');
+        }
+
+        while (chain.TryPop(out var part))
+        {
+            sb.Append(part).Append('.');
+        }
+
+        sb.Append(type.Name);
+        return sb.ToString();
+    }
 }
