@@ -165,147 +165,102 @@ internal static class XmlDocMarkdownHelper
     }
 
     /// <summary>
-    /// Dispatches the current start element to its renderer.
+    /// Dispatches the current start element to its renderer. Common
+    /// inline tags (see/paramref/c/code/para/br) are matched in the
+    /// hot path; less-common structural tags fall through to
+    /// <see cref="WriteRareElement"/>. Per-symbol render is on the hot
+    /// path, so the dispatch is intentionally flat — splitting it into
+    /// a deeper tree of helpers shows up directly in
+    /// <c>XmlDocToMarkdownBenchmarks</c>.
     /// </summary>
     /// <param name="scanner">Scanner positioned on a start element.</param>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="listContext">Inherited list context.</param>
     public static void WriteElement(ref DocXmlScanner scanner, StringBuilder sb, ListContext listContext)
     {
-        if (TryWriteReferenceElement(ref scanner, sb))
+        var name = scanner.Name;
+        if (name is "see" or "seealso")
         {
+            WriteSee(ref scanner, sb);
             return;
         }
 
-        if (TryWriteInlineElement(ref scanner, sb, listContext))
+        if (name is "paramref" or "typeparamref")
         {
+            WriteParamRef(ref scanner, sb);
             return;
         }
 
-        if (TryWriteStyledElement(ref scanner, sb, listContext))
+        if (name is "c")
         {
+            WriteC(ref scanner, sb, listContext);
             return;
         }
 
-        if (TryWriteStructuredElement(ref scanner, sb, listContext))
+        if (name is "code")
         {
+            WriteCode(ref scanner, sb);
+            return;
+        }
+
+        if (name is "para")
+        {
+            WritePara(ref scanner, sb, listContext);
+            return;
+        }
+
+        if (name is "br")
+        {
+            WriteBr(ref scanner, sb);
+            return;
+        }
+
+        WriteRareElement(ref scanner, sb, listContext);
+    }
+
+    /// <summary>
+    /// Dispatches the structural / styled tags that don't appear on
+    /// the hottest path: bold, italic, list scaffolding, and the
+    /// unknown-tag fallback. Kept off <see cref="WriteElement"/> so
+    /// the inline-tag dispatch stays one method.
+    /// </summary>
+    /// <param name="scanner">Scanner positioned on a start element.</param>
+    /// <param name="sb">Destination buffer.</param>
+    /// <param name="listContext">Inherited list context.</param>
+    public static void WriteRareElement(ref DocXmlScanner scanner, StringBuilder sb, ListContext listContext)
+    {
+        var name = scanner.Name;
+        if (name is "b" or "strong")
+        {
+            WriteBold(ref scanner, sb, listContext);
+            return;
+        }
+
+        if (name is "i" or "em")
+        {
+            WriteItalic(ref scanner, sb, listContext);
+            return;
+        }
+
+        if (name is "list")
+        {
+            WriteList(ref scanner, sb);
+            return;
+        }
+
+        if (name is "item")
+        {
+            WriteItem(ref scanner, sb);
+            return;
+        }
+
+        if (name is "description" or "term")
+        {
+            WriteDescriptionOrTerm(ref scanner, sb, listContext);
             return;
         }
 
         WriteUnknown(ref scanner, sb, listContext);
-    }
-
-    /// <summary>
-    /// Writes reference-like elements such as see, seealso, paramref, and typeparamref.
-    /// </summary>
-    /// <param name="scanner">Scanner positioned on a start element.</param>
-    /// <param name="sb">Destination buffer.</param>
-    /// <returns>True when an element was handled.</returns>
-    public static bool TryWriteReferenceElement(ref DocXmlScanner scanner, StringBuilder sb)
-    {
-        if (scanner.Name is "see" or "seealso")
-        {
-            WriteSee(ref scanner, sb);
-            return true;
-        }
-
-        if (scanner.Name is not ("paramref" or "typeparamref"))
-        {
-            return false;
-        }
-
-        WriteParamRef(ref scanner, sb);
-        return true;
-    }
-
-    /// <summary>
-    /// Writes simple inline or block elements.
-    /// </summary>
-    /// <param name="scanner">Scanner positioned on a start element.</param>
-    /// <param name="sb">Destination buffer.</param>
-    /// <param name="listContext">Inherited list context.</param>
-    /// <returns>True when an element was handled.</returns>
-    public static bool TryWriteInlineElement(ref DocXmlScanner scanner, StringBuilder sb, ListContext listContext)
-    {
-        if (scanner.Name is "c")
-        {
-            WriteC(ref scanner, sb, listContext);
-            return true;
-        }
-
-        if (scanner.Name is "code")
-        {
-            WriteCode(ref scanner, sb);
-            return true;
-        }
-
-        if (scanner.Name is "para")
-        {
-            WritePara(ref scanner, sb, listContext);
-            return true;
-        }
-
-        if (scanner.Name is not "br")
-        {
-            return false;
-        }
-
-        WriteBr(ref scanner, sb);
-        return true;
-    }
-
-    /// <summary>
-    /// Writes styled inline elements.
-    /// </summary>
-    /// <param name="scanner">Scanner positioned on a start element.</param>
-    /// <param name="sb">Destination buffer.</param>
-    /// <param name="listContext">Inherited list context.</param>
-    /// <returns>True when an element was handled.</returns>
-    public static bool TryWriteStyledElement(ref DocXmlScanner scanner, StringBuilder sb, ListContext listContext)
-    {
-        if (scanner.Name is "b" or "strong")
-        {
-            WriteBold(ref scanner, sb, listContext);
-            return true;
-        }
-
-        if (scanner.Name is not ("i" or "em"))
-        {
-            return false;
-        }
-
-        WriteItalic(ref scanner, sb, listContext);
-        return true;
-    }
-
-    /// <summary>
-    /// Writes structured elements such as lists, items, descriptions, and terms.
-    /// </summary>
-    /// <param name="scanner">Scanner positioned on a start element.</param>
-    /// <param name="sb">Destination buffer.</param>
-    /// <param name="listContext">Inherited list context.</param>
-    /// <returns>True when an element was handled.</returns>
-    public static bool TryWriteStructuredElement(ref DocXmlScanner scanner, StringBuilder sb, ListContext listContext)
-    {
-        if (scanner.Name is "list")
-        {
-            WriteList(ref scanner, sb);
-            return true;
-        }
-
-        if (scanner.Name is "item")
-        {
-            WriteItem(ref scanner, sb);
-            return true;
-        }
-
-        if (scanner.Name is not ("description" or "term"))
-        {
-            return false;
-        }
-
-        WriteDescriptionOrTerm(ref scanner, sb, listContext);
-        return true;
     }
 
     /// <summary>

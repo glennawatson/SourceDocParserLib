@@ -49,25 +49,34 @@ internal static class XmlEntityDecoder
     public static void AppendDecoded(StringBuilder dest, in ReadOnlySpan<char> text)
     {
         ArgumentNullException.ThrowIfNull(dest);
+
+        // Tight inline loop: the per-symbol doc render runs this on
+        // every plain-text fragment, so any per-iteration struct
+        // construction or property access shows up in the
+        // XmlDocToMarkdownBenchmarks. Stay with raw int offsets.
         var index = 0;
         while (index < text.Length)
         {
-            var match = FindNextEntity(text, index);
-            if (!match.HasAmpersand)
+            var ampOffset = text[index..].IndexOf('&');
+            if (ampOffset < 0)
             {
                 dest.Append(text[index..]);
                 return;
             }
 
-            dest.Append(text[index..match.EntityStart]);
-            if (!match.HasSemicolon)
+            var entityStart = index + ampOffset;
+            dest.Append(text[index..entityStart]);
+
+            var semicolonOffset = text[entityStart..].IndexOf(';');
+            if (semicolonOffset < 0)
             {
-                dest.Append(text[match.EntityStart..]);
+                dest.Append(text[entityStart..]);
                 return;
             }
 
-            AppendDecodedEntity(dest, text[(match.EntityStart + 1)..match.SemicolonIndex]);
-            index = match.SemicolonIndex + 1;
+            var semicolonIndex = entityStart + semicolonOffset;
+            AppendDecodedEntity(dest, text[(entityStart + 1)..semicolonIndex]);
+            index = semicolonIndex + 1;
         }
     }
 
@@ -109,30 +118,6 @@ internal static class XmlEntityDecoder
 
         rune = (char)code;
         return true;
-    }
-
-    /// <summary>
-    /// Finds the next entity candidate in the text.
-    /// </summary>
-    /// <param name="text">Text being scanned.</param>
-    /// <param name="startIndex">Index to start scanning from.</param>
-    /// <returns>The located entity candidate.</returns>
-    internal static EntityMatch FindNextEntity(ReadOnlySpan<char> text, int startIndex)
-    {
-        var ampOffset = text[startIndex..].IndexOf('&');
-        if (ampOffset < 0)
-        {
-            return default;
-        }
-
-        var entityStart = startIndex + ampOffset;
-        var semicolonOffset = text[entityStart..].IndexOf(';');
-        if (semicolonOffset < 0)
-        {
-            return new(entityStart);
-        }
-
-        return new(entityStart, entityStart + semicolonOffset);
     }
 
     /// <summary>

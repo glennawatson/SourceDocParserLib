@@ -36,38 +36,56 @@ internal static class XmlMarkupParser
 
     /// <summary>
     /// Consumes a markup token starting at the current opening character.
+    /// Dispatches on the character immediately after <c>&lt;</c> so the
+    /// common-case start element doesn't pay for four upstream
+    /// <c>TryRead</c> probes — a measurable hit on the per-symbol
+    /// XmlDocToMarkdown bench.
     /// </summary>
     /// <param name="input">The full input span.</param>
     /// <param name="pos">The current position.</param>
     /// <returns>A <see cref="MarkupResult"/> describing what was found.</returns>
     public static MarkupResult ReadMarkup(ReadOnlySpan<char> input, int pos)
     {
-        // Comment <!-- … -->.
-        if (TryReadComment(input, pos, out var commentResult))
+        if (pos + LtLen >= input.Length)
         {
-            return commentResult;
+            return ReadStartElement(input, pos);
         }
 
-        // CDATA <![CDATA[ … ]]>.
-        if (TryReadCdata(input, pos, out var cdataResult))
+        switch (input[pos + LtLen])
         {
-            return cdataResult;
-        }
+            case '!':
+                {
+                    // <!-- comment --> or <![CDATA[ ... ]]>; both start with '<!'.
+                    if (TryReadComment(input, pos, out var commentResult))
+                    {
+                        return commentResult;
+                    }
 
-        // Processing instruction <? … ?>.
-        if (TryReadProcessingInstruction(input, pos, out var piResult))
-        {
-            return piResult;
-        }
+                    if (TryReadCdata(input, pos, out var cdataResult))
+                    {
+                        return cdataResult;
+                    }
 
-        // End element </name>.
-        if (TryReadEndElement(input, pos, out var endElementResult))
-        {
-            return endElementResult;
-        }
+                    return ReadStartElement(input, pos);
+                }
 
-        // Start element <name attr="…" …> or <name … />.
-        return ReadStartElement(input, pos);
+            case '?':
+                {
+                    TryReadProcessingInstruction(input, pos, out var piResult);
+                    return piResult;
+                }
+
+            case '/':
+                {
+                    TryReadEndElement(input, pos, out var endElementResult);
+                    return endElementResult;
+                }
+
+            default:
+                {
+                    return ReadStartElement(input, pos);
+                }
+        }
     }
 
     /// <summary>

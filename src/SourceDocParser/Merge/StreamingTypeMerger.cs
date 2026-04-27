@@ -16,21 +16,17 @@ public sealed class StreamingTypeMerger
     /// <summary>Initial capacity for the per-UID bucket dictionary; matches <see cref="TypeMerger.Merge"/>.</summary>
     private const int InitialBucketCapacity = 4096;
 
-    /// <summary>Initial capacity for each per-UID variant list.</summary>
+    /// <summary>Initial capacity for each per-UID variant bucket.</summary>
     private const int InitialVariantCapacity = 4;
 
     /// <summary>Growth factor for the per-UID variant array.</summary>
     private const int GrowthFactor = 2;
 
     /// <summary>Per-UID variant buckets being built up.</summary>
-    private readonly Dictionary<string, TypeVariant[]> _byUid =
+    private readonly Dictionary<string, TypeMerger.Bucket> _byUid =
         new(InitialBucketCapacity, StringComparer.Ordinal);
 
-    /// <summary>Current count for each bucket in <see cref="_byUid"/>.</summary>
-    private readonly Dictionary<string, int> _counts =
-        new(InitialBucketCapacity, StringComparer.Ordinal);
-
-    /// <summary>Lock guarding <see cref="_byUid"/> and <see cref="_counts"/> writes.</summary>
+    /// <summary>Lock guarding <see cref="_byUid"/> writes.</summary>
     private readonly Lock _lock = new();
 
     /// <summary>Set to true after <see cref="Build"/> runs so subsequent <see cref="Add"/>s throw.</summary>
@@ -68,20 +64,19 @@ public sealed class StreamingTypeMerger
 
                 if (!_byUid.TryGetValue(uid, out var bucket))
                 {
-                    bucket = new TypeVariant[InitialVariantCapacity];
+                    bucket = new TypeMerger.Bucket(InitialVariantCapacity);
                     _byUid[uid] = bucket;
-                    _counts[uid] = 0;
                 }
 
-                var count = _counts[uid];
-                if (count == bucket.Length)
+                var items = bucket.Items;
+                if (bucket.Count == items.Length)
                 {
-                    Array.Resize(ref bucket, bucket.Length * GrowthFactor);
-                    _byUid[uid] = bucket;
+                    Array.Resize(ref items, items.Length * GrowthFactor);
+                    bucket.Items = items;
                 }
 
-                bucket[count] = new(tfm, type);
-                _counts[uid] = count + 1;
+                items[bucket.Count] = new(tfm, type);
+                bucket.Count++;
             }
         }
     }
@@ -98,19 +93,18 @@ public sealed class StreamingTypeMerger
             _built = true;
         }
 
-        var bucketCount = _byUid.Count;
-        var merged = new ApiType[bucketCount];
-        var keys = new string[bucketCount];
-        _byUid.Keys.CopyTo(keys, 0);
-
-        for (var i = 0; i < bucketCount; i++)
+        var merged = new ApiType[_byUid.Count];
+        var i = 0;
+        foreach (var bucket in _byUid.Values)
         {
-            var uid = keys[i];
-            var variants = _byUid[uid];
-            var variantCount = _counts[uid];
+            var variants = bucket.Items;
+            var variantCount = bucket.Count;
 
             // Sort variants by descending TFM rank so the highest-priority TFM lands at index 0.
-            Array.Sort(variants, 0, variantCount, Comparer<TypeVariant>.Create(static (a, b) => b.Tfm.Rank.CompareTo(a.Tfm.Rank)));
+            if (variantCount > 1)
+            {
+                Array.Sort(variants, 0, variantCount, TypeMerger.TypeVariantRankComparer.Instance);
+            }
 
             var canonical = variants[0].Type;
             var appliesTo = new string[variantCount];
@@ -136,18 +130,10 @@ public sealed class StreamingTypeMerger
                 }
             }
 
-            merged[i] = canonical with { AppliesTo = appliesTo, SourceUrl = sourceUrl };
+            merged[i++] = canonical with { AppliesTo = appliesTo, SourceUrl = sourceUrl };
         }
 
         Array.Sort(merged, static (a, b) => string.CompareOrdinal(a.FullName, b.FullName));
         return merged;
     }
-
-    /// <summary>
-    /// One per-TFM occurrence of a type during the merge pass. Mirrors
-    /// the private <c>TypeVariant</c> in <see cref="TypeMerger"/>.
-    /// </summary>
-    /// <param name="Tfm">Parsed TFM the variant came from.</param>
-    /// <param name="Type">The per-TFM <see cref="ApiType"/>.</param>
-    private readonly record struct TypeVariant(Tfm.Tfm Tfm, ApiType Type);
 }

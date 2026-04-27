@@ -41,15 +41,14 @@ public static class TypeMerger
     {
         ArgumentNullException.ThrowIfNull(catalogs);
 
-        var byUid = new Dictionary<string, TypeVariant[]>(InitialBucketCapacity, StringComparer.Ordinal);
-        var counts = new Dictionary<string, int>(InitialBucketCapacity, StringComparer.Ordinal);
+        var byUid = new Dictionary<string, Bucket>(InitialBucketCapacity, StringComparer.Ordinal);
 
         for (var catalogIndex = 0; catalogIndex < catalogs.Count; catalogIndex++)
         {
-            AddCatalogVariants(catalogs[catalogIndex], byUid, counts);
+            AddCatalogVariants(catalogs[catalogIndex], byUid);
         }
 
-        var merged = BuildMergedTypes(byUid, counts);
+        var merged = BuildMergedTypes(byUid);
         Array.Sort(merged, static (a, b) => string.CompareOrdinal(a.FullName, b.FullName));
         return merged;
     }
@@ -59,11 +58,9 @@ public static class TypeMerger
     /// </summary>
     /// <param name="catalog">The catalog to fold into the merge state.</param>
     /// <param name="byUid">Bucket storage keyed by UID.</param>
-    /// <param name="counts">Current item count for each bucket.</param>
     internal static void AddCatalogVariants(
         ApiCatalog catalog,
-        Dictionary<string, TypeVariant[]> byUid,
-        Dictionary<string, int> counts)
+        Dictionary<string, Bucket> byUid)
     {
         var tfm = Tfm.Tfm.Parse(catalog.Tfm);
         var types = catalog.Types;
@@ -77,7 +74,7 @@ public static class TypeMerger
                 continue;
             }
 
-            AddVariant(uid, tfm, type, byUid, counts);
+            AddVariant(uid, tfm, type, byUid);
         }
     }
 
@@ -88,83 +85,41 @@ public static class TypeMerger
     /// <param name="tfm">TFM associated with the type variant.</param>
     /// <param name="type">The type variant to append.</param>
     /// <param name="byUid">Bucket storage keyed by UID.</param>
-    /// <param name="counts">Current item count for each bucket.</param>
     internal static void AddVariant(
         string uid,
         Tfm.Tfm tfm,
         ApiType type,
-        Dictionary<string, TypeVariant[]> byUid,
-        Dictionary<string, int> counts)
+        Dictionary<string, Bucket> byUid)
     {
-        var bucket = GetOrCreateBucket(uid, byUid, counts);
-        var count = counts[uid];
-        if (count == bucket.Length)
+        if (!byUid.TryGetValue(uid, out var bucket))
         {
-            bucket = GrowBucket(uid, bucket, byUid);
+            bucket = new Bucket(InitialVariantCapacity);
+            byUid[uid] = bucket;
         }
 
-        bucket[count] = new(tfm, type);
-        counts[uid] = count + 1;
-    }
-
-    /// <summary>
-    /// Gets an existing UID bucket or creates the initial bucket for it.
-    /// </summary>
-    /// <param name="uid">UID key for the bucket.</param>
-    /// <param name="byUid">Bucket storage keyed by UID.</param>
-    /// <param name="counts">Current item count for each bucket.</param>
-    /// <returns>The bucket for <paramref name="uid"/>.</returns>
-    internal static TypeVariant[] GetOrCreateBucket(
-        string uid,
-        Dictionary<string, TypeVariant[]> byUid,
-        Dictionary<string, int> counts)
-    {
-        if (byUid.TryGetValue(uid, out var bucket))
+        var items = bucket.Items;
+        if (bucket.Count == items.Length)
         {
-            return bucket;
+            Array.Resize(ref items, items.Length * GrowthFactor);
+            bucket.Items = items;
         }
 
-        bucket = new TypeVariant[InitialVariantCapacity];
-        byUid[uid] = bucket;
-        counts[uid] = 0;
-        return bucket;
-    }
-
-    /// <summary>
-    /// Grows a full UID bucket and updates the dictionary to point at the resized array.
-    /// </summary>
-    /// <param name="uid">UID key for the bucket.</param>
-    /// <param name="bucket">The bucket to resize.</param>
-    /// <param name="byUid">Bucket storage keyed by UID.</param>
-    /// <returns>The resized bucket.</returns>
-    internal static TypeVariant[] GrowBucket(
-        string uid,
-        TypeVariant[] bucket,
-        Dictionary<string, TypeVariant[]> byUid)
-    {
-        Array.Resize(ref bucket, bucket.Length * GrowthFactor);
-        byUid[uid] = bucket;
-        return bucket;
+        items[bucket.Count] = new(tfm, type);
+        bucket.Count++;
     }
 
     /// <summary>
     /// Builds the canonical merged types from the per-UID buckets.
     /// </summary>
     /// <param name="byUid">Bucket storage keyed by UID.</param>
-    /// <param name="counts">Current item count for each bucket.</param>
     /// <returns>The unsorted merged type array.</returns>
-    internal static ApiType[] BuildMergedTypes(
-        Dictionary<string, TypeVariant[]> byUid,
-        Dictionary<string, int> counts)
+    internal static ApiType[] BuildMergedTypes(Dictionary<string, Bucket> byUid)
     {
         var merged = new ApiType[byUid.Count];
-        var uids = new string[merged.Length];
-        byUid.Keys.CopyTo(uids, 0);
-
-        for (var uidIndex = 0; uidIndex < uids.Length; uidIndex++)
+        var i = 0;
+        foreach (var bucket in byUid.Values)
         {
-            var uid = uids[uidIndex];
-            merged[uidIndex] = BuildCanonicalType(byUid[uid], counts[uid]);
+            merged[i++] = BuildCanonicalType(bucket);
         }
 
         return merged;
@@ -173,18 +128,17 @@ public static class TypeMerger
     /// <summary>
     /// Builds the canonical merged type for a single UID bucket.
     /// </summary>
-    /// <param name="variants">All variants for one UID.</param>
-    /// <param name="variantCount">How many entries in <paramref name="variants"/> are populated.</param>
+    /// <param name="bucket">All variants for one UID.</param>
     /// <returns>The canonical merged type.</returns>
-    internal static ApiType BuildCanonicalType(TypeVariant[] variants, int variantCount)
+    internal static ApiType BuildCanonicalType(Bucket bucket)
     {
-        SortVariantsByRank(variants, variantCount);
+        SortVariantsByRank(bucket.Items, bucket.Count);
 
-        var canonical = variants[0].Type;
+        var canonical = bucket.Items[0].Type;
         return canonical with
         {
-            AppliesTo = BuildAppliesTo(variants, variantCount),
-            SourceUrl = ResolveSourceUrl(canonical.SourceUrl, variants, variantCount),
+            AppliesTo = BuildAppliesTo(bucket.Items, bucket.Count),
+            SourceUrl = ResolveSourceUrl(canonical.SourceUrl, bucket.Items, bucket.Count),
         };
     }
 
@@ -259,9 +213,30 @@ public static class TypeMerger
     internal readonly record struct TypeVariant(Tfm.Tfm Tfm, ApiType Type);
 
     /// <summary>
+    /// Per-UID growable bucket: a class wrapper so the dictionary stores
+    /// one heap object per UID instead of needing a parallel
+    /// <c>Dictionary&lt;string, int&gt;</c> to track each bucket's count.
+    /// </summary>
+    internal sealed class Bucket
+    {
+        /// <summary>Initializes a new instance of the <see cref="Bucket"/> class.</summary>
+        /// <param name="initialCapacity">Initial size of <see cref="Items"/>.</param>
+        public Bucket(int initialCapacity)
+        {
+            Items = new TypeVariant[initialCapacity];
+        }
+
+        /// <summary>Gets or sets the variant storage; resized in place as the bucket fills.</summary>
+        public TypeVariant[] Items { get; set; }
+
+        /// <summary>Gets or sets the populated entry count in <see cref="Items"/>.</summary>
+        public int Count { get; set; }
+    }
+
+    /// <summary>
     /// Descending comparer for per-UID type variants by TFM rank.
     /// </summary>
-    private sealed class TypeVariantRankComparer : IComparer<TypeVariant>
+    internal sealed class TypeVariantRankComparer : IComparer<TypeVariant>
     {
         /// <summary>
         /// Gets the shared comparer instance.

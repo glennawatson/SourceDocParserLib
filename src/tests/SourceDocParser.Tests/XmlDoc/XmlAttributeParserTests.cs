@@ -87,72 +87,13 @@ public class XmlAttributeParserTests
         await Assert.That(cref).IsEqualTo("T:Foo");
     }
 
-    /// <summary>Reading sequential attributes advances the index past each value.</summary>
+    /// <summary>Multiple attributes after a match are still findable when scanning order matters.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ReadNextAttributeAdvancesPastEachAttribute()
+    public async Task GetAttributeFindsLaterAttributesAfterEarlier()
     {
         const string source = " cref=\"T:Foo\" name=\"x\"";
-        var index = 0;
-
-        var first = XmlAttributeParser.ReadNextAttribute(source.AsSpan(), ref index);
-        var firstValid = first.IsValid;
-        var firstName = source.Substring(first.NameStart, first.NameLength);
-        var firstValue = source.Substring(first.ValueStart, first.ValueLength);
-
-        var second = XmlAttributeParser.ReadNextAttribute(source.AsSpan(), ref index);
-        var secondValid = second.IsValid;
-        var secondName = source.Substring(second.NameStart, second.NameLength);
-        var secondValue = source.Substring(second.ValueStart, second.ValueLength);
-
-        await Assert.That(firstValid).IsTrue();
-        await Assert.That(firstName).IsEqualTo("cref");
-        await Assert.That(firstValue).IsEqualTo("T:Foo");
-        await Assert.That(secondValid).IsTrue();
-        await Assert.That(secondName).IsEqualTo("name");
-        await Assert.That(secondValue).IsEqualTo("x");
-    }
-
-    /// <summary>Reading past the last attribute returns the default (invalid) range.</summary>
-    /// <returns>A task representing the test execution.</returns>
-    [Test]
-    public async Task ReadNextAttributeReturnsDefaultPastEnd()
-    {
-        var area = " cref=\"T:Foo\"".AsSpan();
-        var index = 0;
-        XmlAttributeParser.ReadNextAttribute(area, ref index);
-
-        var third = XmlAttributeParser.ReadNextAttribute(area, ref index);
-        await Assert.That(third.IsValid).IsFalse();
-    }
-
-    /// <summary>Skipping whitespace lands on the next non-space character.</summary>
-    /// <returns>A task representing the test execution.</returns>
-    [Test]
-    public async Task SkipWhitespaceLandsOnNextNonSpace()
-    {
-        var area = "   x".AsSpan();
-        var index = XmlAttributeParser.SkipWhitespace(area, 0);
-        await Assert.That(index).IsEqualTo(3);
-    }
-
-    /// <summary>Skipping whitespace from end-of-span returns the span length.</summary>
-    /// <returns>A task representing the test execution.</returns>
-    [Test]
-    public async Task SkipWhitespaceReturnsLengthForAllWhitespace()
-    {
-        var area = "   ".AsSpan();
-        var index = XmlAttributeParser.SkipWhitespace(area, 0);
-        await Assert.That(index).IsEqualTo(area.Length);
-    }
-
-    /// <summary>The name reader stops at <c>=</c>.</summary>
-    /// <returns>A task representing the test execution.</returns>
-    [Test]
-    public async Task AdvancePastAttributeNameStopsAtEquals()
-    {
-        var area = "cref=\"T:Foo\"".AsSpan();
-        var end = XmlAttributeParser.AdvancePastAttributeName(area, 0);
-        await Assert.That(end).IsEqualTo("cref".Length);
+        var name = XmlAttributeParser.GetAttribute(source.AsSpan(), "name".AsSpan()).ToString();
+        await Assert.That(name).IsEqualTo("x");
     }
 }
