@@ -167,18 +167,57 @@ internal static class DocfxYamlBuilderExtensions
             return sb;
         }
 
-        sb.Append("  children:\n");
+        // Docfx alphabetises children by uid. We collect non-mangled
+        // uids into a single array sized to the kept count, then sort
+        // in-place — O(N log N), one heap allocation, no
+        // intermediate List<T> growth. For typical N=10–50 the
+        // alternatives (binary-insert into a List, SortedSet of
+        // node-allocations) lose on either work or allocation count.
+        var kept = CountNonCompilerGenerated(members);
+        if (kept == 0)
+        {
+            return sb;
+        }
+
+        var uids = new string[kept];
+        var cursor = 0;
         for (var i = 0; i < members.Length; i++)
         {
-            if (DocfxCompilerGenerated.IsCompilerGenerated(members[i].Name))
+            var member = members[i];
+            if (DocfxCompilerGenerated.IsCompilerGenerated(member.Name))
             {
                 continue;
             }
 
-            sb.AppendChild(members[i]);
+            uids[cursor++] = DocfxCommentId.ToUid(member.Uid);
+        }
+
+        Array.Sort(uids, StringComparer.Ordinal);
+
+        sb.Append("  children:\n");
+        for (var i = 0; i < uids.Length; i++)
+        {
+            sb.Append("  - ").AppendScalar(uids[i]).AppendLine();
         }
 
         return sb;
+    }
+
+    /// <summary>Counts non-compiler-generated members so the children buffer can be sized exactly.</summary>
+    /// <param name="members">Member array to scan.</param>
+    /// <returns>The number of members that survive the compiler-gen filter.</returns>
+    public static int CountNonCompilerGenerated(ApiMember[] members)
+    {
+        var kept = 0;
+        for (var i = 0; i < members.Length; i++)
+        {
+            if (!DocfxCompilerGenerated.IsCompilerGenerated(members[i].Name))
+            {
+                kept++;
+            }
+        }
+
+        return kept;
     }
 
     /// <summary>Writes one entry of the children list.</summary>
@@ -477,11 +516,15 @@ internal static class DocfxYamlBuilderExtensions
         var fullyQualified = DocfxMemberDisplayName.FullyQualified(member, type);
         var memberId = MemberIdFor(member);
 
+        // Field order mirrors docfx's own ManagedReference output so
+        // the YAML diffs cleanly against `dotnet docfx metadata`. The
+        // overload anchor sits AFTER the syntax block in docfx; an
+        // earlier draft placed it after parent which produced a
+        // diff-unfriendly drift.
         sb.Append("- uid: ").AppendScalar(DocfxCommentId.ToUid(member.Uid)).AppendLine()
             .AppendIfPresent("  commentId: ", DocfxCommentId.ForMember(member))
             .Append("  id: ").AppendScalar(memberId).AppendLine()
             .Append("  parent: ").AppendScalar(DocfxCommentId.ToUid(type.Uid)).AppendLine()
-            .Append("  overload: ").AppendScalar(DocfxMemberDisplayName.OverloadAnchor(DocfxCommentId.ToUid(member.Uid))).AppendLine()
             .AppendLine("  langs:")
             .AppendLine("  - csharp")
             .Append("  name: ").AppendScalar(unqualified).AppendLine()
@@ -495,6 +538,7 @@ internal static class DocfxYamlBuilderExtensions
             .AppendBlockScalar("  summary: ", member.Documentation.Summary)
             .AppendBlockScalar("  remarks: ", member.Documentation.Remarks)
             .AppendMemberSyntax(member)
+            .Append("  overload: ").AppendScalar(DocfxMemberDisplayName.OverloadAnchor(DocfxCommentId.ToUid(member.Uid))).AppendLine()
             .AppendAttributes(member.Attributes);
         return sb;
     }

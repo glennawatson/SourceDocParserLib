@@ -10,6 +10,7 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="SourceDocParser/SourceDocParser.csproj" />
+    <Project Path="SourceDocParser.Common/SourceDocParser.Common.csproj" />
     <Project Path="SourceDocParser.Docfx/SourceDocParser.Docfx.csproj" />
     <Project Path="SourceDocParser.NuGet/SourceDocParser.NuGet.csproj" />
     <Project Path="SourceDocParser.Zensical/SourceDocParser.Zensical.csproj" />
@@ -17,6 +18,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/SourceDocParser.TestHelpers/SourceDocParser.TestHelpers.csproj" />
     <Project Path="tests/SourceDocParser.Tests/SourceDocParser.Tests.csproj" />
+    <Project Path="tests/SourceDocParser.Common.Tests/SourceDocParser.Common.Tests.csproj" />
     <Project Path="tests/SourceDocParser.NuGet.Tests/SourceDocParser.NuGet.Tests.csproj" />
     <Project Path="tests/SourceDocParser.Docfx.Tests/SourceDocParser.Docfx.Tests.csproj" />
     <Project Path="tests/SourceDocParser.Zensical.Tests/SourceDocParser.Zensical.Tests.csproj" />

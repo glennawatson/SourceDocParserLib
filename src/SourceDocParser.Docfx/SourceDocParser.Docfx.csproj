@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SourceDocParser\SourceDocParser.csproj" />
+    <ProjectReference Include="..\SourceDocParser.Common\SourceDocParser.Common.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -4,6 +4,7 @@
 
 using System.Globalization;
 using System.Text;
+using SourceDocParser.Common;
 
 namespace SourceDocParser.Docfx;
 
@@ -63,9 +64,15 @@ internal static class DocfxReferenceEnricher
         var href = ResolveHref(uid, openGenericUid, bareName, isInternal);
         AppendHref(sb, href, indent: "  ");
 
-        sb.Append("  name: ").AppendScalar(displayName).AppendLine()
-            .Append("  nameWithType: ").AppendScalar(displayName).AppendLine()
-            .Append("  fullName: ").AppendScalar(displayName).AppendLine();
+        // BCL primitive class types render as their C# keyword
+        // alias so the YAML matches docfx's own output (e.g. Object
+        // → object, String → string). Value types come through the
+        // walker already keyword-formatted; only class types need
+        // this rewrite.
+        var displayLabel = BclTypeAliases.ToKeyword(bareName, displayName);
+        sb.Append("  name: ").AppendScalar(displayLabel).AppendLine()
+            .Append("  nameWithType: ").AppendScalar(displayLabel).AppendLine()
+            .Append("  fullName: ").AppendScalar(displayLabel).AppendLine();
 
         if (displayName.AsSpan().IndexOfAny('<', '>') >= 0)
         {
@@ -349,8 +356,8 @@ internal static class DocfxReferenceEnricher
             // side. Display may be unqualified — fall back to the
             // promoted UID name when display is empty.
             var leafUid = trimmedUid is [_, ..]
-                ? "T:" + LiftPrimitive(trimmedUid)
-                : "T:" + LiftPrimitive(trimmedDisplay);
+                ? "T:" + BclTypeAliases.ToClr(trimmedUid)
+                : "T:" + BclTypeAliases.ToClr(trimmedDisplay);
             var label = trimmedDisplay is [_, ..] ? trimmedDisplay : trimmedUid;
             AppendSpecComponent(sb, leafUid, label, internalUids);
             return;
@@ -437,28 +444,4 @@ internal static class DocfxReferenceEnricher
 
         return count;
     }
-
-    /// <summary>Maps C# primitive aliases (<c>int</c>, <c>string</c>, …) to their <c>System.*</c> CLR names.</summary>
-    /// <param name="name">A possibly-aliased type name.</param>
-    /// <returns>The promoted CLR name, or the input unchanged when it isn't a known alias.</returns>
-    private static string LiftPrimitive(string name) => name switch
-    {
-        "int" => "System.Int32",
-        "uint" => "System.UInt32",
-        "long" => "System.Int64",
-        "ulong" => "System.UInt64",
-        "short" => "System.Int16",
-        "ushort" => "System.UInt16",
-        "byte" => "System.Byte",
-        "sbyte" => "System.SByte",
-        "bool" => "System.Boolean",
-        "char" => "System.Char",
-        "string" => "System.String",
-        "object" => "System.Object",
-        "double" => "System.Double",
-        "float" => "System.Single",
-        "decimal" => "System.Decimal",
-        "void" => "System.Void",
-        _ => name,
-    };
 }

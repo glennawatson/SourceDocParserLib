@@ -79,4 +79,93 @@ public class DocfxTypeItemTests
         await Assert.That(yaml).Contains("name: Foo()");
         await Assert.That(yaml).Contains("overload: Foo.#ctor*");
     }
+
+    /// <summary>Children list is alphabetised by uid (docfx convention) regardless of declaration order.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ChildrenListIsAlphabeticalByUid()
+    {
+        ApiMember[] members =
+        [
+            NewSimpleMethod("Zeta", "M:Foo.Zeta"),
+            NewSimpleMethod("Alpha", "M:Foo.Alpha"),
+            NewSimpleMethod("Mid", "M:Foo.Mid"),
+        ];
+        var type = TestData.ObjectType("Foo") with { Members = members };
+
+        var yaml = DocfxYamlEmitter.Render(type);
+        var alphaIdx = yaml.IndexOf("\n  - Foo.Alpha\n", StringComparison.Ordinal);
+        var midIdx = yaml.IndexOf("\n  - Foo.Mid\n", StringComparison.Ordinal);
+        var zetaIdx = yaml.IndexOf("\n  - Foo.Zeta\n", StringComparison.Ordinal);
+
+        await Assert.That(alphaIdx).IsGreaterThan(-1);
+        await Assert.That(midIdx).IsGreaterThan(alphaIdx);
+        await Assert.That(zetaIdx).IsGreaterThan(midIdx);
+    }
+
+    /// <summary>Member item field sequence matches docfx — overload sits AFTER the syntax block, not above langs.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task MemberItemFieldsAreInDocfxOrder()
+    {
+        var ctor = new ApiMember(
+            Name: ".ctor",
+            Uid: "M:Foo.#ctor",
+            Kind: ApiMemberKind.Constructor,
+            IsStatic: false,
+            IsExtension: false,
+            IsRequired: false,
+            IsVirtual: false,
+            IsOverride: false,
+            IsAbstract: false,
+            IsSealed: false,
+            Signature: "Foo()",
+            Parameters: [],
+            TypeParameters: [],
+            ReturnType: null,
+            ContainingTypeUid: "T:Foo",
+            ContainingTypeName: "Foo",
+            SourceUrl: null,
+            Documentation: ApiDocumentation.Empty,
+            IsObsolete: false,
+            ObsoleteMessage: null,
+            Attributes: []);
+        var type = TestData.ObjectType("Foo") with { Members = [ctor] };
+
+        var yaml = DocfxYamlEmitter.Render(type);
+        var syntaxIdx = yaml.IndexOf("\n  syntax:", StringComparison.Ordinal);
+        var overloadIdx = yaml.IndexOf("\n  overload:", StringComparison.Ordinal);
+        var langsIdx = yaml.IndexOf("\n  langs:", StringComparison.Ordinal);
+
+        await Assert.That(syntaxIdx).IsGreaterThan(-1);
+        await Assert.That(overloadIdx).IsGreaterThan(syntaxIdx);
+        await Assert.That(overloadIdx).IsGreaterThan(langsIdx);
+    }
+
+    /// <summary>Builds a minimal void-method member with the given name + uid.</summary>
+    /// <param name="name">Method name.</param>
+    /// <param name="uid">Method uid.</param>
+    /// <returns>The constructed member.</returns>
+    private static ApiMember NewSimpleMethod(string name, string uid) => new(
+        Name: name,
+        Uid: uid,
+        Kind: ApiMemberKind.Method,
+        IsStatic: false,
+        IsExtension: false,
+        IsRequired: false,
+        IsVirtual: false,
+        IsOverride: false,
+        IsAbstract: false,
+        IsSealed: false,
+        Signature: $"void {name}()",
+        Parameters: [],
+        TypeParameters: [],
+        ReturnType: null,
+        ContainingTypeUid: "T:Foo",
+        ContainingTypeName: "Foo",
+        SourceUrl: null,
+        Documentation: ApiDocumentation.Empty,
+        IsObsolete: false,
+        ObsoleteMessage: null,
+        Attributes: []);
 }

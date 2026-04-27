@@ -15,6 +15,18 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 /// </summary>
 public class DocfxReferenceEnricherTests
 {
+    /// <summary>BCL primitive class refs lower to their C# keyword form on the rendered name fields.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task BclPrimitiveClassReferenceLowersToKeyword()
+    {
+        var page = RenderPageWithReference(new ApiTypeReference("Object", "T:System.Object"), internalUids: []);
+
+        await Assert.That(page).Contains("  name: object");
+        await Assert.That(page).Contains("  nameWithType: object");
+        await Assert.That(page).Contains("  fullName: object");
+    }
+
     /// <summary>BCL refs get isExternal + Microsoft Learn href + parent.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
