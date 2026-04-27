@@ -6,7 +6,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection.Metadata;
 using System.Reflection.Metadata.Ecma335;
 using System.Reflection.PortableExecutable;
-using System.Text.Json;
 
 namespace SourceDocParser.SourceLink;
 
@@ -240,7 +239,7 @@ internal sealed class SourceLinkReader : IDisposable
             {
                 var blob = pdb.GetBlobReader(info.Value);
                 var bytes = blob.ReadBytes(blob.Length);
-                List<SourceLinkMapEntry> entries = [.. ParseJson(bytes)];
+                List<SourceLinkMapEntry> entries = [.. SourceLinkJsonParser.Parse(bytes)];
                 return entries is [_, ..] ? new SourceLinkMap(entries) : null;
             }
             catch
@@ -250,50 +249,5 @@ internal sealed class SourceLinkReader : IDisposable
         }
 
         return null;
-    }
-
-    /// <summary>
-    /// Parses the SourceLink JSON body into a list of <see cref="SourceLinkMapEntry"/>.
-    /// </summary>
-    /// <param name="utf8Json">SourceLink JSON body in UTF-8.</param>
-    /// <returns>An enumerable of SourceLink map entries.</returns>
-    private static IEnumerable<SourceLinkMapEntry> ParseJson(ReadOnlyMemory<byte> utf8Json)
-    {
-        using var document = JsonDocument.Parse(utf8Json);
-        if (document.RootElement.ValueKind != JsonValueKind.Object)
-        {
-            yield break;
-        }
-
-        if (!document.RootElement.TryGetProperty("documents"u8, out var documents) || documents.ValueKind is not JsonValueKind.Object)
-        {
-            yield break;
-        }
-
-        foreach (var property in documents.EnumerateObject())
-        {
-            var localPattern = property.Name;
-            if (localPattern is not [_, ..]
-                || property.Value.ValueKind is not JsonValueKind.String
-                || property.Value.GetString() is not [_, ..] urlPattern)
-            {
-                continue;
-            }
-
-            if (localPattern is [.., '*'] && urlPattern is [.., '*'])
-            {
-                yield return new(
-                    LocalPrefix: localPattern[..^1],
-                    UrlPrefix: urlPattern[..^1],
-                    IsWildcard: true);
-            }
-            else
-            {
-                yield return new(
-                    LocalPrefix: localPattern,
-                    UrlPrefix: urlPattern,
-                    IsWildcard: false);
-            }
-        }
     }
 }

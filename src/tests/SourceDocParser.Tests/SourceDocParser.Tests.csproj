@@ -9,6 +9,15 @@
     <ProjectReference Include="..\..\SourceDocParser\SourceDocParser.csproj" />
     <ProjectReference Include="..\..\SourceDocParser.NuGet\SourceDocParser.NuGet.csproj" />
     <ProjectReference Include="..\SourceDocParser.TestHelpers\SourceDocParser.TestHelpers.csproj" />
+    <!-- SamplePdb is a fixture library: a real DLL with an embedded
+         portable PDB + SourceLink JSON map. The integration tests open
+         it via typeof(SamplePdbAnchor).Assembly.Location to exercise
+         SourceLinkReader against actual PE/PDB bytes rather than
+         synthetic streams. ReferenceOutputAssembly stays default so the
+         Tests project picks up SamplePdb.dll automatically; we don't
+         actually need the public API at compile time, just the file
+         next to the test bin. -->
+    <ProjectReference Include="..\SamplePdb\SamplePdb.csproj" />
   </ItemGroup>
 
 </Project>

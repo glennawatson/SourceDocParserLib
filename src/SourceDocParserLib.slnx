@@ -25,6 +25,7 @@
     <Project Path="tests/SourceDocParser.Docfx.Tests/SourceDocParser.Docfx.Tests.csproj" />
     <Project Path="tests/SourceDocParser.Zensical.Tests/SourceDocParser.Zensical.Tests.csproj" />
     <Project Path="tests/SourceDocParser.IntegrationTests/SourceDocParser.IntegrationTests.csproj" />
+    <Project Path="tests/SamplePdb/SamplePdb.csproj" />
   </Folder>
   <Folder Name="/benchmarks/">
     <Project Path="benchmarks/SourceDocParser.Benchmarks/SourceDocParser.Benchmarks.csproj" />

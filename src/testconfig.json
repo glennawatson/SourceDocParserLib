@@ -4,6 +4,11 @@
             "Format": "cobertura",
             "SkipAutoProperties": true,
             "CodeCoverage": {
+                "ModulePaths": {
+                    "Exclude": [
+                        ".*SamplePdb\\.dll$"
+                    ]
+                },
                 "Attributes": {
                     "Exclude": [
                         "^System\\.Diagnostics\\.DebuggerHiddenAttribute$",
