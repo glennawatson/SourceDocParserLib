@@ -116,8 +116,7 @@ internal static class MemberBuilder
         SymbolWalkContext context)
     {
         var uid = member.GetDocumentationCommentId() ?? string.Empty;
-        var memberAttributes = AttributeExtractor.Extract(member);
-        var (memberObsolete, memberObsoleteMessage) = AttributeExtractor.ResolveObsolete(member);
+        var (memberAttributes, memberObsolete, memberObsoleteMessage) = AttributeExtractor.ExtractAll(member);
         return new ApiMember(
             Name: member.Name,
             Uid: uid,

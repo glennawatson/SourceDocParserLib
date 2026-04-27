@@ -27,21 +27,53 @@ internal static class AttributeExtractor
     /// </summary>
     /// <param name="symbol">The symbol whose attributes to extract.</param>
     /// <returns>The attributes; an empty array when the symbol has none.</returns>
-    public static ApiAttribute[] Extract(ISymbol symbol)
+    public static ApiAttribute[] Extract(ISymbol symbol) =>
+        ExtractCore(symbol.GetAttributes());
+
+    /// <summary>
+    /// Combined extraction — returns both the full attribute list and
+    /// the resolved <c>[Obsolete]</c> state in a single
+    /// <c>GetAttributes</c> walk. Walker call sites that need both
+    /// fields should call this rather than <see cref="Extract"/> +
+    /// <see cref="ResolveObsolete"/> back-to-back, which iterated the
+    /// attribute list twice.
+    /// </summary>
+    /// <param name="symbol">The symbol to inspect.</param>
+    /// <returns>Tuple of attributes, obsolete flag, and optional message.</returns>
+    public static (ApiAttribute[] Attributes, bool IsObsolete, string? ObsoleteMessage) ExtractAll(ISymbol symbol)
     {
-        var attributes = symbol.GetAttributes();
-        if (attributes.IsDefaultOrEmpty)
+        var raw = symbol.GetAttributes();
+        if (raw.IsDefaultOrEmpty)
         {
-            return [];
+            return ([], false, null);
         }
 
-        var result = new ApiAttribute[attributes.Length];
-        for (var i = 0; i < attributes.Length; i++)
+        var attributes = new ApiAttribute[raw.Length];
+        var isObsolete = false;
+        string? obsoleteMessage = null;
+        for (var i = 0; i < raw.Length; i++)
         {
-            result[i] = Convert(attributes[i]);
+            var data = raw[i];
+            attributes[i] = Convert(data);
+
+            // Resolve the [Obsolete] state inline on the same iteration
+            // — first match wins. Multiple [Obsolete] applications are
+            // valid C# (latest in metadata is the active one) but rare;
+            // taking the first matches the behaviour of the prior
+            // standalone ResolveObsolete loop.
+            if (isObsolete || !IsObsoleteAttribute(data.AttributeClass))
+            {
+                continue;
+            }
+
+            isObsolete = true;
+            var message = data.ConstructorArguments is [var first, ..]
+                ? first.Value as string
+                : null;
+            obsoleteMessage = message is [_, ..] ? message : null;
         }
 
-        return result;
+        return (attributes, isObsolete, obsoleteMessage);
     }
 
     /// <summary>
@@ -69,6 +101,25 @@ internal static class AttributeExtractor
         }
 
         return (false, null);
+    }
+
+    /// <summary>Materialises the full attribute list — shared between <see cref="Extract"/> and the standalone path callers.</summary>
+    /// <param name="raw">Raw Roslyn attribute data from <c>GetAttributes</c>.</param>
+    /// <returns>The model attributes, or the shared empty array when none.</returns>
+    internal static ApiAttribute[] ExtractCore(System.Collections.Immutable.ImmutableArray<AttributeData> raw)
+    {
+        if (raw.IsDefaultOrEmpty)
+        {
+            return [];
+        }
+
+        var result = new ApiAttribute[raw.Length];
+        for (var i = 0; i < raw.Length; i++)
+        {
+            result[i] = Convert(raw[i]);
+        }
+
+        return result;
     }
 
     /// <summary>Tests whether <paramref name="attributeClass"/> is <c>System.ObsoleteAttribute</c>.</summary>

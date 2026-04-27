@@ -29,6 +29,17 @@ internal static class ExtensionBlockBuilder
     /// <returns>The extension blocks declared on the type.</returns>
     internal static ApiExtensionBlock[] Build(INamedTypeSymbol type, SymbolWalkContext context)
     {
+        // C# 14 extension blocks only land on static container types,
+        // so skip the GetTypeMembers materialisation for the dominant
+        // non-static case. Roslyn allocates the nested-types
+        // ImmutableArray on every call regardless of how many entries
+        // it holds; the IsStatic guard makes the common no-op path a
+        // single property read.
+        if (!type.IsStatic)
+        {
+            return [];
+        }
+
         var nested = type.GetTypeMembers();
         if (nested.IsDefaultOrEmpty)
         {

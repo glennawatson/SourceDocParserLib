@@ -33,8 +33,7 @@ internal static class TypeBuilder
         var baseTypeRef = SymbolWalkerHelpers.BuildBaseTypeReference(type, context.TypeRefs);
         var interfaces = SymbolWalkerHelpers.BuildInterfaceReferences(type, context.TypeRefs);
         var sourceUrl = context.SourceLinks.Resolve(type);
-        var attributes = AttributeExtractor.Extract(type);
-        var (isObsolete, obsoleteMessage) = AttributeExtractor.ResolveObsolete(type);
+        var (attributes, isObsolete, obsoleteMessage) = AttributeExtractor.ExtractAll(type);
 
         return type.TypeKind switch
         {
