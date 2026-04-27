@@ -194,6 +194,117 @@ public class SamplePdbWalkerIntegrationTests
         await Assert.That(nested.Name).IsEqualTo("Nested");
     }
 
+    /// <summary>Delegate types are captured with the dedicated delegate kind and surface their signature.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task DelegateTypeCapturesSignature()
+    {
+        var catalog = WalkSamplePdb();
+
+        var binaryOp = FindType<ApiDelegateType>(catalog, "SamplePdb.SampleBinaryOp");
+        await Assert.That(binaryOp.Invoke.Parameters.Length).IsEqualTo(2);
+        await Assert.That(binaryOp.Invoke.Parameters[0].Name).IsEqualTo("left");
+        await Assert.That(binaryOp.Invoke.Parameters[1].Name).IsEqualTo("right");
+        await Assert.That(binaryOp.Invoke.ReturnType).IsNotNull();
+        await Assert.That(binaryOp.Invoke.ReturnType!.DisplayName).Contains("int");
+    }
+
+    /// <summary>Generic delegates carry their arity and type-parameter list on the signature.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task GenericDelegateCapturesTypeParameters()
+    {
+        var predicate = FindType<ApiDelegateType>(WalkSamplePdb(), "SamplePdb.SamplePredicate");
+
+        await Assert.That(predicate.Arity).IsEqualTo(1);
+        await Assert.That(predicate.Invoke.TypeParameters.Length).IsEqualTo(1);
+        await Assert.That(predicate.Invoke.TypeParameters[0]).IsEqualTo("T");
+    }
+
+    /// <summary>Plain enums are captured with their members as <see cref="ApiEnumValue"/>s in declaration order.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task EnumCapturesMembers()
+    {
+        var severity = FindType<ApiEnumType>(WalkSamplePdb(), "SamplePdb.SampleSeverity");
+
+        await Assert.That(severity.Values.Length).IsEqualTo(3);
+        await Assert.That(severity.Values[0].Name).IsEqualTo("Info");
+        await Assert.That(severity.Values[1].Name).IsEqualTo("Warning");
+        await Assert.That(severity.Values[2].Name).IsEqualTo("Error");
+    }
+
+    /// <summary>Flags enums carry the explicit underlying-type display name and every declared member.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task FlagsEnumCapturesUnderlyingTypeAndMembers()
+    {
+        var flags = FindType<ApiEnumType>(WalkSamplePdb(), "SamplePdb.SampleFlags");
+
+        await Assert.That(flags.UnderlyingType).IsNotNull();
+        await Assert.That(flags.UnderlyingType!.DisplayName).Contains("byte");
+
+        var memberNames = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < flags.Values.Length; i++)
+        {
+            memberNames.Add(flags.Values[i].Name);
+        }
+
+        await Assert.That(memberNames).Contains("None");
+        await Assert.That(memberNames).Contains("Read");
+        await Assert.That(memberNames).Contains("Write");
+        await Assert.That(memberNames).Contains("All");
+    }
+
+    /// <summary>Attributes with a positional argument plus named arguments preserve every value in source order (positional first, named after).</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task AttributeArgumentsAreCaptured()
+    {
+        var target = FindObjectType(WalkSamplePdb(), "SamplePdb.AttributedTarget");
+
+        ApiAttribute? marker = null;
+        for (var i = 0; i < target.Attributes.Length; i++)
+        {
+            if (target.Attributes[i].DisplayName == "Marker")
+            {
+                marker = target.Attributes[i];
+                break;
+            }
+        }
+
+        await Assert.That(marker).IsNotNull();
+        await Assert.That(marker!.Arguments.Length).IsEqualTo(3);
+
+        // Positional first.
+        await Assert.That(marker.Arguments[0].Name).IsNull();
+        await Assert.That(marker.Arguments[0].Value).IsEqualTo("\"primary\"");
+
+        // Named arguments retain their declaration order.
+        await Assert.That(marker.Arguments[1].Name).IsEqualTo("Priority");
+        await Assert.That(marker.Arguments[1].Value).IsEqualTo("7");
+
+        await Assert.That(marker.Arguments[2].Name).IsEqualTo("Tag");
+        await Assert.That(marker.Arguments[2].Value).IsEqualTo("\"fixture\"");
+    }
+
+    /// <summary>Closed-hierarchy unions (any type implementing <c>System.Runtime.CompilerServices.IUnion</c>) surface as <see cref="ApiUnionType"/> with their case classes captured.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task UnionTypeCapturesCases()
+    {
+        var shape = FindType<ApiUnionType>(WalkSamplePdb(), "SamplePdb.SampleShape");
+
+        var caseNames = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < shape.Cases.Length; i++)
+        {
+            caseNames.Add(shape.Cases[i].DisplayName);
+        }
+
+        await Assert.That(caseNames).Contains("SampleCircle");
+        await Assert.That(caseNames).Contains("SampleSquare");
+    }
+
     /// <summary>Assembly metadata + TFM are stamped on every emitted type.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -214,7 +325,7 @@ public class SamplePdbWalkerIntegrationTests
     /// DLL on disk, then runs the walker over the SamplePdb assembly
     /// symbol the resulting Compilation surfaces. Mirrors the
     /// production path that loads a real package's assembly via
-    /// <see cref="MetadataReference.CreateFromFile(string)"/>.
+    /// MetadataReference.CreateFromFile.
     /// </summary>
     /// <returns>The walked catalog.</returns>
     private static ApiCatalog WalkSamplePdb()
@@ -265,17 +376,26 @@ public class SamplePdbWalkerIntegrationTests
     /// <param name="catalog">The walked catalog.</param>
     /// <param name="fullName">Full name to look up.</param>
     /// <returns>The matching type.</returns>
-    private static ApiObjectType FindObjectType(ApiCatalog catalog, string fullName)
+    private static ApiObjectType FindObjectType(ApiCatalog catalog, string fullName) =>
+        FindType<ApiObjectType>(catalog, fullName);
+
+    /// <summary>Returns the catalog entry of the requested concrete type with the given full name.</summary>
+    /// <typeparam name="T">Concrete <see cref="ApiType"/> subtype to match.</typeparam>
+    /// <param name="catalog">The walked catalog.</param>
+    /// <param name="fullName">Full name to look up.</param>
+    /// <returns>The matching type.</returns>
+    private static T FindType<T>(ApiCatalog catalog, string fullName)
+        where T : ApiType
     {
         for (var i = 0; i < catalog.Types.Length; i++)
         {
-            if (catalog.Types[i] is ApiObjectType obj && obj.FullName == fullName)
+            if (catalog.Types[i] is T match && match.FullName == fullName)
             {
-                return obj;
+                return match;
             }
         }
 
-        throw new InvalidOperationException($"Object type '{fullName}' not in catalog.");
+        throw new InvalidOperationException($"{typeof(T).Name} '{fullName}' not in catalog.");
     }
 
     /// <summary>Returns the first member with the given metadata name.</summary>

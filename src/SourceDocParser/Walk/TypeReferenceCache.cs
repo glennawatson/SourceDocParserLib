@@ -19,10 +19,16 @@ namespace SourceDocParser.Walk;
 internal sealed class TypeReferenceCache
 {
     /// <summary>
-    /// The backing dictionary for cached type references.
+    /// The backing dictionary for cached type references. Keyed with
+    /// <see cref="SymbolEqualityComparer.IncludeNullability"/> so a
+    /// parameter's <c>Foo?</c> usage and a base-type's <c>Foo</c>
+    /// usage stay distinct entries — without that, whichever shape
+    /// arrived first would propagate its nullable suffix into every
+    /// later structural reference (base types, interfaces, union
+    /// cases) via the shared cache.
     /// </summary>
     private readonly Dictionary<ITypeSymbol, ApiTypeReference> _byType =
-        new(SymbolEqualityComparer.Default);
+        new(SymbolEqualityComparer.IncludeNullability);
 
     /// <summary>
     /// Gets or adds a cached reference for the specified type.
