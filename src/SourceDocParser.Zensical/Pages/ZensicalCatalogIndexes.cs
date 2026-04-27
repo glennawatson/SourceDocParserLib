@@ -153,7 +153,18 @@ public sealed class ZensicalCatalogIndexes
         return map;
     }
 
-    /// <summary>Single-pass build of the reverse extension-method lookup.</summary>
+    /// <summary>
+    /// Single-pass build of the reverse extension-method lookup.
+    /// </summary>
+    /// <remarks>
+    /// Best-effort: only extension methods whose first parameter has
+    /// a concrete type uid are indexed. Generic-receiver extensions
+    /// of the form <c>static void Foo&lt;T&gt;(this T self) where T : IBar</c>
+    /// are skipped — docfx itself propagates these onto every type
+    /// satisfying the constraint, but Zensical follows the same
+    /// best-effort policy as the docfx emitter so the two outputs
+    /// stay aligned.
+    /// </remarks>
     /// <param name="types">All types being emitted.</param>
     /// <returns>Mutable dictionary; converted to frozen form by the caller.</returns>
     internal static Dictionary<string, List<ApiMember>> BuildExtensionsRaw(ApiType[] types)

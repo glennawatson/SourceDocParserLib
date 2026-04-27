@@ -152,7 +152,19 @@ public sealed class DocfxCatalogIndexes
         return map;
     }
 
-    /// <summary>Single-pass build of the reverse extension-method lookup.</summary>
+    /// <summary>
+    /// Single-pass build of the reverse extension-method lookup.
+    /// </summary>
+    /// <remarks>
+    /// Best-effort: only extension methods whose first parameter has
+    /// a concrete type uid are indexed. Generic-receiver extensions
+    /// of the form <c>static void Foo&lt;T&gt;(this T self) where T : IBar</c>
+    /// are skipped — docfx itself propagates these onto every type
+    /// satisfying the constraint, but that requires walking the
+    /// constraint set of every type in the catalog and is a deliberate
+    /// deviation rather than a bug. Classic non-generic extensions
+    /// (the dominant shape) and C# 14 extension blocks land correctly.
+    /// </remarks>
     /// <param name="types">All types being emitted.</param>
     /// <returns>Mutable dictionary; converted to frozen form by the caller.</returns>
     internal static Dictionary<string, List<ApiMember>> BuildExtensionsRaw(ApiType[] types)

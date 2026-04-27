@@ -70,9 +70,10 @@ internal static class DocfxReferenceEnricher
         // walker already keyword-formatted; only class types need
         // this rewrite.
         var displayLabel = BclTypeAliases.ToKeyword(bareName, displayName);
+        var fullNameLabel = SynthesiseFullName(bareName);
         sb.Append("  name: ").AppendScalar(displayLabel).AppendLine()
             .Append("  nameWithType: ").AppendScalar(displayLabel).AppendLine()
-            .Append("  fullName: ").AppendScalar(displayLabel).AppendLine();
+            .Append("  fullName: ").AppendScalar(fullNameLabel).AppendLine();
 
         if (displayName.AsSpan().IndexOfAny('<', '>') >= 0)
         {
@@ -82,11 +83,60 @@ internal static class DocfxReferenceEnricher
         return sb;
     }
 
+    /// <summary>
+    /// Synthesises the docfx-style <c>fullName</c> from a bare UID
+    /// (no <c>T:</c> prefix). Non-generic UIDs flow through almost
+    /// unchanged — only BCL primitive aliasing is applied. Generic
+    /// UIDs replace the <c>{…}</c> brace region with the docfx
+    /// <c>&lt;…&gt;</c> form, recursively expanding any nested args
+    /// and stripping the <c>`N</c> arity suffix from the base type.
+    /// All segment names stay fully namespaced — that's the entire
+    /// point of this helper vs the short <c>name</c> field.
+    /// </summary>
+    /// <param name="bareName">UID with the <c>T:</c> prefix already stripped.</param>
+    /// <returns>The fully-qualified docfx-style name.</returns>
+    internal static string SynthesiseFullName(string bareName)
+    {
+        var braceIdx = bareName.IndexOf('{', StringComparison.Ordinal);
+        if (braceIdx < 0)
+        {
+            return BclTypeAliases.ToKeyword(bareName, bareName);
+        }
+
+        var head = bareName[..braceIdx];
+        var argRegion = bareName[(braceIdx + 1)..^1];
+        var baseName = StripArityBacktick(head);
+
+        var sb = new StringBuilder(bareName.Length + 8);
+        sb.Append(BclTypeAliases.ToKeyword(baseName, baseName)).Append('<');
+        var argSegments = SplitTopLevelArgs(argRegion, '{', '}');
+        for (var i = 0; i < argSegments.Count; i++)
+        {
+            if (i > 0)
+            {
+                sb.Append(", ");
+            }
+
+            sb.Append(SynthesiseFullName(argSegments[i].Trim()));
+        }
+
+        return sb.Append('>').ToString();
+    }
+
     /// <summary>Strips the leading <c>T:</c> / <c>M:</c> / etc. prefix from a UID.</summary>
     /// <param name="uid">The full UID.</param>
     /// <returns>The bare name, without any single-letter prefix.</returns>
     private static string StripPrefix(string uid) =>
         uid is [_, ':', ..] ? uid[2..] : uid;
+
+    /// <summary>Strips the trailing <c>`N</c> arity suffix from a bare type-name segment.</summary>
+    /// <param name="head">Bare type-name segment (may end in arity backtick).</param>
+    /// <returns>The name with the suffix removed when present.</returns>
+    private static string StripArityBacktick(string head)
+    {
+        var tickIdx = head.LastIndexOf('`');
+        return tickIdx > 0 ? head[..tickIdx] : head;
+    }
 
     /// <summary>Strips the namespace from a bare type name to get its parent (namespace) part.</summary>
     /// <param name="bareName">The bare type name.</param>
