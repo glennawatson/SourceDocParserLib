@@ -39,8 +39,8 @@ public class DocfxAttributeAndCompilerGenTests
         {
             Attributes =
             [
-                new("Serializable", "T:System.SerializableAttribute", []),
-                new("NullableContext", "T:System.Runtime.CompilerServices.NullableContextAttribute", []),
+                new("Serializable", "T:System.SerializableAttribute", string.Empty, []),
+                new("NullableContext", "T:System.Runtime.CompilerServices.NullableContextAttribute", string.Empty, []),
             ],
         };
 
@@ -63,6 +63,7 @@ public class DocfxAttributeAndCompilerGenTests
                 new(
                     "StyleTypedProperty",
                     "T:System.Windows.StyleTypedPropertyAttribute",
+                    string.Empty,
                     [
                         new ApiAttributeArgument(Name: null, Value: "\"ItemContainerStyle\""),
                         new ApiAttributeArgument(Name: "StyleTargetType", Value: "typeof(ListBoxItem)"),

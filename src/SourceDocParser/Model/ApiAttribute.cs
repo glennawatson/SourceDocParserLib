@@ -14,5 +14,6 @@ namespace SourceDocParser;
 /// </summary>
 /// <param name="DisplayName">The attribute's display name (without the <c>Attribute</c> suffix).</param>
 /// <param name="Uid">The attribute type's documentation comment ID.</param>
+/// <param name="ConstructorUid">The bound constructor's documentation comment ID; empty when unresolved.</param>
 /// <param name="Arguments">The constructor and named arguments, in source order.</param>
-public sealed record ApiAttribute(string DisplayName, string Uid, ApiAttributeArgument[] Arguments);
+public sealed record ApiAttribute(string DisplayName, string Uid, string ConstructorUid, ApiAttributeArgument[] Arguments);

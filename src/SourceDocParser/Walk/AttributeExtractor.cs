@@ -139,6 +139,7 @@ internal static class AttributeExtractor
             ? "Attribute"
             : StripAttributeSuffix(attributeClass.Name);
         var uid = attributeClass?.GetDocumentationCommentId() ?? string.Empty;
+        var ctorUid = data.AttributeConstructor?.GetDocumentationCommentId() ?? string.Empty;
 
         var positional = data.ConstructorArguments;
         var named = data.NamedArguments;
@@ -155,7 +156,7 @@ internal static class AttributeExtractor
             args[positional.Length + i] = new ApiAttributeArgument(Name: entry.Key, Value: FormatConstant(entry.Value));
         }
 
-        return new ApiAttribute(displayName, uid, args);
+        return new ApiAttribute(displayName, uid, ctorUid, args);
     }
 
     /// <summary>Drops the trailing <c>Attribute</c> suffix from a class name when present.</summary>

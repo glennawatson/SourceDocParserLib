@@ -64,7 +64,7 @@ public static class TypePageEmitter
     /// Catalog-aware <see cref="RenderToFile(ApiType, string, ZensicalEmitterOptions)"/>
     /// — threads <paramref name="indexes"/> through to the page render
     /// so the type page picks up the "Derived types", "Inherited
-    /// members", and "Extension methods" sections.
+    /// members", and "Extension members" sections.
     /// </summary>
     /// <param name="type">The type to render.</param>
     /// <param name="outputRoot">The directory that contains the api/ tree.</param>
@@ -103,7 +103,7 @@ public static class TypePageEmitter
     /// <summary>
     /// Catalog-aware render: in addition to the per-type metadata,
     /// renders "Derived types", "Inherited members", and
-    /// "Extension methods" sections pulled from
+    /// "Extension members" sections pulled from
     /// <paramref name="indexes"/> when the type has matching entries.
     /// </summary>
     /// <param name="type">The type to render.</param>
@@ -167,7 +167,7 @@ public static class TypePageEmitter
         AppendDelegateSignature(sb, type);
         AppendDerivedTypes(sb, indexes.GetDerived(type.Uid), options);
         AppendInheritedMembers(sb, indexes.GetInherited(type.Uid));
-        AppendExtensionMethods(sb, indexes.GetExtensions(type.Uid), options);
+        AppendExtensionMembers(sb, indexes.GetExtensions(type.Uid), options);
         AppendExtensionBlocks(sb, type is ApiObjectType obj ? obj.ExtensionBlocks : [], options);
         AppendSeeAlso(sb, type.Documentation.SeeAlso, options);
 
@@ -246,21 +246,24 @@ public static class TypePageEmitter
     }
 
     /// <summary>
-    /// Renders the "Extension methods" section listing static methods
-    /// from other types whose first parameter targets this type.
+    /// Renders the "Extension members" section listing static methods
+    /// from other types whose first parameter targets this type. The
+    /// markdown intentionally uses the unified C# 14 term "extension
+    /// members" rather than "extension methods" so the heading stays
+    /// consistent with the C# 14 extension-block section that follows.
     /// No-op when there are none.
     /// </summary>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="extensions">Extension members from <see cref="ZensicalCatalogIndexes.GetExtensions"/>.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
-    internal static void AppendExtensionMethods(StringBuilder sb, ApiMember[] extensions, ZensicalEmitterOptions options)
+    internal static void AppendExtensionMembers(StringBuilder sb, ApiMember[] extensions, ZensicalEmitterOptions options)
     {
         if (extensions is [])
         {
             return;
         }
 
-        sb.Append("\n## Extension methods\n\n");
+        sb.Append("\n## Extension members\n\n");
         for (var i = 0; i < extensions.Length; i++)
         {
             var member = extensions[i];

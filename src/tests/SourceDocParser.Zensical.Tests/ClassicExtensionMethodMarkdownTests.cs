@@ -11,7 +11,7 @@ namespace SourceDocParser.Zensical.Tests;
 /// extension method on a static host should populate
 /// <see cref="ZensicalCatalogIndexes.ExtensionMethods"/> for the
 /// receiver's UID and the rendered Target page should carry the
-/// matching <c>## Extension methods</c> markdown section.
+/// matching <c>## Extension members</c> markdown section.
 /// Mirrors the docfx-side coverage so a regression in either
 /// emitter's keying convention surfaces immediately.
 /// </summary>
@@ -31,17 +31,17 @@ public class ClassicExtensionMethodMarkdownTests
         await Assert.That(extensions[0].Name).IsEqualTo("DoIt");
     }
 
-    /// <summary>Rendered Markdown for the extended type carries an Extension methods section.</summary>
+    /// <summary>Rendered Markdown for the extended type carries an Extension members section.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ExtendedTypePageEmitsExtensionMethodsSection()
+    public async Task ExtendedTypePageEmitsExtensionMembersSection()
     {
         var (target, helpers) = BuildClassicExtensionFixture();
         var indexes = ZensicalCatalogIndexes.Build([target, helpers]);
 
         var page = TypePageEmitter.Render(target, ZensicalEmitterOptions.Default, indexes);
 
-        await Assert.That(page).Contains("## Extension methods");
+        await Assert.That(page).Contains("## Extension members");
         await Assert.That(page).Contains("DoIt");
         await Assert.That(page).Contains("Helpers");
     }

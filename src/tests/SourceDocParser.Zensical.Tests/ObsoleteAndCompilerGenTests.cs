@@ -68,8 +68,8 @@ public class ObsoleteAndCompilerGenTests
         {
             Attributes =
             [
-                new("Serializable", "T:System.SerializableAttribute", []),
-                new("NullableContext", "T:System.Runtime.CompilerServices.NullableContextAttribute", []),
+                new("Serializable", "T:System.SerializableAttribute", string.Empty, []),
+                new("NullableContext", "T:System.Runtime.CompilerServices.NullableContextAttribute", string.Empty, []),
             ],
         };
 

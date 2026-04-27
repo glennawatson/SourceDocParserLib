@@ -36,7 +36,7 @@ public class DocfxSyntaxContentTests
         var sb = new StringBuilder();
         ApiAttribute[] attrs =
         [
-            new("NullableContext", "T:System.Runtime.CompilerServices.NullableContextAttribute", []),
+            new("NullableContext", "T:System.Runtime.CompilerServices.NullableContextAttribute", string.Empty, []),
         ];
 
         sb.AppendSyntaxContent(attrs, "public void Run()", indent: "    ");
@@ -52,7 +52,7 @@ public class DocfxSyntaxContentTests
         var sb = new StringBuilder();
         ApiAttribute[] attrs =
         [
-            new("Serializable", "T:System.SerializableAttribute", []),
+            new("Serializable", "T:System.SerializableAttribute", string.Empty, []),
         ];
 
         sb.AppendSyntaxContent(attrs, "public class Foo", indent: "    ");
@@ -66,7 +66,7 @@ public class DocfxSyntaxContentTests
     public async Task RenderAttributeUsageNoArgsReturnsBareName()
     {
         var rendered = DocfxYamlBuilderExtensions.RenderAttributeUsage(
-            new ApiAttribute("Serializable", "T:System.SerializableAttribute", []));
+            new ApiAttribute("Serializable", "T:System.SerializableAttribute", string.Empty, []));
 
         await Assert.That(rendered).IsEqualTo("Serializable");
     }
@@ -79,6 +79,7 @@ public class DocfxSyntaxContentTests
         var attribute = new ApiAttribute(
             "StyleTypedProperty",
             "T:System.Windows.StyleTypedPropertyAttribute",
+            string.Empty,
             [
                 new ApiAttributeArgument(Name: null, Value: "\"ItemContainerStyle\""),
                 new ApiAttributeArgument(Name: "StyleTargetType", Value: "typeof(ListBoxItem)"),
@@ -115,7 +116,7 @@ public class DocfxSyntaxContentTests
             Documentation: ApiDocumentation.Empty,
             IsObsolete: false,
             ObsoleteMessage: null,
-            Attributes: [new ApiAttribute("Obsolete", "T:System.ObsoleteAttribute", [])]);
+            Attributes: [new ApiAttribute("Obsolete", "T:System.ObsoleteAttribute", string.Empty, [])]);
         var type = TestData.ObjectType("Foo") with { Members = [member] };
 
         var yaml = DocfxYamlEmitter.Render(type);

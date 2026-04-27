@@ -18,8 +18,8 @@ public class AttributeFilterTests
     {
         ApiAttribute[] attrs =
         [
-            new("NullableContext", "T:System.Runtime.CompilerServices.NullableContextAttribute", []),
-            new("IsReadOnly", "T:System.Runtime.CompilerServices.IsReadOnlyAttribute", []),
+            new("NullableContext", "T:System.Runtime.CompilerServices.NullableContextAttribute", string.Empty, []),
+            new("IsReadOnly", "T:System.Runtime.CompilerServices.IsReadOnlyAttribute", string.Empty, []),
         ];
 
         var rendered = AttributeFilter.RenderInlineList(attrs);
@@ -34,7 +34,7 @@ public class AttributeFilterTests
     {
         ApiAttribute[] attrs =
         [
-            new("Extension", "T:System.Runtime.CompilerServices.ExtensionAttribute", []),
+            new("Extension", "T:System.Runtime.CompilerServices.ExtensionAttribute", string.Empty, []),
         ];
 
         var rendered = AttributeFilter.RenderInlineList(attrs);
@@ -52,6 +52,7 @@ public class AttributeFilterTests
             new(
                 "StyleTypedProperty",
                 "T:System.Windows.StyleTypedPropertyAttribute",
+                string.Empty,
                 [
                     new ApiAttributeArgument(Name: null, Value: "\"ItemContainerStyle\""),
                     new ApiAttributeArgument(Name: "StyleTargetType", Value: "typeof(ListBoxItem)"),
@@ -70,9 +71,9 @@ public class AttributeFilterTests
     {
         ApiAttribute[] attrs =
         [
-            new("Serializable", "T:System.SerializableAttribute", []),
-            new("NullableContext", "T:System.Runtime.CompilerServices.NullableContextAttribute", []),
-            new("Flags", "T:System.FlagsAttribute", []),
+            new("Serializable", "T:System.SerializableAttribute", string.Empty, []),
+            new("NullableContext", "T:System.Runtime.CompilerServices.NullableContextAttribute", string.Empty, []),
+            new("Flags", "T:System.FlagsAttribute", string.Empty, []),
         ];
 
         var rendered = AttributeFilter.RenderInlineList(attrs);

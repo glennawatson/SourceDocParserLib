@@ -9,7 +9,7 @@ namespace SourceDocParser.Zensical;
 /// <summary>
 /// Per-emit catalog rollups consumed by <see cref="TypePageEmitter"/>
 /// to render the "Derived types", "Inherited members", and
-/// "Extension methods" markdown sections. Built once at the start of
+/// "Extension members" markdown sections. Built once at the start of
 /// <see cref="ZensicalDocumentationEmitter.EmitAsync"/> and reused
 /// by every per-type render. Lookups return <see cref="Array.Empty{T}"/>
 /// (the shared singleton, no per-query allocation) when the type

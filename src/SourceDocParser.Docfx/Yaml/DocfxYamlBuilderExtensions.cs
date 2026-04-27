@@ -595,6 +595,16 @@ internal static class DocfxYamlBuilderExtensions
         var typeRef = attribute.Uid is [_, ':', ..] ? attribute.Uid[2..] : attribute.Uid;
         sb.Append("  - type: ").AppendScalar(typeRef).AppendLine();
 
+        // Docfx renders the bound constructor uid (M: prefix stripped)
+        // alongside the attribute type — gives the YAML enough fidelity
+        // to differentiate `[Browsable]` from `[Browsable(false)]` at the
+        // metadata level without parsing arguments.
+        if (attribute.ConstructorUid is [_, ..] ctorUid)
+        {
+            var ctorScalar = ctorUid is [_, ':', ..] ? ctorUid[2..] : ctorUid;
+            sb.Append("    ctor: ").AppendScalar(ctorScalar).AppendLine();
+        }
+
         if (attribute.Arguments is [])
         {
             sb.Append("    arguments: []\n");
