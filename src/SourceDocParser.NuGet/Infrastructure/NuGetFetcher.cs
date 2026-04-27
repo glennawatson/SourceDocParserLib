@@ -53,6 +53,16 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     private const double ExtractedTimestampToleranceSeconds = 2;
 
     /// <summary>
+    /// Maximum uncompressed size allowed for any extracted archive entry.
+    /// </summary>
+    private const long MaxExtractedArchiveEntryBytes = 128L * 1024L * 1024L;
+
+    /// <summary>
+    /// Copy buffer used when streaming validated ZIP entries to disk.
+    /// </summary>
+    private const int ExtractCopyBufferSize = 81920;
+
+    /// <summary>
     /// Base URI of the NuGet v3 service index used for endpoint discovery.
     /// </summary>
     private static readonly Uri ServiceIndexUri = new("https://api.nuget.org/v3/index.json");
@@ -198,6 +208,42 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     }
 
     /// <summary>
+    /// Extracts a ZIP entry to disk after validating its uncompressed size.
+    /// </summary>
+    /// <param name="destPath">Destination file path.</param>
+    /// <param name="entry">Archive entry to extract.</param>
+    internal static void ExtractValidatedEntry(string destPath, ZipArchiveEntry entry)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destPath);
+        ArgumentNullException.ThrowIfNull(entry);
+        ValidateExtractedEntrySize(entry);
+
+        using var entryStream = entry.Open();
+        using (var fileStream = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            CopyBoundedTo(entryStream, fileStream, entry.Length);
+        }
+
+        File.SetLastWriteTimeUtc(destPath, entry.LastWriteTime.UtcDateTime);
+    }
+
+    /// <summary>
+    /// Rejects archive entries whose declared uncompressed size exceeds our extraction cap.
+    /// </summary>
+    /// <param name="entry">Archive entry to validate.</param>
+    internal static void ValidateExtractedEntrySize(ZipArchiveEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        if (entry.Length <= MaxExtractedArchiveEntryBytes)
+        {
+            return;
+        }
+
+        throw new InvalidDataException(
+            $"Refusing to extract archive entry '{entry.FullName}' because its uncompressed size {entry.Length} bytes exceeds the safety limit of {MaxExtractedArchiveEntryBytes} bytes.");
+    }
+
+    /// <summary>
     /// Adds dependency IDs that survive exclusion filtering.
     /// </summary>
     /// <param name="dependencyIds">Dependency IDs discovered in a nuspec.</param>
@@ -308,6 +354,73 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         return result.TryGetProperty("vulnerabilities"u8, out var vulnerabilities)
             && vulnerabilities is { ValueKind: JsonValueKind.Array }
             && vulnerabilities.GetArrayLength() is > 0;
+    }
+
+    /// <summary>
+    /// Copies exactly the validated number of bytes from a ZIP entry stream to disk.
+    /// </summary>
+    /// <param name="source">Entry stream to read from.</param>
+    /// <param name="destination">Destination file stream.</param>
+    /// <param name="expectedBytes">Validated byte count expected from the entry.</param>
+    private static void CopyBoundedTo(Stream source, Stream destination, long expectedBytes)
+    {
+        var buffer = new byte[ExtractCopyBufferSize];
+        long copied = 0;
+        while (true)
+        {
+            var bytesRead = source.Read(buffer, 0, buffer.Length);
+            if (bytesRead == 0)
+            {
+                break;
+            }
+
+            copied += bytesRead;
+            if (copied > expectedBytes)
+            {
+                throw new InvalidDataException("Archive entry expanded beyond its declared uncompressed size.");
+            }
+
+            destination.Write(buffer, 0, bytesRead);
+        }
+
+        if (copied == expectedBytes)
+        {
+            return;
+        }
+
+        throw new InvalidDataException(
+            $"Archive entry expanded to {copied} bytes but declared {expectedBytes} bytes.");
+    }
+
+    /// <summary>
+    /// Fetches one owner-search page, appends eligible package IDs, and returns the total hit count.
+    /// </summary>
+    /// <param name="client">HTTP client used for the request.</param>
+    /// <param name="retryPolicy">Retry policy applied to the request.</param>
+    /// <param name="url">Fully composed owner-search page URL.</param>
+    /// <param name="packageIds">Destination list for eligible package IDs.</param>
+    /// <param name="cancellationToken">Cancellation token for the request.</param>
+    /// <returns>The total number of matching packages reported by the search service.</returns>
+    private static Task<int> FetchOwnerSearchPageAsync(
+        HttpClient client,
+        AsyncRetryPolicy retryPolicy,
+        Uri url,
+        List<string> packageIds,
+        CancellationToken cancellationToken)
+    {
+        return retryPolicy.ExecuteAsync(
+            async ct =>
+            {
+                var response = await client.GetAsync(url, ct).ConfigureAwait(false);
+                response.EnsureSuccessStatusCode();
+
+                await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+                using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
+
+                AddEligibleOwnerPackageIds(doc.RootElement, packageIds);
+                return doc.RootElement.GetProperty("totalHits"u8).GetInt32();
+            },
+            cancellationToken);
     }
 
     /// <summary>
@@ -708,21 +821,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         {
             cancellationToken.ThrowIfCancellationRequested();
             var url = BuildOwnerSearchUri(searchEndpoint, owner, take, skip);
-            var totalHits = 0;
-
-            await retryPolicy.ExecuteAsync(
-                async ct =>
-                {
-                    var response = await client.GetAsync(url, ct).ConfigureAwait(false);
-                    response.EnsureSuccessStatusCode();
-
-                    await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-                    using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
-
-                    totalHits = doc.RootElement.GetProperty("totalHits"u8).GetInt32();
-                    AddEligibleOwnerPackageIds(doc.RootElement, packageIds);
-                },
-                cancellationToken).ConfigureAwait(false);
+            var totalHits = await FetchOwnerSearchPageAsync(client, retryPolicy, url, packageIds, cancellationToken).ConfigureAwait(false);
 
             skip += take;
             if (skip >= totalHits)
@@ -1257,7 +1356,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                 continue;
             }
 
-            entry.ExtractToFile(destPath, overwrite: true);
+            ExtractValidatedEntry(destPath, entry);
         }
     }
 
@@ -1294,7 +1393,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
             return;
         }
 
-        nuspecEntry.ExtractToFile(nuspecSidecarPath, overwrite: true);
+        ExtractValidatedEntry(nuspecSidecarPath, nuspecEntry);
     }
 
     /// <summary>Logs the start of the parallel fetch over discovered packages.</summary>

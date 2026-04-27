@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.IO.Compression;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using SourceDocParser.NuGet.Infrastructure;
@@ -164,6 +165,59 @@ public class NuGetFetcherInternalsTests
         await Assert.That(ids[1]).IsEqualTo("Clean.D");
     }
 
+    /// <summary>Validated extraction writes the entry bytes and preserves the ZIP timestamp.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ExtractValidatedEntryWritesFileAndPreservesTimestamp()
+    {
+        var entryTimestamp = new DateTimeOffset(2024, 01, 02, 03, 04, 06, TimeSpan.Zero);
+        await using var archiveStream = BuildArchive(("lib/net8.0/Foo.xml", "payload"), entryTimestamp);
+        await using var archive = new ZipArchive(archiveStream, ZipArchiveMode.Read);
+        var entry = archive.GetEntry("lib/net8.0/Foo.xml");
+        var destPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+
+        try
+        {
+            NuGetFetcher.ExtractValidatedEntry(destPath, entry!);
+
+            await Assert.That(await File.ReadAllTextAsync(destPath, CancellationToken.None)).IsEqualTo("payload");
+            await Assert.That(File.GetLastWriteTimeUtc(destPath)).IsEqualTo(entry!.LastWriteTime.UtcDateTime);
+        }
+        finally
+        {
+            if (File.Exists(destPath))
+            {
+                File.Delete(destPath);
+            }
+        }
+    }
+
+    /// <summary>Files written by validated extraction satisfy the skip-if-identical fast path.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ExtractValidatedEntryProducesFileRecognizedByIsSameAsExtracted()
+    {
+        var entryTimestamp = new DateTimeOffset(2024, 01, 02, 03, 04, 06, TimeSpan.Zero);
+        await using var archiveStream = BuildArchive(("lib/net8.0/Foo.dll", "abc"), entryTimestamp);
+        await using var archive = new ZipArchive(archiveStream, ZipArchiveMode.Read);
+        var entry = archive.GetEntry("lib/net8.0/Foo.dll");
+        var destPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+
+        try
+        {
+            NuGetFetcher.ExtractValidatedEntry(destPath, entry!);
+
+            await Assert.That(NuGetFetcher.IsSameAsExtracted(destPath, entry!)).IsTrue();
+        }
+        finally
+        {
+            if (File.Exists(destPath))
+            {
+                File.Delete(destPath);
+            }
+        }
+    }
+
     /// <summary>The transitive batch carries each ID with its TFM override (or null when missing).</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -212,4 +266,24 @@ public class NuGetFetcherInternalsTests
             TfmPreference: [],
             Logger: NullLogger.Instance,
             CancellationToken: CancellationToken.None);
+
+    /// <summary>Builds an in-memory ZIP containing a single UTF-8 text entry with a controlled timestamp.</summary>
+    /// <param name="entry">Entry path and textual payload.</param>
+    /// <param name="timestamp">Timestamp applied to the entry metadata.</param>
+    /// <returns>A stream positioned at 0 and ready for read-mode ZIP access.</returns>
+    private static MemoryStream BuildArchive((string Path, string Contents) entry, DateTimeOffset timestamp)
+    {
+        var stream = new MemoryStream();
+        using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            var zipEntry = archive.CreateEntry(entry.Path);
+            zipEntry.LastWriteTime = timestamp;
+
+            using var writer = zipEntry.Open();
+            writer.Write(System.Text.Encoding.UTF8.GetBytes(entry.Contents));
+        }
+
+        stream.Position = 0;
+        return stream;
+    }
 }
