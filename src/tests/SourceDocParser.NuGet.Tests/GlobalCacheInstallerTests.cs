@@ -52,8 +52,9 @@ public class GlobalCacheInstallerTests
     {
         using var installer = new GlobalCacheInstaller(AppContext.BaseDirectory);
 
-        await Assert.That(() => installer.InstallAsync("Foo", "1.0.0"))
-            .Throws<InvalidOperationException>();
+        Task Act() => installer.InstallAsync("Foo", "1.0.0");
+
+        await Assert.That(Act).Throws<InvalidOperationException>();
     }
 
     /// <summary><c>InstallAsync</c> rejects blank package id / version arguments.</summary>
@@ -63,8 +64,11 @@ public class GlobalCacheInstallerTests
     {
         using var installer = new GlobalCacheInstaller(AppContext.BaseDirectory);
 
-        await Assert.That(() => installer.InstallAsync(string.Empty, "1.0.0")).Throws<ArgumentException>();
-        await Assert.That(() => installer.InstallAsync("Foo", string.Empty)).Throws<ArgumentException>();
+        Task BlankId() => installer.InstallAsync(string.Empty, "1.0.0");
+        Task BlankVersion() => installer.InstallAsync("Foo", string.Empty);
+
+        await Assert.That(BlankId).Throws<ArgumentException>();
+        await Assert.That(BlankVersion).Throws<ArgumentException>();
     }
 
     /// <summary>
