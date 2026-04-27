@@ -110,7 +110,7 @@ public sealed class XmlDocSource : IXmlDocSource
     /// </summary>
     /// <param name="content">Raw file text.</param>
     /// <returns>The populated member-id → range map.</returns>
-    private static Dictionary<string, MemberRange> BuildIndex(string content)
+    internal static Dictionary<string, MemberRange> BuildIndex(string content)
     {
         var ranges = new Dictionary<string, MemberRange>(InitialMemberCapacity, StringComparer.Ordinal);
         const string OpenTag = "<member";

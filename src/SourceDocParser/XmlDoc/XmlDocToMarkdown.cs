@@ -71,7 +71,7 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
         // just decode standard entities. Skips even the scanner overhead.
         if (innerXml.IndexOf('<') < 0)
         {
-            DocXmlScanner.AppendDecoded(_builder, innerXml);
+            XmlEntityDecoder.AppendDecoded(_builder, innerXml);
             return _builder.ToString();
         }
 
@@ -98,7 +98,7 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
         if (span.IndexOf('<') < 0)
         {
             var plain = new StringBuilder(span.Length);
-            DocXmlScanner.AppendDecoded(plain, span);
+            XmlEntityDecoder.AppendDecoded(plain, span);
             return plain.ToString();
         }
 
@@ -176,7 +176,7 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
             {
                 case DocTokenKind.Text:
                     {
-                        DocXmlScanner.AppendDecoded(sb, scanner.RawText);
+                        XmlEntityDecoder.AppendDecoded(sb, scanner.RawText);
                         break;
                     }
 
@@ -212,7 +212,7 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
             {
                 case DocTokenKind.Text:
                     {
-                        DocXmlScanner.AppendDecoded(sb, scanner.RawText);
+                        XmlEntityDecoder.AppendDecoded(sb, scanner.RawText);
                         break;
                     }
 
@@ -407,7 +407,7 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
         EnsureBlankLine(sb);
         sb.Append("```csharp\n");
         var trimmed = inner.Trim();
-        DocXmlScanner.AppendDecoded(sb, trimmed);
+        XmlEntityDecoder.AppendDecoded(sb, trimmed);
         sb.Append("\n```\n");
     }
 

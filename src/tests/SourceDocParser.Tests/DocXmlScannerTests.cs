@@ -2,7 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Text;
 using SourceDocParser.XmlDoc;
 
 namespace SourceDocParser.Tests;
@@ -124,41 +123,24 @@ public class DocXmlScannerTests
         await Assert.That(tail).IsEqualTo("tail");
     }
 
-    /// <summary>Standard XML entities decode in AppendDecoded.</summary>
-    /// <param name="encoded">Entity-encoded source text.</param>
-    /// <param name="expected">Expected decoded text.</param>
+    /// <summary>IsWhitespace recognises the four characters allowed inside an XML start tag and rejects everything else.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    [Arguments("a&lt;b", "a<b")]
-    [Arguments("a&gt;b", "a>b")]
-    [Arguments("a&amp;b", "a&b")]
-    [Arguments("a&quot;b", "a\"b")]
-    [Arguments("a&apos;b", "a'b")]
-    [Arguments("&#65;", "A")]
-    [Arguments("&#x41;", "A")]
-    [Arguments("plain", "plain")]
-    public async Task AppendDecodedExpandsKnownEntities(string encoded, string expected)
+    public async Task IsWhitespaceMatchesXmlSpec()
     {
-        var sb = new StringBuilder();
-        DocXmlScanner.AppendDecoded(sb, encoded.AsSpan());
-        await Assert.That(sb.ToString()).IsEqualTo(expected);
-    }
+        // The four whitespace characters the XML spec recognises inside a start tag.
+        await Assert.That(DocXmlScanner.IsWhitespace(' ')).IsTrue();
+        await Assert.That(DocXmlScanner.IsWhitespace('\t')).IsTrue();
+        await Assert.That(DocXmlScanner.IsWhitespace('\r')).IsTrue();
+        await Assert.That(DocXmlScanner.IsWhitespace('\n')).IsTrue();
 
-    /// <summary>Unknown entities are silently dropped (matching XmlReader's behaviour).</summary>
-    /// <returns>A task representing the test execution.</returns>
-    [Test]
-    public async Task AppendDecodedDropsUnknownEntity()
-    {
-        var sb = new StringBuilder();
-        DocXmlScanner.AppendDecoded(sb, "a&xyz;b".AsSpan());
-        await Assert.That(sb.ToString()).IsEqualTo("ab");
+        // Everything else is non-whitespace, including non-breaking
+        // space (U+00A0) which many text-rendering layers do treat as
+        // whitespace; the XML spec does not.
+        await Assert.That(DocXmlScanner.IsWhitespace('a')).IsFalse();
+        await Assert.That(DocXmlScanner.IsWhitespace('\v')).IsFalse();
+        await Assert.That(DocXmlScanner.IsWhitespace(' ')).IsFalse();
     }
-
-    /// <summary>AppendDecoded validates its arguments.</summary>
-    /// <returns>A task representing the test execution.</returns>
-    [Test]
-    public async Task AppendDecodedValidatesArguments() =>
-        await Assert.That(static () => DocXmlScanner.AppendDecoded(null!, default)).Throws<ArgumentNullException>();
 
     /// <summary>Synchronously runs the scanner over an empty input.</summary>
     /// <returns>The Read result and the kind after.</returns>
