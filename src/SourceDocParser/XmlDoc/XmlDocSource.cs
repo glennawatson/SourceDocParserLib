@@ -124,73 +124,136 @@ public sealed class XmlDocSource : IXmlDocSource
     internal static Dictionary<string, MemberRange> BuildIndex(string content)
     {
         var ranges = new Dictionary<string, MemberRange>(InitialMemberCapacity, StringComparer.Ordinal);
-        const string OpenTag = "<member";
-        const string NameAttr = "name=\"";
-        const string CloseTag = "</member>";
         var span = content.AsSpan();
         var pos = 0;
 
         while (pos < span.Length)
         {
-            var openOffset = span[pos..].IndexOf(OpenTag, StringComparison.Ordinal);
-            if (openOffset < 0)
+            var step = TryIndexNextMemberElement(span, pos);
+            if (step.Stop)
             {
                 break;
             }
 
-            var elementStart = pos + openOffset;
-
-            var startTagEnd = span[elementStart..].IndexOf('>');
-            if (startTagEnd < 0)
+            if (step.MemberId is { } memberId)
             {
-                break;
+                ranges[memberId] = new(step.ElementStart, step.NextPosition);
             }
 
-            var startTagSpan = span[elementStart..(elementStart + startTagEnd + 1)];
-
-            var nameMarker = startTagSpan.IndexOf(NameAttr, StringComparison.Ordinal);
-            if (nameMarker < 0)
-            {
-                pos = elementStart + startTagSpan.Length;
-                continue;
-            }
-
-            var nameStart = nameMarker + NameAttr.Length;
-            var nameEnd = startTagSpan[nameStart..].IndexOf('"');
-            if (nameEnd < 0)
-            {
-                pos = elementStart + startTagSpan.Length;
-                continue;
-            }
-
-            var memberId = startTagSpan[nameStart..(nameStart + nameEnd)].ToString();
-
-            int elementEnd;
-            if (startTagSpan.Length >= 2 && startTagSpan[^2] == '/')
-            {
-                // Self-closing element form.
-                elementEnd = elementStart + startTagSpan.Length;
-            }
-            else
-            {
-                var closeOffset = span[(elementStart + startTagSpan.Length)..].IndexOf(CloseTag, StringComparison.Ordinal);
-                if (closeOffset < 0)
-                {
-                    break;
-                }
-
-                elementEnd = elementStart + startTagSpan.Length + closeOffset + CloseTag.Length;
-            }
-
-            ranges[memberId] = new(elementStart, elementEnd);
-            pos = elementEnd;
+            pos = step.NextPosition;
         }
 
         return ranges;
+    }
+
+    /// <summary>
+    /// Locates the next <c>&lt;member ...&gt;</c> element in
+    /// <paramref name="span"/> at or after <paramref name="from"/>
+    /// and returns the offsets needed to record (or skip) it. Pulled
+    /// out of <see cref="BuildIndex"/> so the per-iteration parse
+    /// reads at problem-domain level rather than as a chain of nested
+    /// IndexOf checks.
+    /// </summary>
+    /// <param name="span">Raw file text.</param>
+    /// <param name="from">Start position to scan from.</param>
+    /// <returns>The step result.</returns>
+    private static ScanStep TryIndexNextMemberElement(in ReadOnlySpan<char> span, int from)
+    {
+        const string OpenTag = "<member";
+        const string NameAttr = "name=\"";
+        const string CloseTag = "</member>";
+
+        var openOffset = span[from..].IndexOf(OpenTag, StringComparison.Ordinal);
+        if (openOffset < 0)
+        {
+            return ScanStep.End();
+        }
+
+        var elementStart = from + openOffset;
+        var startTagEnd = span[elementStart..].IndexOf('>');
+        if (startTagEnd < 0)
+        {
+            return ScanStep.End();
+        }
+
+        var startTagSpan = span[elementStart..(elementStart + startTagEnd + 1)];
+        if (!TryReadNameAttribute(startTagSpan, NameAttr, out var memberId))
+        {
+            return ScanStep.SkipTo(elementStart + startTagSpan.Length);
+        }
+
+        // Self-closing form ends at the start tag's '>'; otherwise
+        // walk to the matching </member>.
+        if (startTagSpan is [.., '/', _])
+        {
+            return ScanStep.Record(memberId, elementStart, elementStart + startTagSpan.Length);
+        }
+
+        var closeOffset = span[(elementStart + startTagSpan.Length)..].IndexOf(CloseTag, StringComparison.Ordinal);
+        if (closeOffset < 0)
+        {
+            return ScanStep.End();
+        }
+
+        return ScanStep.Record(memberId, elementStart, elementStart + startTagSpan.Length + closeOffset + CloseTag.Length);
+    }
+
+    /// <summary>
+    /// Extracts the <c>name="..."</c> attribute value from a start
+    /// tag, returning false when the attribute is missing or the
+    /// closing quote can't be located.
+    /// </summary>
+    /// <param name="startTagSpan">The start-tag substring including the opening <c>&lt;</c> and closing <c>&gt;</c>.</param>
+    /// <param name="nameAttr">The <c>name="</c> literal.</param>
+    /// <param name="memberId">Receives the parsed member id.</param>
+    /// <returns>True when the attribute was parsed.</returns>
+    private static bool TryReadNameAttribute(in ReadOnlySpan<char> startTagSpan, string nameAttr, out string memberId)
+    {
+        memberId = string.Empty;
+        var nameMarker = startTagSpan.IndexOf(nameAttr, StringComparison.Ordinal);
+        if (nameMarker < 0)
+        {
+            return false;
+        }
+
+        var nameStart = nameMarker + nameAttr.Length;
+        var nameEnd = startTagSpan[nameStart..].IndexOf('"');
+        if (nameEnd < 0)
+        {
+            return false;
+        }
+
+        memberId = startTagSpan[nameStart..(nameStart + nameEnd)].ToString();
+        return true;
     }
 
     /// <summary>Range into the source content for one member element.</summary>
     /// <param name="Start">Inclusive start index.</param>
     /// <param name="End">Exclusive end index.</param>
     internal readonly record struct MemberRange(int Start, int End);
+
+    /// <summary>
+    /// Outcome of one <see cref="TryIndexNextMemberElement"/> step:
+    /// either record a member at the supplied range, skip past a
+    /// malformed start tag, or stop scanning entirely.
+    /// </summary>
+    private readonly record struct ScanStep(bool Stop, string? MemberId, int ElementStart, int NextPosition)
+    {
+        /// <summary>Stop the outer scan loop.</summary>
+        /// <returns>A stop step.</returns>
+        public static ScanStep End() => new(Stop: true, MemberId: null, ElementStart: 0, NextPosition: 0);
+
+        /// <summary>Skip past a malformed start tag and continue scanning.</summary>
+        /// <param name="next">Next position to scan from.</param>
+        /// <returns>A skip step.</returns>
+        public static ScanStep SkipTo(int next) => new(Stop: false, MemberId: null, ElementStart: 0, NextPosition: next);
+
+        /// <summary>Record a member element at <paramref name="elementStart"/>..<paramref name="next"/>.</summary>
+        /// <param name="memberId">Parsed member id.</param>
+        /// <param name="elementStart">Inclusive start of the recorded range.</param>
+        /// <param name="next">Exclusive end (also the position to scan from next).</param>
+        /// <returns>A record step.</returns>
+        public static ScanStep Record(string memberId, int elementStart, int next) =>
+            new(Stop: false, MemberId: memberId, ElementStart: elementStart, NextPosition: next);
+    }
 }

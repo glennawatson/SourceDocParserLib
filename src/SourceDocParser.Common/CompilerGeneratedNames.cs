@@ -27,6 +27,6 @@ public static class CompilerGeneratedNames
     /// <param name="symbolName">The metadata name to test.</param>
     /// <returns>True when the symbol should be skipped from rendered output.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool IsCompilerGenerated(ReadOnlySpan<char> symbolName) =>
+    public static bool IsCompilerGenerated(in ReadOnlySpan<char> symbolName) =>
         symbolName.IndexOfAny('<', '>') >= 0;
 }

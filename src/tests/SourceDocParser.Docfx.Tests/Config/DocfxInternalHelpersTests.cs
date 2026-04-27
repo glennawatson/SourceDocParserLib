@@ -25,8 +25,8 @@ public class DocfxInternalHelpersTests
         Directory.CreateDirectory(Path.Combine(scratch.Path, "net8.0"));
         Directory.CreateDirectory(Path.Combine(scratch.Path, "net10.0"));
         Directory.CreateDirectory(Path.Combine(scratch.Path, "empty"));
-        File.WriteAllBytes(Path.Combine(scratch.Path, "net10.0", "A.dll"), []);
-        File.WriteAllBytes(Path.Combine(scratch.Path, "net8.0", "B.dll"), []);
+        await File.WriteAllBytesAsync(Path.Combine(scratch.Path, "net10.0", "A.dll"), []);
+        await File.WriteAllBytesAsync(Path.Combine(scratch.Path, "net8.0", "B.dll"), []);
 
         var tfms = DocfxInternalHelpers.DiscoverTfms(scratch.Path);
 
@@ -43,8 +43,8 @@ public class DocfxInternalHelpersTests
     public async Task CollectPackageDllNamesExcludesReferenceMatches()
     {
         using var scratch = new ScratchDirectory("sdp-docfx-helpers");
-        File.WriteAllBytes(Path.Combine(scratch.Path, "Package.dll"), []);
-        File.WriteAllBytes(Path.Combine(scratch.Path, "Shared.dll"), []);
+        await File.WriteAllBytesAsync(Path.Combine(scratch.Path, "Package.dll"), []);
+        await File.WriteAllBytesAsync(Path.Combine(scratch.Path, "Shared.dll"), []);
 
         var packageDlls = DocfxInternalHelpers.CollectPackageDllNames(
             scratch.Path,
@@ -62,11 +62,11 @@ public class DocfxInternalHelpersTests
     public async Task GetOrAddDllNamesReusesCachedSet()
     {
         using var scratch = new ScratchDirectory("sdp-docfx-helpers");
-        File.WriteAllBytes(Path.Combine(scratch.Path, "A.dll"), []);
+        await File.WriteAllBytesAsync(Path.Combine(scratch.Path, "A.dll"), []);
         var cache = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 
         var first = DocfxInternalHelpers.GetOrAddDllNames(cache, "net10.0", scratch.Path);
-        File.WriteAllBytes(Path.Combine(scratch.Path, "B.dll"), []);
+        await File.WriteAllBytesAsync(Path.Combine(scratch.Path, "B.dll"), []);
         var second = DocfxInternalHelpers.GetOrAddDllNames(cache, "net10.0", scratch.Path);
 
         await Assert.That(ReferenceEquals(first, second)).IsTrue();

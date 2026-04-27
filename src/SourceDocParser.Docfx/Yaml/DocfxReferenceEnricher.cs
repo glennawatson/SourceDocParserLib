@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
 using SourceDocParser.Common;
@@ -64,7 +65,7 @@ internal static class DocfxReferenceEnricher
         }
 
         AppendIsExternal(sb, isInternal, indent: "  ");
-        var href = ResolveHref(uid, openGenericUid, bareName, isInternal);
+        var href = ResolveHref(openGenericUid, bareName, isInternal);
         AppendHref(sb, href, indent: "  ");
 
         // BCL primitive class types render as their C# keyword
@@ -91,12 +92,12 @@ internal static class DocfxReferenceEnricher
     /// for internal types, a Microsoft Learn URL for BCL types, or
     /// nothing for unknown externals.
     /// </summary>
-    /// <param name="uid">Reference UID.</param>
     /// <param name="openGenericUid">UID with the type-argument list stripped.</param>
     /// <param name="bareName">Bare name (UID without the prefix).</param>
     /// <param name="isInternal">Whether the type was emitted by this run.</param>
     /// <returns>The href value, or empty when none applies.</returns>
-    private static string ResolveHref(string uid, string openGenericUid, string bareName, bool isInternal)
+    [SuppressMessage("Minor Code Smell", "S4040:Strings should be normalized to uppercase", Justification = "Microsoft Learn URLs are case-sensitive.")]
+    private static string ResolveHref(string openGenericUid, string bareName, bool isInternal)
     {
         if (isInternal)
         {
@@ -208,7 +209,7 @@ internal static class DocfxReferenceEnricher
     private static void AppendSpecComponent(StringBuilder sb, string uid, string name, HashSet<string> internalUids)
     {
         var isInternal = internalUids.Contains(uid);
-        var href = ResolveHref(uid, UidNormalization.ToOpenGenericUid(uid), UidNormalization.StripPrefix(uid), isInternal);
+        var href = ResolveHref(UidNormalization.ToOpenGenericUid(uid), UidNormalization.StripPrefix(uid), isInternal);
 
         // Docfx convention: spec.csharp uid is bare (no T: prefix).
         sb.Append("  - uid: ").AppendScalar(UidNormalization.StripPrefix(uid)).AppendLine()

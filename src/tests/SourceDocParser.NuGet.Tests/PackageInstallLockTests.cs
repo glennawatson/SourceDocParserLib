@@ -60,12 +60,12 @@ public class PackageInstallLockTests
 
         try
         {
-            var first = await PackageInstallLock.AcquireAsync(lockPath, maxWait: TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+            var first = await PackageInstallLock.AcquireAsync(lockPath, maxWait: TimeSpan.FromSeconds(2), CancellationToken.None).ConfigureAwait(false);
 
             var secondAcquired = false;
             var secondTask = Task.Run(async () =>
             {
-                var second = await PackageInstallLock.AcquireAsync(lockPath, maxWait: TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                var second = await PackageInstallLock.AcquireAsync(lockPath, maxWait: TimeSpan.FromSeconds(5), CancellationToken.None).ConfigureAwait(false);
                 await using (second.ConfigureAwait(false))
                 {
                     secondAcquired = true;

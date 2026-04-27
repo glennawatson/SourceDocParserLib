@@ -183,13 +183,51 @@ internal static class PackageConfigReader
     /// </summary>
     /// <param name="propertyName">The UTF-8 property name.</param>
     /// <returns>A string representation of the property name.</returns>
-    private static string GetDisplayName(in ReadOnlySpan<byte> propertyName) =>
-        propertyName switch
+    private static string GetDisplayName(in ReadOnlySpan<byte> propertyName)
+    {
+        if (TryGetPackagePropertyDisplayName(propertyName, out var displayName))
+        {
+            return displayName;
+        }
+
+        if (TryGetTopLevelPropertyDisplayName(propertyName, out displayName))
+        {
+            return displayName;
+        }
+
+        return "unknown";
+    }
+
+    /// <summary>
+    /// Tries to map a package-object property name to its display name.
+    /// </summary>
+    /// <param name="propertyName">UTF-8 property name.</param>
+    /// <param name="displayName">Mapped display name.</param>
+    /// <returns>True when the property name is recognised.</returns>
+    private static bool TryGetPackagePropertyDisplayName(in ReadOnlySpan<byte> propertyName, out string displayName)
+    {
+        displayName = propertyName switch
         {
             _ when propertyName.SequenceEqual("id"u8) => "id",
             _ when propertyName.SequenceEqual("version"u8) => "version",
             _ when propertyName.SequenceEqual("targetTfm"u8) => "targetTfm",
             _ when propertyName.SequenceEqual("pathPrefix"u8) => "pathPrefix",
+            _ => string.Empty,
+        };
+
+        return displayName.Length > 0;
+    }
+
+    /// <summary>
+    /// Tries to map a top-level config property name to its display name.
+    /// </summary>
+    /// <param name="propertyName">UTF-8 property name.</param>
+    /// <param name="displayName">Mapped display name.</param>
+    /// <returns>True when the property name is recognised.</returns>
+    private static bool TryGetTopLevelPropertyDisplayName(in ReadOnlySpan<byte> propertyName, out string displayName)
+    {
+        displayName = propertyName switch
+        {
             _ when propertyName.SequenceEqual("additionalPackages"u8) => "additionalPackages",
             _ when propertyName.SequenceEqual("referencePackages"u8) => "referencePackages",
             _ when propertyName.SequenceEqual("nugetPackageOwners"u8) => "nugetPackageOwners",
@@ -197,6 +235,9 @@ internal static class PackageConfigReader
             _ when propertyName.SequenceEqual("excludePackages"u8) => "excludePackages",
             _ when propertyName.SequenceEqual("excludePackagePrefixes"u8) => "excludePackagePrefixes",
             _ when propertyName.SequenceEqual("tfmOverrides"u8) => "tfmOverrides",
-            _ => "unknown"
+            _ => string.Empty,
         };
+
+        return displayName.Length > 0;
+    }
 }

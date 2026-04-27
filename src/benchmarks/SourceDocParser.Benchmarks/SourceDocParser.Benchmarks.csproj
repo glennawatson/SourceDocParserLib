@@ -10,7 +10,7 @@
     <EnableTrimAnalyzer>false</EnableTrimAnalyzer>
     <EnableAotAnalyzer>false</EnableAotAnalyzer>
     <!-- BenchmarkDotNet requires non-static benchmark methods; CA1822 false-positives them. -->
-    <NoWarn>$(NoWarn);CA1822</NoWarn>
+    <NoWarn>$(NoWarn);CA1822;S4261</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

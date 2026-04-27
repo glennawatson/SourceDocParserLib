@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Globalization;
 using SourceDocParser.NuGet.Infrastructure;
 
 namespace SourceDocParser.NuGet.Tests;
@@ -23,7 +24,7 @@ public class PathSeparatorHelpersTests
     [Test]
     public async Task ToPlatformPathNormalisesMixedSeparators()
     {
-        var expected = string.Join(Path.DirectorySeparatorChar, ["foo", "bar", "baz"]);
+        var expected = string.Join(Path.DirectorySeparatorChar.ToString(CultureInfo.InvariantCulture), "foo", "bar", "baz");
         await Assert.That(PathSeparatorHelpers.ToPlatformPath(@"foo/bar\baz")).IsEqualTo(expected);
     }
 }

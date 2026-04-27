@@ -25,21 +25,6 @@ namespace SourceDocParser.XmlDoc;
 /// </remarks>
 internal ref struct DocXmlScanner
 {
-    /// <summary>Opening delimiter for an XML comment.</summary>
-    private const string CommentOpen = "<!--";
-
-    /// <summary>Closing delimiter for an XML comment.</summary>
-    private const string CommentClose = "-->";
-
-    /// <summary>Opening delimiter for a CDATA section.</summary>
-    private const string CdataOpen = "<![CDATA[";
-
-    /// <summary>Closing delimiter for a CDATA section.</summary>
-    private const string CdataClose = "]]>";
-
-    /// <summary>Closing delimiter for a processing instruction.</summary>
-    private const string PiClose = "?>";
-
     /// <summary>Raw text being scanned.</summary>
     private readonly ReadOnlySpan<char> _input;
 
@@ -51,7 +36,7 @@ internal ref struct DocXmlScanner
 
     /// <summary>Initializes a new instance of the <see cref="DocXmlScanner"/> struct.</summary>
     /// <param name="input">XML text to scan.</param>
-    public DocXmlScanner(in ReadOnlySpan<char> input)
+    public DocXmlScanner(ReadOnlySpan<char> input)
     {
         _input = input;
         _pos = 0;
@@ -89,27 +74,59 @@ internal ref struct DocXmlScanner
     {
         IsEmptyElement = false;
 
-        while (_pos < _input.Length)
+        if (_pos >= _input.Length)
         {
-            var ch = _input[_pos];
-            if (ch == '<')
+            Kind = DocTokenKind.None;
+            return false;
+        }
+
+        var ch = _input[_pos];
+        if (ch == '<')
+        {
+            TokenStart = _pos;
+            var result = XmlMarkupParser.ReadMarkup(_input, _pos);
+            _pos = result.NewPos;
+            if (!result.Success)
             {
-                TokenStart = _pos;
-                return ReadMarkup();
+                Kind = DocTokenKind.None;
+                return false;
             }
 
-            // Text run up to the next '<'.
-            TokenStart = _pos;
-            var nextLt = _input[_pos..].IndexOf('<');
-            var end = nextLt < 0 ? _input.Length : _pos + nextLt;
-            RawText = _input[_pos..end];
-            _pos = end;
-            Kind = DocTokenKind.Text;
+            if (result.IsSilent)
+            {
+                return Read();
+            }
+
+            Kind = result.Kind;
+            Name = result.Name;
+            RawText = result.RawText;
+            _attrArea = result.AttrArea;
+            IsEmptyElement = result.IsEmptyElement;
+
+            if (Kind == DocTokenKind.EndElement)
+            {
+                Depth--;
+            }
+            else if (Kind == DocTokenKind.StartElement)
+            {
+                Depth += IsEmptyElement ? 0 : 1;
+            }
+            else
+            {
+                // No depth change for other token kinds.
+            }
+
             return true;
         }
 
-        Kind = DocTokenKind.None;
-        return false;
+        // Text run up to the next '<'.
+        TokenStart = _pos;
+        var nextLt = _input[_pos..].IndexOf('<');
+        var end = nextLt < 0 ? _input.Length : _pos + nextLt;
+        RawText = _input[_pos..end];
+        _pos = end;
+        Kind = DocTokenKind.Text;
+        return true;
     }
 
     /// <summary>
@@ -147,67 +164,7 @@ internal ref struct DocXmlScanner
     /// </summary>
     /// <param name="attributeName">Attribute name to look up.</param>
     /// <returns>The attribute value as a span over the source, or empty.</returns>
-    public readonly ReadOnlySpan<char> GetAttribute(in ReadOnlySpan<char> attributeName)
-    {
-        if (_attrArea.IsEmpty)
-        {
-            return default;
-        }
-
-        var area = _attrArea;
-        var i = 0;
-        while (i < area.Length)
-        {
-            // Skip leading whitespace.
-            while (i < area.Length && IsWhitespace(area[i]))
-            {
-                i++;
-            }
-
-            if (i >= area.Length)
-            {
-                break;
-            }
-
-            // Capture name up to '='.
-            var nameStart = i;
-            while (i < area.Length && area[i] != '=' && !IsWhitespace(area[i]))
-            {
-                i++;
-            }
-
-            var name = area[nameStart..i];
-
-            // Skip past '=' and any whitespace.
-            while (i < area.Length && (area[i] == '=' || IsWhitespace(area[i])))
-            {
-                i++;
-            }
-
-            if (i >= area.Length || area[i] != '"')
-            {
-                break;
-            }
-
-            i++; // past opening quote.
-            var valueStart = i;
-            var closing = area[i..].IndexOf('"');
-            if (closing < 0)
-            {
-                break;
-            }
-
-            var value = area[valueStart..(valueStart + closing)];
-            i = valueStart + closing + 1;
-
-            if (name.SequenceEqual(attributeName))
-            {
-                return value;
-            }
-        }
-
-        return default;
-    }
+    public readonly ReadOnlySpan<char> GetAttribute(ReadOnlySpan<char> attributeName) => XmlAttributeParser.GetAttribute(_attrArea, attributeName);
 
     /// <summary>
     /// Advances the scanner past the current element, ignoring its
@@ -235,121 +192,5 @@ internal ref struct DocXmlScanner
     /// <summary>True for the four whitespace characters allowed inside an XML start tag.</summary>
     /// <param name="ch">Character to test.</param>
     /// <returns>True when whitespace.</returns>
-    internal static bool IsWhitespace(char ch) => ch is ' ' or '\t' or '\r' or '\n';
-
-    /// <summary>
-    /// Consumes a markup token starting at the current opening character.
-    /// Returns false on truncated input.
-    /// </summary>
-    /// <returns>True when a token is produced.</returns>
-    private bool ReadMarkup()
-    {
-        // Length-1 marker (just the leading '<') used by all start/end-tag scans.
-        const int LtLen = 1;
-
-        // '</' end-element prefix length.
-        const int EndElementPrefixLen = 2;
-
-        // Comment <!-- … -->.
-        if (_pos + CommentOpen.Length <= _input.Length && _input[_pos..(_pos + CommentOpen.Length)].SequenceEqual(CommentOpen))
-        {
-            var afterOpen = _pos + CommentOpen.Length;
-            var end = _input[afterOpen..].IndexOf(CommentClose, StringComparison.Ordinal);
-            if (end < 0)
-            {
-                _pos = _input.Length;
-                Kind = DocTokenKind.None;
-                return false;
-            }
-
-            _pos = afterOpen + end + CommentClose.Length;
-            return Read();
-        }
-
-        // CDATA <![CDATA[ … ]]>.
-        if (_pos + CdataOpen.Length <= _input.Length && _input[_pos..(_pos + CdataOpen.Length)].SequenceEqual(CdataOpen))
-        {
-            var afterOpen = _pos + CdataOpen.Length;
-            var end = _input[afterOpen..].IndexOf(CdataClose, StringComparison.Ordinal);
-            if (end < 0)
-            {
-                _pos = _input.Length;
-                Kind = DocTokenKind.None;
-                return false;
-            }
-
-            RawText = _input[afterOpen..(afterOpen + end)];
-            _pos = afterOpen + end + CdataClose.Length;
-            Kind = DocTokenKind.Text;
-            return true;
-        }
-
-        // Processing instruction <? … ?>.
-        if (_pos + LtLen + 1 <= _input.Length && _input[_pos + LtLen] == '?')
-        {
-            var afterOpen = _pos + LtLen + 1;
-            var end = _input[afterOpen..].IndexOf(PiClose, StringComparison.Ordinal);
-            if (end < 0)
-            {
-                _pos = _input.Length;
-                Kind = DocTokenKind.None;
-                return false;
-            }
-
-            _pos = afterOpen + end + PiClose.Length;
-            return Read();
-        }
-
-        // End element </name>.
-        if (_pos + EndElementPrefixLen <= _input.Length && _input[_pos + LtLen] == '/')
-        {
-            var nameStart = _pos + EndElementPrefixLen;
-            var end = _input[nameStart..].IndexOf('>');
-            if (end < 0)
-            {
-                _pos = _input.Length;
-                Kind = DocTokenKind.None;
-                return false;
-            }
-
-            Name = _input[nameStart..(nameStart + end)].Trim();
-            _pos = nameStart + end + 1;
-            Kind = DocTokenKind.EndElement;
-            Depth--;
-            return true;
-        }
-
-        // Start element <name attr="…" …> or <name … />.
-        var tagEnd = _input[_pos..].IndexOf('>');
-        if (tagEnd < 0)
-        {
-            _pos = _input.Length;
-            Kind = DocTokenKind.None;
-            return false;
-        }
-
-        var tagBody = _input[(_pos + LtLen)..(_pos + tagEnd)];
-        IsEmptyElement = tagBody is [.., '/'];
-        if (IsEmptyElement)
-        {
-            tagBody = tagBody[..^1];
-        }
-
-        // Split element name vs attribute area at first whitespace.
-        var nameEnd = 0;
-        while (nameEnd < tagBody.Length && !IsWhitespace(tagBody[nameEnd]))
-        {
-            nameEnd++;
-        }
-
-        Name = tagBody[..nameEnd];
-        _attrArea = tagBody[nameEnd..];
-        _pos += tagEnd + 1;
-        Kind = DocTokenKind.StartElement;
-
-        // Self-closing elements don't change net depth on the calling
-        // side, so only bump for full start tags.
-        Depth += IsEmptyElement ? 0 : 1;
-        return true;
-    }
+    internal static bool IsWhitespace(char ch) => XmlCharHelper.IsWhitespace(ch);
 }

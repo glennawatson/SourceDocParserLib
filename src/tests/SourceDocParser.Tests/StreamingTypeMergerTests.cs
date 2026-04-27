@@ -8,9 +8,8 @@ using SourceDocParser.Model;
 namespace SourceDocParser.Tests;
 
 /// <summary>
-/// Tests for <see cref="StreamingTypeMerger"/> — the per-walk
-/// counterpart to <see cref="TypeMerger.Merge"/> consumed by
-/// <see cref="MetadataExtractor.RunAsync"/>'s parallel walker.
+/// Unit tests for the <c>StreamingTypeMerger</c> class. These tests verify the behavior of the merging process
+/// for types from multiple target frameworks and ensure the correctness of the resulting merged type collection.
 /// </summary>
 public class StreamingTypeMergerTests
 {

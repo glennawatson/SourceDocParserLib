@@ -10,20 +10,10 @@ using SourceDocParser.Zensical;
 namespace SourceDocParser.Benchmarks;
 
 /// <summary>
-/// End-to-end benchmark for <see cref="MetadataExtractor.RunAsync"/> against
-/// the slim debug NuGet config fixture (3 owner-discovered packages,
-/// 19 TFM groups). Runs are warm — the local NuGet cache is populated
-/// once during global setup so subsequent iterations measure the walk +
-/// merge + emit pipeline, not the network fetch.
+/// Provides benchmarks for evaluating the performance of the metadata extraction process.
+/// This class uses BenchmarkDotNet attributes to measure execution times and memory usage
+/// for different stages of the extraction workflow inside the SourceDocParser.
 /// </summary>
-/// <remarks>
-/// Marked <c>[ShortRunJob]</c> so a full series completes in well under
-/// a minute on the slim fixture. Each iteration spins a fresh Roslyn
-/// compilation graph that retains memory-mapped DLL views until
-/// <see cref="MetadataExtractor.RunAsync"/> exits — the default
-/// <c>SimpleJob</c>'s 30+ iterations would accumulate tens of gigabytes
-/// of working set before BDN published a summary.
-/// </remarks>
 [ShortRunJob]
 [MemoryDiagnoser]
 public class MetadataExtractorBenchmarks

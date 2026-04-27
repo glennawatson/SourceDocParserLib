@@ -144,10 +144,7 @@ public class XmlDocToMarkdownTests
         var settings = new XmlReaderSettings { Async = true };
         using var reader = XmlReader.Create(stringReader, settings);
 
-        // Position on the <root> start element.
-        while (await reader.ReadAsync() && reader.NodeType != XmlNodeType.Element)
-        {
-        }
+        await MoveToFirstElementAsync(reader);
 
         var actual = await _converter.ConvertAsync(reader);
 
@@ -164,9 +161,7 @@ public class XmlDocToMarkdownTests
         using var stringReader = new StringReader("<empty/>");
         var settings = new XmlReaderSettings { Async = true };
         using var reader = XmlReader.Create(stringReader, settings);
-        while (await reader.ReadAsync() && reader.NodeType != XmlNodeType.Element)
-        {
-        }
+        await MoveToFirstElementAsync(reader);
 
         var result = await _converter.ConvertAsync(reader);
 
@@ -322,5 +317,19 @@ public class XmlDocToMarkdownTests
         var result = _converter.Convert("Note <weird>important</weird> stuff.");
 
         await Assert.That(result).Contains("important");
+    }
+
+    /// <summary>Advances an async XML reader to the first start element.</summary>
+    /// <param name="reader">Reader to advance.</param>
+    /// <returns>A task representing the asynchronous move.</returns>
+    private static async Task MoveToFirstElementAsync(XmlReader reader)
+    {
+        while (await reader.ReadAsync().ConfigureAwait(false))
+        {
+            if (reader.NodeType == XmlNodeType.Element)
+            {
+                return;
+            }
+        }
     }
 }

@@ -18,15 +18,11 @@ using SourceDocParser.Tfm;
 namespace SourceDocParser.NuGet.Infrastructure;
 
 /// <summary>
-/// Fetches NuGet packages defined by <c>nuget-packages.json</c>, extracts
-/// their managed assemblies into TFM-bucketed directories.
+/// Provides functionality to fetch and process NuGet packages for a specified
+/// directory and API path. Responsible for coordinating package download,
+/// extraction, and handling of related metadata.
 /// </summary>
-/// <remarks>
-/// The fetcher extracts assemblies into TFM-bucketed directories under
-/// <c>api/lib</c>, and stages reference assemblies under <c>api/refs</c>
-/// so the docfx assembly resolver can find them. Designed to be invoked
-/// from a Nuke build target as <see cref="FetchPackagesAsync"/>.
-/// </remarks>
+[SuppressMessage("Minor Code Smell", "S4040:Strings should be normalized to uppercase", Justification = "NuGet package IDs are case-insensitive")]
 public sealed partial class NuGetFetcher : INuGetFetcher
 {
     /// <summary>
@@ -42,6 +38,21 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     private const int RetryAttempts = 6;
 
     /// <summary>
+    /// Base delay, in seconds, for the NuGet HTTP exponential backoff policy.
+    /// </summary>
+    private const double RetryBackoffBaseSeconds = 0.1;
+
+    /// <summary>
+    /// Exponential growth factor applied between retry attempts.
+    /// </summary>
+    private const double RetryBackoffMultiplier = 2;
+
+    /// <summary>
+    /// Maximum tolerated timestamp drift, in seconds, when comparing extracted zip entries.
+    /// </summary>
+    private const double ExtractedTimestampToleranceSeconds = 2;
+
+    /// <summary>
     /// Base URI of the NuGet v3 service index used for endpoint discovery.
     /// </summary>
     private static readonly Uri ServiceIndexUri = new("https://api.nuget.org/v3/index.json");
@@ -53,7 +64,15 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     private static readonly Uri FlatContainerUri = new("https://api.nuget.org/v3-flatcontainer/");
 
     /// <inheritdoc />
-    public async Task FetchPackagesAsync(string rootDirectory, string apiPath, ILogger? logger = null, CancellationToken cancellationToken = default)
+    public Task FetchPackagesAsync(string rootDirectory, string apiPath) =>
+        FetchPackagesAsync(rootDirectory, apiPath, null, CancellationToken.None);
+
+    /// <inheritdoc />
+    public Task FetchPackagesAsync(string rootDirectory, string apiPath, ILogger? logger) =>
+        FetchPackagesAsync(rootDirectory, apiPath, logger, CancellationToken.None);
+
+    /// <inheritdoc />
+    public async Task FetchPackagesAsync(string rootDirectory, string apiPath, ILogger? logger, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(rootDirectory);
         ArgumentException.ThrowIfNullOrWhiteSpace(apiPath);
@@ -76,9 +95,6 @@ public sealed partial class NuGetFetcher : INuGetFetcher
 
         var discoveredIds = await DiscoverAllPackagesAsync(config, logger, cancellationToken).ConfigureAwait(false);
 
-        // O(1) dedup of additional packages against the discovered set;
-        // the prior LINQ Any() scanned the whole list per additional
-        // package which was N*M for no reason.
         var seenIds = new HashSet<string>(discoveredIds.Count, StringComparer.OrdinalIgnoreCase);
         for (var i = 0; i < discoveredIds.Count; i++)
         {
@@ -120,15 +136,16 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         // is the canonical case — without these the walker can't follow
         // the type-forwards in the umbrella assembly.
         await ResolveTransitiveDependenciesAsync(
-            libDir,
-            cacheDir,
-            seenIds,
-            excludeIds,
-            excludePrefixes,
-            config.TfmOverrides,
-            config.TfmPreference,
-            logger,
-            cancellationToken).ConfigureAwait(false);
+            new(
+                libDir,
+                cacheDir,
+                seenIds,
+                excludeIds,
+                excludePrefixes,
+                config.TfmOverrides,
+                config.TfmPreference,
+                logger,
+                cancellationToken)).ConfigureAwait(false);
 
         cancellationToken.ThrowIfCancellationRequested();
         CopyRefsIntoLibDirs(libDir, refsDir, logger);
@@ -177,47 +194,38 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         // drift and sub-second formatter mismatches.
         var entryStamp = entry.LastWriteTime.UtcDateTime;
         var destStamp = info.LastWriteTimeUtc;
-        return Math.Abs((entryStamp - destStamp).TotalSeconds) < 2;
+        return Math.Abs((entryStamp - destStamp).TotalSeconds) < ExtractedTimestampToleranceSeconds;
     }
 
     /// <summary>
-    /// Reads each cached <c>.nupkg</c>'s declared dependency IDs and
-    /// fetches any not yet pulled. Loops until no new IDs surface (or
-    /// a depth cap trips), so a chain like
-    /// <c>Splat → Splat.Core → Microsoft.Bcl.AsyncInterfaces</c>
-    /// resolves end-to-end without manual <c>nuget-packages.json</c>
-    /// edits. Excludes still apply.
+    /// Resolves the transitive dependencies for a given package based on the specified resolution request parameters.
     /// </summary>
-    /// <param name="libDir">Per-TFM lib directory root.</param>
-    /// <param name="cacheDir">Cache directory the FetchGroupAsync downloads land in.</param>
-    /// <param name="seenIds">Already-resolved package IDs — mutated as new ones are queued.</param>
-    /// <param name="excludeIds">Exact-match exclude IDs (linear scan; expected single-digit size).</param>
-    /// <param name="excludePrefixes">Prefix-match excludes.</param>
-    /// <param name="tfmOverrides">Per-package TFM overrides applied to newly-resolved packages.</param>
-    /// <param name="tfmPreference">TFM preference passed through to FetchGroupAsync.</param>
-    /// <param name="logger">Per-iteration progress logger.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="request">
+    /// A <see cref="TransitiveDependencyResolutionRequest"/> object containing information about the package to resolve,
+    /// including its library directory, cache directory, exclusion parameters, target framework preferences, and more.
+    /// </param>
+    /// <returns>
+    /// A <see cref="Task"/> that represents the asynchronous operation of resolving transitive dependencies.
+    /// </returns>
+    private static Task ResolveTransitiveDependenciesAsync(in TransitiveDependencyResolutionRequest request) =>
+        ResolveTransitiveDependenciesCoreAsync(request);
+
+    /// <summary>
+    /// Implementation of <see cref="ResolveTransitiveDependenciesAsync(in TransitiveDependencyResolutionRequest)"/>.
+    /// </summary>
+    /// <param name="request">Shared resolution request state.</param>
     /// <returns>A task representing the asynchronous closure.</returns>
-    private static async Task ResolveTransitiveDependenciesAsync(
-        string libDir,
-        string cacheDir,
-        HashSet<string> seenIds,
-        string[] excludeIds,
-        string[] excludePrefixes,
-        Dictionary<string, string> tfmOverrides,
-        string[] tfmPreference,
-        ILogger logger,
-        CancellationToken cancellationToken)
+    private static async Task ResolveTransitiveDependenciesCoreAsync(TransitiveDependencyResolutionRequest request)
     {
         const int maxDepth = 8;
         var processedNupkgs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         for (var depth = 0; depth < maxDepth; depth++)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            request.CancellationToken.ThrowIfCancellationRequested();
             var newIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            var sidecarPaths = Directory.GetFiles(cacheDir, "*.nupkg.nuspec");
+            var sidecarPaths = Directory.GetFiles(request.CacheDir, "*.nupkg.nuspec");
             for (var n = 0; n < sidecarPaths.Length; n++)
             {
                 var sidecarPath = sidecarPaths[n];
@@ -226,32 +234,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                     continue;
                 }
 
-                try
-                {
-                    var deps = await NuspecDependencyReader.ReadDependencyIdsFromFileAsync(sidecarPath, cancellationToken).ConfigureAwait(false);
-                    for (var d = 0; d < deps.Length; d++)
-                    {
-                        var depId = deps[d];
-                        if (PackageExclusionFilter.IsExcludedByUser(depId, excludeIds, excludePrefixes))
-                        {
-                            continue;
-                        }
-
-                        if (PackageExclusionFilter.IsDefaultTransitiveSkip(depId))
-                        {
-                            continue;
-                        }
-
-                        if (seenIds.Add(depId))
-                        {
-                            newIds.Add(depId);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    LogNuspecReadFailed(logger, ex, sidecarPath);
-                }
+                await AddDependenciesFromSidecarAsync(sidecarPath, request, newIds).ConfigureAwait(false);
             }
 
             if (newIds.Count is 0)
@@ -259,19 +242,114 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                 return;
             }
 
-            var newPackages = new (string Id, string? Version, string? Tfm)[newIds.Count];
-            var packageIndex = 0;
-            foreach (var id in newIds)
-            {
-                tfmOverrides.TryGetValue(id, out var tfm);
-                newPackages[packageIndex++] = (id, null, tfm);
-            }
+            var newPackages = BuildTransitivePackageBatch(newIds, request.TfmOverrides);
 
-            LogFetchingTransitiveDeps(logger, depth + 1, newPackages.Length);
-            await FetchGroupAsync(libDir, cacheDir, newPackages, tfmPreference, logger, cancellationToken).ConfigureAwait(false);
+            LogFetchingTransitiveDeps(request.Logger, depth + 1, newPackages.Length);
+            await FetchGroupAsync(
+                request.LibDir,
+                request.CacheDir,
+                newPackages,
+                request.TfmPreference,
+                request.Logger,
+                request.CancellationToken).ConfigureAwait(false);
         }
 
-        LogTransitiveDepLimitReached(logger, maxDepth);
+        LogTransitiveDepLimitReached(request.Logger, maxDepth);
+    }
+
+    /// <summary>
+    /// Reads dependency IDs from one nuspec sidecar and adds newly-discovered packages to the next batch.
+    /// </summary>
+    /// <param name="sidecarPath">Path to the sidecar nuspec.</param>
+    /// <param name="request">Shared resolution request state.</param>
+    /// <param name="newIds">Set collecting newly-discovered package IDs.</param>
+    /// <returns>A task representing the asynchronous read.</returns>
+    private static Task AddDependenciesFromSidecarAsync(
+        string sidecarPath,
+        in TransitiveDependencyResolutionRequest request,
+        HashSet<string> newIds) =>
+        AddDependenciesFromSidecarCoreAsync(sidecarPath, request, newIds);
+
+    /// <summary>
+    /// Implementation of <see cref="AddDependenciesFromSidecarAsync(string, in TransitiveDependencyResolutionRequest, HashSet{string})"/>.
+    /// </summary>
+    /// <param name="sidecarPath">Path to the sidecar nuspec.</param>
+    /// <param name="request">Shared resolution request state.</param>
+    /// <param name="newIds">Set collecting newly-discovered package IDs.</param>
+    /// <returns>A task representing the asynchronous read.</returns>
+    private static async Task AddDependenciesFromSidecarCoreAsync(
+        string sidecarPath,
+        TransitiveDependencyResolutionRequest request,
+        HashSet<string> newIds)
+    {
+        try
+        {
+            var deps = await NuspecDependencyReader.ReadDependencyIdsFromFileAsync(
+                sidecarPath,
+                request.CancellationToken).ConfigureAwait(false);
+            AddEligibleDependencyIds(deps, request, newIds);
+        }
+        catch (Exception ex)
+        {
+            LogNuspecReadFailed(request.Logger, ex, sidecarPath);
+        }
+    }
+
+    /// <summary>
+    /// Adds dependency IDs that survive exclusion filtering.
+    /// </summary>
+    /// <param name="dependencyIds">Dependency IDs discovered in a nuspec.</param>
+    /// <param name="request">Shared resolution request state.</param>
+    /// <param name="newIds">Set collecting newly-discovered package IDs.</param>
+    private static void AddEligibleDependencyIds(
+        string[] dependencyIds,
+        in TransitiveDependencyResolutionRequest request,
+        HashSet<string> newIds)
+    {
+        for (var i = 0; i < dependencyIds.Length; i++)
+        {
+            var dependencyId = dependencyIds[i];
+            if (!ShouldIncludeTransitiveDependency(dependencyId, request))
+            {
+                continue;
+            }
+
+            if (request.SeenIds.Add(dependencyId))
+            {
+                newIds.Add(dependencyId);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Returns true when the dependency survives exclusion and default-skip filters.
+    /// </summary>
+    /// <param name="dependencyId">Dependency ID to test.</param>
+    /// <param name="request">Shared resolution request state.</param>
+    /// <returns>True when the dependency should be resolved.</returns>
+    private static bool ShouldIncludeTransitiveDependency(string dependencyId, in TransitiveDependencyResolutionRequest request) =>
+        !PackageExclusionFilter.IsExcludedByUser(dependencyId, request.ExcludeIds, request.ExcludePrefixes)
+        && !PackageExclusionFilter.IsDefaultTransitiveSkip(dependencyId);
+
+    /// <summary>
+    /// Builds the package batch for the next transitive resolution round.
+    /// </summary>
+    /// <param name="newIds">Newly-discovered package IDs.</param>
+    /// <param name="tfmOverrides">Per-package TFM overrides.</param>
+    /// <returns>The batch of package requests.</returns>
+    private static (string Id, string? Version, string? Tfm)[] BuildTransitivePackageBatch(
+        HashSet<string> newIds,
+        Dictionary<string, string> tfmOverrides)
+    {
+        var newPackages = new (string Id, string? Version, string? Tfm)[newIds.Count];
+        var packageIndex = 0;
+        foreach (var id in newIds)
+        {
+            tfmOverrides.TryGetValue(id, out var tfm);
+            newPackages[packageIndex++] = (id, null, tfm);
+        }
+
+        return newPackages;
     }
 
     /// <summary>
@@ -286,7 +364,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         Policy.Handle<HttpRequestException>()
             .WaitAndRetryAsync(
                 RetryAttempts,
-                static attempt => TimeSpan.FromSeconds(0.1 * Math.Pow(2, attempt)));
+                static attempt => TimeSpan.FromSeconds(RetryBackoffBaseSeconds * Math.Pow(RetryBackoffMultiplier, attempt)));
 
     /// <summary>
     /// Copies extracted reference assemblies from <c>refs/</c> into each <c>lib/</c> TFM directory.
@@ -573,11 +651,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var queryBuilder = new UriBuilder(searchEndpoint)
-            {
-                Query = $"q=owner:{Uri.EscapeDataString(owner)}&take={take}&skip={skip}&semVerLevel=2.0.0",
-            };
-            var url = queryBuilder.Uri;
+            var url = BuildOwnerSearchUri(searchEndpoint, owner, take, skip);
             var totalHits = 0;
 
             await retryPolicy.ExecuteAsync(
@@ -590,30 +664,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                     using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
 
                     totalHits = doc.RootElement.GetProperty("totalHits"u8).GetInt32();
-
-                    foreach (var result in doc.RootElement.GetProperty("data"u8).EnumerateArray())
-                    {
-                        // Skip deprecated packages (still listed but author-flagged).
-                        if (result.TryGetProperty("deprecation"u8, out _))
-                        {
-                            continue;
-                        }
-
-                        // Skip packages with known vulnerabilities so the docs site
-                        // never advertises a version a consumer should not pull.
-                        if (result.TryGetProperty("vulnerabilities"u8, out var vulns)
-                            && vulns is { ValueKind: JsonValueKind.Array }
-                            && vulns.GetArrayLength() is > 0)
-                        {
-                            continue;
-                        }
-
-                        var id = result.GetProperty("id"u8).GetString();
-                        if (id != null)
-                        {
-                            packageIds.Add(id);
-                        }
-                    }
+                    AddEligibleOwnerPackageIds(doc.RootElement, packageIds);
                 },
                 cancellationToken).ConfigureAwait(false);
 
@@ -670,68 +721,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         await Parallel.ForEachAsync(
             states,
             parallelOptions,
-            static async (state, ct) =>
-            {
-                var pkg = state.Package;
-                try
-                {
-                    var idLower = pkg.Id.ToLowerInvariant();
-
-                    var version = pkg.Version;
-                    if (version is null)
-                    {
-                        LogResolvingVersion(state.Logger, pkg.Id);
-                        version = await ResolveLatestStableVersionAsync(state.Client, state.RetryPolicy, idLower, ct).ConfigureAwait(false);
-                        if (version is null)
-                        {
-                            LogVersionUnresolved(state.Logger, pkg.Id);
-                            return;
-                        }
-                    }
-
-                    LogUsingPackage(state.Logger, pkg.Id, version);
-
-                    var versionLower = version.ToLowerInvariant();
-                    var nupkgPath = Path.Combine(state.CacheDir, $"{idLower}.{versionLower}.nupkg");
-                    var nuspecSidecarPath = NuspecSidecarPath(nupkgPath);
-
-                    if (File.Exists(nuspecSidecarPath))
-                    {
-                        LogUsingCachedPackage(state.Logger, pkg.Id, version);
-                        return;
-                    }
-
-                    var lockPath = PackageInstallLock.GetLockFilePath(state.CacheDir, nupkgPath);
-                    await PackageInstallLock.RunUnderLockAsync(
-                        lockPath,
-                        alreadyDone: () => File.Exists(nuspecSidecarPath),
-                        work: async lockCt =>
-                        {
-                            if (!File.Exists(nupkgPath))
-                            {
-                                LogDownloadingPackage(state.Logger, pkg.Id, version);
-                                await DownloadNupkgAsync(state.Client, state.RetryPolicy, idLower, versionLower, nupkgPath, lockCt).ConfigureAwait(false);
-                            }
-
-                            ExtractAssemblies(nupkgPath, state.LibDir, pkg.Id, pkg.Tfm, state.TfmPreference, state.Logger);
-                            LogExtractedPackage(state.Logger, pkg.Id, version);
-
-                            try
-                            {
-                                File.Delete(nupkgPath);
-                            }
-                            catch
-                            {
-                                // Best-effort.
-                            }
-                        },
-                        ct).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    LogPackageProcessFailed(state.Logger, ex, pkg.Id);
-                }
-            }).ConfigureAwait(false);
+            static (state, ct) => ProcessPackageAsync(state, ct)).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -853,12 +843,218 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         ILogger logger)
     {
         using var archive = ZipFile.OpenRead(nupkgPath);
+        var libEntries = CollectLibEntries(archive, out var nuspecEntry);
 
+        if (libEntries.Count is 0)
+        {
+            LogNoLibEntries(logger, packageId);
+            return;
+        }
+
+        if (!TrySelectTfms(libEntries, packageId, tfmOverride, tfmPreference, logger, out var selectedTfms))
+        {
+            return;
+        }
+
+        LogSelectedTfms(logger, packageId, selectedTfms);
+        ExtractSelectedAssemblies(libDir, selectedTfms, libEntries);
+        ExtractNuspecSidecar(nupkgPath, nuspecEntry);
+    }
+
+    /// <summary>
+    /// Builds the owner search URI for a single page of NuGet package results.
+    /// </summary>
+    /// <param name="searchEndpoint">Resolved NuGet search endpoint.</param>
+    /// <param name="owner">Owner name to search for.</param>
+    /// <param name="take">Page size.</param>
+    /// <param name="skip">Page offset.</param>
+    /// <returns>The fully-composed search URI.</returns>
+    private static Uri BuildOwnerSearchUri(Uri searchEndpoint, string owner, int take, int skip) =>
+        new UriBuilder(searchEndpoint)
+        {
+            Query = $"q=owner:{Uri.EscapeDataString(owner)}&take={take}&skip={skip}&semVerLevel=2.0.0",
+        }.Uri;
+
+    /// <summary>
+    /// Adds all eligible package identifiers from a NuGet owner search response.
+    /// </summary>
+    /// <param name="root">Root JSON element for the response document.</param>
+    /// <param name="packageIds">Destination list to append package IDs to.</param>
+    private static void AddEligibleOwnerPackageIds(JsonElement root, List<string> packageIds)
+    {
+        foreach (var result in root.GetProperty("data"u8).EnumerateArray())
+        {
+            if (ShouldSkipOwnerSearchResult(result))
+            {
+                continue;
+            }
+
+            var id = result.GetProperty("id"u8).GetString();
+            if (id != null)
+            {
+                packageIds.Add(id);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Returns whether an owner-search result should be excluded from discovery.
+    /// </summary>
+    /// <param name="result">Result element from the NuGet search response.</param>
+    /// <returns>True when the package should be ignored.</returns>
+    private static bool ShouldSkipOwnerSearchResult(JsonElement result)
+    {
+        // Skip deprecated packages (still listed but author-flagged).
+        if (result.TryGetProperty("deprecation"u8, out _))
+        {
+            return true;
+        }
+
+        // Skip packages with known vulnerabilities so the docs site
+        // never advertises a version a consumer should not pull.
+        return result.TryGetProperty("vulnerabilities"u8, out var vulnerabilities)
+            && vulnerabilities is { ValueKind: JsonValueKind.Array }
+            && vulnerabilities.GetArrayLength() is > 0;
+    }
+
+    /// <summary>
+    /// Processes a single package within the parallel fetch loop.
+    /// </summary>
+    /// <param name="state">Per-package fetch state.</param>
+    /// <param name="cancellationToken">Cancellation token for the package operation.</param>
+    /// <returns>A task representing the asynchronous package fetch.</returns>
+    private static async ValueTask ProcessPackageAsync(FetchState state, CancellationToken cancellationToken)
+    {
+        var pkg = state.Package;
+        try
+        {
+            var idLower = pkg.Id.ToLowerInvariant();
+            var version = await ResolvePackageVersionAsync(state, idLower, cancellationToken).ConfigureAwait(false);
+            if (version is null)
+            {
+                return;
+            }
+
+            LogUsingPackage(state.Logger, pkg.Id, version);
+            await InstallPackageAsync(state, idLower, version, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            LogPackageProcessFailed(state.Logger, ex, pkg.Id);
+        }
+    }
+
+    /// <summary>
+    /// Resolves the concrete version to use for a package, honouring pinned versions.
+    /// </summary>
+    /// <param name="state">Per-package fetch state.</param>
+    /// <param name="idLower">Lowercased package identifier.</param>
+    /// <param name="cancellationToken">Cancellation token for network operations.</param>
+    /// <returns>The chosen version, or <see langword="null"/> when no stable version exists.</returns>
+    private static async Task<string?> ResolvePackageVersionAsync(FetchState state, string idLower, CancellationToken cancellationToken)
+    {
+        var pkg = state.Package;
+        if (pkg.Version is not null)
+        {
+            return pkg.Version;
+        }
+
+        LogResolvingVersion(state.Logger, pkg.Id);
+        var version = await ResolveLatestStableVersionAsync(state.Client, state.RetryPolicy, idLower, cancellationToken).ConfigureAwait(false);
+        if (version is null)
+        {
+            LogVersionUnresolved(state.Logger, pkg.Id);
+        }
+
+        return version;
+    }
+
+    /// <summary>
+    /// Downloads and extracts a package unless its sidecar nuspec already exists.
+    /// </summary>
+    /// <param name="state">Per-package fetch state.</param>
+    /// <param name="idLower">Lowercased package identifier.</param>
+    /// <param name="version">Concrete package version to install.</param>
+    /// <param name="cancellationToken">Cancellation token for the install operation.</param>
+    /// <returns>A task representing the asynchronous install.</returns>
+    private static async Task InstallPackageAsync(FetchState state, string idLower, string version, CancellationToken cancellationToken)
+    {
+        var versionLower = version.ToLowerInvariant();
+        var nupkgPath = Path.Combine(state.CacheDir, $"{idLower}.{versionLower}.nupkg");
+        var nuspecSidecarPath = NuspecSidecarPath(nupkgPath);
+
+        if (File.Exists(nuspecSidecarPath))
+        {
+            LogUsingCachedPackage(state.Logger, state.Package.Id, version);
+            return;
+        }
+
+        var lockPath = PackageInstallLock.GetLockFilePath(state.CacheDir, nupkgPath);
+        await PackageInstallLock.RunUnderLockAsync(
+            lockPath,
+            alreadyDone: () => File.Exists(nuspecSidecarPath),
+            work: lockCt => InstallPackageUnderLockAsync(state, idLower, version, versionLower, nupkgPath, lockCt),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Performs the under-lock package download, extraction, and cache cleanup.
+    /// </summary>
+    /// <param name="state">Per-package fetch state.</param>
+    /// <param name="idLower">Lowercased package identifier.</param>
+    /// <param name="version">Concrete package version to install.</param>
+    /// <param name="versionLower">Lowercased package version.</param>
+    /// <param name="nupkgPath">Path to the cached <c>.nupkg</c>.</param>
+    /// <param name="cancellationToken">Cancellation token for the install operation.</param>
+    /// <returns>A task representing the asynchronous work.</returns>
+    private static async Task InstallPackageUnderLockAsync(
+        FetchState state,
+        string idLower,
+        string version,
+        string versionLower,
+        string nupkgPath,
+        CancellationToken cancellationToken)
+    {
+        if (!File.Exists(nupkgPath))
+        {
+            LogDownloadingPackage(state.Logger, state.Package.Id, version);
+            await DownloadNupkgAsync(state.Client, state.RetryPolicy, idLower, versionLower, nupkgPath, cancellationToken).ConfigureAwait(false);
+        }
+
+        ExtractAssemblies(nupkgPath, state.LibDir, state.Package.Id, state.Package.Tfm, state.TfmPreference, state.Logger);
+        LogExtractedPackage(state.Logger, state.Package.Id, version);
+        TryDeleteDownloadedPackage(nupkgPath);
+    }
+
+    /// <summary>
+    /// Deletes a downloaded <c>.nupkg</c> after extraction on a best-effort basis.
+    /// </summary>
+    /// <param name="nupkgPath">Path to the downloaded package file.</param>
+    private static void TryDeleteDownloadedPackage(string nupkgPath)
+    {
+        try
+        {
+            File.Delete(nupkgPath);
+        }
+        catch
+        {
+            // Best-effort.
+        }
+    }
+
+    /// <summary>
+    /// Collects archive entries grouped by TFM and captures the root nuspec entry when present.
+    /// </summary>
+    /// <param name="archive">Package archive to inspect.</param>
+    /// <param name="nuspecEntry">Captured root nuspec entry, if any.</param>
+    /// <returns>The archive's <c>lib/&lt;tfm&gt;/</c> entries grouped by TFM.</returns>
+    private static Dictionary<string, List<ZipArchiveEntry>> CollectLibEntries(ZipArchive archive, out ZipArchiveEntry? nuspecEntry)
+    {
         // Single foreach replaces the prior Where + GroupBy + Where +
         // ToDictionary chain. Allocates one Dictionary and one List per
         // distinct TFM rather than the LINQ pipeline's grouping internals.
         var libEntries = new Dictionary<string, List<ZipArchiveEntry>>(StringComparer.OrdinalIgnoreCase);
-        ZipArchiveEntry? nuspecEntry = null;
+        nuspecEntry = null;
         for (var i = 0; i < archive.Entries.Count; i++)
         {
             var entry = archive.Entries[i];
@@ -867,68 +1063,133 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                 continue;
             }
 
-            // Capture the nuspec while we already have the central
-            // directory open. Sidecar-extracting it here means the
-            // transitive-dep walk never has to re-OpenRead the zip
-            // just to read deps — it tail-reads the XML from disk.
-            if (nuspecEntry is null && NuspecDependencyReader.IsRootNuspecEntry(entry.FullName))
-            {
-                nuspecEntry = entry;
-            }
-
-            var path = entry.FullName.AsSpan();
-            if (!path.StartsWith("lib/", StringComparison.OrdinalIgnoreCase))
+            CaptureRootNuspec(entry, ref nuspecEntry);
+            if (!TryGetLibTfm(entry, out var tfm))
             {
                 continue;
             }
 
-            // Pull the TFM segment from "lib/<tfm>/..." without
-            // allocating an intermediate string[] from Split.
-            var afterLib = path["lib/".Length..];
-            var nextSlash = afterLib.IndexOf('/');
-            if (nextSlash <= 0)
-            {
-                continue;
-            }
-
-            var tfm = afterLib[..nextSlash].ToString();
-            if (!libEntries.TryGetValue(tfm, out var list))
-            {
-                list = [];
-                libEntries[tfm] = list;
-            }
-
-            list.Add(entry);
+            AddLibEntry(libEntries, tfm, entry);
         }
 
-        if (libEntries.Count is 0)
+        return libEntries;
+    }
+
+    /// <summary>
+    /// Captures the package's root nuspec entry the first time it is encountered.
+    /// </summary>
+    /// <param name="entry">Archive entry being inspected.</param>
+    /// <param name="nuspecEntry">Current nuspec entry slot.</param>
+    private static void CaptureRootNuspec(ZipArchiveEntry entry, ref ZipArchiveEntry? nuspecEntry)
+    {
+        // Capture the nuspec while we already have the central
+        // directory open. Sidecar-extracting it here means the
+        // transitive-dep walk never has to re-OpenRead the zip
+        // just to read deps — it tail-reads the XML from disk.
+        if (nuspecEntry is not null || !NuspecDependencyReader.IsRootNuspecEntry(entry.FullName))
         {
-            LogNoLibEntries(logger, packageId);
             return;
         }
 
+        nuspecEntry = entry;
+    }
+
+    /// <summary>
+    /// Attempts to extract the TFM segment from a <c>lib/&lt;tfm&gt;/...</c> archive entry.
+    /// </summary>
+    /// <param name="entry">Archive entry to inspect.</param>
+    /// <param name="tfm">Resolved TFM segment when present.</param>
+    /// <returns>True when the entry lives under a TFM-specific <c>lib/</c> path.</returns>
+    private static bool TryGetLibTfm(ZipArchiveEntry entry, [NotNullWhen(true)] out string? tfm)
+    {
+        var path = entry.FullName.AsSpan();
+        if (!path.StartsWith("lib/", StringComparison.OrdinalIgnoreCase))
+        {
+            tfm = null;
+            return false;
+        }
+
+        // Pull the TFM segment from "lib/<tfm>/..." without
+        // allocating an intermediate string[] from Split.
+        var afterLib = path["lib/".Length..];
+        var nextSlash = afterLib.IndexOf('/');
+        if (nextSlash <= 0)
+        {
+            tfm = null;
+            return false;
+        }
+
+        tfm = afterLib[..nextSlash].ToString();
+        return true;
+    }
+
+    /// <summary>
+    /// Adds a library entry to its TFM bucket.
+    /// </summary>
+    /// <param name="libEntries">Grouped library entries.</param>
+    /// <param name="tfm">TFM bucket name.</param>
+    /// <param name="entry">Archive entry to append.</param>
+    private static void AddLibEntry(Dictionary<string, List<ZipArchiveEntry>> libEntries, string tfm, ZipArchiveEntry entry)
+    {
+        if (!libEntries.TryGetValue(tfm, out var list))
+        {
+            list = [];
+            libEntries[tfm] = list;
+        }
+
+        list.Add(entry);
+    }
+
+    /// <summary>
+    /// Selects supported TFMs and logs when none match the configured preferences.
+    /// </summary>
+    /// <param name="libEntries">Available library entries grouped by TFM.</param>
+    /// <param name="packageId">Package identifier for logging.</param>
+    /// <param name="tfmOverride">Optional package-specific TFM override.</param>
+    /// <param name="tfmPreference">Global TFM preference order.</param>
+    /// <param name="logger">Logger for selection warnings.</param>
+    /// <param name="selectedTfms">Selected TFMs when at least one match is found.</param>
+    /// <returns>True when at least one TFM was selected.</returns>
+    private static bool TrySelectTfms(
+        Dictionary<string, List<ZipArchiveEntry>> libEntries,
+        string packageId,
+        string? tfmOverride,
+        string[] tfmPreference,
+        ILogger logger,
+        [NotNullWhen(true)] out List<string>? selectedTfms)
+    {
         var availableTfms = new List<string>(libEntries.Keys);
-        var selectedTfms = TfmResolver.SelectAllSupportedTfms(availableTfms, tfmOverride, tfmPreference);
-        if (selectedTfms.Count is 0)
+        selectedTfms = TfmResolver.SelectAllSupportedTfms(availableTfms, tfmOverride, tfmPreference);
+        if (selectedTfms.Count is not 0)
         {
-            LogInvokerHelper.Invoke(
-                logger,
-                LogLevel.Warning,
-                packageId,
-                availableTfms,
-                static (l, id, tfms) =>
-                {
-                    if (!l.IsEnabled(LogLevel.Warning))
-                    {
-                        return;
-                    }
-
-                    var available = string.Join(", ", tfms);
-                    LogNoSupportedTfm(l, id, available);
-                });
-            return;
+            return true;
         }
 
+        LogInvokerHelper.Invoke(
+            logger,
+            LogLevel.Warning,
+            packageId,
+            availableTfms,
+            static (l, id, tfms) =>
+            {
+                if (!l.IsEnabled(LogLevel.Warning))
+                {
+                    return;
+                }
+
+                var available = string.Join(", ", tfms);
+                LogNoSupportedTfm(l, id, available);
+            });
+        return false;
+    }
+
+    /// <summary>
+    /// Logs the TFMs selected for extraction.
+    /// </summary>
+    /// <param name="logger">Logger for the summary.</param>
+    /// <param name="packageId">Package identifier.</param>
+    /// <param name="selectedTfms">TFMs selected for extraction.</param>
+    private static void LogSelectedTfms(ILogger logger, string packageId, List<string> selectedTfms) =>
         LogInvokerHelper.Invoke(
             logger,
             LogLevel.Information,
@@ -945,43 +1206,80 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                 LogExtractingTfms(l, id, tfms.Count, selected);
             });
 
+    /// <summary>
+    /// Extracts the selected TFM buckets from a package archive.
+    /// </summary>
+    /// <param name="libDir">Root directory for extracted library files.</param>
+    /// <param name="selectedTfms">TFMs selected for extraction.</param>
+    /// <param name="libEntries">Available library entries grouped by TFM.</param>
+    private static void ExtractSelectedAssemblies(
+        string libDir,
+        List<string> selectedTfms,
+        Dictionary<string, List<ZipArchiveEntry>> libEntries)
+    {
         for (var i = 0; i < selectedTfms.Count; i++)
         {
             var selectedTfm = selectedTfms[i];
             var tfmLibDir = Path.Combine(libDir, selectedTfm);
             Directory.CreateDirectory(tfmLibDir);
-
-            var entries = libEntries[selectedTfm];
-            for (var j = 0; j < entries.Count; j++)
-            {
-                var entry = entries[j];
-                var ext = Path.GetExtension(entry.Name.AsSpan());
-                if (!ext.Equals(".dll", StringComparison.OrdinalIgnoreCase) &&
-                    !ext.Equals(".xml", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                var destPath = Path.Combine(tfmLibDir, entry.Name);
-
-                // Skip-if-identical: the transitive-dep closure can
-                // run up to maxDepth rounds, each one re-globbing the
-                // cache and re-entering ExtractAssemblies. Without this
-                // check every package's per-TFM DLL set re-extracts
-                // every round (and SelectAllSupportedTfms multiplies
-                // that by every compatible TFM family) — on a heavy
-                // fixture that fans out to tens of GB of redundant
-                // disk writes. Compare uncompressed length + last
-                // write time so a real package upgrade still copies.
-                if (IsSameAsExtracted(destPath, entry))
-                {
-                    continue;
-                }
-
-                entry.ExtractToFile(destPath, overwrite: true);
-            }
+            ExtractTfmEntries(tfmLibDir, libEntries[selectedTfm]);
         }
+    }
 
+    /// <summary>
+    /// Extracts managed library artifacts for a single selected TFM bucket.
+    /// </summary>
+    /// <param name="tfmLibDir">Destination TFM directory.</param>
+    /// <param name="entries">Archive entries in the bucket.</param>
+    private static void ExtractTfmEntries(string tfmLibDir, List<ZipArchiveEntry> entries)
+    {
+        for (var i = 0; i < entries.Count; i++)
+        {
+            var entry = entries[i];
+            if (!ShouldExtractAssemblyEntry(entry))
+            {
+                continue;
+            }
+
+            var destPath = Path.Combine(tfmLibDir, entry.Name);
+
+            // Skip-if-identical: the transitive-dep closure can
+            // run up to maxDepth rounds, each one re-globbing the
+            // cache and re-entering ExtractAssemblies. Without this
+            // check every package's per-TFM DLL set re-extracts
+            // every round (and SelectAllSupportedTfms multiplies
+            // that by every compatible TFM family) — on a heavy
+            // fixture that fans out to tens of GB of redundant
+            // disk writes. Compare uncompressed length + last
+            // write time so a real package upgrade still copies.
+            if (IsSameAsExtracted(destPath, entry))
+            {
+                continue;
+            }
+
+            entry.ExtractToFile(destPath, overwrite: true);
+        }
+    }
+
+    /// <summary>
+    /// Returns whether a lib entry should be extracted for documentation generation.
+    /// </summary>
+    /// <param name="entry">Archive entry to inspect.</param>
+    /// <returns>True for <c>.dll</c> and <c>.xml</c> files.</returns>
+    private static bool ShouldExtractAssemblyEntry(ZipArchiveEntry entry)
+    {
+        var ext = Path.GetExtension(entry.Name.AsSpan());
+        return ext.Equals(".dll", StringComparison.OrdinalIgnoreCase)
+            || ext.Equals(".xml", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Extracts the package nuspec alongside the cached <c>.nupkg</c> when needed.
+    /// </summary>
+    /// <param name="nupkgPath">Path to the cached package.</param>
+    /// <param name="nuspecEntry">Root nuspec entry captured from the archive.</param>
+    private static void ExtractNuspecSidecar(string nupkgPath, ZipArchiveEntry? nuspecEntry)
+    {
         // Sidecar the nuspec next to the .nupkg so the transitive-dep
         // walk reads cheap XML from disk instead of re-OpenRead-ing
         // the zip. Skip-if-same matches the DLL extraction policy.

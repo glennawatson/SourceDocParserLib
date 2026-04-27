@@ -36,260 +36,134 @@ internal static class TypeBuilder
         var sourceUrl = context.SourceLinks.Resolve(type);
         var (attributes, isObsolete, obsoleteMessage) = AttributeExtractor.ExtractAll(type);
 
+        var input = new TypeBuildContext(
+            type,
+            uid,
+            ns,
+            fullName,
+            documentation,
+            baseTypeRef,
+            interfaces,
+            sourceUrl,
+            attributes,
+            isObsolete,
+            obsoleteMessage,
+            context);
+
         return type.TypeKind switch
         {
             // Closed-hierarchy unions (C# 15+) are class-shaped and have to
             // be checked before the generic class branch — otherwise we'd
             // emit them as a plain class and lose the case list.
-            TypeKind.Class when SymbolWalkerHelpers.IsUnion(type) => BuildUnion(
-                type,
-                uid,
-                ns,
-                fullName,
-                documentation,
-                baseTypeRef,
-                interfaces,
-                sourceUrl,
-                attributes,
-                isObsolete,
-                obsoleteMessage,
-                context),
-            TypeKind.Enum => BuildEnum(
-                type,
-                uid,
-                ns,
-                fullName,
-                documentation,
-                baseTypeRef,
-                interfaces,
-                sourceUrl,
-                attributes,
-                isObsolete,
-                obsoleteMessage,
-                context),
-            TypeKind.Delegate => BuildDelegate(
-                type,
-                uid,
-                ns,
-                fullName,
-                documentation,
-                baseTypeRef,
-                interfaces,
-                sourceUrl,
-                attributes,
-                isObsolete,
-                obsoleteMessage,
-                context),
-            _ => BuildObject(
-                type,
-                uid,
-                ns,
-                fullName,
-                documentation,
-                baseTypeRef,
-                interfaces,
-                sourceUrl,
-                attributes,
-                isObsolete,
-                obsoleteMessage,
-                context),
+            TypeKind.Class when SymbolWalkerHelpers.IsUnion(type) => BuildUnion(input),
+            TypeKind.Enum => BuildEnum(input),
+            TypeKind.Delegate => BuildDelegate(input),
+            _ => BuildObject(input),
         };
     }
 
     /// <summary>Constructs the <see cref="ApiUnionType"/> branch.</summary>
-    /// <param name="type">Source type symbol.</param>
-    /// <param name="uid">Documentation comment id.</param>
-    /// <param name="ns">Containing namespace display string.</param>
-    /// <param name="fullName">Namespace-qualified name.</param>
-    /// <param name="documentation">Pre-resolved documentation.</param>
-    /// <param name="baseTypeRef">Base type reference.</param>
-    /// <param name="interfaces">Interface references.</param>
-    /// <param name="sourceUrl">Source URL or null.</param>
-    /// <param name="attributes">Pre-extracted attributes.</param>
-    /// <param name="isObsolete">Whether <c>[Obsolete]</c> was applied.</param>
-    /// <param name="obsoleteMessage">Optional <c>[Obsolete]</c> message.</param>
-    /// <param name="context">Per-walk state bundle.</param>
+    /// <param name="input">Per-type build inputs.</param>
     /// <returns>The constructed union type.</returns>
-    internal static ApiUnionType BuildUnion(
-        INamedTypeSymbol type,
-        string uid,
-        string ns,
-        string fullName,
-        ApiDocumentation documentation,
-        ApiTypeReference? baseTypeRef,
-        ApiTypeReference[] interfaces,
-        string? sourceUrl,
-        ApiAttribute[] attributes,
-        bool isObsolete,
-        string? obsoleteMessage,
-        SymbolWalkContext context) => new(
-            Name: type.Name,
-            FullName: fullName,
-            Uid: uid,
-            Namespace: ns,
-            Arity: type.Arity,
-            IsStatic: type.IsStatic,
-            IsSealed: type.IsSealed,
-            IsAbstract: type.IsAbstract,
-            AssemblyName: context.AssemblyName,
-            Documentation: documentation,
-            BaseType: baseTypeRef,
-            Interfaces: interfaces,
-            SourceUrl: sourceUrl,
-            AppliesTo: context.AppliesTo,
-            IsObsolete: isObsolete,
-            ObsoleteMessage: obsoleteMessage,
-            Attributes: attributes,
-            Members: MemberBuilder.Build(type, type.Name, uid, context),
-            Cases: SymbolWalkerHelpers.BuildUnionCases(type, context.TypeRefs));
+    internal static ApiUnionType BuildUnion(in TypeBuildContext input) => new(
+        Name: input.Type.Name,
+        FullName: input.FullName,
+        Uid: input.Uid,
+        Namespace: input.Namespace,
+        Arity: input.Type.Arity,
+        IsStatic: input.Type.IsStatic,
+        IsSealed: input.Type.IsSealed,
+        IsAbstract: input.Type.IsAbstract,
+        AssemblyName: input.Context.AssemblyName,
+        Documentation: input.Documentation,
+        BaseType: input.BaseTypeRef,
+        Interfaces: input.Interfaces,
+        SourceUrl: input.SourceUrl,
+        AppliesTo: input.Context.AppliesTo,
+        IsObsolete: input.IsObsolete,
+        ObsoleteMessage: input.ObsoleteMessage,
+        Attributes: input.Attributes,
+        Members: MemberBuilder.Build(input.Type, input.Type.Name, input.Uid, input.Context),
+        Cases: SymbolWalkerHelpers.BuildUnionCases(input.Type, input.Context.TypeRefs));
 
     /// <summary>Constructs the <see cref="ApiEnumType"/> branch.</summary>
-    /// <param name="type">Source type symbol.</param>
-    /// <param name="uid">Documentation comment id.</param>
-    /// <param name="ns">Containing namespace display string.</param>
-    /// <param name="fullName">Namespace-qualified name.</param>
-    /// <param name="documentation">Pre-resolved documentation.</param>
-    /// <param name="baseTypeRef">Base type reference.</param>
-    /// <param name="interfaces">Interface references.</param>
-    /// <param name="sourceUrl">Source URL or null.</param>
-    /// <param name="attributes">Pre-extracted attributes.</param>
-    /// <param name="isObsolete">Whether <c>[Obsolete]</c> was applied.</param>
-    /// <param name="obsoleteMessage">Optional <c>[Obsolete]</c> message.</param>
-    /// <param name="context">Per-walk state bundle.</param>
+    /// <param name="input">Per-type build inputs.</param>
     /// <returns>The constructed enum type.</returns>
-    internal static ApiEnumType BuildEnum(
-        INamedTypeSymbol type,
-        string uid,
-        string ns,
-        string fullName,
-        ApiDocumentation documentation,
-        ApiTypeReference? baseTypeRef,
-        ApiTypeReference[] interfaces,
-        string? sourceUrl,
-        ApiAttribute[] attributes,
-        bool isObsolete,
-        string? obsoleteMessage,
-        SymbolWalkContext context) => new(
-            Name: type.Name,
-            FullName: fullName,
-            Uid: uid,
-            Namespace: ns,
-            Arity: type.Arity,
-            IsStatic: type.IsStatic,
-            IsSealed: type.IsSealed,
-            IsAbstract: type.IsAbstract,
-            AssemblyName: context.AssemblyName,
-            Documentation: documentation,
-            BaseType: baseTypeRef,
-            Interfaces: interfaces,
-            SourceUrl: sourceUrl,
-            AppliesTo: context.AppliesTo,
-            IsObsolete: isObsolete,
-            ObsoleteMessage: obsoleteMessage,
-            Attributes: attributes,
-            UnderlyingType: context.TypeRefs.GetOrAdd(
-                type.EnumUnderlyingType ?? type,
-                SymbolWalkerHelpers.BuildReference),
-            Values: SymbolWalkerHelpers.BuildEnumValues(type, context));
+    internal static ApiEnumType BuildEnum(in TypeBuildContext input) => new(
+        Name: input.Type.Name,
+        FullName: input.FullName,
+        Uid: input.Uid,
+        Namespace: input.Namespace,
+        Arity: input.Type.Arity,
+        IsStatic: input.Type.IsStatic,
+        IsSealed: input.Type.IsSealed,
+        IsAbstract: input.Type.IsAbstract,
+        AssemblyName: input.Context.AssemblyName,
+        Documentation: input.Documentation,
+        BaseType: input.BaseTypeRef,
+        Interfaces: input.Interfaces,
+        SourceUrl: input.SourceUrl,
+        AppliesTo: input.Context.AppliesTo,
+        IsObsolete: input.IsObsolete,
+        ObsoleteMessage: input.ObsoleteMessage,
+        Attributes: input.Attributes,
+        UnderlyingType: input.Context.TypeRefs.GetOrAdd(
+            input.Type.EnumUnderlyingType ?? input.Type,
+            SymbolWalkerHelpers.BuildReference),
+        Values: SymbolWalkerHelpers.BuildEnumValues(input.Type, input.Context));
 
     /// <summary>Constructs the <see cref="ApiDelegateType"/> branch.</summary>
-    /// <param name="type">Source type symbol.</param>
-    /// <param name="uid">Documentation comment id.</param>
-    /// <param name="ns">Containing namespace display string.</param>
-    /// <param name="fullName">Namespace-qualified name.</param>
-    /// <param name="documentation">Pre-resolved documentation.</param>
-    /// <param name="baseTypeRef">Base type reference.</param>
-    /// <param name="interfaces">Interface references.</param>
-    /// <param name="sourceUrl">Source URL or null.</param>
-    /// <param name="attributes">Pre-extracted attributes.</param>
-    /// <param name="isObsolete">Whether <c>[Obsolete]</c> was applied.</param>
-    /// <param name="obsoleteMessage">Optional <c>[Obsolete]</c> message.</param>
-    /// <param name="context">Per-walk state bundle.</param>
+    /// <param name="input">Per-type build inputs.</param>
     /// <returns>The constructed delegate type.</returns>
-    internal static ApiDelegateType BuildDelegate(
-        INamedTypeSymbol type,
-        string uid,
-        string ns,
-        string fullName,
-        ApiDocumentation documentation,
-        ApiTypeReference? baseTypeRef,
-        ApiTypeReference[] interfaces,
-        string? sourceUrl,
-        ApiAttribute[] attributes,
-        bool isObsolete,
-        string? obsoleteMessage,
-        SymbolWalkContext context) => new(
-            Name: type.Name,
-            FullName: fullName,
-            Uid: uid,
-            Namespace: ns,
-            Arity: type.Arity,
-            IsStatic: type.IsStatic,
-            IsSealed: type.IsSealed,
-            IsAbstract: type.IsAbstract,
-            AssemblyName: context.AssemblyName,
-            Documentation: documentation,
-            BaseType: baseTypeRef,
-            Interfaces: interfaces,
-            SourceUrl: sourceUrl,
-            AppliesTo: context.AppliesTo,
-            IsObsolete: isObsolete,
-            ObsoleteMessage: obsoleteMessage,
-            Attributes: attributes,
-            Invoke: SymbolWalkerHelpers.BuildDelegateInvoke(type, context));
+    internal static ApiDelegateType BuildDelegate(in TypeBuildContext input) => new(
+        Name: input.Type.Name,
+        FullName: input.FullName,
+        Uid: input.Uid,
+        Namespace: input.Namespace,
+        Arity: input.Type.Arity,
+        IsStatic: input.Type.IsStatic,
+        IsSealed: input.Type.IsSealed,
+        IsAbstract: input.Type.IsAbstract,
+        AssemblyName: input.Context.AssemblyName,
+        Documentation: input.Documentation,
+        BaseType: input.BaseTypeRef,
+        Interfaces: input.Interfaces,
+        SourceUrl: input.SourceUrl,
+        AppliesTo: input.Context.AppliesTo,
+        IsObsolete: input.IsObsolete,
+        ObsoleteMessage: input.ObsoleteMessage,
+        Attributes: input.Attributes,
+        Invoke: SymbolWalkerHelpers.BuildDelegateInvoke(input.Type, input.Context));
 
     /// <summary>Constructs the <see cref="ApiObjectType"/> branch — class / struct / interface / record / record struct.</summary>
-    /// <param name="type">Source type symbol.</param>
-    /// <param name="uid">Documentation comment id.</param>
-    /// <param name="ns">Containing namespace display string.</param>
-    /// <param name="fullName">Namespace-qualified name.</param>
-    /// <param name="documentation">Pre-resolved documentation.</param>
-    /// <param name="baseTypeRef">Base type reference.</param>
-    /// <param name="interfaces">Interface references.</param>
-    /// <param name="sourceUrl">Source URL or null.</param>
-    /// <param name="attributes">Pre-extracted attributes.</param>
-    /// <param name="isObsolete">Whether <c>[Obsolete]</c> was applied.</param>
-    /// <param name="obsoleteMessage">Optional <c>[Obsolete]</c> message.</param>
-    /// <param name="context">Per-walk state bundle.</param>
+    /// <param name="input">Per-type build inputs.</param>
     /// <returns>The constructed object type, or null when no <see cref="ApiObjectKind"/> matches (e.g. error symbols).</returns>
-    internal static ApiObjectType? BuildObject(
-        INamedTypeSymbol type,
-        string uid,
-        string ns,
-        string fullName,
-        ApiDocumentation documentation,
-        ApiTypeReference? baseTypeRef,
-        ApiTypeReference[] interfaces,
-        string? sourceUrl,
-        ApiAttribute[] attributes,
-        bool isObsolete,
-        string? obsoleteMessage,
-        SymbolWalkContext context) =>
-        SymbolWalkerHelpers.ClassifyObjectKind(type) is not { } kind
+    internal static ApiObjectType? BuildObject(in TypeBuildContext input) =>
+        SymbolWalkerHelpers.ClassifyObjectKind(input.Type) is not { } kind
             ? null
             : new ApiObjectType(
-                Name: type.Name,
-                FullName: fullName,
-                Uid: uid,
-                Namespace: ns,
-                Arity: type.Arity,
-                IsStatic: type.IsStatic,
-                IsSealed: type.IsSealed,
-                IsAbstract: type.IsAbstract,
-                AssemblyName: context.AssemblyName,
-                Documentation: documentation,
-                BaseType: baseTypeRef,
-                Interfaces: interfaces,
-                SourceUrl: sourceUrl,
-                AppliesTo: context.AppliesTo,
-                IsObsolete: isObsolete,
-                ObsoleteMessage: obsoleteMessage,
-                Attributes: attributes,
+                Name: input.Type.Name,
+                FullName: input.FullName,
+                Uid: input.Uid,
+                Namespace: input.Namespace,
+                Arity: input.Type.Arity,
+                IsStatic: input.Type.IsStatic,
+                IsSealed: input.Type.IsSealed,
+                IsAbstract: input.Type.IsAbstract,
+                AssemblyName: input.Context.AssemblyName,
+                Documentation: input.Documentation,
+                BaseType: input.BaseTypeRef,
+                Interfaces: input.Interfaces,
+                SourceUrl: input.SourceUrl,
+                AppliesTo: input.Context.AppliesTo,
+                IsObsolete: input.IsObsolete,
+                ObsoleteMessage: input.ObsoleteMessage,
+                Attributes: input.Attributes,
                 Kind: kind,
-                IsReadOnly: type.IsReadOnly,
-                IsByRefLike: type.IsRefLikeType,
-                Members: MemberBuilder.Build(type, type.Name, uid, context),
-                ExtensionBlocks: ExtensionBlockBuilder.Build(type, context));
+                IsReadOnly: input.Type.IsReadOnly,
+                IsByRefLike: input.Type.IsRefLikeType,
+                Members: MemberBuilder.Build(input.Type, input.Type.Name, input.Uid, input.Context),
+                ExtensionBlocks: ExtensionBlockBuilder.Build(input.Type, input.Context));
 
     /// <summary>
     /// Composes the namespace-qualified, containing-type-qualified

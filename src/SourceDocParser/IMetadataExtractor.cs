@@ -15,6 +15,32 @@ namespace SourceDocParser;
 public interface IMetadataExtractor
 {
     /// <summary>
+    /// Runs the extraction pipeline end-to-end using default logging and cancellation settings.
+    /// </summary>
+    /// <param name="source">Provides the per-TFM assemblies to walk.</param>
+    /// <param name="outputRoot">Destination directory for emitted pages.</param>
+    /// <param name="emitter">Format-specific page emitter.</param>
+    /// <returns>Summary of what was extracted, emitted, and any failures.</returns>
+    Task<ExtractionResult> RunAsync(
+        IAssemblySource source,
+        string outputRoot,
+        IDocumentationEmitter emitter);
+
+    /// <summary>
+    /// Runs the extraction pipeline end-to-end using the supplied logger.
+    /// </summary>
+    /// <param name="source">Provides the per-TFM assemblies to walk.</param>
+    /// <param name="outputRoot">Destination directory for emitted pages.</param>
+    /// <param name="emitter">Format-specific page emitter.</param>
+    /// <param name="logger">Optional logger; defaults to a no-op logger.</param>
+    /// <returns>Summary of what was extracted, emitted, and any failures.</returns>
+    Task<ExtractionResult> RunAsync(
+        IAssemblySource source,
+        string outputRoot,
+        IDocumentationEmitter emitter,
+        ILogger? logger);
+
+    /// <summary>
     /// Runs the extraction pipeline end-to-end.
     /// </summary>
     /// <param name="source">Provides the per-TFM assemblies to walk.</param>
@@ -27,6 +53,6 @@ public interface IMetadataExtractor
         IAssemblySource source,
         string outputRoot,
         IDocumentationEmitter emitter,
-        ILogger? logger = null,
-        CancellationToken cancellationToken = default);
+        ILogger? logger,
+        CancellationToken cancellationToken);
 }

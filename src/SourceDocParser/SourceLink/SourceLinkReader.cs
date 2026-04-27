@@ -151,8 +151,10 @@ internal sealed class SourceLinkReader : IDisposable
         [NotNullWhen(true)] out MetadataReaderProvider? provider,
         [NotNullWhen(true)] out MetadataReader? reader)
     {
+        // provider must be initialised before the catch arm's
+        // null-conditional dispose; reader is only ever written, so
+        // its initial value isn't tracked.
         provider = null;
-        reader = null;
 
         foreach (var entry in peReader.ReadDebugDirectory())
         {
@@ -171,7 +173,6 @@ internal sealed class SourceLinkReader : IDisposable
             {
                 provider?.Dispose();
                 provider = null;
-                reader = null;
             }
         }
 

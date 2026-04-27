@@ -23,24 +23,34 @@ namespace SourceDocParser.Walk;
 public sealed class SymbolWalker : ISymbolWalker
 {
     /// <summary>Factory invoked once per <see cref="Walk"/> to create the per-compilation doc resolver.</summary>
-    private readonly Func<Microsoft.CodeAnalysis.Compilation, IDocResolver> _docResolverFactory;
+    private readonly Func<Compilation, IDocResolver> _docResolverFactory;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SymbolWalker"/> class
+    /// using the default doc-resolver factory.
+    /// </summary>
+    public SymbolWalker()
+        : this(null)
+    {
+    }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SymbolWalker"/> class.
     /// </summary>
     /// <param name="docResolverFactory">Factory invoked once per <see cref="Walk"/> to create the per-compilation doc resolver. Defaults to <c>c =&gt; new DocResolver(c)</c>.</param>
-    public SymbolWalker(Func<Microsoft.CodeAnalysis.Compilation, IDocResolver>? docResolverFactory = null) =>
+    public SymbolWalker(Func<Compilation, IDocResolver>? docResolverFactory) =>
         _docResolverFactory = docResolverFactory ?? (static c => new DocResolver(c));
 
     /// <summary>
-    /// Walks the public types of one assembly and returns the catalog for the supplied TFM.
+    /// Walks through symbols in the provided compilation, resolving documentation and source links
+    /// to construct an API catalog.
     /// </summary>
-    /// <param name="tfm">The TFM the assembly was extracted from; recorded on the catalog so downstream consumers know which compilation it came from.</param>
-    /// <param name="assembly">Assembly symbol to walk.</param>
-    /// <param name="compilation">Compilation that produced the assembly symbol — passed through to the DocResolver for cref resolution on inheritdoc.</param>
-    /// <param name="sourceLinks">SourceLink resolver scoped to the assembly being walked. Populates <see cref="ApiMember.SourceUrl"/> and <see cref="ApiType.SourceUrl"/> when PDB + SourceLink data is available; otherwise contributes nothing and the URLs stay null.</param>
-    /// <returns>The generated API catalog.</returns>
-    public ApiCatalog Walk(string tfm, IAssemblySymbol assembly, Microsoft.CodeAnalysis.Compilation compilation, ISourceLinkResolver sourceLinks)
+    /// <param name="tfm">The target framework moniker (TFM) of the assembly being analyzed.</param>
+    /// <param name="assembly">The assembly symbol representing the assembly to be walked.</param>
+    /// <param name="compilation">The compilation object containing the assembly's symbols and references.</param>
+    /// <param name="sourceLinks">The resolver for source link mappings associated with the assembly.</param>
+    /// <returns>An <see cref="ApiCatalog"/> representing the analyzed API and its associated metadata.</returns>
+    public ApiCatalog Walk(string tfm, IAssemblySymbol assembly, Compilation compilation, ISourceLinkResolver sourceLinks)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tfm);
         ArgumentNullException.ThrowIfNull(assembly);

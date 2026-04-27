@@ -16,6 +16,46 @@ public static class TestData
 {
     /// <summary>
     /// Creates a minimal <see cref="ApiObjectType"/> in a deterministic
+    /// shape using the default class kind and assembly name.
+    /// </summary>
+    /// <param name="uid">Unique identifier (also drives FullName when not supplied).</param>
+    /// <returns>The constructed object type.</returns>
+    public static ApiObjectType ObjectType(string uid) =>
+        ObjectType(uid, ApiObjectKind.Class, "Test", null);
+
+    /// <summary>
+    /// Creates a minimal <see cref="ApiObjectType"/> in a deterministic
+    /// shape using the default class kind and supplied assembly name.
+    /// </summary>
+    /// <param name="uid">Unique identifier (also drives FullName when not supplied).</param>
+    /// <param name="assemblyName">Declaring assembly name.</param>
+    /// <returns>The constructed object type.</returns>
+    public static ApiObjectType ObjectType(string uid, string assemblyName) =>
+        ObjectType(uid, ApiObjectKind.Class, assemblyName, null);
+
+    /// <summary>
+    /// Creates a minimal <see cref="ApiObjectType"/> in a deterministic
+    /// shape using the supplied kind and default assembly name.
+    /// </summary>
+    /// <param name="uid">Unique identifier (also drives FullName when not supplied).</param>
+    /// <param name="kind">Object kind (class / struct / interface / record / record struct).</param>
+    /// <returns>The constructed object type.</returns>
+    public static ApiObjectType ObjectType(string uid, ApiObjectKind kind) =>
+        ObjectType(uid, kind, "Test", null);
+
+    /// <summary>
+    /// Creates a minimal <see cref="ApiObjectType"/> in a deterministic
+    /// shape using the supplied kind and assembly name.
+    /// </summary>
+    /// <param name="uid">Unique identifier (also drives FullName when not supplied).</param>
+    /// <param name="kind">Object kind (class / struct / interface / record / record struct).</param>
+    /// <param name="assemblyName">Declaring assembly name.</param>
+    /// <returns>The constructed object type.</returns>
+    public static ApiObjectType ObjectType(string uid, ApiObjectKind kind, string assemblyName) =>
+        ObjectType(uid, kind, assemblyName, null);
+
+    /// <summary>
+    /// Creates a minimal <see cref="ApiObjectType"/> in a deterministic
     /// shape — defaults to a class with no members.
     /// </summary>
     /// <param name="uid">Unique identifier (also drives FullName when not supplied).</param>
@@ -25,9 +65,9 @@ public static class TestData
     /// <returns>The constructed object type.</returns>
     public static ApiObjectType ObjectType(
         string uid,
-        ApiObjectKind kind = ApiObjectKind.Class,
-        string assemblyName = "Test",
-        string? sourceUrl = null) =>
+        ApiObjectKind kind,
+        string assemblyName,
+        string? sourceUrl) =>
         new(
             Name: uid,
             FullName: uid,
@@ -53,12 +93,21 @@ public static class TestData
             ExtensionBlocks: []);
 
     /// <summary>
+    /// Creates a minimal <see cref="ApiEnumType"/> in a deterministic
+    /// shape using the default assembly name.
+    /// </summary>
+    /// <param name="uid">Unique identifier.</param>
+    /// <returns>The constructed enum type with no values.</returns>
+    public static ApiEnumType EnumType(string uid) =>
+        EnumType(uid, "Test");
+
+    /// <summary>
     /// Creates a minimal <see cref="ApiEnumType"/> in a deterministic shape.
     /// </summary>
     /// <param name="uid">Unique identifier.</param>
     /// <param name="assemblyName">Declaring assembly name.</param>
     /// <returns>The constructed enum type with no values.</returns>
-    public static ApiEnumType EnumType(string uid, string assemblyName = "Test") =>
+    public static ApiEnumType EnumType(string uid, string assemblyName) =>
         new(
             Name: uid,
             FullName: uid,
@@ -81,12 +130,21 @@ public static class TestData
             Values: []);
 
     /// <summary>
+    /// Creates a minimal <see cref="ApiDelegateType"/> in a deterministic
+    /// shape using the default assembly name.
+    /// </summary>
+    /// <param name="uid">Unique identifier.</param>
+    /// <returns>The constructed delegate type with a void Invoke signature.</returns>
+    public static ApiDelegateType DelegateType(string uid) =>
+        DelegateType(uid, "Test");
+
+    /// <summary>
     /// Creates a minimal <see cref="ApiDelegateType"/> in a deterministic shape.
     /// </summary>
     /// <param name="uid">Unique identifier.</param>
     /// <param name="assemblyName">Declaring assembly name.</param>
     /// <returns>The constructed delegate type with a void Invoke signature.</returns>
-    public static ApiDelegateType DelegateType(string uid, string assemblyName = "Test") =>
+    public static ApiDelegateType DelegateType(string uid, string assemblyName) =>
         new(
             Name: uid,
             FullName: uid,
@@ -117,16 +175,35 @@ public static class TestData
         new(tfm, [.. types]);
 
     /// <summary>
-    /// Back-compat shim — older tests called <c>TestData.Type(uid)</c>
-    /// expecting a class. Routes through <see cref="ObjectType"/>.
+    /// Creates a minimal class-shaped <see cref="ApiObjectType"/>
+    /// using the default assembly name.
+    /// </summary>
+    /// <param name="uid">Unique identifier.</param>
+    /// <returns>The constructed type.</returns>
+    public static ApiObjectType Type(string uid) =>
+        Type(uid, "Test", null);
+
+    /// <summary>
+    /// Creates a minimal class-shaped <see cref="ApiObjectType"/>
+    /// using the supplied assembly name.
     /// </summary>
     /// <param name="uid">Unique identifier.</param>
     /// <param name="assemblyName">Declaring assembly name.</param>
-    /// <param name="sourceUrl">Optional SourceLink URL.</param>
     /// <returns>The constructed type.</returns>
+    public static ApiObjectType Type(string uid, string assemblyName) =>
+        Type(uid, assemblyName, null);
+
+    /// <summary>
+    /// Constructs an <see cref="ApiObjectType"/> instance with a specific class kind, unique identifier,
+    /// assembly name, and optional source URL for the type's definition.
+    /// </summary>
+    /// <param name="uid">The unique identifier of the type, which determines the FullName if not explicitly supplied.</param>
+    /// <param name="assemblyName">The name of the assembly where the type is defined.</param>
+    /// <param name="sourceUrl">An optional URL pointing to the source code location of the type definition.</param>
+    /// <returns>An <see cref="ApiObjectType"/> representing the constructed type.</returns>
     public static ApiObjectType Type(
         string uid,
-        string assemblyName = "Test",
-        string? sourceUrl = null) =>
+        string assemblyName,
+        string? sourceUrl) =>
         ObjectType(uid, ApiObjectKind.Class, assemblyName, sourceUrl);
 }

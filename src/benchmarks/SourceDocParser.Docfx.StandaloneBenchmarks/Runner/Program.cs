@@ -17,6 +17,15 @@ namespace SourceDocParser.Docfx.StandaloneBenchmarks.Runner;
 /// </summary>
 public static class Program
 {
+    /// <summary>Column width for the left-aligned TFM cell in the dump table.</summary>
+    private const int TfmColumnWidth = 8;
+
+    /// <summary>Column width for right-aligned numeric cells in the dump table.</summary>
+    private const int NumericColumnWidth = 7;
+
+    /// <summary>Byte count in one kibibyte.</summary>
+    private const double BytesPerKiB = 1024.0;
+
     /// <summary>The TFM matrix the dump mode walks.</summary>
     private static readonly string[] Tfms = ["net8.0", "net9.0", "net10.0", "net472"];
 
@@ -65,7 +74,8 @@ public static class Program
             sw.Stop();
             var allocAfter = GC.GetTotalAllocatedBytes(precise: true);
 
-            Console.WriteLine($"| {tfm,-8} | {sw.Elapsed.TotalSeconds,7:F2} s | {(allocAfter - allocBefore) / 1024.0 / 1024.0,7:F2} MB |");
+            Console.WriteLine(
+                $"| {tfm,-TfmColumnWidth} | {sw.Elapsed.TotalSeconds,NumericColumnWidth:F2} s | {(allocAfter - allocBefore) / BytesPerKiB / BytesPerKiB,NumericColumnWidth:F2} MB |");
         }
 
         Console.WriteLine();

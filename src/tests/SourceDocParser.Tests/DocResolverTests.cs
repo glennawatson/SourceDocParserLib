@@ -240,6 +240,13 @@ public class DocResolverTests
         }
 
         /// <inheritdoc />
+        public string Convert(ReadOnlySpan<char> innerXml)
+        {
+            SpanCalls++;
+            return innerXml.ToString();
+        }
+
+        /// <inheritdoc />
         public Task<string> ConvertAsync(XmlReader reader) => ConvertAsync(reader, CancellationToken.None);
 
         /// <inheritdoc />
@@ -247,13 +254,6 @@ public class DocResolverTests
         {
             ReaderAsyncCalls++;
             return reader.IsEmptyElement ? string.Empty : await reader.ReadInnerXmlAsync().ConfigureAwait(false);
-        }
-
-        /// <inheritdoc />
-        public string Convert(ReadOnlySpan<char> innerXml)
-        {
-            SpanCalls++;
-            return innerXml.ToString();
         }
     }
 }

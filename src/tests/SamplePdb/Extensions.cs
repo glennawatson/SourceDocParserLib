@@ -7,8 +7,10 @@ namespace SamplePdb;
 /// <summary>Static class hosting a classic extension method.</summary>
 public static class Extensions
 {
+    private const int Multiplier = 2;
+
     /// <summary>Doubles the receiver.</summary>
     /// <param name="self">The value to double.</param>
     /// <returns>Twice the input.</returns>
-    public static int Doubled(this int self) => self * 2;
+    public static int Doubled(this int self) => self * Multiplier;
 }

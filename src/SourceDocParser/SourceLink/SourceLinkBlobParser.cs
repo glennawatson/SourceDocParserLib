@@ -28,7 +28,7 @@ internal static class SourceLinkBlobParser
     /// </summary>
     /// <param name="bytes">Raw bytes of the SourceLink JSON blob.</param>
     /// <returns>The populated map, or null when the blob doesn't parse.</returns>
-    public static SourceLinkMap? TryParse(ReadOnlyMemory<byte> bytes)
+    public static SourceLinkMap? TryParse(in ReadOnlyMemory<byte> bytes)
     {
         try
         {
@@ -59,7 +59,7 @@ internal static class SourceLinkBlobParser
     /// <param name="pdb">Open PDB metadata reader.</param>
     /// <param name="recordGuid">Custom-debug-info GUID to look for.</param>
     /// <returns>The map, or null when no record was present (or it didn't parse).</returns>
-    internal static SourceLinkMap? FindAndParse(MetadataReader pdb, Guid recordGuid)
+    internal static SourceLinkMap? FindAndParse(MetadataReader pdb, in Guid recordGuid)
     {
         ArgumentNullException.ThrowIfNull(pdb);
 

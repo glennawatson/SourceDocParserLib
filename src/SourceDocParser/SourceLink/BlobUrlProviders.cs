@@ -197,7 +197,9 @@ internal static class BlobUrlProviders
             return null;
         }
 
-        var built = $"{orgProject}{AzureDevOpsGitSegment}{repo}{QuerySeparator}{AzureDevOpsPathQueryParam}{ValueSeparator}{path}{PairSeparator}{AzureDevOpsVersionQueryParam}{ValueSeparator}GC{version}";
+        var built = $"{orgProject}{AzureDevOpsGitSegment}{repo}" +
+                    $"{QuerySeparator}{AzureDevOpsPathQueryParam}{ValueSeparator}{path}" +
+                    $"{PairSeparator}{AzureDevOpsVersionQueryParam}{ValueSeparator}GC{version}";
         return line > 0 ? $"{built}{PairSeparator}line{ValueSeparator}{line}" : built;
     }
 

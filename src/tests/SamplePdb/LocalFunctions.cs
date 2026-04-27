@@ -7,12 +7,14 @@ namespace SamplePdb;
 /// <summary>Local function inside a regular method — exercises the angle-bracket name skip path.</summary>
 public class LocalFunctions
 {
+    private const int InnerReturnValue = 7;
+
     /// <summary>Outer method that hosts a local function.</summary>
     /// <returns>The constant the local function returns.</returns>
     public int Outer()
     {
         return Inner();
 
-        static int Inner() => 7;
+        static int Inner() => InnerReturnValue;
     }
 }

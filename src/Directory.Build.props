@@ -27,7 +27,7 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
-    <NoWarn>$(NoWarn);CA1812</NoWarn>
+    <NoWarn>$(NoWarn);CA1812;S4261</NoWarn>
     <IsPackable>false</IsPackable>
     <OutputType>Exe</OutputType>
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
@@ -74,6 +74,7 @@
     <PackageReference Include="stylecop.analyzers" PrivateAssets="all" />
     <PackageReference Include="Roslynator.Analyzers" PrivateAssets="All" />
     <PackageReference Include="Blazor.Common.Analyzers" PrivateAssets="All" />
+    <PackageReference Include="SonarAnalyzer.CSharp" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(IsTestProject)' != 'true'">

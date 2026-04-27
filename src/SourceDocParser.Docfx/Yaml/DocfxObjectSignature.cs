@@ -102,45 +102,17 @@ internal static class DocfxObjectSignature
     /// </summary>
     /// <param name="type">Type whose modifiers to render.</param>
     /// <returns>Space-separated modifier sequence; <c>"public"</c> at minimum.</returns>
-    internal static string ModifierKeywords(ApiObjectType type)
+    internal static string ModifierKeywords(ApiObjectType type) => (type.IsStatic, type.IsAbstract, type.IsSealed, type.IsByRefLike, type.IsReadOnly, type.Kind) switch
     {
-        if (type.IsStatic)
-        {
-            return "public static";
-        }
-
-        if (type.IsAbstract && type.IsSealed)
-        {
-            return "public abstract sealed";
-        }
-
-        if (type.IsAbstract)
-        {
-            return "public abstract";
-        }
-
-        if (type.IsByRefLike && type.IsReadOnly)
-        {
-            return "public readonly ref";
-        }
-
-        if (type.IsByRefLike)
-        {
-            return "public ref";
-        }
-
-        if (type.IsReadOnly)
-        {
-            return "public readonly";
-        }
-
-        if (type.IsSealed && type.Kind is ApiObjectKind.Class or ApiObjectKind.Record)
-        {
-            return "public sealed";
-        }
-
-        return "public";
-    }
+        (true, _, _, _, _, _) => "public static",
+        (_, true, true, _, _, _) => "public abstract sealed",
+        (_, true, _, _, _, _) => "public abstract",
+        (_, _, _, true, true, _) => "public readonly ref",
+        (_, _, _, true, _, _) => "public ref",
+        (_, _, _, _, true, _) => "public readonly",
+        (_, _, true, _, _, ApiObjectKind.Class or ApiObjectKind.Record) => "public sealed",
+        _ => "public",
+    };
 
     /// <summary>
     /// Returns true when the type's <see cref="ApiType.BaseType"/>

@@ -19,11 +19,21 @@ public sealed class DocResolver : IDocResolver
     private readonly DocResolveContext _context;
 
     /// <summary>
+    /// Initializes a new instance of the <see cref="DocResolver"/> class
+    /// using the default XML-to-Markdown converter.
+    /// </summary>
+    /// <param name="compilation">Compilation used for cref resolution.</param>
+    public DocResolver(Compilation compilation)
+        : this(compilation, null)
+    {
+    }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="DocResolver"/> class.
     /// </summary>
     /// <param name="compilation">Compilation used for cref resolution.</param>
     /// <param name="converter">Converter used to fold inline doc tags into Markdown. Defaults to a fresh <see cref="XmlDocToMarkdown"/> when null.</param>
-    public DocResolver(Microsoft.CodeAnalysis.Compilation compilation, IXmlDocToMarkdownConverter? converter = null)
+    public DocResolver(Compilation compilation, IXmlDocToMarkdownConverter? converter)
     {
         ArgumentNullException.ThrowIfNull(compilation);
         _context = new(
@@ -42,7 +52,7 @@ public sealed class DocResolver : IDocResolver
     /// <param name="symbol">Symbol whose documentation to resolve.</param>
     /// <param name="context">Per-resolver state bundle.</param>
     /// <returns>The resolved documentation.</returns>
-    private static ApiDocumentation ResolveCached(ISymbol symbol, DocResolveContext context) =>
+    internal static ApiDocumentation ResolveCached(ISymbol symbol, DocResolveContext context) =>
         context.Cache.GetOrAdd(symbol, context, static (candidate, state) => ResolveCore(candidate, state));
 
     /// <summary>
@@ -54,7 +64,7 @@ public sealed class DocResolver : IDocResolver
     /// <param name="symbol">Symbol whose XML doc to resolve.</param>
     /// <param name="context">Per-resolver state bundle.</param>
     /// <returns>The resolved documentation.</returns>
-    private static ApiDocumentation ResolveCore(ISymbol symbol, DocResolveContext context)
+    internal static ApiDocumentation ResolveCore(ISymbol symbol, DocResolveContext context)
     {
         var raw = ParseRaw(symbol, context);
 
@@ -91,7 +101,7 @@ public sealed class DocResolver : IDocResolver
     /// <param name="visited">Cycle-protection set; the caller seeded it with the original symbol.</param>
     /// <param name="context">Per-resolver state bundle.</param>
     /// <returns>The resolved documentation.</returns>
-    private static ApiDocumentation ResolveExplicitInherit(ISymbol symbol, RawDocumentation raw, HashSet<ISymbol> visited, DocResolveContext context)
+    internal static ApiDocumentation ResolveExplicitInherit(ISymbol symbol, RawDocumentation raw, HashSet<ISymbol> visited, DocResolveContext context)
     {
         var inheritFrom = raw.InheritDocCref is { Length: > 0 } cref
             ? ResolveCref(cref, context.Compilation)
@@ -119,23 +129,97 @@ public sealed class DocResolver : IDocResolver
     /// </summary>
     /// <param name="symbol">Symbol to find an inheritance source for.</param>
     /// <returns>The symbol to inherit from, or null if no natural source exists.</returns>
-    private static ISymbol? FindNaturalInheritedDocSource(ISymbol symbol) => symbol switch
+    internal static ISymbol? FindNaturalInheritedDocSource(ISymbol symbol)
     {
-        IMethodSymbol { OverriddenMethod: { } overridden } => overridden,
-        IMethodSymbol { ExplicitInterfaceImplementations: [var implementation, ..] } => implementation,
-        IMethodSymbol m => FindImplicitInterfaceImpl(m),
+        if (symbol is IMethodSymbol method)
+        {
+            return FindNaturalInheritedMethodSource(method);
+        }
 
-        IPropertySymbol { OverriddenProperty: { } overridden } => overridden,
-        IPropertySymbol { ExplicitInterfaceImplementations: [var implementation, ..] } => implementation,
-        IPropertySymbol p => FindImplicitInterfaceImpl(p),
+        if (symbol is IPropertySymbol property)
+        {
+            return FindNaturalInheritedPropertySource(property);
+        }
 
-        IEventSymbol { OverriddenEvent: { } overridden } => overridden,
-        IEventSymbol { ExplicitInterfaceImplementations: [var implementation, ..] } => implementation,
-        IEventSymbol e => FindImplicitInterfaceImpl(e),
+        if (symbol is IEventSymbol eventSymbol)
+        {
+            return FindNaturalInheritedEventSource(eventSymbol);
+        }
 
-        INamedTypeSymbol { BaseType: { } baseType } => baseType,
-        _ => null,
-    };
+        if (symbol is not INamedTypeSymbol typeSymbol)
+        {
+            return null;
+        }
+
+        return FindNaturalInheritedTypeSource(typeSymbol);
+    }
+
+    /// <summary>
+    /// Finds the natural inheritdoc source for a method symbol.
+    /// </summary>
+    /// <param name="symbol">Method symbol to inspect.</param>
+    /// <returns>The symbol to inherit from, or null if none exists.</returns>
+    internal static ISymbol? FindNaturalInheritedMethodSource(IMethodSymbol symbol)
+    {
+        if (symbol.OverriddenMethod is { } overridden)
+        {
+            return overridden;
+        }
+
+        if (symbol.ExplicitInterfaceImplementations is [var implementation, ..])
+        {
+            return implementation;
+        }
+
+        return FindImplicitInterfaceImpl(symbol);
+    }
+
+    /// <summary>
+    /// Finds the natural inheritdoc source for a property symbol.
+    /// </summary>
+    /// <param name="symbol">Property symbol to inspect.</param>
+    /// <returns>The symbol to inherit from, or null if none exists.</returns>
+    internal static ISymbol? FindNaturalInheritedPropertySource(IPropertySymbol symbol)
+    {
+        if (symbol.OverriddenProperty is { } overridden)
+        {
+            return overridden;
+        }
+
+        if (symbol.ExplicitInterfaceImplementations is [var implementation, ..])
+        {
+            return implementation;
+        }
+
+        return FindImplicitInterfaceImpl(symbol);
+    }
+
+    /// <summary>
+    /// Finds the natural inheritdoc source for an event symbol.
+    /// </summary>
+    /// <param name="symbol">Event symbol to inspect.</param>
+    /// <returns>The symbol to inherit from, or null if none exists.</returns>
+    internal static ISymbol? FindNaturalInheritedEventSource(IEventSymbol symbol)
+    {
+        if (symbol.OverriddenEvent is { } overridden)
+        {
+            return overridden;
+        }
+
+        if (symbol.ExplicitInterfaceImplementations is [var implementation, ..])
+        {
+            return implementation;
+        }
+
+        return FindImplicitInterfaceImpl(symbol);
+    }
+
+    /// <summary>
+    /// Finds the natural inheritdoc source for a type symbol.
+    /// </summary>
+    /// <param name="symbol">Type symbol to inspect.</param>
+    /// <returns>The base type, or null if none exists.</returns>
+    internal static ISymbol? FindNaturalInheritedTypeSource(INamedTypeSymbol symbol) => symbol.BaseType;
 
     /// <summary>
     /// Walks the containing type's interfaces looking for a member
@@ -146,7 +230,7 @@ public sealed class DocResolver : IDocResolver
     /// </summary>
     /// <param name="symbol">Symbol to identify as an interface impl.</param>
     /// <returns>The interface member being implemented, or null if none found.</returns>
-    private static ISymbol? FindImplicitInterfaceImpl(ISymbol symbol)
+    internal static ISymbol? FindImplicitInterfaceImpl(ISymbol symbol)
     {
         var containingType = symbol.ContainingType;
         if (containingType is null)
@@ -288,144 +372,7 @@ public sealed class DocResolver : IDocResolver
     private static RawDocumentation ParseRaw(ISymbol symbol, DocResolveContext context)
     {
         var xml = symbol.GetDocumentationCommentXml();
-        return xml is [_, ..] ? Parse(xml, context) : RawDocumentation.Empty;
-    }
-
-    /// <summary>
-    /// Parses one member XML fragment into a RawDocumentation. Driven
-    /// by DocXmlScanner — a span-based forward scanner — instead of
-    /// XmlReader, so the per-symbol parse no longer allocates an
-    /// XmlTextReaderImpl with its multi-KB buffers and the inner
-    /// element bodies are surfaced as ReadOnlySpan slices rather than
-    /// fresh strings.
-    /// </summary>
-    /// <param name="memberXml">Raw member XML.</param>
-    /// <param name="context">Per-resolver state bundle.</param>
-    /// <returns>The parsed raw documentation.</returns>
-    private static RawDocumentation Parse(string memberXml, DocResolveContext context)
-    {
-        var summary = string.Empty;
-        var remarks = string.Empty;
-        var returns = string.Empty;
-        var value = string.Empty;
-        List<string> examples = [];
-        List<DocEntry> parameters = [];
-        List<DocEntry> typeParameters = [];
-        List<DocEntry> exceptions = [];
-        List<string> seeAlso = [];
-        var hasInheritDoc = false;
-        string? inheritDocCref = null;
-
-        var scanner = new DocXmlScanner(memberXml.AsSpan());
-        var converter = context.Converter;
-        while (scanner.Read())
-        {
-            if (scanner.Kind != DocTokenKind.StartElement)
-            {
-                continue;
-            }
-
-            switch (scanner.Name)
-            {
-                case "summary":
-                    {
-                        summary = converter.Convert(scanner.ReadInnerSpan());
-                        break;
-                    }
-
-                case "remarks":
-                    {
-                        remarks = converter.Convert(scanner.ReadInnerSpan());
-                        break;
-                    }
-
-                case "returns":
-                    {
-                        returns = converter.Convert(scanner.ReadInnerSpan());
-                        break;
-                    }
-
-                case "value":
-                    {
-                        value = converter.Convert(scanner.ReadInnerSpan());
-                        break;
-                    }
-
-                case "example":
-                    {
-                        examples.Add(converter.Convert(scanner.ReadInnerSpan()));
-                        break;
-                    }
-
-                case "param":
-                    {
-                        if (scanner.GetAttribute("name") is [_, ..] paramName)
-                        {
-                            parameters.Add(new(paramName.ToString(), converter.Convert(scanner.ReadInnerSpan())));
-                        }
-
-                        break;
-                    }
-
-                case "typeparam":
-                    {
-                        if (scanner.GetAttribute("name") is [_, ..] typeParamName)
-                        {
-                            typeParameters.Add(new(typeParamName.ToString(), converter.Convert(scanner.ReadInnerSpan())));
-                        }
-
-                        break;
-                    }
-
-                case "exception":
-                    {
-                        if (scanner.GetAttribute("cref") is [_, ..] exceptionCref)
-                        {
-                            exceptions.Add(new(exceptionCref.ToString(), converter.Convert(scanner.ReadInnerSpan())));
-                        }
-
-                        break;
-                    }
-
-                case "seealso":
-                    {
-                        if (scanner.GetAttribute("cref") is [_, ..] seeAlsoCref)
-                        {
-                            seeAlso.Add(seeAlsoCref.ToString());
-                        }
-
-                        break;
-                    }
-
-                case "inheritdoc":
-                    {
-                        hasInheritDoc = true;
-                        if (scanner.GetAttribute("cref") is [_, ..] inheritCref)
-                        {
-                            inheritDocCref = inheritCref.ToString();
-                        }
-
-                        // <inheritdoc>…</inheritdoc> with content: skip the
-                        // body rather than processing it (rarely used and not
-                        // part of any standard).
-                        scanner.SkipElement();
-                        break;
-                    }
-            }
-        }
-
-        return new(
-            Summary: summary,
-            Remarks: remarks,
-            Returns: returns,
-            Value: value,
-            Examples: [.. examples],
-            Parameters: [.. parameters],
-            TypeParameters: [.. typeParameters],
-            Exceptions: [.. exceptions],
-            SeeAlso: [.. seeAlso],
-            HasInheritDoc: hasInheritDoc,
-            InheritDocCref: inheritDocCref);
+        return xml is [_, ..] ? DocXmlParser.Parse(xml, context) : RawDocumentation.Empty;
     }
 
     /// <summary>
@@ -438,6 +385,6 @@ public sealed class DocResolver : IDocResolver
     /// <param name="cref">cref string from the inheritdoc element.</param>
     /// <param name="compilation">Compilation to use for resolution.</param>
     /// <returns>The resolved symbol, or null if not found.</returns>
-    private static ISymbol? ResolveCref(string cref, Microsoft.CodeAnalysis.Compilation compilation) =>
+    private static ISymbol? ResolveCref(string cref, Compilation compilation) =>
         DocumentationCommentId.GetFirstSymbolForDeclarationId(cref, compilation);
 }

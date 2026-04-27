@@ -17,6 +17,18 @@ namespace Docfx.StandaloneBenchmarks.Runner;
 /// </summary>
 public static class Program
 {
+    /// <summary>Conversion factor from bytes to megabytes.</summary>
+    private const double BytesToMegabytes = 1024.0 * 1024.0;
+
+    /// <summary>Column width for the TFM in the output table.</summary>
+    private const int TfmColumnWidth = 8;
+
+    /// <summary>Column width for the time in the output table.</summary>
+    private const int TimeColumnWidth = 7;
+
+    /// <summary>Column width for the allocation size in the output table.</summary>
+    private const int AllocationColumnWidth = 7;
+
     /// <summary>The TFM matrix the dump mode walks.</summary>
     private static readonly string[] Tfms = ["net8.0", "net9.0", "net10.0", "net472"];
 
@@ -65,7 +77,7 @@ public static class Program
             sw.Stop();
             var allocAfter = GC.GetTotalAllocatedBytes(precise: true);
 
-            Console.WriteLine($"| {tfm,-8} | {sw.Elapsed.TotalSeconds,7:F2} s | {(allocAfter - allocBefore) / 1024.0 / 1024.0,7:F2} MB |");
+            Console.WriteLine($"| {tfm,-TfmColumnWidth} | {sw.Elapsed.TotalSeconds,TimeColumnWidth:F2} s | {(allocAfter - allocBefore) / BytesToMegabytes,AllocationColumnWidth:F2} MB |");
         }
 
         Console.WriteLine();

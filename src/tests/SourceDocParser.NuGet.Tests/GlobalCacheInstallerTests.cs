@@ -10,12 +10,8 @@ using SourceDocParser.NuGet.Models;
 namespace SourceDocParser.NuGet.Tests;
 
 /// <summary>
-/// Pins <see cref="GlobalCacheInstaller"/>: argument validation on the
-/// constructor, the "uninitialized" guards on the public properties +
-/// <see cref="GlobalCacheInstaller.InstallAsync"/>, and the integration
-/// shape of <see cref="GlobalCacheInstaller.InitializeAsync"/> against
-/// the existing nuget.config fixtures. The HTTP install path needs a
-/// real feed and is exercised only by the integration tests.
+/// Contains unit tests for the <c>GlobalCacheInstaller</c> class,
+/// ensuring its behavior conforms to expected functionality under various scenarios.
 /// </summary>
 public class GlobalCacheInstallerTests
 {

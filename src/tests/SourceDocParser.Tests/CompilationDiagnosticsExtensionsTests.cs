@@ -109,8 +109,6 @@ public class CompilationDiagnosticsExtensionsTests
     [Test]
     public async Task ReportDiagnosticsStopsAfter20Errors()
     {
-        // 25 duplicate types — each generates a CS0101 declaration error;
-        // the helper must short-circuit at 20 and still return true.
         var trees = new SyntaxTree[25];
         for (var i = 0; i < trees.Length; i++)
         {

@@ -16,8 +16,11 @@ internal static class DocfxInternalHelpers
     /// <summary>File pattern used to discover assemblies.</summary>
     private const string DllPattern = "*.dll";
 
+    /// <summary>Characters that are unsafe in generated filesystem stems.</summary>
+    private const string UnsafeStemCharacters = "<>/\\*?|:\"";
+
     /// <summary>Cached set of filename-unsafe characters; one allocation per process instead of per call.</summary>
-    private static readonly SearchValues<char> _unsafeStemChars = SearchValues.Create(['<', '>', '/', '\\', '*', '?', '|', ':', '"']);
+    private static readonly SearchValues<char> _unsafeStemChars = SearchValues.Create('<', '>', '/', '\\', '*', '?', '|', ':', '"');
 
     /// <summary>
     /// Returns the names of every immediate sub-directory of <paramref name="root"/> that contains at least one DLL.
@@ -179,7 +182,7 @@ internal static class DocfxInternalHelpers
                 for (var i = 0; i < source.Length; i++)
                 {
                     var c = source[i];
-                    dest[i] = c is '<' or '>' or '/' or '\\' or '*' or '?' or '|' or ':' or '"'
+                    dest[i] = UnsafeStemCharacters.AsSpan().Contains(c)
                         ? '_'
                         : c;
                 }

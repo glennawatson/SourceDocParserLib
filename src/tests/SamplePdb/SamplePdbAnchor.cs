@@ -15,9 +15,11 @@ namespace SamplePdb;
 public class SamplePdbAnchor
 {
     /// <summary>The body line below — kept on its own well-known line so the test fixture can hard-code it.</summary>
-    public const int KnownMethodBodyLine = 22;
+    public const int KnownMethodBodyLine = 24;
+
+    private const int AnchorReturnValue = 42;
 
     /// <summary>Anchor body that always lives on <see cref="KnownMethodBodyLine"/>.</summary>
     /// <returns>A constant; the value isn't important.</returns>
-    public static int Anchor() => 42;
+    public static int Anchor() => AnchorReturnValue;
 }

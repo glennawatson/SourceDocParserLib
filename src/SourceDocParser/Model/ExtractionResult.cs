@@ -7,16 +7,31 @@ using SourceDocParser.SourceLink;
 namespace SourceDocParser.Model;
 
 /// <summary>
-/// Lightweight summary of one <see cref="MetadataExtractor.RunAsync"/>
-/// invocation. The Nuke build stashes this on the Build instance so
-/// follow-up targets like <c>ValidateSourceLinks</c> can consume the
-/// in-memory state without re-walking symbols or reading manifest
-/// files from disk.
+/// Represents the result of a metadata extraction operation, encapsulating
+/// information about the number of types processed, the total Markdown pages emitted,
+/// the number of load failures, and source links generated during the extraction process.
 /// </summary>
-/// <param name="CanonicalTypes">Number of types after the cross-TFM merge.</param>
-/// <param name="PagesEmitted">Total Markdown pages written (one per type plus one per overload group).</param>
-/// <param name="LoadFailures">Number of assemblies that failed to load into a Compilation.</param>
-/// <param name="SourceLinks">Every (symbol UID, source URL) pair generated during the walk. Empty when no SourceLink data was available; passed straight to the validator.</param>
+/// <remarks>
+/// This record is immutable and is intended to provide the output summary of
+/// a metadata extraction task. It includes information about cross-target framework
+/// merges, documentation generation, and assembly loading issues encountered.
+/// </remarks>
+/// <param name="CanonicalTypes">
+/// The total number of distinct types after processing and merging across different
+/// target framework monikers (TFMs).
+/// </param>
+/// <param name="PagesEmitted">
+/// The total number of Markdown pages written as part of the extraction process.
+/// This includes one page per type and one per overload group.
+/// </param>
+/// <param name="LoadFailures">
+/// The number of assemblies that failed to be loaded into a compilation during the extraction process.
+/// </param>
+/// <param name="SourceLinks">
+/// An array containing pairs of symbol UIDs and their corresponding source URLs.
+/// This array may be empty if no SourceLink data was available. The data is directly
+/// passed to a validator for further processing.
+/// </param>
 public sealed record ExtractionResult(
     int CanonicalTypes,
     int PagesEmitted,

@@ -53,8 +53,7 @@ internal static class StandalonePdbOpener
             pdbStream = File.OpenRead(pdbPath);
             localProvider = MetadataReaderProvider.FromPortablePdbStream(
                 pdbStream,
-                MetadataStreamOptions.PrefetchMetadata,
-                size: 0);
+                MetadataStreamOptions.PrefetchMetadata);
             pdbStream = null;
             reader = localProvider.GetMetadataReader();
             provider = localProvider;

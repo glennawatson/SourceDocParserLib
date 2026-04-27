@@ -5,12 +5,7 @@
 namespace SourceDocParser.Model;
 
 /// <summary>
-/// A documented type. Discriminated by sealed derivation:
-/// <see cref="ApiObjectType"/> (class/struct/interface/record/record
-/// struct), <see cref="ApiEnumType"/>, <see cref="ApiDelegateType"/>,
-/// or <see cref="ApiUnionType"/>. Emitters pattern-match on the
-/// derived type to access the kind-specific data; the shared
-/// identity / hierarchy / docs / source-link state lives on this base.
+/// A documented type. Identity / hierarchy / docs / source-link state lives on this base.
 /// </summary>
 /// <param name="Name">The simple name.</param>
 /// <param name="FullName">The namespace-qualified name.</param>
@@ -26,9 +21,9 @@ namespace SourceDocParser.Model;
 /// <param name="Interfaces">Directly declared interfaces.</param>
 /// <param name="SourceUrl">The source link URL.</param>
 /// <param name="AppliesTo">TFMs the type appears in.</param>
-/// <param name="IsObsolete">Whether the type is decorated with <c>[Obsolete]</c>.</param>
-/// <param name="ObsoleteMessage">Message supplied to <c>[Obsolete(...)]</c>, or null when no message was given.</param>
-/// <param name="Attributes">Attributes applied to the type, in declaration order. The walker emits these faithfully; presentation-layer filtering (e.g. dropping <c>System.Runtime.CompilerServices.*</c> markers) belongs to the consuming emitter.</param>
+/// <param name="IsObsolete">Whether the type is obsolete.</param>
+/// <param name="ObsoleteMessage">Obsolete message.</param>
+/// <param name="Attributes">Attributes applied to the type.</param>
 public abstract record ApiType(
     string Name,
     string FullName,

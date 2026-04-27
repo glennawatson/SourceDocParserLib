@@ -12,6 +12,23 @@ namespace SourceDocParser.NuGet.Infrastructure;
 public interface INuGetFetcher
 {
     /// <summary>
+    /// Reads <c>nuget-packages.json</c> and orchestrates the full fetch + extraction using default options.
+    /// </summary>
+    /// <param name="rootDirectory">Repository root containing <c>nuget-packages.json</c>.</param>
+    /// <param name="apiPath">Destination root for extracted package assemblies and the local cache.</param>
+    /// <returns>A task representing the asynchronous fetch.</returns>
+    Task FetchPackagesAsync(string rootDirectory, string apiPath);
+
+    /// <summary>
+    /// Reads <c>nuget-packages.json</c> and orchestrates the full fetch + extraction using the supplied logger.
+    /// </summary>
+    /// <param name="rootDirectory">Repository root containing <c>nuget-packages.json</c>.</param>
+    /// <param name="apiPath">Destination root for extracted package assemblies and the local cache.</param>
+    /// <param name="logger">Optional logger; defaults to a no-op logger.</param>
+    /// <returns>A task representing the asynchronous fetch.</returns>
+    Task FetchPackagesAsync(string rootDirectory, string apiPath, ILogger? logger);
+
+    /// <summary>
     /// Reads <c>nuget-packages.json</c> at <paramref name="rootDirectory"/>
     /// and orchestrates the full fetch + extraction into <paramref name="apiPath"/>.
     /// </summary>
@@ -20,5 +37,5 @@ public interface INuGetFetcher
     /// <param name="logger">Optional logger; defaults to a no-op logger.</param>
     /// <param name="cancellationToken">Cancellation token honoured by every HTTP and parallel-walk leg.</param>
     /// <returns>A task representing the asynchronous fetch.</returns>
-    Task FetchPackagesAsync(string rootDirectory, string apiPath, ILogger? logger = null, CancellationToken cancellationToken = default);
+    Task FetchPackagesAsync(string rootDirectory, string apiPath, ILogger? logger, CancellationToken cancellationToken);
 }

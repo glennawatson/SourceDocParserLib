@@ -14,6 +14,51 @@ internal static class ZensicalEmitterHelpers
     /// </summary>
     private const string GlobalNamespaceFolder = "_global/";
 
+    /// <summary>Markdown table cell pipe character.</summary>
+    private const char MarkdownPipe = '|';
+
+    /// <summary>Markdown escape character (backslash).</summary>
+    private const char MarkdownEscape = '\\';
+
+    /// <summary>Markdown paragraph break.</summary>
+    private const string MarkdownParagraphBreak = "\n\n";
+
+    /// <summary>Display generic opening delimiter.</summary>
+    private const char DisplayGenericOpen = '<';
+
+    /// <summary>Display generic closing delimiter.</summary>
+    private const char DisplayGenericClose = '>';
+
+    /// <summary>Display generic parameter separator.</summary>
+    private const string DisplayGenericSeparator = ", ";
+
+    /// <summary>Path generic opening delimiter.</summary>
+    private const char PathGenericOpen = '{';
+
+    /// <summary>Path generic closing delimiter.</summary>
+    private const char PathGenericClose = '}';
+
+    /// <summary>Path generic parameter separator.</summary>
+    private const string PathGenericSeparator = ",";
+
+    /// <summary>Mermaid generic opening and closing delimiter.</summary>
+    private const char MermaidGenericDelimiter = '~';
+
+    /// <summary>Mermaid generic parameter separator.</summary>
+    private const string MermaidGenericSeparator = ",";
+
+    /// <summary>Path separator character.</summary>
+    private const char PathSeparator = '/';
+
+    /// <summary>Namespace separator character.</summary>
+    private const char NamespaceSeparator = '.';
+
+    /// <summary>Decimal base for integer conversions.</summary>
+    private const int DecimalBase = 10;
+
+    /// <summary>Number of delimiters (opening and closing) in a generic placeholder.</summary>
+    private const int GenericDelimiterCount = 2;
+
     /// <summary>
     /// Formats a type name with angle-bracket generic placeholders.
     /// </summary>
@@ -27,7 +72,7 @@ internal static class ZensicalEmitterHelpers
             return name;
         }
 
-        var suffix = new GenericPlaceholderFormatter(arity, '<', '>', ", ");
+        var suffix = new GenericPlaceholderFormatter(arity, DisplayGenericOpen, DisplayGenericClose, DisplayGenericSeparator);
         return string.Create(
             name.Length + suffix.Length,
             (Name: name, Suffix: suffix),
@@ -51,7 +96,7 @@ internal static class ZensicalEmitterHelpers
             return name;
         }
 
-        var suffix = new GenericPlaceholderFormatter(arity, '{', '}', ",");
+        var suffix = new GenericPlaceholderFormatter(arity, PathGenericOpen, PathGenericClose, PathGenericSeparator);
         return string.Create(
             name.Length + suffix.Length,
             (Name: name, Suffix: suffix),
@@ -75,7 +120,7 @@ internal static class ZensicalEmitterHelpers
             return name;
         }
 
-        var suffix = new GenericPlaceholderFormatter(arity, '~', '~', ",");
+        var suffix = new GenericPlaceholderFormatter(arity, MermaidGenericDelimiter, MermaidGenericDelimiter, MermaidGenericSeparator);
         return string.Create(
             name.Length + suffix.Length,
             (Name: name, Suffix: suffix),
@@ -93,7 +138,7 @@ internal static class ZensicalEmitterHelpers
     /// <returns>The Mermaid-safe text.</returns>
     public static string EscapeMermaidText(string text)
     {
-        var replacementIndex = text.IndexOfAny('<', '>');
+        var replacementIndex = text.IndexOfAny(DisplayGenericOpen, DisplayGenericClose);
         if (replacementIndex < 0)
         {
             return text;
@@ -109,7 +154,7 @@ internal static class ZensicalEmitterHelpers
                 {
                     dest[i] = state.Text[i] switch
                     {
-                        '<' or '>' => '~',
+                        DisplayGenericOpen or DisplayGenericClose => MermaidGenericDelimiter,
                         var c => c,
                     };
                 }
@@ -164,7 +209,7 @@ internal static class ZensicalEmitterHelpers
             {
                 var written = state.NamespacePrefix.WriteTo(dest);
                 written += state.TypeFolder.WriteTo(dest[written..]);
-                dest[written++] = '/';
+                dest[written++] = PathSeparator;
                 state.MemberName.CopyTo(dest[written..]);
                 written += state.MemberName.Length;
                 state.Extension.CopyTo(dest[written..]);
@@ -194,9 +239,9 @@ internal static class ZensicalEmitterHelpers
                 {
                     dest[i] = state.Name[i] switch
                     {
-                        '.' or ':' => '_',
-                        '<' => '{',
-                        '>' => '}',
+                        NamespaceSeparator or ':' => '_',
+                        DisplayGenericOpen => PathGenericOpen,
+                        DisplayGenericClose => PathGenericClose,
                         var c => c,
                     };
                 }
@@ -210,7 +255,7 @@ internal static class ZensicalEmitterHelpers
     /// <returns>The escaped table cell content.</returns>
     public static string EscapeTableCell(string text)
     {
-        var firstEscapeIndex = text.AsSpan().IndexOfAny(['|', '\n', '\r']);
+        var firstEscapeIndex = text.AsSpan().IndexOfAny([MarkdownPipe, '\n', '\r']);
         if (firstEscapeIndex < 0)
         {
             return text;
@@ -227,10 +272,10 @@ internal static class ZensicalEmitterHelpers
                 {
                     switch (state.Text[i])
                     {
-                        case '|':
+                        case MarkdownPipe:
                             {
-                                dest[destIndex++] = '\\';
-                                dest[destIndex++] = '|';
+                                dest[destIndex++] = MarkdownEscape;
+                                dest[destIndex++] = MarkdownPipe;
                                 break;
                             }
 
@@ -258,7 +303,7 @@ internal static class ZensicalEmitterHelpers
     /// <returns>The escaped text.</returns>
     public static string EscapeInlinePipes(string text)
     {
-        var firstPipeIndex = text.IndexOf('|');
+        var firstPipeIndex = text.IndexOf(MarkdownPipe);
         if (firstPipeIndex < 0)
         {
             return text;
@@ -273,9 +318,9 @@ internal static class ZensicalEmitterHelpers
                 var destIndex = state.FirstPipeIndex;
                 for (var i = state.FirstPipeIndex; i < state.Text.Length; i++)
                 {
-                    if (state.Text[i] is '|')
+                    if (state.Text[i] == MarkdownPipe)
                     {
-                        dest[destIndex++] = '\\';
+                        dest[destIndex++] = MarkdownEscape;
                     }
 
                     dest[destIndex++] = state.Text[i];
@@ -287,9 +332,17 @@ internal static class ZensicalEmitterHelpers
     /// Trims a summary, keeps only the first paragraph, and flattens it to a single line.
     /// </summary>
     /// <param name="summary">Raw summary text.</param>
+    /// <returns>The flattened summary.</returns>
+    public static string FirstParagraphAsSingleLine(string summary) =>
+        FirstParagraphAsSingleLine(summary, false);
+
+    /// <summary>
+    /// Trims a summary, keeps only the first paragraph, and flattens it to a single line.
+    /// </summary>
+    /// <param name="summary">Raw summary text.</param>
     /// <param name="escapePipes">Whether pipe characters should be escaped.</param>
     /// <returns>The flattened summary.</returns>
-    public static string FirstParagraphAsSingleLine(string summary, bool escapePipes = false)
+    public static string FirstParagraphAsSingleLine(string summary, bool escapePipes)
     {
         if (summary is not [_, ..])
         {
@@ -297,7 +350,7 @@ internal static class ZensicalEmitterHelpers
         }
 
         var trimmed = summary.AsSpan().Trim();
-        var paragraphBreak = trimmed.IndexOf("\n\n", StringComparison.Ordinal);
+        var paragraphBreak = trimmed.IndexOf(MarkdownParagraphBreak, StringComparison.Ordinal);
         var firstParagraph = paragraphBreak >= 0 ? trimmed[..paragraphBreak] : trimmed;
         return ToSingleLine(firstParagraph, escapePipes).Trim();
     }
@@ -311,7 +364,7 @@ internal static class ZensicalEmitterHelpers
     private static string ToSingleLine(in ReadOnlySpan<char> text, bool escapePipes)
     {
         var firstEscapeIndex = escapePipes
-            ? text.IndexOfAny(['|', '\n', '\r'])
+            ? text.IndexOfAny([MarkdownPipe, '\n', '\r'])
             : text.IndexOfAny(['\n', '\r']);
         if (firstEscapeIndex < 0)
         {
@@ -334,49 +387,14 @@ internal static class ZensicalEmitterHelpers
                         continue;
                     }
 
-                    if (state.EscapePipes && current is '|')
+                    if (state.EscapePipes && current == MarkdownPipe)
                     {
-                        dest[destIndex++] = '\\';
+                        dest[destIndex++] = MarkdownEscape;
                     }
 
                     dest[destIndex++] = current;
                 }
             });
-    }
-
-    /// <summary>
-    /// Writes a positive integer into the destination span.
-    /// </summary>
-    /// <param name="dest">Destination span.</param>
-    /// <param name="value">Positive integer value.</param>
-    /// <returns>Characters written.</returns>
-    private static int WritePositiveInt(in Span<char> dest, int value)
-    {
-        var digits = CountDigits(value);
-        for (var i = digits - 1; i >= 0; i--)
-        {
-            dest[i] = (char)('0' + (value % 10));
-            value /= 10;
-        }
-
-        return digits;
-    }
-
-    /// <summary>
-    /// Counts decimal digits in a positive integer.
-    /// </summary>
-    /// <param name="value">Value to count digits for.</param>
-    /// <returns>Decimal digit count.</returns>
-    private static int CountDigits(int value)
-    {
-        var digits = 1;
-        while (value >= 10)
-        {
-            value /= 10;
-            digits++;
-        }
-
-        return digits;
     }
 
     /// <summary>
@@ -389,7 +407,7 @@ internal static class ZensicalEmitterHelpers
         var count = 0;
         for (var i = 0; i < text.Length; i++)
         {
-            count += text[i] is '|' ? 1 : 0;
+            count += text[i] == MarkdownPipe ? 1 : 0;
         }
 
         return count;
@@ -400,7 +418,7 @@ internal static class ZensicalEmitterHelpers
     /// </summary>
     /// <param name="text">Source text.</param>
     /// <returns>The first replacement index, or -1.</returns>
-    private static int IndexOfFilenameReplacement(string text) => text.AsSpan().IndexOfAny(['.', '<', '>', ':']);
+    private static int IndexOfFilenameReplacement(string text) => text.AsSpan().IndexOfAny([NamespaceSeparator, DisplayGenericOpen, DisplayGenericClose, ':']);
 
     /// <summary>
     /// Represents a generic placeholder suffix as one unit so the length and write paths evolve together.
@@ -412,7 +430,7 @@ internal static class ZensicalEmitterHelpers
     private readonly record struct GenericPlaceholderFormatter(int Arity, char Open, char Close, string Separator)
     {
         /// <summary>Gets the total rendered length including the delimiters.</summary>
-        public int Length => GetPlaceholderContentLength() + 2;
+        public int Length => GetPlaceholderContentLength() + GenericDelimiterCount;
 
         /// <summary>
         /// Writes the formatted suffix into <paramref name="dest"/>.
@@ -430,7 +448,7 @@ internal static class ZensicalEmitterHelpers
                     Separator.CopyTo(dest[index..]);
                     index += Separator.Length;
                 }
-                else if (Arity is 1)
+                else if (Arity == 1)
                 {
                     dest[index++] = 'T';
                     continue;
@@ -442,6 +460,41 @@ internal static class ZensicalEmitterHelpers
 
             dest[index++] = Close;
             return index;
+        }
+
+        /// <summary>
+        /// Writes a positive integer into the destination span.
+        /// </summary>
+        /// <param name="dest">Destination span.</param>
+        /// <param name="value">Positive integer value.</param>
+        /// <returns>Characters written.</returns>
+        private static int WritePositiveInt(in Span<char> dest, int value)
+        {
+            var digits = CountDigits(value);
+            for (var i = digits - 1; i >= 0; i--)
+            {
+                dest[i] = (char)('0' + (value % DecimalBase));
+                value /= DecimalBase;
+            }
+
+            return digits;
+        }
+
+        /// <summary>
+        /// Counts decimal digits in a positive integer.
+        /// </summary>
+        /// <param name="value">Value to count digits for.</param>
+        /// <returns>Decimal digit count.</returns>
+        private static int CountDigits(int value)
+        {
+            var digits = 1;
+            while (value >= DecimalBase)
+            {
+                value /= DecimalBase;
+                digits++;
+            }
+
+            return digits;
         }
 
         /// <summary>
@@ -489,10 +542,10 @@ internal static class ZensicalEmitterHelpers
 
             for (var i = 0; i < NamespaceName.Length; i++)
             {
-                dest[i] = NamespaceName[i] == '.' ? '/' : NamespaceName[i];
+                dest[i] = NamespaceName[i] == NamespaceSeparator ? PathSeparator : NamespaceName[i];
             }
 
-            dest[NamespaceName.Length] = '/';
+            dest[NamespaceName.Length] = PathSeparator;
             return NamespaceName.Length + 1;
         }
     }
@@ -505,9 +558,9 @@ internal static class ZensicalEmitterHelpers
     private readonly record struct PathTypeNameFormatter(string Name, int Arity)
     {
         /// <summary>Gets the rendered path length.</summary>
-        public int Length => Arity is 0
+        public int Length => Arity == 0
             ? Name.Length
-            : Name.Length + new GenericPlaceholderFormatter(Arity, '{', '}', ",").Length;
+            : Name.Length + new GenericPlaceholderFormatter(Arity, PathGenericOpen, PathGenericClose, PathGenericSeparator).Length;
 
         /// <summary>
         /// Writes the formatted path name into <paramref name="dest"/>.
@@ -522,7 +575,7 @@ internal static class ZensicalEmitterHelpers
                 return Name.Length;
             }
 
-            var suffix = new GenericPlaceholderFormatter(Arity, '{', '}', ",");
+            var suffix = new GenericPlaceholderFormatter(Arity, PathGenericOpen, PathGenericClose, PathGenericSeparator);
             return Name.Length + suffix.WriteTo(dest[Name.Length..]);
         }
     }

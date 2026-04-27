@@ -16,12 +16,17 @@ namespace SourceDocParser.LibCompilation;
 public static partial class CompilationDiagnosticsExtensions
 {
     /// <summary>
+    /// The maximum number of errors to report before stopping.
+    /// </summary>
+    private const int MaxErrorCount = 20;
+
+    /// <summary>
     /// Reports compilation declaration diagnostics to <paramref name="logger"/>.
     /// </summary>
     /// <param name="compilation">The compilation to inspect.</param>
     /// <param name="logger">Logger to receive warning and error diagnostics.</param>
-    /// <returns>True when any error-level diagnostics were observed; otherwise false. Reporting stops after 20 errors.</returns>
-    public static bool ReportDiagnostics(this Microsoft.CodeAnalysis.Compilation compilation, ILogger logger)
+    /// <returns>True when any error-level diagnostics were observed; otherwise false. Reporting stops after <see cref="MaxErrorCount"/> errors.</returns>
+    public static bool ReportDiagnostics(this Compilation compilation, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(compilation);
         ArgumentNullException.ThrowIfNull(logger);
@@ -47,7 +52,7 @@ public static partial class CompilationDiagnosticsExtensions
                 case DiagnosticSeverity.Error:
                     {
                         LogDiagnosticError(logger, diagnostic.ToString());
-                        if (++errorCount >= 20)
+                        if (++errorCount >= MaxErrorCount)
                         {
                             return true;
                         }

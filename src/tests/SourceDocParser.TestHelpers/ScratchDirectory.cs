@@ -12,15 +12,24 @@ namespace SourceDocParser.TestHelpers;
 /// one inside a using block; the directory is recursively removed on
 /// dispose.
 /// </summary>
-[ExcludeFromCodeCoverage]
+[ExcludeFromCodeCoverage(Justification = "Test-only class.")]
 public sealed class ScratchDirectory : IDisposable
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="ScratchDirectory"/> class
     /// under the OS temp folder with a unique GUID-suffixed name.
     /// </summary>
+    public ScratchDirectory()
+        : this("sdp")
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ScratchDirectory"/> class
+    /// under the OS temp folder with a unique GUID-suffixed name.
+    /// </summary>
     /// <param name="prefix">Optional prefix to make the directory easy to spot in logs.</param>
-    public ScratchDirectory(string prefix = "sdp")
+    public ScratchDirectory(string prefix)
     {
         Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"{prefix}-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path);

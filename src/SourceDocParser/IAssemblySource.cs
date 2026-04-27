@@ -14,11 +14,17 @@ namespace SourceDocParser;
 public interface IAssemblySource
 {
     /// <summary>
+    /// Streams the discovered TFM groups using default cancellation settings.
+    /// </summary>
+    /// <returns>One <see cref="AssemblyGroup"/> per TFM.</returns>
+    IAsyncEnumerable<AssemblyGroup> DiscoverAsync();
+
+    /// <summary>
     /// Streams the discovered TFM groups. Async-streamed so the
     /// parser can start walking earlier groups while later ones are
     /// still being prepared.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>One <see cref="AssemblyGroup"/> per TFM.</returns>
-    IAsyncEnumerable<AssemblyGroup> DiscoverAsync(CancellationToken cancellationToken = default);
+    IAsyncEnumerable<AssemblyGroup> DiscoverAsync(CancellationToken cancellationToken);
 }

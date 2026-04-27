@@ -11,11 +11,26 @@ namespace SourceDocParser.SourceLink;
 public interface ISourceLinkValidator
 {
     /// <summary>
+    /// Validates the supplied source-link entries using default options.
+    /// </summary>
+    /// <param name="entries">Entries to validate. Empty input is a no-op.</param>
+    /// <returns>Count of broken URLs.</returns>
+    Task<int> ValidateAsync(SourceLinkEntry[] entries);
+
+    /// <summary>
+    /// Validates the supplied source-link entries.
+    /// </summary>
+    /// <param name="entries">Entries to validate. Empty input is a no-op.</param>
+    /// <param name="failOnBroken">When true, throws if any URL fails to resolve.</param>
+    /// <returns>Count of broken URLs.</returns>
+    Task<int> ValidateAsync(SourceLinkEntry[] entries, bool failOnBroken);
+
+    /// <summary>
     /// Validates the supplied source-link entries.
     /// </summary>
     /// <param name="entries">Entries to validate. Empty input is a no-op.</param>
     /// <param name="failOnBroken">When true, throws if any URL fails to resolve.</param>
     /// <param name="logger">Optional logger; defaults to a no-op logger.</param>
     /// <returns>Count of broken URLs.</returns>
-    Task<int> ValidateAsync(SourceLinkEntry[] entries, bool failOnBroken = false, ILogger? logger = null);
+    Task<int> ValidateAsync(SourceLinkEntry[] entries, bool failOnBroken, ILogger? logger);
 }

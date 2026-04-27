@@ -23,10 +23,20 @@ internal sealed class NuGetFeedHttpClient : INuGetFeedHttpClient
     /// <summary>True when this instance is responsible for disposing <see cref="_http"/>.</summary>
     private readonly bool _ownsHttp;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="NuGetFeedHttpClient"/> class
+    /// that wraps, but does not own, <paramref name="http"/>.
+    /// </summary>
+    /// <param name="http">Underlying HTTP client.</param>
+    public NuGetFeedHttpClient(HttpClient http)
+        : this(http, false)
+    {
+    }
+
     /// <summary>Initializes a new instance of the <see cref="NuGetFeedHttpClient"/> class.</summary>
     /// <param name="http">Underlying HTTP client.</param>
     /// <param name="ownsHttp">When true, <see cref="Dispose"/> disposes <paramref name="http"/>.</param>
-    public NuGetFeedHttpClient(HttpClient http, bool ownsHttp = false)
+    public NuGetFeedHttpClient(HttpClient http, bool ownsHttp)
     {
         ArgumentNullException.ThrowIfNull(http);
         _http = http;

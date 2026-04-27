@@ -46,6 +46,15 @@ internal static class NuGetConfigReader
 
     /// <summary>
     /// Reads the <c>globalPackagesFolder</c> setting from
+    /// <paramref name="configPath"/>.
+    /// </summary>
+    /// <param name="configPath">Absolute path to a <c>nuget.config</c>.</param>
+    /// <returns>Tri-state result — Found / Cleared / NotMentioned.</returns>
+    public static Task<ConfigSettingResult> ReadGlobalPackagesFolderAsync(string configPath) =>
+        ReadGlobalPackagesFolderAsync(configPath, CancellationToken.None);
+
+    /// <summary>
+    /// Reads the <c>globalPackagesFolder</c> setting from
     /// <paramref name="configPath"/>. Returns <see langword="null"/>
     /// when the file doesn't carry that key — caller falls back to
     /// the env var / platform default.
@@ -53,7 +62,7 @@ internal static class NuGetConfigReader
     /// <param name="configPath">Absolute path to a <c>nuget.config</c>.</param>
     /// <param name="cancellationToken">Token observed across the parse.</param>
     /// <returns>Tri-state result — Found / Cleared / NotMentioned.</returns>
-    public static async Task<ConfigSettingResult> ReadGlobalPackagesFolderAsync(string configPath, CancellationToken cancellationToken = default)
+    public static async Task<ConfigSettingResult> ReadGlobalPackagesFolderAsync(string configPath, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(configPath);
         var stream = new FileStream(configPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, FileOptions.SequentialScan | FileOptions.Asynchronous);
@@ -64,6 +73,15 @@ internal static class NuGetConfigReader
     }
 
     /// <summary>
+    /// Reads the <c>globalPackagesFolder</c> setting from an open
+    /// <c>nuget.config</c> stream.
+    /// </summary>
+    /// <param name="configStream">Open stream positioned at the start of the <c>nuget.config</c> XML.</param>
+    /// <returns>Tri-state result — Found / Cleared / NotMentioned.</returns>
+    public static Task<ConfigSettingResult> ReadGlobalPackagesFolderAsync(Stream configStream) =>
+        ReadGlobalPackagesFolderAsync(configStream, CancellationToken.None);
+
+    /// <summary>
     /// Stream-based overload — useful for tests that want to feed
     /// canned XML without a tempfile dance. Walks until it finds the
     /// first <c>&lt;add key="globalPackagesFolder" value="…"/&gt;</c>
@@ -72,7 +90,7 @@ internal static class NuGetConfigReader
     /// <param name="configStream">Open stream positioned at the start of the <c>nuget.config</c> XML.</param>
     /// <param name="cancellationToken">Token observed across the parse.</param>
     /// <returns>Tri-state result — Found / Cleared / NotMentioned.</returns>
-    public static async Task<ConfigSettingResult> ReadGlobalPackagesFolderAsync(Stream configStream, CancellationToken cancellationToken = default)
+    public static async Task<ConfigSettingResult> ReadGlobalPackagesFolderAsync(Stream configStream, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(configStream);
 
@@ -80,8 +98,7 @@ internal static class NuGetConfigReader
         // <config> section in document order. Track the first <add>
         // for the key after the most-recent <clear/>. Within a file,
         // <clear/> wipes accumulated state and a subsequent <add>
-        // re-introduces a value (so X / clear / Y resolves to Y;
-        // X / Y resolves to X — first wins per duplicate key).
+        // re-introduces a value; without a clear, the first add wins.
         using var reader = XmlReader.Create(configStream, _readerSettings);
         var insideConfig = false;
         string? foundValue = null;
@@ -91,55 +108,17 @@ internal static class NuGetConfigReader
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (reader is { NodeType: XmlNodeType.Element } && reader.LocalName.Equals(ConfigElementName, StringComparison.OrdinalIgnoreCase))
-            {
-                insideConfig = true;
-                continue;
-            }
-
-            if (reader is { NodeType: XmlNodeType.EndElement } && reader.LocalName.Equals(ConfigElementName, StringComparison.OrdinalIgnoreCase))
-            {
-                insideConfig = false;
-                continue;
-            }
-
-            if (!insideConfig || reader.NodeType != XmlNodeType.Element)
+            if (TryUpdateConfigScope(reader, ref insideConfig) || !ShouldInspectConfigElement(reader, insideConfig))
             {
                 continue;
             }
 
-            if (IsClearElement(reader))
-            {
-                // Reset both the within-file accumulator and signal
-                // to the caller that any parent value should be wiped.
-                foundValue = null;
-                clearedSeen = true;
-                continue;
-            }
-
-            if (!IsAddElement(reader))
+            if (HandleConfigClear(reader, ref foundValue, ref clearedSeen))
             {
                 continue;
             }
 
-            var key = reader.GetAttribute(KeyAttributeName);
-            if (!GlobalPackagesFolderKey.Equals(key, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            // First <add> after the most-recent <clear/> wins —
-            // matches NuGet's GetFirstItemWithAttribute.
-            if (foundValue is not null)
-            {
-                continue;
-            }
-
-            var value = reader.GetAttribute(ValueAttributeName);
-            if (TextHelpers.HasNonWhitespace(value))
-            {
-                foundValue = value;
-            }
+            TryCaptureGlobalPackagesFolder(reader, ref foundValue);
         }
 
         if (foundValue is not null)
@@ -153,13 +132,97 @@ internal static class NuGetConfigReader
     }
 
     /// <summary>
+    /// Updates whether the reader is currently inside the config section.
+    /// </summary>
+    /// <param name="reader">Reader positioned on the current node.</param>
+    /// <param name="insideConfig">Current in-config flag.</param>
+    /// <returns>True when the current node only updated scope.</returns>
+    internal static bool TryUpdateConfigScope(XmlReader reader, ref bool insideConfig)
+    {
+        if (reader is { NodeType: XmlNodeType.Element } && reader.LocalName.Equals(ConfigElementName, StringComparison.OrdinalIgnoreCase))
+        {
+            insideConfig = true;
+            return true;
+        }
+
+        if (reader is not { NodeType: XmlNodeType.EndElement } ||
+            !reader.LocalName.Equals(ConfigElementName, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        insideConfig = false;
+        return true;
+    }
+
+    /// <summary>
+    /// Returns true when the current node should be inspected as a config child element.
+    /// </summary>
+    /// <param name="reader">Reader positioned on the current node.</param>
+    /// <param name="insideConfig">Whether the parser is currently inside the config section.</param>
+    /// <returns>True when the node is a candidate config child element.</returns>
+    internal static bool ShouldInspectConfigElement(XmlReader reader, bool insideConfig) =>
+        insideConfig && reader.NodeType == XmlNodeType.Element;
+
+    /// <summary>
+    /// Handles a clear directive inside the config section.
+    /// </summary>
+    /// <param name="reader">Reader positioned on the current element.</param>
+    /// <param name="foundValue">Current in-file value accumulator.</param>
+    /// <param name="clearedSeen">Whether a clear directive has been seen.</param>
+    /// <returns>True when the element was a clear directive.</returns>
+    internal static bool HandleConfigClear(XmlReader reader, ref string? foundValue, ref bool clearedSeen)
+    {
+        if (!IsClearElement(reader))
+        {
+            return false;
+        }
+
+        foundValue = null;
+        clearedSeen = true;
+        return true;
+    }
+
+    /// <summary>
+    /// Captures the first globalPackagesFolder add value after the most recent clear.
+    /// </summary>
+    /// <param name="reader">Reader positioned on the current element.</param>
+    /// <param name="foundValue">Current in-file value accumulator.</param>
+    internal static void TryCaptureGlobalPackagesFolder(XmlReader reader, ref string? foundValue)
+    {
+        if (!IsAddElement(reader))
+        {
+            return;
+        }
+
+        if (foundValue is not null)
+        {
+            return;
+        }
+
+        var key = reader.GetAttribute(KeyAttributeName);
+        if (!GlobalPackagesFolderKey.Equals(key, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var value = reader.GetAttribute(ValueAttributeName);
+        if (!TextHelpers.HasNonWhitespace(value))
+        {
+            return;
+        }
+
+        foundValue = value;
+    }
+
+    /// <summary>
     /// Returns true when the reader is positioned on a
     /// <c>&lt;clear/&gt;</c> element. Used by the parse loop to
     /// reset the within-file accumulator.
     /// </summary>
     /// <param name="reader">Reader positioned on an element.</param>
     /// <returns>True when the element is a <c>clear</c> directive.</returns>
-    public static bool IsClearElement(XmlReader reader)
+    private static bool IsClearElement(XmlReader reader)
     {
         ArgumentNullException.ThrowIfNull(reader);
         return reader.LocalName.Equals(ClearElementName, StringComparison.OrdinalIgnoreCase);
@@ -172,7 +235,7 @@ internal static class NuGetConfigReader
     /// </summary>
     /// <param name="reader">Reader positioned on an element.</param>
     /// <returns>True when the element is the per-setting <c>add</c> entry.</returns>
-    public static bool IsAddElement(XmlReader reader)
+    private static bool IsAddElement(XmlReader reader)
     {
         ArgumentNullException.ThrowIfNull(reader);
         return reader.LocalName.Equals(AddElementName, StringComparison.OrdinalIgnoreCase);

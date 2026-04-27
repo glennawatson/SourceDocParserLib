@@ -19,6 +19,9 @@ internal static class PackageExclusionFilter
     /// <summary>The <c>Core.</c> infix that follows <see cref="MicrosoftNetPrefix"/> on the Core family.</summary>
     private const string MicrosoftNetCoreInfix = "Core.";
 
+    /// <summary>ASCII bit used to fold upper-case letters to lower-case without allocations.</summary>
+    private const int AsciiLowercaseBit = 0x20;
+
     /// <summary>
     /// Returns <see langword="true"/> when the package id matches the
     /// user's configured exclude list (exact id or prefix).
@@ -66,7 +69,7 @@ internal static class PackageExclusionFilter
         return s.IsEmpty switch
         {
             true => false,
-            _ => (s[0] | 0x20) switch
+            _ => (s[0] | AsciiLowercaseBit) switch
             {
                 'r' => s.StartsWith("runtime.", StringComparison.OrdinalIgnoreCase),
                 'm' => IsMicrosoftDefaultTransitiveSkip(s),

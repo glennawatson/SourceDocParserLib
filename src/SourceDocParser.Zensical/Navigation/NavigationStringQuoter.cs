@@ -15,6 +15,9 @@ namespace SourceDocParser.Zensical.Navigation;
 /// </summary>
 internal static class NavigationStringQuoter
 {
+    /// <summary>Opening and closing quote characters added around each encoded string.</summary>
+    private const int QuoteWrapperLength = 2;
+
     /// <summary>Characters that force a YAML scalar to be quoted.</summary>
     private static readonly SearchValues<char> _yamlReservedChars = SearchValues.Create(":#'\"[]{},&*!|>%@`");
 
@@ -56,7 +59,7 @@ internal static class NavigationStringQuoter
         if (firstEscapeIndex < 0)
         {
             return string.Create(
-                value.Length + 2,
+                value.Length + QuoteWrapperLength,
                 value,
                 static (dest, state) =>
                 {
@@ -67,7 +70,7 @@ internal static class NavigationStringQuoter
         }
 
         return string.Create(
-            value.Length + 2 + CountEscapes(value.AsSpan(firstEscapeIndex), escapeBackslashes),
+            value.Length + QuoteWrapperLength + CountEscapes(value.AsSpan(firstEscapeIndex), escapeBackslashes),
             (Value: value, FirstEscapeIndex: firstEscapeIndex, EscapeBackslashes: escapeBackslashes),
             static (dest, state) =>
             {

@@ -18,7 +18,51 @@ namespace SourceDocParser.Tfm;
 public static class TfmResolver
 {
     /// <summary>
-    /// Shared <see cref="FrameworkReducer"/> instance. <c>FrameworkReducer</c> is thread-safe
+    /// Modern .NET major version (5.0 and later).
+    /// </summary>
+    private const int ModernNetMajorVersion = 5;
+
+    /// <summary>Android platform label.</summary>
+    private const string AndroidPlatform = "android";
+
+    /// <summary>Suffix for modern Android TFMs.</summary>
+    private const string AndroidSuffix = "-android";
+
+    /// <summary>Prefix for legacy MonoAndroid TFMs.</summary>
+    private const string MonoAndroidPrefix = "monoandroid";
+
+    /// <summary>iOS platform label.</summary>
+    private const string IosPlatform = "ios";
+
+    /// <summary>Suffix for modern iOS TFMs.</summary>
+    private const string IosSuffix = "-ios";
+
+    /// <summary>Prefix for legacy Xamarin.iOS TFMs.</summary>
+    private const string XamarinIosPrefix = "xamarinios";
+
+    /// <summary>MacCatalyst platform label.</summary>
+    private const string MacCatalystPlatform = "maccatalyst";
+
+    /// <summary>Suffix for modern MacCatalyst TFMs.</summary>
+    private const string MacCatalystSuffix = "-maccatalyst";
+
+    /// <summary>Prefix for legacy Xamarin.Mac TFMs.</summary>
+    private const string XamarinMacPrefix = "xamarinmac";
+
+    /// <summary>Windows platform label.</summary>
+    private const string WindowsPlatform = "windows";
+
+    /// <summary>Suffix for modern Windows TFMs.</summary>
+    private const string WindowsSuffix = "-windows";
+
+    /// <summary>Prefix for legacy UAP TFMs.</summary>
+    private const string UapPrefix = "uap";
+
+    /// <summary>Character used to separate the base TFM from the platform suffix.</summary>
+    private const char PlatformSeparator = '-';
+
+    /// <summary>
+    /// Shared <see cref="FrameworkReducer"/> instance. <see cref="FrameworkReducer"/> is thread-safe
     /// and reusable; one instance amortises the internal lookup tables across every call.
     /// </summary>
     private static readonly FrameworkReducer _frameworkReducer = new();
@@ -103,73 +147,17 @@ public static class TfmResolver
         ArgumentNullException.ThrowIfNull(availableTfms);
         ArgumentNullException.ThrowIfNull(tfmPreference);
 
-        if (tfmOverride is { } requestedOverride && FirstExactMatch(availableTfms, requestedOverride) is { } exactOverride)
+        if (TrySelectOverrideTfm(availableTfms, tfmOverride, out var overrideMatch))
         {
-            return exactOverride;
+            return overrideMatch;
         }
 
-        if (tfmOverride is { } overridePrefix && FirstPrefixMatch(availableTfms, overridePrefix) is { } prefixOverride)
+        if (TrySelectPreferredTfm(availableTfms, tfmPreference, out var preferredMatch))
         {
-            return prefixOverride;
+            return preferredMatch;
         }
 
-        for (var i = 0; i < tfmPreference.Length; i++)
-        {
-            var pref = tfmPreference[i];
-            if (FirstExactMatch(availableTfms, pref) is { } exact)
-            {
-                return exact;
-            }
-        }
-
-        for (var i = 0; i < tfmPreference.Length; i++)
-        {
-            var pref = tfmPreference[i];
-            if (FirstPrefixMatch(availableTfms, pref) is { } prefix)
-            {
-                return prefix;
-            }
-        }
-
-        // Handle major version preference (e.g., net8 matching net8.0)
-        for (var i = 0; i < tfmPreference.Length; i++)
-        {
-            var pref = tfmPreference[i];
-            var prefTfm = Tfm.Parse(pref);
-            for (var j = 0; j < availableTfms.Count; j++)
-            {
-                var available = availableTfms[j];
-                var availableTfm = Tfm.Parse(available);
-                if (availableTfm.Family == prefTfm.Family && availableTfm.Version.StartsWith(prefTfm.Version, StringComparison.Ordinal))
-                {
-                    return available;
-                }
-            }
-        }
-
-        // Netstandard fallback - the documented exception to the
-        // supported-TFMs-only rule. Picks the highest netstandard
-        // available since 2.1 supersedes 2.0 in API surface.
-        string? bestNetstandard = null;
-        for (var i = 0; i < availableTfms.Count; i++)
-        {
-            var tfm = availableTfms[i];
-            if (!tfm.IsNetStandardFallback())
-            {
-                continue;
-            }
-
-            // NumericOrdering compares embedded version digits as
-            // numbers — netstandard2.1 sorts after netstandard2.0,
-            // and a hypothetical netstandard10.0 sorts after both
-            // (which ordinal would get wrong).
-            if (bestNetstandard is null || _versionAware.Compare(tfm, bestNetstandard) > 0)
-            {
-                bestNetstandard = tfm;
-            }
-        }
-
-        return bestNetstandard;
+        return FindBestNetStandardFallback(availableTfms);
     }
 
     /// <summary>
@@ -208,7 +196,7 @@ public static class TfmResolver
         // -> net10.0) and look for the base TFM in refs/. Avoids parsing
         // every entry into NuGetFramework for the common platform-targeted
         // libraries.
-        if (libTfm.AsSpan().IndexOf('-') is > 0 and var dashIdx)
+        if (libTfm.AsSpan().IndexOf(PlatformSeparator) is > 0 and var dashIdx)
         {
             var stripped = libTfm.AsSpan(0, dashIdx);
             for (var i = 0; i < refsTfms.Count; i++)
@@ -234,16 +222,156 @@ public static class TfmResolver
     /// <returns>The platform label, or null if not a platform-specific TFM.</returns>
     public static string? GetPlatformLabel(string tfm) => tfm switch
     {
-        _ when tfm.Contains("-android", StringComparison.OrdinalIgnoreCase)
-               || tfm.StartsWith("monoandroid", StringComparison.OrdinalIgnoreCase) => "android",
-        _ when tfm.Contains("-ios", StringComparison.OrdinalIgnoreCase)
-               || tfm.StartsWith("xamarinios", StringComparison.OrdinalIgnoreCase) => "ios",
-        _ when tfm.Contains("-maccatalyst", StringComparison.OrdinalIgnoreCase)
-               || tfm.StartsWith("xamarinmac", StringComparison.OrdinalIgnoreCase) => "maccatalyst",
-        _ when tfm.Contains("-windows", StringComparison.OrdinalIgnoreCase)
-               || tfm.StartsWith("uap", StringComparison.OrdinalIgnoreCase) => "windows",
+        _ when tfm.Contains(AndroidSuffix, StringComparison.OrdinalIgnoreCase)
+               || tfm.StartsWith(MonoAndroidPrefix, StringComparison.OrdinalIgnoreCase) => AndroidPlatform,
+        _ when tfm.Contains(IosSuffix, StringComparison.OrdinalIgnoreCase)
+               || tfm.StartsWith(XamarinIosPrefix, StringComparison.OrdinalIgnoreCase) => IosPlatform,
+        _ when tfm.Contains(MacCatalystSuffix, StringComparison.OrdinalIgnoreCase)
+               || tfm.StartsWith(XamarinMacPrefix, StringComparison.OrdinalIgnoreCase) => MacCatalystPlatform,
+        _ when tfm.Contains(WindowsSuffix, StringComparison.OrdinalIgnoreCase)
+               || tfm.StartsWith(UapPrefix, StringComparison.OrdinalIgnoreCase) => WindowsPlatform,
         _ => null,
     };
+
+        /// <summary>
+    /// Resolves a per-package override against the available TFMs.
+    /// </summary>
+    /// <param name="availableTfms">TFMs present in the package's lib/ directory.</param>
+    /// <param name="tfmOverride">Optional per-package TFM override.</param>
+    /// <param name="match">Resolved override match, if found.</param>
+    /// <returns>True when the override matched an available TFM.</returns>
+    internal static bool TrySelectOverrideTfm(List<string> availableTfms, string? tfmOverride, out string? match)
+    {
+        match = null;
+        if (tfmOverride is not { } requestedOverride)
+        {
+            return false;
+        }
+
+        match = FirstExactMatch(availableTfms, requestedOverride)
+            ?? FirstPrefixMatch(availableTfms, requestedOverride);
+        return match is not null;
+    }
+
+    /// <summary>
+    /// Resolves the first preferred TFM across exact, prefix, and major-version matches.
+    /// </summary>
+    /// <param name="availableTfms">TFMs present in the package's lib/ directory.</param>
+    /// <param name="tfmPreference">Ordered list of preferred TFMs.</param>
+    /// <param name="match">Resolved preferred match, if found.</param>
+    /// <returns>True when a preferred TFM matched.</returns>
+    internal static bool TrySelectPreferredTfm(List<string> availableTfms, string[] tfmPreference, out string? match)
+    {
+        match = FindPreferredExactMatch(availableTfms, tfmPreference)
+            ?? FindPreferredPrefixMatch(availableTfms, tfmPreference)
+            ?? FindPreferredMajorVersionMatch(availableTfms, tfmPreference);
+        return match is not null;
+    }
+
+    /// <summary>
+    /// Finds the first exact preferred TFM match.
+    /// </summary>
+    /// <param name="availableTfms">TFMs present in the package's lib/ directory.</param>
+    /// <param name="tfmPreference">Ordered list of preferred TFMs.</param>
+    /// <returns>The matched TFM, or null.</returns>
+    internal static string? FindPreferredExactMatch(List<string> availableTfms, string[] tfmPreference)
+    {
+        for (var i = 0; i < tfmPreference.Length; i++)
+        {
+            if (FirstExactMatch(availableTfms, tfmPreference[i]) is { } exact)
+            {
+                return exact;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Finds the first prefix-based preferred TFM match.
+    /// </summary>
+    /// <param name="availableTfms">TFMs present in the package's lib/ directory.</param>
+    /// <param name="tfmPreference">Ordered list of preferred TFMs.</param>
+    /// <returns>The matched TFM, or null.</returns>
+    internal static string? FindPreferredPrefixMatch(List<string> availableTfms, string[] tfmPreference)
+    {
+        for (var i = 0; i < tfmPreference.Length; i++)
+        {
+            if (FirstPrefixMatch(availableTfms, tfmPreference[i]) is { } prefix)
+            {
+                return prefix;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Finds the first preferred TFM whose family and major version match.
+    /// </summary>
+    /// <param name="availableTfms">TFMs present in the package's lib/ directory.</param>
+    /// <param name="tfmPreference">Ordered list of preferred TFMs.</param>
+    /// <returns>The matched TFM, or null.</returns>
+    internal static string? FindPreferredMajorVersionMatch(List<string> availableTfms, string[] tfmPreference)
+    {
+        for (var i = 0; i < tfmPreference.Length; i++)
+        {
+            if (FindMajorVersionMatch(availableTfms, tfmPreference[i]) is { } match)
+            {
+                return match;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Finds the first available TFM that matches the preferred family and major version.
+    /// </summary>
+    /// <param name="availableTfms">TFMs present in the package's lib/ directory.</param>
+    /// <param name="preferredTfm">Preferred TFM to match against.</param>
+    /// <returns>The matched TFM, or null.</returns>
+    internal static string? FindMajorVersionMatch(List<string> availableTfms, string preferredTfm)
+    {
+        var parsedPreference = Tfm.Parse(preferredTfm);
+        for (var i = 0; i < availableTfms.Count; i++)
+        {
+            var available = availableTfms[i];
+            var availableTfm = Tfm.Parse(available);
+            if (availableTfm.Family == parsedPreference.Family
+                && availableTfm.Version.StartsWith(parsedPreference.Version, StringComparison.Ordinal))
+            {
+                return available;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Finds the highest netstandard fallback TFM, if any.
+    /// </summary>
+    /// <param name="availableTfms">TFMs present in the package's lib/ directory.</param>
+    /// <returns>The highest netstandard fallback TFM, or null.</returns>
+    internal static string? FindBestNetStandardFallback(List<string> availableTfms)
+    {
+        string? bestNetstandard = null;
+        for (var i = 0; i < availableTfms.Count; i++)
+        {
+            var tfm = availableTfms[i];
+            if (!tfm.IsNetStandardFallback())
+            {
+                continue;
+            }
+
+            if (bestNetstandard is null || _versionAware.Compare(tfm, bestNetstandard) > 0)
+            {
+                bestNetstandard = tfm;
+            }
+        }
+
+        return bestNetstandard;
+    }
 
     /// <summary>
     /// Slow path for <see cref="FindBestRefsTfm"/>: defers to
@@ -253,7 +381,7 @@ public static class TfmResolver
     /// <param name="libTfm">The TFM under lib/ being resolved.</param>
     /// <param name="refsTfms">All TFMs present under refs/.</param>
     /// <returns>The best matching reference TFM, or null if none found.</returns>
-    private static string? FindBestRefsTfmSlow(string libTfm, List<string> refsTfms)
+    internal static string? FindBestRefsTfmSlow(string libTfm, List<string> refsTfms)
     {
         var libFramework = NuGetFramework.Parse(libTfm);
         if (libFramework.IsUnsupported)
@@ -302,13 +430,13 @@ public static class TfmResolver
     /// <param name="candidates">Parsed candidate frameworks.</param>
     /// <param name="byFramework">Map from framework back to its original raw string.</param>
     /// <returns>The chosen TFM string, or null.</returns>
-    private static string? PickHighestModernNetRef(List<NuGetFramework> candidates, Dictionary<NuGetFramework, string> byFramework)
+    internal static string? PickHighestModernNetRef(List<NuGetFramework> candidates, Dictionary<NuGetFramework, string> byFramework)
     {
         NuGetFramework? best = null;
         for (var i = 0; i < candidates.Count; i++)
         {
             var candidate = candidates[i];
-            if (candidate is { Framework: not FrameworkConstants.FrameworkIdentifiers.NetCoreApp } or { Version.Major: < 5 })
+            if (candidate is { Framework: not FrameworkConstants.FrameworkIdentifiers.NetCoreApp } or { Version.Major: < ModernNetMajorVersion })
             {
                 continue;
             }
@@ -329,7 +457,7 @@ public static class TfmResolver
     /// <param name="tfm">TFM to test.</param>
     /// <param name="tfmPreference">Preference list.</param>
     /// <returns>True if a match is found; otherwise, false.</returns>
-    private static bool MatchesAnyPreference(string tfm, string[] tfmPreference)
+    internal static bool MatchesAnyPreference(string tfm, string[] tfmPreference)
     {
         var testTfm = Tfm.Parse(tfm);
         for (var i = 0; i < tfmPreference.Length; i++)
@@ -359,7 +487,7 @@ public static class TfmResolver
     /// <param name="candidates">Strings to scan, in iteration order.</param>
     /// <param name="target">Value to match.</param>
     /// <returns>The first exact match, or null if none found.</returns>
-    private static string? FirstExactMatch(List<string> candidates, string target)
+    internal static string? FirstExactMatch(List<string> candidates, string target)
     {
         for (var i = 0; i < candidates.Count; i++)
         {
@@ -380,7 +508,7 @@ public static class TfmResolver
     /// <param name="candidates">Strings to scan, in iteration order.</param>
     /// <param name="target">Prefix to match.</param>
     /// <returns>The first prefix match, or null if none found.</returns>
-    private static string? FirstPrefixMatch(List<string> candidates, string target)
+    internal static string? FirstPrefixMatch(List<string> candidates, string target)
     {
         for (var i = 0; i < candidates.Count; i++)
         {

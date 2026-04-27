@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics.CodeAnalysis;
 using SourceDocParser.NuGet.Readers;
 
 namespace SourceDocParser.NuGet.Infrastructure;
@@ -28,6 +29,14 @@ internal static class NuGetGlobalCache
     private const string LibFolderName = "lib";
 
     /// <summary>
+    /// Returns the path to NuGet's global packages folder using environment
+    /// variables and platform defaults when no config override is supplied.
+    /// </summary>
+    /// <returns>The absolute path to the global packages folder.</returns>
+    public static string ResolveGlobalPackagesFolder() =>
+        ResolveGlobalPackagesFolder(null);
+
+    /// <summary>
     /// Returns the path to NuGet's global packages folder using
     /// the same precedence chain the SDK does:
     /// <c>NUGET_PACKAGES</c> env var → <c>nuget.config</c>
@@ -41,7 +50,7 @@ internal static class NuGetGlobalCache
     /// </summary>
     /// <param name="configOverride">Pre-resolved value from a <c>nuget.config</c>, or <see langword="null"/> when none.</param>
     /// <returns>The absolute path to the global packages folder.</returns>
-    public static string ResolveGlobalPackagesFolder(string? configOverride = null)
+    public static string ResolveGlobalPackagesFolder(string? configOverride)
     {
         var envValue = Environment.GetEnvironmentVariable(GlobalPackagesFolderEnvVar);
         if (TextHelpers.HasNonWhitespace(envValue))
@@ -59,15 +68,14 @@ internal static class NuGetGlobalCache
     }
 
     /// <summary>
-    /// Returns the per-package install directory inside the global
-    /// cache. NuGet lowercases both id and version when laying out
-    /// the cache — the docs tooling has to match exactly so the
-    /// "already extracted" probe finds the SDK-written marker.
+    /// Constructs the installation path for a NuGet package in the global packages folder
+    /// using the provided package ID and version.
     /// </summary>
-    /// <param name="globalPackagesFolder">Result of <see cref="ResolveGlobalPackagesFolder"/>.</param>
-    /// <param name="packageId">NuGet package ID.</param>
-    /// <param name="packageVersion">NuGet package version (use the normalised form).</param>
-    /// <returns>The absolute install path.</returns>
+    /// <param name="globalPackagesFolder">The root directory of the global packages folder.</param>
+    /// <param name="packageId">The ID of the NuGet package.</param>
+    /// <param name="packageVersion">The version of the NuGet package.</param>
+    /// <returns>The absolute path to the specific package installation folder.</returns>
+    [SuppressMessage("Minor Code Smell", "S4040:Strings should be normalized to uppercase", Justification = "NuGet lowercases package ID and version when laying out the cache")]
     public static string GetPackageInstallPath(string globalPackagesFolder, string packageId, string packageVersion)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(globalPackagesFolder);

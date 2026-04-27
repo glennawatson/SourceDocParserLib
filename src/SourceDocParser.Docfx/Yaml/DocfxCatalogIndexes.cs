@@ -9,13 +9,8 @@ using SourceDocParser.Model;
 namespace SourceDocParser.Docfx.Yaml;
 
 /// <summary>
-/// Per-emit catalog rollups consumed by <see cref="DocfxYamlEmitter"/>
-/// to render the <c>derivedClasses</c>, <c>extensionMethods</c>, and
-/// <c>inheritedMembers</c> blocks docfx itself emits. Built once at
-/// the start of <see cref="DocfxYamlEmitter.EmitAsync"/> and reused
-/// by every per-type render. Lookups return the shared
-/// <see cref="Array.Empty{T}"/> singleton (no per-query allocation)
-/// when the type has no entry.
+/// Represents catalog indexes for Docfx processing, including derived type relationships,
+/// extension methods associated with types, and inherited members.
 /// </summary>
 public sealed class DocfxCatalogIndexes
 {

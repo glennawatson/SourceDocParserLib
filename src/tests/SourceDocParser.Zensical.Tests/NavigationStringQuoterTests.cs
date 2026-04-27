@@ -63,26 +63,17 @@ public class NavigationStringQuoterTests
     /// <summary>A YAML scalar without reserved chars passes through unquoted.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task YamlScalarLeavesPlainTextBare()
-    {
-        await Assert.That(NavigationStringQuoter.YamlScalar("Plain")).IsEqualTo("Plain");
-    }
+    public async Task YamlScalarLeavesPlainTextBare() => await Assert.That(NavigationStringQuoter.YamlScalar("Plain")).IsEqualTo("Plain");
 
     /// <summary>A YAML scalar containing a reserved char (e.g. <c>:</c>) gets quoted.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task YamlScalarQuotesReservedChars()
-    {
-        await Assert.That(NavigationStringQuoter.YamlScalar("a:b")).IsEqualTo("\"a:b\"");
-    }
+    public async Task YamlScalarQuotesReservedChars() => await Assert.That(NavigationStringQuoter.YamlScalar("a:b")).IsEqualTo("\"a:b\"");
 
     /// <summary>TomlString always quotes and escapes both backslash and quote.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task TomlStringEscapesBothBackslashAndQuote()
-    {
-        await Assert.That(NavigationStringQuoter.TomlString("a\\b\"c")).IsEqualTo("\"a\\\\b\\\"c\"");
-    }
+    public async Task TomlStringEscapesBothBackslashAndQuote() => await Assert.That(NavigationStringQuoter.TomlString("a\\b\"c")).IsEqualTo("\"a\\\\b\\\"c\"");
 
     /// <summary>CountEscapes excludes backslashes when escapeBackslashes is false.</summary>
     /// <returns>A task representing the test execution.</returns>

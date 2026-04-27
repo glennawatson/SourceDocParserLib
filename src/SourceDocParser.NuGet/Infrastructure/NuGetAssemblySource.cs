@@ -41,6 +41,29 @@ public sealed class NuGetAssemblySource : IAssemblySource
     private readonly INuGetFetcher _fetcher;
 
     /// <summary>
+    /// Initializes a new instance of the <see cref="NuGetAssemblySource"/> class
+    /// using default logging and fetch behavior.
+    /// </summary>
+    /// <param name="rootDirectory">Repository root containing <c>nuget-packages.json</c>.</param>
+    /// <param name="apiPath">Destination root for fetched and extracted package assemblies (typically <c>reactiveui/api</c>).</param>
+    public NuGetAssemblySource(string rootDirectory, string apiPath)
+        : this(rootDirectory, apiPath, null, null)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="NuGetAssemblySource"/> class
+    /// using the supplied logger and default fetch behavior.
+    /// </summary>
+    /// <param name="rootDirectory">Repository root containing <c>nuget-packages.json</c>.</param>
+    /// <param name="apiPath">Destination root for fetched and extracted package assemblies (typically <c>reactiveui/api</c>).</param>
+    /// <param name="logger">Optional logger; defaults to a no-op logger.</param>
+    public NuGetAssemblySource(string rootDirectory, string apiPath, ILogger? logger)
+        : this(rootDirectory, apiPath, logger, null)
+    {
+    }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="NuGetAssemblySource"/> class.
     /// </summary>
     /// <param name="rootDirectory">Repository root containing <c>nuget-packages.json</c>.</param>
@@ -48,7 +71,7 @@ public sealed class NuGetAssemblySource : IAssemblySource
     /// <param name="logger">Optional logger; defaults to a no-op logger.</param>
     /// <param name="fetcher">Optional fetcher; defaults to a fresh <see cref="NuGetFetcher"/>. Inject for tests that want to skip the network.</param>
     /// <exception cref="ArgumentException">When <paramref name="rootDirectory"/> or <paramref name="apiPath"/> is null, empty, or whitespace.</exception>
-    public NuGetAssemblySource(string rootDirectory, string apiPath, ILogger? logger = null, INuGetFetcher? fetcher = null)
+    public NuGetAssemblySource(string rootDirectory, string apiPath, ILogger? logger, INuGetFetcher? fetcher)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(rootDirectory);
         ArgumentException.ThrowIfNullOrWhiteSpace(apiPath);
@@ -58,8 +81,15 @@ public sealed class NuGetAssemblySource : IAssemblySource
         _fetcher = fetcher ?? new NuGetFetcher();
     }
 
+    /// <summary>
+    /// Fetches the configured packages when needed, then discovers the extracted assemblies.
+    /// </summary>
+    /// <returns>An async stream of assembly groups keyed by TFM.</returns>
+    public IAsyncEnumerable<AssemblyGroup> DiscoverAsync() =>
+        DiscoverAsync(CancellationToken.None);
+
     /// <inheritdoc />
-    public async IAsyncEnumerable<AssemblyGroup> DiscoverAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<AssemblyGroup> DiscoverAsync([EnumeratorCancellation] CancellationToken cancellationToken)
     {
         await _fetcher.FetchPackagesAsync(_rootDirectory, _apiPath, _logger, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();

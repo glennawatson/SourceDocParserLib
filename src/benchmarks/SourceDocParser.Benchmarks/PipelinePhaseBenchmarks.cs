@@ -15,13 +15,9 @@ using SourceDocParser.Zensical;
 namespace SourceDocParser.Benchmarks;
 
 /// <summary>
-/// Per-phase benchmarks that split <see cref="MetadataExtractor.RunAsync"/>
-/// into its constituent steps so we can attribute the end-to-end allocation
-/// budget (currently ~3.65 GB on the slim debug fixture) to a specific phase.
-/// Every phase shares a single warmed NuGet cache and pre-discovered group
-/// list captured during <see cref="GlobalSetupAsync"/>; <see cref="MergeBench"/>
-/// and <see cref="EmitBench"/> additionally consume artifacts produced by an
-/// initial walk + merge so each iteration measures only that phase.
+/// Represents a set of benchmarks for evaluating the performance of various
+/// pipeline phases in the source document parsing process, including discovery,
+/// loading and walking, merging, emitting, and source link operations.
 /// </summary>
 [ShortRunJob]
 [MemoryDiagnoser]
@@ -64,11 +60,12 @@ public class PipelinePhaseBenchmarks
     private List<CompilationLoader> _preLoadedLoaders = [];
 
     /// <summary>
-    /// Warms the NuGet cache via a single <see cref="MetadataExtractor.RunAsync"/>
-    /// then captures (a) discovered groups, (b) walked catalogs, (c) merged types
-    /// so each phase benchmark exercises only its own step.
+    /// Asynchronously sets up the required environment and dependencies for the benchmark workflow.
+    /// This method initializes temporary directories, prepares necessary assets, warms up caches
+    /// to exclude network and I/O delay from measured iterations, and pre-loads assemblies
+    /// to ensure accurate benchmarking of the pipeline phases.
     /// </summary>
-    /// <returns>A task representing the asynchronous setup.</returns>
+    /// <returns>A task that represents the asynchronous operation of the setup process.</returns>
     [GlobalSetup]
     public async Task GlobalSetupAsync()
     {
@@ -262,9 +259,7 @@ public class PipelinePhaseBenchmarks
     public Task<int> EmitBench() => _emitter.EmitAsync(_mergedTypes, _outputRoot);
 
     /// <summary>
-    /// Loads every assembly without walking. Splits the
-    /// <see cref="LoadAndWalkBench"/> budget so we can attribute it to
-    /// <see cref="CompilationLoader.Load"/> versus <see cref="SymbolWalker.Walk"/>.
+    /// Loads every assembly without walking.
     /// </summary>
     /// <returns>Number of compilations produced.</returns>
     [Benchmark]

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -38,7 +39,7 @@ public class MetadataExtractorInjectionTests
         var loader = new MockCompilationLoader();
         var loaderFactoryCalls = 0;
         var walker = new MockSymbolWalker();
-        var sourceLinkPaths = new List<string>();
+        var sourceLinkPaths = new ConcurrentBag<string>();
         var extractor = new MetadataExtractor(walker, LoaderFactory, ResolverFactory);
 
         using var output = new TempDirectory();
@@ -49,9 +50,6 @@ public class MetadataExtractorInjectionTests
         await Assert.That(walker.WalkCalls.Count).IsEqualTo(2);
         await Assert.That(sourceLinkPaths.Count).IsEqualTo(2);
 
-        // Eager retire + LoaderRegistry safety net both dispose the loader.
-        // CompilationLoader.Dispose is idempotent so this is correct in production;
-        // the mock just counts every call.
         await Assert.That(loader.DisposeCount).IsGreaterThanOrEqualTo(1);
         await Assert.That(result.LoadFailures).IsEqualTo(0);
 
@@ -63,11 +61,7 @@ public class MetadataExtractorInjectionTests
 
         ISourceLinkResolver ResolverFactory(string path)
         {
-            lock (sourceLinkPaths)
-            {
-                sourceLinkPaths.Add(path);
-            }
-
+            sourceLinkPaths.Add(path);
             return new NullSourceLinkResolver();
         }
     }
@@ -85,7 +79,7 @@ public class MetadataExtractorInjectionTests
             new("net10.0", ["/fake/B.dll"], []),
         };
 
-        var loaders = new List<MockCompilationLoader>();
+        var loaders = new ConcurrentBag<MockCompilationLoader>();
         var walker = new MockSymbolWalker();
         var extractor = new MetadataExtractor(walker, LoaderFactory, static _ => new NullSourceLinkResolver());
 
@@ -93,16 +87,12 @@ public class MetadataExtractorInjectionTests
         await extractor.RunAsync(new FakeAssemblySource(groups), output.Path, new RecordingEmitter());
 
         await Assert.That(loaders.Count).IsEqualTo(2);
-        await Assert.That(loaders.All(static l => l.DisposeCount >= 1)).IsTrue();
+        await Assert.That(Array.TrueForAll(loaders.ToArray(), static l => l.DisposeCount >= 1)).IsTrue();
 
         ICompilationLoader LoaderFactory(ILogger logger)
         {
             var loader = new MockCompilationLoader();
-            lock (loaders)
-            {
-                loaders.Add(loader);
-            }
-
+            loaders.Add(loader);
             return loader;
         }
     }
@@ -173,7 +163,7 @@ public class MetadataExtractorInjectionTests
             new("net10.0", ["/fake/A.dll", "/fake/B.dll"], []),
         };
 
-        var observed = new List<string>();
+        var observed = new ConcurrentBag<string>();
         var extractor = new MetadataExtractor(
             new MockSymbolWalker(),
             LoaderFactory,
@@ -189,11 +179,7 @@ public class MetadataExtractorInjectionTests
 
         ISourceLinkResolver ResolverFactory(string path)
         {
-            lock (observed)
-            {
-                observed.Add(path);
-            }
-
+            observed.Add(path);
             return new NullSourceLinkResolver();
         }
     }
@@ -213,8 +199,13 @@ public class MetadataExtractorInjectionTests
         /// <inheritdoc />
         public (CSharpCompilation Compilation, IAssemblySymbol Assembly) Load(
             string assemblyPath,
+            Dictionary<string, string> fallbackReferences) => Load(assemblyPath, fallbackReferences, false);
+
+        /// <inheritdoc />
+        public (CSharpCompilation Compilation, IAssemblySymbol Assembly) Load(
+            string assemblyPath,
             Dictionary<string, string> fallbackReferences,
-            bool includePrivateMembers = false)
+            bool includePrivateMembers)
         {
             lock (LoadCalls)
             {
@@ -239,7 +230,13 @@ public class MetadataExtractorInjectionTests
         public (CSharpCompilation Compilation, IAssemblySymbol Assembly) Load(
             string assemblyPath,
             Dictionary<string, string> fallbackReferences,
-            bool includePrivateMembers = false) =>
+            bool includePrivateMembers) =>
+            throw new InvalidOperationException("simulated load failure");
+
+        /// <inheritdoc />
+        public (CSharpCompilation Compilation, IAssemblySymbol Assembly) Load(
+            string assemblyPath,
+            Dictionary<string, string> fallbackReferences) =>
             throw new InvalidOperationException("simulated load failure");
 
         /// <inheritdoc />
@@ -289,7 +286,11 @@ public class MetadataExtractorInjectionTests
     private sealed class RecordingEmitter : IDocumentationEmitter
     {
         /// <inheritdoc />
-        public Task<int> EmitAsync(ApiType[] types, string outputRoot, CancellationToken cancellationToken = default) =>
+        public Task<int> EmitAsync(ApiType[] types, string outputRoot) =>
+            Task.FromResult(types.Length);
+
+        /// <inheritdoc />
+        public Task<int> EmitAsync(ApiType[] types, string outputRoot, CancellationToken cancellationToken) =>
             Task.FromResult(types.Length);
     }
 
@@ -300,7 +301,10 @@ public class MetadataExtractorInjectionTests
     private sealed class FakeAssemblySource(List<AssemblyGroup> groups) : IAssemblySource
     {
         /// <inheritdoc />
-        public async IAsyncEnumerable<AssemblyGroup> DiscoverAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
+        public IAsyncEnumerable<AssemblyGroup> DiscoverAsync() => DiscoverAsync(CancellationToken.None);
+
+        /// <inheritdoc />
+        public async IAsyncEnumerable<AssemblyGroup> DiscoverAsync([EnumeratorCancellation] CancellationToken cancellationToken)
         {
             for (var i = 0; i < groups.Count; i++)
             {

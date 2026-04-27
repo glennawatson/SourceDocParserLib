@@ -10,7 +10,7 @@
     <IsAotCompatible>false</IsAotCompatible>
     <EnableTrimAnalyzer>false</EnableTrimAnalyzer>
     <EnableAotAnalyzer>false</EnableAotAnalyzer>
-    <NoWarn>$(NoWarn);CA1822</NoWarn>
+    <NoWarn>$(NoWarn);CA1822;S1215;S4261</NoWarn>
   </PropertyGroup>
 
   <!--

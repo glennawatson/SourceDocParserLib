@@ -50,6 +50,14 @@ internal static class PackageSourceCredentialsReader
     /// <summary>
     /// Reads all credential entries from the specified <paramref name="configPath"/>.
     /// </summary>
+    /// <param name="configPath">The absolute path to a <c>nuget.config</c> file.</param>
+    /// <returns>A task that represents the asynchronous read operation. The task result contains a dictionary of credentials keyed by the source name.</returns>
+    public static Task<Dictionary<string, PackageSourceCredential>> ReadAsync(string configPath) =>
+        ReadAsync(configPath, CancellationToken.None);
+
+    /// <summary>
+    /// Reads all credential entries from the specified <paramref name="configPath"/>.
+    /// </summary>
     /// <remarks>
     /// This method opens the <c>nuget.config</c> file for reading and parses the <c>&lt;packageSourceCredentials&gt;</c> section.
     /// It handles environment variable expansion in the password and username fields using the <c>%VAR%</c> syntax.
@@ -59,7 +67,7 @@ internal static class PackageSourceCredentialsReader
     /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
     /// <returns>A task that represents the asynchronous read operation. The task result contains a dictionary of credentials keyed by the source name.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="configPath"/> is null or whitespace.</exception>
-    public static async Task<Dictionary<string, PackageSourceCredential>> ReadAsync(string configPath, CancellationToken cancellationToken = default)
+    public static async Task<Dictionary<string, PackageSourceCredential>> ReadAsync(string configPath, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(configPath);
         var stream = new FileStream(configPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, FileOptions.SequentialScan | FileOptions.Asynchronous);
@@ -68,6 +76,14 @@ internal static class PackageSourceCredentialsReader
             return await ReadAsync(stream, cancellationToken).ConfigureAwait(false);
         }
     }
+
+    /// <summary>
+    /// Reads all credential entries from the provided <paramref name="configStream"/>.
+    /// </summary>
+    /// <param name="configStream">The open stream containing the <c>nuget.config</c> XML content.</param>
+    /// <returns>A task that represents the asynchronous read operation. The task result contains a dictionary of credentials keyed by the source name.</returns>
+    public static Task<Dictionary<string, PackageSourceCredential>> ReadAsync(Stream configStream) =>
+        ReadAsync(configStream, CancellationToken.None);
 
     /// <summary>
     /// Reads all credential entries from the provided <paramref name="configStream"/>.
@@ -81,7 +97,7 @@ internal static class PackageSourceCredentialsReader
     /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
     /// <returns>A task that represents the asynchronous read operation. The task result contains a dictionary of credentials keyed by the source name.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="configStream"/> is null.</exception>
-    public static async Task<Dictionary<string, PackageSourceCredential>> ReadAsync(Stream configStream, CancellationToken cancellationToken = default)
+    public static async Task<Dictionary<string, PackageSourceCredential>> ReadAsync(Stream configStream, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(configStream);
         var result = new Dictionary<string, PackageSourceCredential>(StringComparer.OrdinalIgnoreCase);

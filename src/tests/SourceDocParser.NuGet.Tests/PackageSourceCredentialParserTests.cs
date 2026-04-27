@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Globalization;
 using System.Text;
 using System.Xml;
 using SourceDocParser.NuGet.Readers;
@@ -73,7 +74,7 @@ public class PackageSourceCredentialParserTests
     [Test]
     public async Task ExpandEnvironmentVariablesResolvesDefinedVariable()
     {
-        var name = "SDP_TEST_VAR_" + Guid.NewGuid().ToString("N");
+        var name = "SDP_TEST_VAR_" + Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture);
         Environment.SetEnvironmentVariable(name, "resolved");
         try
         {
@@ -91,7 +92,7 @@ public class PackageSourceCredentialParserTests
     [Test]
     public async Task ExpandEnvironmentVariablesLeavesUnresolvedLiteral()
     {
-        var name = "SDP_DEFINITELY_NOT_SET_" + Guid.NewGuid().ToString("N");
+        var name = "SDP_DEFINITELY_NOT_SET_" + Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture);
 
         await Assert.That(PackageSourceCredentialParser.ExpandEnvironmentVariables($"prefix-%{name}%-suffix"))
             .IsEqualTo($"prefix-%{name}%-suffix");

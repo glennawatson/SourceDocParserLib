@@ -37,6 +37,14 @@ internal static class FallbackPackageFoldersReader
         Async = true, IgnoreComments = true, IgnoreWhitespace = true, DtdProcessing = DtdProcessing.Prohibit,
     };
 
+    /// <summary>
+    /// Reads fallback folder paths from the specified <paramref name="configPath"/>.
+    /// </summary>
+    /// <param name="configPath">The absolute path to a <c>nuget.config</c> file.</param>
+    /// <returns>A task that represents the asynchronous read operation. The task result contains the per-file result with clear flag and ordered folder paths.</returns>
+    public static Task<FallbackFoldersFileResult> ReadAsync(string configPath) =>
+        ReadAsync(configPath, CancellationToken.None);
+
     /// <summary>Reads fallback folder paths from the specified <paramref name="configPath"/>.</summary>
     /// <remarks>
     /// This method opens the <c>nuget.config</c> file for reading and parses the <c>&lt;fallbackPackageFolders&gt;</c> section.
@@ -48,7 +56,7 @@ internal static class FallbackPackageFoldersReader
     /// <exception cref="ArgumentException">Thrown when <paramref name="configPath"/> is null or whitespace.</exception>
     public static async Task<FallbackFoldersFileResult> ReadAsync(
         string configPath,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(configPath);
         var stream = new FileStream(
@@ -64,6 +72,14 @@ internal static class FallbackPackageFoldersReader
         }
     }
 
+    /// <summary>
+    /// Reads fallback folder paths from the provided <paramref name="configStream"/>.
+    /// </summary>
+    /// <param name="configStream">The open stream containing the <c>nuget.config</c> XML content.</param>
+    /// <returns>A task that represents the asynchronous read operation. The task result contains the per-file result with clear flag and ordered folder paths.</returns>
+    public static Task<FallbackFoldersFileResult> ReadAsync(Stream configStream) =>
+        ReadAsync(configStream, CancellationToken.None);
+
     /// <summary>Reads fallback folder paths from the provided <paramref name="configStream"/>.</summary>
     /// <remarks>
     /// This overload is primarily intended for testing purposes. It parses the XML content from the stream
@@ -76,7 +92,7 @@ internal static class FallbackPackageFoldersReader
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="configStream"/> is null.</exception>
     public static async Task<FallbackFoldersFileResult> ReadAsync(
         Stream configStream,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(configStream);
         var folders = new List<string>();

@@ -171,14 +171,13 @@ public class NuGetInstallHelpersTests
 
         var result = await NuGetInstallHelpers.TryInstallFromSourceAsync(
             source,
-            credentials: [],
-            feed,
-            NullLogger.Instance,
-            cache,
-            "Foo",
-            "1.0.0",
-            installPath: Path.Combine(Path.GetTempPath(), $"sdp-{Guid.NewGuid():N}"),
-            CancellationToken.None);
+            CreateInstallRequest(
+                source,
+                feed,
+                cache,
+                "Foo",
+                "1.0.0",
+                Path.Combine(Path.GetTempPath(), $"sdp-{Guid.NewGuid():N}")));
 
         await Assert.That(result).IsFalse();
     }
@@ -198,14 +197,13 @@ public class NuGetInstallHelpersTests
 
         var result = await NuGetInstallHelpers.TryInstallFromSourceAsync(
             source,
-            credentials: [],
-            feed,
-            NullLogger.Instance,
-            cache,
-            "Foo",
-            "1.0.0",
-            Path.Combine(Path.GetTempPath(), $"sdp-{Guid.NewGuid():N}"),
-            CancellationToken.None);
+            CreateInstallRequest(
+                source,
+                feed,
+                cache,
+                "Foo",
+                "1.0.0",
+                Path.Combine(Path.GetTempPath(), $"sdp-{Guid.NewGuid():N}")));
 
         await Assert.That(result).IsFalse();
     }
@@ -229,14 +227,7 @@ public class NuGetInstallHelpersTests
 
             var result = await NuGetInstallHelpers.TryInstallFromSourceAsync(
                 source,
-                credentials: [],
-                feed,
-                NullLogger.Instance,
-                cache,
-                "Foo",
-                "1.0.0",
-                installPath,
-                CancellationToken.None);
+                CreateInstallRequest(source, feed, cache, "Foo", "1.0.0", installPath));
 
             await Assert.That(result).IsTrue();
             await Assert.That(File.Exists(Path.Combine(installPath, ".nupkg.metadata"))).IsTrue();
@@ -276,15 +267,16 @@ public class NuGetInstallHelpersTests
             var cache = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
             await NuGetInstallHelpers.InstallFromSourcesAsync(
-                sources,
-                credentials: [],
-                failingFeed,
-                NullLogger.Instance,
-                cache,
-                "Foo",
-                "1.0.0",
-                installPath,
-                CancellationToken.None);
+                new(
+                    sources,
+                    new Dictionary<string, PackageSourceCredential>(StringComparer.OrdinalIgnoreCase),
+                    failingFeed,
+                    NullLogger.Instance,
+                    cache,
+                    "Foo",
+                    "1.0.0",
+                    installPath,
+                    CancellationToken.None));
 
             await Assert.That(File.Exists(Path.Combine(installPath, ".nupkg.metadata"))).IsTrue();
         }
@@ -312,15 +304,16 @@ public class NuGetInstallHelpersTests
             var cache = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
             async Task Act() => await NuGetInstallHelpers.InstallFromSourcesAsync(
-                sources,
-                credentials: [],
-                feed,
-                NullLogger.Instance,
-                cache,
-                "Foo",
-                "1.0.0",
-                Path.Combine(Path.GetTempPath(), $"sdp-{Guid.NewGuid():N}"),
-                CancellationToken.None);
+                new(
+                    sources,
+                    new Dictionary<string, PackageSourceCredential>(StringComparer.OrdinalIgnoreCase),
+                    feed,
+                    NullLogger.Instance,
+                    cache,
+                    "Foo",
+                    "1.0.0",
+                    Path.Combine(Path.GetTempPath(), $"sdp-{Guid.NewGuid():N}"),
+                    CancellationToken.None));
 
             await Assert.That(Act).Throws<InvalidOperationException>();
         }
@@ -344,6 +337,32 @@ public class NuGetInstallHelpersTests
 
         return ms.ToArray();
     }
+
+    /// <summary>Creates a request for tests that install from a single source with no credentials.</summary>
+    /// <param name="source">Source to probe.</param>
+    /// <param name="feed">Fake HTTP surface.</param>
+    /// <param name="cache">Flat-container cache.</param>
+    /// <param name="packageId">Package ID to install.</param>
+    /// <param name="packageVersion">Package version to install.</param>
+    /// <param name="installPath">Destination install path.</param>
+    /// <returns>A request struct matching the production helper APIs.</returns>
+    private static NuGetInstallRequest CreateInstallRequest(
+        PackageSource source,
+        INuGetFeedHttpClient feed,
+        Dictionary<string, string?> cache,
+        string packageId,
+        string packageVersion,
+        string installPath) =>
+        new(
+            [source],
+            new Dictionary<string, PackageSourceCredential>(StringComparer.OrdinalIgnoreCase),
+            feed,
+            NullLogger.Instance,
+            cache,
+            packageId,
+            packageVersion,
+            installPath,
+            CancellationToken.None);
 
     /// <summary>Test helper — feed client backed by static service-index/nupkg responses + counters.</summary>
     private sealed class RecordingFeedHttpClient : INuGetFeedHttpClient

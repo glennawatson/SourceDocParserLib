@@ -28,6 +28,21 @@ namespace SourceDocParser.Benchmarks;
 [MemoryDiagnoser]
 public class EmitterBenchmarks
 {
+    /// <summary>Typical project size for fixtures.</summary>
+    private const int TypicalProjectSize = 100;
+
+    /// <summary>Slim fixture size.</summary>
+    private const int SlimFixtureSize = 600;
+
+    /// <summary>Heavy project size.</summary>
+    private const int HeavyProjectSize = 2000;
+
+    /// <summary>Small member count per type.</summary>
+    private const int SmallMemberCount = 5;
+
+    /// <summary>Wide member count per type.</summary>
+    private const int WideMemberCount = 30;
+
     /// <summary>Pre-built canonical type set used by every benchmark method in this run.</summary>
     private List<ApiType> _types = null!;
 
@@ -36,7 +51,7 @@ public class EmitterBenchmarks
     /// bracket a typical project (~100 types), the slim fixture (~600),
     /// and a heavy real-world owner-driven walk (~2000).
     /// </summary>
-    [Params(100, 600, 2000)]
+    [Params(TypicalProjectSize, SlimFixtureSize, HeavyProjectSize)]
     public int TypeCount { get; set; }
 
     /// <summary>
@@ -44,7 +59,7 @@ public class EmitterBenchmarks
     /// the emitter scales with the per-type member surface — small (5,
     /// e.g. a record), wide (30, e.g. a WPF control).
     /// </summary>
-    [Params(5, 30)]
+    [Params(SmallMemberCount, WideMemberCount)]
     public int MembersPerType { get; set; }
 
     /// <summary>

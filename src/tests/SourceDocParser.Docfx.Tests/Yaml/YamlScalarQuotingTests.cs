@@ -122,7 +122,8 @@ public class YamlScalarQuotingTests
     [Arguments("Foo", ": right", true)]
     [Arguments("Foo", "right\nWithNewline", true)]
     [Arguments("trailing:", "Bar", false)]
-    public async Task CompositeNeedsQuotingMatchesPerHalfPredicate(string left, string right, bool expected) => await Assert.That(YamlScalarQuoting.CompositeNeedsQuoting(left, '.', right)).IsEqualTo(expected);
+    public async Task CompositeNeedsQuotingMatchesPerHalfPredicate(string left, string right, bool expected) =>
+        await Assert.That(YamlScalarQuoting.CompositeNeedsQuoting(left, '.', right)).IsEqualTo(expected);
 
     /// <summary>
     /// The colon-followed-by-separator case is benign when the

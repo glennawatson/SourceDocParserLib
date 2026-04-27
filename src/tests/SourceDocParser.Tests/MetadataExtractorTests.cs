@@ -57,10 +57,10 @@ public class MetadataExtractorTests
     }
 
     /// <summary>
-    /// Verifies that <see cref="MetadataExtractor.RunAsync"/> correctly passes
-    /// the merged types and output root to the emitter.
+    /// Executes the metadata extraction process and captures the output data in the provided emitter.
+    /// Verifies that the emitter correctly records both the output directory path and extracted type information.
     /// </summary>
-    /// <returns>A task representing the test execution.</returns>
+    /// <returns>A task representing the execution of the metadata extraction and subsequent validation.</returns>
     [Test]
     public async Task RunAsyncCapturesDataInEmitter()
     {
@@ -95,7 +95,10 @@ public class MetadataExtractorTests
         public string CapturedOutputRoot { get; private set; } = string.Empty;
 
         /// <inheritdoc />
-        public Task<int> EmitAsync(ApiType[] types, string outputRoot, CancellationToken cancellationToken = default)
+        public Task<int> EmitAsync(ApiType[] types, string outputRoot) => EmitAsync(types, outputRoot, CancellationToken.None);
+
+        /// <inheritdoc />
+        public Task<int> EmitAsync(ApiType[] types, string outputRoot, CancellationToken cancellationToken)
         {
             CapturedTypes = types;
             CapturedOutputRoot = outputRoot;
@@ -111,7 +114,10 @@ public class MetadataExtractorTests
     private sealed class FakeAssemblySource(List<AssemblyGroup> groups) : IAssemblySource
     {
         /// <inheritdoc />
-        public async IAsyncEnumerable<AssemblyGroup> DiscoverAsync([EnumeratorCancellation] CancellationToken cancellationToken = default)
+        public IAsyncEnumerable<AssemblyGroup> DiscoverAsync() => DiscoverAsync(CancellationToken.None);
+
+        /// <inheritdoc />
+        public async IAsyncEnumerable<AssemblyGroup> DiscoverAsync([EnumeratorCancellation] CancellationToken cancellationToken)
         {
             for (var i = 0; i < groups.Count; i++)
             {

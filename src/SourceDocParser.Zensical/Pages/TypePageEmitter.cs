@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using SourceDocParser.Model;
 using SourceDocParser.Zensical.Options;
@@ -20,6 +21,7 @@ public static class TypePageEmitter
     /// <summary>
     /// Default output filename suffix.
     /// </summary>
+    [SuppressMessage("Critical Code Smell", "S2339:Public constant members should not be used", Justification = "Default value is not secret.")]
     public const string FileExtension = ".md";
 
     /// <summary>
@@ -44,6 +46,21 @@ public static class TypePageEmitter
     /// Maximum length of a member-table summary before truncation.
     /// </summary>
     private const int SummaryMaxLength = 200;
+
+    /// <summary>
+    /// Minimum retained prefix before using a space-delimited summary cut.
+    /// </summary>
+    private const int MinimumSummaryWordBoundary = SummaryMaxLength / 2;
+
+    /// <summary>
+    /// Length of the XML-doc cref prefix (for example <c>T:</c> or <c>M:</c>).
+    /// </summary>
+    private const int CrefPrefixLength = 2;
+
+    /// <summary>
+    /// Mermaid class declaration prefix including indentation.
+    /// </summary>
+    private const string MermaidClassDeclarationPrefix = "    class ";
 
     /// <summary>
     /// Renders and writes the page to disk under the supplied output root.
@@ -243,7 +260,7 @@ public static class TypePageEmitter
         for (var i = 0; i < inherited.Length; i++)
         {
             var uid = inherited[i];
-            var label = uid is [_, ':', ..] ? uid[2..] : uid;
+            var label = uid is [_, ':', ..] ? uid[CrefPrefixLength..] : uid;
             sb.Append("    - [`").Append(label).Append("`][").Append(uid).Append("]\n");
         }
     }
@@ -293,7 +310,7 @@ public static class TypePageEmitter
         for (var i = 0; i < seealso.Length; i++)
         {
             var cref = seealso[i];
-            var displayName = cref is [_, ':', ..] ? cref[2..] : cref;
+            var displayName = cref is [_, ':', ..] ? cref[CrefPrefixLength..] : cref;
             sb.Append("- ").AppendLine(CrossLinkRouter.Format(new(displayName, cref), options));
         }
     }
@@ -442,12 +459,12 @@ public static class TypePageEmitter
     private static string RenderDiagramBody(ApiType type, string typeNode)
     {
         var sb = new StringBuilder(capacity: InitialModifierCapacity * 4);
-        sb.Append("    class ").AppendLine(typeNode);
+        sb.Append(MermaidClassDeclarationPrefix).AppendLine(typeNode);
 
         if (type.BaseType is { } baseType)
         {
             var baseNode = MermaidNodeName(baseType.DisplayName);
-            sb.Append("    class ").AppendLine(baseNode)
+            sb.Append(MermaidClassDeclarationPrefix).AppendLine(baseNode)
                 .Append("    ").Append(baseNode).Append(" <|-- ").AppendLine(typeNode);
         }
 
@@ -455,7 +472,7 @@ public static class TypePageEmitter
         {
             var iface = type.Interfaces[i];
             var ifaceNode = MermaidNodeName(iface.DisplayName);
-            sb.Append("    class ").Append(ifaceNode).AppendLine(" {")
+            sb.Append(MermaidClassDeclarationPrefix).Append(ifaceNode).AppendLine(" {")
                 .AppendLine("        <<interface>>")
                 .AppendLine("    }")
                 .Append("    ").Append(ifaceNode).Append(" <|.. ").AppendLine(typeNode);
@@ -557,7 +574,7 @@ public static class TypePageEmitter
     private static string RenderUnionDiagramBody(ApiTypeReference[] cases, string unionNode)
     {
         var sb = new StringBuilder(capacity: cases.Length * InitialModifierCapacity);
-        sb.Append("    class ").Append(unionNode).AppendLine(" {")
+        sb.Append(MermaidClassDeclarationPrefix).Append(unionNode).AppendLine(" {")
             .AppendLine("        <<union>>")
             .AppendLine("    }");
 
@@ -565,7 +582,7 @@ public static class TypePageEmitter
         {
             var caseRef = cases[i];
             var caseNode = MermaidNodeName(caseRef.DisplayName);
-            sb.Append("    class ").AppendLine(caseNode)
+            sb.Append(MermaidClassDeclarationPrefix).AppendLine(caseNode)
                 .Append("    ").Append(unionNode).Append(" o-- ").AppendLine(caseNode);
         }
 
@@ -888,7 +905,7 @@ public static class TypePageEmitter
         // Cut at the last word boundary that keeps us under the limit;
         // fall back to a hard cut if there's no space in range.
         var lastSpace = oneLine.LastIndexOf(' ', SummaryMaxLength - 1);
-        return lastSpace > SummaryMaxLength / 2
+        return lastSpace > MinimumSummaryWordBoundary
             ? oneLine[..lastSpace] + "..."
             : oneLine[..SummaryMaxLength] + "...";
     }

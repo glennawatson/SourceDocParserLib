@@ -141,7 +141,7 @@ public class TypeForwardingHelpersTests
 
         var catalog = walker.Walk("net10.0", umbrella, umbrellaCompilation, resolver);
 
-        var forwardedType = catalog.Types.FirstOrDefault(static t => t.Name == "PublicForwarded");
+        var forwardedType = Array.Find(catalog.Types, static t => t.Name == "PublicForwarded");
         await Assert.That(forwardedType).IsNotNull();
         await Assert.That(forwardedType!.AssemblyName).IsEqualTo("Umbrella");
     }

@@ -201,7 +201,7 @@ public class SamplePdbWalkerIntegrationTests
     {
         var catalog = WalkSamplePdb();
 
-        var binaryOp = FindType<ApiDelegateType>(catalog, "SamplePdb.SampleBinaryOp");
+        var binaryOp = FindDelegateType(catalog, "SamplePdb.SampleBinaryOp");
         await Assert.That(binaryOp.Invoke.Parameters.Length).IsEqualTo(2);
         await Assert.That(binaryOp.Invoke.Parameters[0].Name).IsEqualTo("left");
         await Assert.That(binaryOp.Invoke.Parameters[1].Name).IsEqualTo("right");
@@ -214,7 +214,7 @@ public class SamplePdbWalkerIntegrationTests
     [Test]
     public async Task GenericDelegateCapturesTypeParameters()
     {
-        var predicate = FindType<ApiDelegateType>(WalkSamplePdb(), "SamplePdb.SamplePredicate");
+        var predicate = FindDelegateType(WalkSamplePdb(), "SamplePdb.SamplePredicate");
 
         await Assert.That(predicate.Arity).IsEqualTo(1);
         await Assert.That(predicate.Invoke.TypeParameters.Length).IsEqualTo(1);
@@ -226,7 +226,7 @@ public class SamplePdbWalkerIntegrationTests
     [Test]
     public async Task EnumCapturesMembers()
     {
-        var severity = FindType<ApiEnumType>(WalkSamplePdb(), "SamplePdb.SampleSeverity");
+        var severity = FindEnumType(WalkSamplePdb(), "SamplePdb.SampleSeverity");
 
         await Assert.That(severity.Values.Length).IsEqualTo(3);
         await Assert.That(severity.Values[0].Name).IsEqualTo("Info");
@@ -239,7 +239,7 @@ public class SamplePdbWalkerIntegrationTests
     [Test]
     public async Task FlagsEnumCapturesUnderlyingTypeAndMembers()
     {
-        var flags = FindType<ApiEnumType>(WalkSamplePdb(), "SamplePdb.SampleFlags");
+        var flags = FindEnumType(WalkSamplePdb(), "SamplePdb.SampleFlags");
 
         await Assert.That(flags.UnderlyingType).IsNotNull();
         await Assert.That(flags.UnderlyingType!.DisplayName).Contains("byte");
@@ -315,7 +315,7 @@ public class SamplePdbWalkerIntegrationTests
     [Test]
     public async Task UnionTypeCapturesCases()
     {
-        var shape = FindType<ApiUnionType>(WalkSamplePdb(), "SamplePdb.SampleShape");
+        var shape = FindUnionType(WalkSamplePdb(), "SamplePdb.SampleShape");
 
         var caseNames = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < shape.Cases.Length; i++)
@@ -399,25 +399,50 @@ public class SamplePdbWalkerIntegrationTests
     /// <param name="fullName">Full name to look up.</param>
     /// <returns>The matching type.</returns>
     private static ApiObjectType FindObjectType(ApiCatalog catalog, string fullName) =>
-        FindType<ApiObjectType>(catalog, fullName);
+        FindType(catalog, fullName, static type => type is ApiObjectType, nameof(ApiObjectType)) as ApiObjectType
+        ?? throw new InvalidOperationException($"ApiObjectType '{fullName}' not in catalog.");
 
-    /// <summary>Returns the catalog entry of the requested concrete type with the given full name.</summary>
-    /// <typeparam name="T">Concrete <see cref="ApiType"/> subtype to match.</typeparam>
+    /// <summary>Returns the catalog's <see cref="ApiDelegateType"/> with the given full name.</summary>
     /// <param name="catalog">The walked catalog.</param>
     /// <param name="fullName">Full name to look up.</param>
     /// <returns>The matching type.</returns>
-    private static T FindType<T>(ApiCatalog catalog, string fullName)
-        where T : ApiType
+    private static ApiDelegateType FindDelegateType(ApiCatalog catalog, string fullName) =>
+        FindType(catalog, fullName, static type => type is ApiDelegateType, nameof(ApiDelegateType)) as ApiDelegateType
+        ?? throw new InvalidOperationException($"ApiDelegateType '{fullName}' not in catalog.");
+
+    /// <summary>Returns the catalog's <see cref="ApiEnumType"/> with the given full name.</summary>
+    /// <param name="catalog">The walked catalog.</param>
+    /// <param name="fullName">Full name to look up.</param>
+    /// <returns>The matching type.</returns>
+    private static ApiEnumType FindEnumType(ApiCatalog catalog, string fullName) =>
+        FindType(catalog, fullName, static type => type is ApiEnumType, nameof(ApiEnumType)) as ApiEnumType
+        ?? throw new InvalidOperationException($"ApiEnumType '{fullName}' not in catalog.");
+
+    /// <summary>Returns the catalog's <see cref="ApiUnionType"/> with the given full name.</summary>
+    /// <param name="catalog">The walked catalog.</param>
+    /// <param name="fullName">Full name to look up.</param>
+    /// <returns>The matching type.</returns>
+    private static ApiUnionType FindUnionType(ApiCatalog catalog, string fullName) =>
+        FindType(catalog, fullName, static type => type is ApiUnionType, nameof(ApiUnionType)) as ApiUnionType
+        ?? throw new InvalidOperationException($"ApiUnionType '{fullName}' not in catalog.");
+
+    /// <summary>Returns the catalog entry of the requested concrete type with the given full name.</summary>
+    /// <param name="catalog">The walked catalog.</param>
+    /// <param name="fullName">Full name to look up.</param>
+    /// <param name="matchesType">Predicate selecting the desired concrete type.</param>
+    /// <param name="typeName">Friendly type name for the failure message.</param>
+    /// <returns>The matching type.</returns>
+    private static ApiType FindType(ApiCatalog catalog, string fullName, Predicate<ApiType> matchesType, string typeName)
     {
         for (var i = 0; i < catalog.Types.Length; i++)
         {
-            if (catalog.Types[i] is T match && match.FullName == fullName)
+            if (catalog.Types[i].FullName == fullName && matchesType(catalog.Types[i]))
             {
-                return match;
+                return catalog.Types[i];
             }
         }
 
-        throw new InvalidOperationException($"{typeof(T).Name} '{fullName}' not in catalog.");
+        throw new InvalidOperationException($"{typeName} '{fullName}' not in catalog.");
     }
 
     /// <summary>Returns the first member with the given metadata name.</summary>

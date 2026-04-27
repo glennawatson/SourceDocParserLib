@@ -120,6 +120,7 @@ public class TfmResolverTests
     {
         var label = TfmResolver.GetPlatformLabel(tfm);
 
+        await Assert.That(label).IsNotNull();
         await Assert.That(label).IsEqualTo(expected);
     }
 

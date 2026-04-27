@@ -18,7 +18,16 @@ public interface IDocumentationEmitter
     /// </summary>
     /// <param name="types">Merged canonical types.</param>
     /// <param name="outputRoot">Destination directory, already cleaned.</param>
+    /// <returns>Total pages written.</returns>
+    Task<int> EmitAsync(ApiType[] types, string outputRoot);
+
+    /// <summary>
+    /// Writes pages for every type in <paramref name="types"/> into
+    /// <paramref name="outputRoot"/>.
+    /// </summary>
+    /// <param name="types">Merged canonical types.</param>
+    /// <param name="outputRoot">Destination directory, already cleaned.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Total pages written.</returns>
-    Task<int> EmitAsync(ApiType[] types, string outputRoot, CancellationToken cancellationToken = default);
+    Task<int> EmitAsync(ApiType[] types, string outputRoot, CancellationToken cancellationToken);
 }

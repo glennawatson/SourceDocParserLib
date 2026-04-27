@@ -43,6 +43,15 @@ internal static class PackageSourcesReader
 
     /// <summary>
     /// Reads the <c>&lt;packageSources&gt;</c> section from
+    /// <paramref name="configPath"/>.
+    /// </summary>
+    /// <param name="configPath">Absolute path to a <c>nuget.config</c>.</param>
+    /// <returns>Per-file result (clearedSeen + ordered sources).</returns>
+    public static Task<PackageSourceFileResult> ReadPackageSourcesAsync(string configPath) =>
+        ReadPackageSourcesAsync(configPath, CancellationToken.None);
+
+    /// <summary>
+    /// Reads the <c>&lt;packageSources&gt;</c> section from
     /// <paramref name="configPath"/>. Returns
     /// <see cref="PackageSourceFileResult.ClearedSeen"/> alongside the
     /// post-clear (or post-no-clear) entries so the discovery
@@ -54,7 +63,7 @@ internal static class PackageSourcesReader
     /// <returns>Per-file result (clearedSeen + ordered sources).</returns>
     public static async Task<PackageSourceFileResult> ReadPackageSourcesAsync(
         string configPath,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(configPath);
         var stream = new FileStream(
@@ -71,6 +80,15 @@ internal static class PackageSourcesReader
     }
 
     /// <summary>
+    /// Reads the <c>&lt;packageSources&gt;</c> section from an open
+    /// <c>nuget.config</c> stream.
+    /// </summary>
+    /// <param name="configStream">Open stream positioned at the start of the <c>nuget.config</c> XML.</param>
+    /// <returns>Per-file result (clearedSeen + ordered sources).</returns>
+    public static Task<PackageSourceFileResult> ReadPackageSourcesAsync(Stream configStream) =>
+        ReadPackageSourcesAsync(configStream, CancellationToken.None);
+
+    /// <summary>
     /// Stream-based overload — useful for tests that feed canned
     /// XML without a tempfile dance.
     /// </summary>
@@ -79,7 +97,7 @@ internal static class PackageSourcesReader
     /// <returns>Per-file result (clearedSeen + ordered sources).</returns>
     public static async Task<PackageSourceFileResult> ReadPackageSourcesAsync(
         Stream configStream,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(configStream);
 
@@ -99,53 +117,114 @@ internal static class PackageSourcesReader
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (reader is { NodeType: XmlNodeType.Element } &&
-                reader.LocalName.Equals(PackageSourcesElementName, StringComparison.OrdinalIgnoreCase))
-            {
-                insideSection = true;
-                continue;
-            }
-
-            if (reader is { NodeType: XmlNodeType.EndElement } &&
-                reader.LocalName.Equals(PackageSourcesElementName, StringComparison.OrdinalIgnoreCase))
-            {
-                insideSection = false;
-                continue;
-            }
-
-            if (!insideSection || reader.NodeType != XmlNodeType.Element)
+            if (TryUpdatePackageSourcesScope(reader, ref insideSection) || !ShouldInspectPackageSourcesElement(reader, insideSection))
             {
                 continue;
             }
 
-            if (reader.LocalName.Equals(ClearElementName, StringComparison.OrdinalIgnoreCase))
-            {
-                entries.Clear();
-                seenKeys.Clear();
-                clearedSeen = true;
-                continue;
-            }
-
-            if (!reader.LocalName.Equals(AddElementName, StringComparison.OrdinalIgnoreCase))
+            if (HandlePackageSourcesClear(reader, entries, seenKeys, ref clearedSeen))
             {
                 continue;
             }
 
-            var key = reader.GetAttribute(KeyAttributeName);
-            var value = reader.GetAttribute(ValueAttributeName);
-            if (!TextHelpers.HasNonWhitespace(key) || !TextHelpers.HasNonWhitespace(value))
-            {
-                continue;
-            }
-
-            if (!seenKeys.Add(key))
-            {
-                continue;
-            }
-
-            entries.Add(new(key, value));
+            TryAddPackageSource(reader, seenKeys, entries);
         }
 
         return new(clearedSeen, [.. entries]);
+    }
+
+    /// <summary>
+    /// Updates whether the reader is currently inside the packageSources section.
+    /// </summary>
+    /// <param name="reader">Reader positioned on the current node.</param>
+    /// <param name="insideSection">Current in-section flag.</param>
+    /// <returns>True when the node only updated scope.</returns>
+    internal static bool TryUpdatePackageSourcesScope(XmlReader reader, ref bool insideSection)
+    {
+        if (reader is { NodeType: XmlNodeType.Element }
+            && reader.LocalName.Equals(PackageSourcesElementName, StringComparison.OrdinalIgnoreCase))
+        {
+            insideSection = true;
+            return true;
+        }
+
+        if (reader is not { NodeType: XmlNodeType.EndElement }
+            || !reader.LocalName.Equals(PackageSourcesElementName, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        insideSection = false;
+        return true;
+    }
+
+    /// <summary>
+    /// Returns true when the current node should be inspected as a packageSources child element.
+    /// </summary>
+    /// <param name="reader">Reader positioned on the current node.</param>
+    /// <param name="insideSection">Whether the parser is currently inside the packageSources section.</param>
+    /// <returns>True when the node is a candidate packageSources child element.</returns>
+    internal static bool ShouldInspectPackageSourcesElement(XmlReader reader, bool insideSection) =>
+        insideSection && reader.NodeType == XmlNodeType.Element;
+
+    /// <summary>
+    /// Handles a clear directive inside the packageSources section.
+    /// </summary>
+    /// <param name="reader">Reader positioned on the current element.</param>
+    /// <param name="entries">Current entry accumulator.</param>
+    /// <param name="seenKeys">Current duplicate-key filter set.</param>
+    /// <param name="clearedSeen">Whether a clear directive has been seen.</param>
+    /// <returns>True when the element was a clear directive.</returns>
+    internal static bool HandlePackageSourcesClear(
+        XmlReader reader,
+        List<PackageSource> entries,
+        HashSet<string> seenKeys,
+        ref bool clearedSeen)
+    {
+        if (!reader.LocalName.Equals(ClearElementName, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        entries.Clear();
+        seenKeys.Clear();
+        clearedSeen = true;
+        return true;
+    }
+
+    /// <summary>
+    /// Adds a package source entry when the current element is a valid, non-duplicate add entry.
+    /// </summary>
+    /// <param name="reader">Reader positioned on the current element.</param>
+    /// <param name="seenKeys">Duplicate-key filter set.</param>
+    /// <param name="entries">Current entry accumulator.</param>
+    internal static void TryAddPackageSource(
+        XmlReader reader,
+        HashSet<string> seenKeys,
+        List<PackageSource> entries)
+    {
+        if (!reader.LocalName.Equals(AddElementName, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var key = reader.GetAttribute(KeyAttributeName);
+        if (!TextHelpers.HasNonWhitespace(key))
+        {
+            return;
+        }
+
+        var value = reader.GetAttribute(ValueAttributeName);
+        if (!TextHelpers.HasNonWhitespace(value))
+        {
+            return;
+        }
+
+        if (!seenKeys.Add(key))
+        {
+            return;
+        }
+
+        entries.Add(new(key, value));
     }
 }

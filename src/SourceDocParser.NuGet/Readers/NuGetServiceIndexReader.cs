@@ -21,17 +21,25 @@ internal static class NuGetServiceIndexReader
     /// <summary>Reads the flat-container URL from <paramref name="indexJson"/>.</summary>
     /// <param name="indexJson">UTF-8 bytes of the v3 service-index document.</param>
     /// <returns>The flat-container base URL ending with <c>/</c>; null when none declared.</returns>
-    public static string? ReadFlatContainerUrl(ReadOnlyMemory<byte> indexJson)
+    public static string? ReadFlatContainerUrl(in ReadOnlyMemory<byte> indexJson)
     {
         using var doc = JsonDocument.Parse(indexJson, _strictDocOptions);
         return ReadFlatContainerUrl(doc.RootElement);
     }
 
+    /// <summary>
+    /// Reads the flat-container URL from <paramref name="indexJsonStream"/>.
+    /// </summary>
+    /// <param name="indexJsonStream">UTF-8 stream of the v3 service-index document.</param>
+    /// <returns>The flat-container base URL ending with <c>/</c>; null when none declared.</returns>
+    public static Task<string?> ReadFlatContainerUrlAsync(Stream indexJsonStream) =>
+        ReadFlatContainerUrlAsync(indexJsonStream, CancellationToken.None);
+
     /// <summary>Reads the flat-container URL from <paramref name="indexJsonStream"/>.</summary>
     /// <param name="indexJsonStream">UTF-8 stream of the v3 service-index document.</param>
     /// <param name="cancellationToken">Token observed across the JSON parse.</param>
     /// <returns>The flat-container base URL ending with <c>/</c>; null when none declared.</returns>
-    public static async Task<string?> ReadFlatContainerUrlAsync(Stream indexJsonStream, CancellationToken cancellationToken = default)
+    public static async Task<string?> ReadFlatContainerUrlAsync(Stream indexJsonStream, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(indexJsonStream);
         using var doc = await JsonDocument.ParseAsync(indexJsonStream, _strictDocOptions, cancellationToken).ConfigureAwait(false);

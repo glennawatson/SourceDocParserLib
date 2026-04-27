@@ -37,7 +37,11 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
     }
 
     /// <inheritdoc />
-    public Task<int> EmitAsync(ApiType[] types, string outputRoot, CancellationToken cancellationToken = default)
+    public Task<int> EmitAsync(ApiType[] types, string outputRoot) =>
+        EmitAsync(types, outputRoot, CancellationToken.None);
+
+    /// <inheritdoc />
+    public Task<int> EmitAsync(ApiType[] types, string outputRoot, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(types);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputRoot);

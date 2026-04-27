@@ -67,7 +67,7 @@ public class DocfxCatalogIndexesTests
             "M:Helpers.DoIt",
             isExtension: true,
             new ApiParameter("self", new("Foo", "Foo"), false, false, false, false, false, null));
-        var helpers = TestData.ObjectType("Helpers", assemblyName: "Test") with
+        var helpers = TestData.ObjectType("Helpers") with
         {
             IsStatic = true,
             Members = [extMethod],

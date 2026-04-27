@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using SourceDocParser.Model;
 using SourceDocParser.Zensical.Options;
@@ -59,6 +60,7 @@ internal static class CrossLinkRouter
     /// <param name="options">Microsoft Learn base URL holder.</param>
     /// <param name="link">The rendered Markdown link, when the UID matches.</param>
     /// <returns>True when a Microsoft Learn link was produced.</returns>
+    [SuppressMessage("Minor Code Smell", "S4040:Strings should be normalized to uppercase", Justification = "Microsoft Learn URLs are case-sensitive.")]
     private static bool TryFormatAsMicrosoftLearn(
         string canonicalUid,
         string displayName,

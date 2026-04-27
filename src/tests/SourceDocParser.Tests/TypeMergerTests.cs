@@ -56,8 +56,8 @@ public class TypeMergerTests
     [Test]
     public async Task MergePicksNonNullSourceUrlFromAnyVariant()
     {
-        var net10 = TestData.Catalog("net10.0", TestData.Type("Foo", sourceUrl: null));
-        var net8 = TestData.Catalog("net8.0", TestData.Type("Foo", sourceUrl: "https://example.test/Foo.cs#L1"));
+        var net10 = TestData.Catalog("net10.0", TestData.Type("Foo", "Test", null));
+        var net8 = TestData.Catalog("net8.0", TestData.Type("Foo", "Test", "https://example.test/Foo.cs#L1"));
 
         var merged = TypeMerger.Merge([net10, net8]);
 

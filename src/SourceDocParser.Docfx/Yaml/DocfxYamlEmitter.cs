@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using SourceDocParser.Common;
 using SourceDocParser.Docfx.Common;
@@ -27,9 +28,11 @@ namespace SourceDocParser.Docfx.Yaml;
 public sealed class DocfxYamlEmitter : IDocumentationEmitter
 {
     /// <summary>Docfx's YamlMime header for ManagedReference pages.</summary>
+    [SuppressMessage("Critical Code Smell", "S2339:Public constant members should not be used", Justification = "Default value is not secret.")]
     public const string YamlMimeHeader = "### YamlMime:ManagedReference";
 
     /// <summary>File extension docfx expects for ManagedReference pages.</summary>
+    [SuppressMessage("Critical Code Smell", "S2339:Public constant members should not be used", Justification = "Default value is not secret.")]
     public const string FileExtension = ".yml";
 
     /// <summary>
@@ -105,7 +108,11 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     }
 
     /// <inheritdoc />
-    public async Task<int> EmitAsync(ApiType[] types, string outputRoot, CancellationToken cancellationToken = default)
+    public Task<int> EmitAsync(ApiType[] types, string outputRoot) =>
+        EmitAsync(types, outputRoot, CancellationToken.None);
+
+    /// <inheritdoc />
+    public async Task<int> EmitAsync(ApiType[] types, string outputRoot, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(types);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputRoot);

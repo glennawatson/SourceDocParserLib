@@ -59,6 +59,11 @@ public record Tfm(string Raw, string Family, string Version, string? Platform)
     private const int DefaultRank = 100;
 
     /// <summary>
+    /// The multiplier used to convert modern .NET versions to ranks.
+    /// </summary>
+    private const int ModernNetVersionRankMultiplier = 100;
+
+    /// <summary>
     /// The adjustment to the rank for platform-specific TFMs.
     /// </summary>
     private const int PlatformAdjustment = -5;
@@ -124,7 +129,7 @@ public record Tfm(string Raw, string Family, string Version, string? Platform)
         return tfm switch
         {
             _ when tfm.IsModernNet => double.TryParse(tfm.Version, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var version)
-                ? (int)(version * 100) + platformAdjust
+                ? (int)(version * ModernNetVersionRankMultiplier) + platformAdjust
                 : ModernNetBaseRank + platformAdjust,
             _ when tfm.IsNetStandard => tfm.Version switch
             {

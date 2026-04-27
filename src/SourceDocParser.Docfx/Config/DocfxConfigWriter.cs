@@ -32,12 +32,22 @@ public static partial class DocfxConfigWriter
     /// </summary>
     /// <param name="apiPath">API root containing <c>lib/</c> and (optionally) <c>refs/</c> sub-directories.</param>
     /// <param name="outputPath">File to write the generated configuration to.</param>
+    /// <returns>The same <paramref name="outputPath"/>, for fluent use by the caller.</returns>
+    public static string Write(string apiPath, string outputPath) =>
+        Write(apiPath, outputPath, null);
+
+    /// <summary>
+    /// Reads the embedded template, patches metadata/build sections to
+    /// reflect the discovered TFMs, and writes the result.
+    /// </summary>
+    /// <param name="apiPath">API root containing <c>lib/</c> and (optionally) <c>refs/</c> sub-directories.</param>
+    /// <param name="outputPath">File to write the generated configuration to.</param>
     /// <param name="logger">Optional logger; defaults to a no-op logger.</param>
     /// <returns>The same <paramref name="outputPath"/>, for fluent use by the caller.</returns>
     /// <exception cref="ArgumentException">When <paramref name="apiPath"/> or <paramref name="outputPath"/> is null, empty, or whitespace.</exception>
     /// <exception cref="DirectoryNotFoundException">When <c>lib/</c> does not exist under <paramref name="apiPath"/>.</exception>
     /// <exception cref="InvalidOperationException">When no TFM directories with DLLs are found.</exception>
-    public static string Write(string apiPath, string outputPath, ILogger? logger = null)
+    public static string Write(string apiPath, string outputPath, ILogger? logger)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(apiPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
@@ -64,57 +74,16 @@ public static partial class DocfxConfigWriter
 
         var template = ReadTemplate();
         var sharedExtra = ExtractSharedMetadataExtras(template.Metadata is [var firstMetadata, ..] ? firstMetadata : null);
+        var metadataContext = new MetadataEntryBuildContext(libDir, refsDir, refsTfms, refDllNameCache, sharedExtra, logger);
+        var (entries, orderedPlatforms) = BuildMetadataEntries(libTfms, metadataContext);
 
-        var metadataEntries = new List<DocfxMetadataEntry>(libTfms.Count);
-        var platformLabels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        for (var i = 0; i < libTfms.Count; i++)
-        {
-            var tfm = libTfms[i];
-            var bestRef = TfmResolver.FindBestRefsTfm(tfm, refsTfms);
-            if (bestRef is null)
-            {
-                LogNoMatchingRefs(logger, tfm);
-                continue;
-            }
-
-            var platformLabel = TfmResolver.GetPlatformLabel(tfm);
-            var dest = platformLabel is not null ? $"api-{platformLabel}" : "api";
-            if (platformLabel is not null)
-            {
-                platformLabels.Add(platformLabel);
-            }
-
-            var refDir = Path.Combine(refsDir, bestRef);
-            var refDllNames = DocfxInternalHelpers.GetOrAddDllNames(refDllNameCache, bestRef, refDir);
-            var packageDlls = DocfxInternalHelpers.CollectPackageDllNames(Path.Combine(libDir, tfm), refDllNames);
-
-            if (packageDlls.Count is 0)
-            {
-                LogNoPackageDlls(logger, tfm);
-                continue;
-            }
-
-            metadataEntries.Add(new(
-                Src: [new($"api/lib/{tfm}", [.. packageDlls])],
-                Dest: dest)
-            {
-                Extra = sharedExtra,
-            });
-
-            LogMetadataEntry(logger, tfm, packageDlls.Count, bestRef, dest);
-        }
-
-        var orderedPlatforms = new List<string>(platformLabels);
-        orderedPlatforms.Sort(StringComparer.Ordinal);
-
-        var patchedBuild = DocfxInternalHelpers.PatchBuildSection(template.Build, [.. orderedPlatforms]);
-        var generated = new DocfxConfig([.. metadataEntries], patchedBuild);
+        var patchedBuild = DocfxInternalHelpers.PatchBuildSection(template.Build, orderedPlatforms);
+        var generated = new DocfxConfig([.. entries], patchedBuild);
 
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
         WriteConfig(generated, outputPath);
 
-        LogWroteConfig(logger, metadataEntries.Count, outputPath);
+        LogWroteConfig(logger, entries.Count, outputPath);
         return outputPath;
     }
 
@@ -150,6 +119,86 @@ public static partial class DocfxConfigWriter
         var copy = new Dictionary<string, JsonElement>(extra);
         copy.Remove("references");
         return copy.Count is 0 ? null : copy;
+    }
+
+    /// <summary>
+    /// Builds the metadata entries and injected platform list for the generated docfx configuration.
+    /// </summary>
+    /// <param name="libTfms">Discovered library TFMs.</param>
+    /// <param name="context">Shared state needed to build metadata entries.</param>
+    /// <returns>The generated metadata entries plus the ordered injected platform labels.</returns>
+    private static (List<DocfxMetadataEntry> Entries, string[] OrderedPlatforms) BuildMetadataEntries(
+        List<string> libTfms,
+        MetadataEntryBuildContext context)
+    {
+        var metadataEntries = new List<DocfxMetadataEntry>(libTfms.Count);
+        var platformLabels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        for (var i = 0; i < libTfms.Count; i++)
+        {
+            var tfm = libTfms[i];
+            if (!TryCreateMetadataEntry(context, tfm, out var entry, out var platformLabel))
+            {
+                continue;
+            }
+
+            metadataEntries.Add(entry);
+            if (platformLabel is not null)
+            {
+                platformLabels.Add(platformLabel);
+            }
+        }
+
+        var orderedPlatforms = new List<string>(platformLabels);
+        orderedPlatforms.Sort(StringComparer.Ordinal);
+        return (metadataEntries, [.. orderedPlatforms]);
+    }
+
+    /// <summary>
+    /// Attempts to build a metadata entry for a single lib/ TFM.
+    /// </summary>
+    /// <param name="context">Shared state needed to build metadata entries.</param>
+    /// <param name="tfm">Current lib/ TFM being processed.</param>
+    /// <param name="entry">Generated metadata entry when successful.</param>
+    /// <param name="platformLabel">Platform label associated with the generated entry.</param>
+    /// <returns><see langword="true"/> when a metadata entry was generated.</returns>
+    private static bool TryCreateMetadataEntry(
+        MetadataEntryBuildContext context,
+        string tfm,
+        out DocfxMetadataEntry entry,
+        out string? platformLabel)
+    {
+        var bestRef = TfmResolver.FindBestRefsTfm(tfm, context.RefsTfms);
+        if (bestRef is null)
+        {
+            LogNoMatchingRefs(context.Logger, tfm);
+            entry = null!;
+            platformLabel = null;
+            return false;
+        }
+
+        platformLabel = TfmResolver.GetPlatformLabel(tfm);
+        var dest = platformLabel is not null ? $"api-{platformLabel}" : "api";
+        var refDir = Path.Combine(context.RefsDir, bestRef);
+        var refDllNames = DocfxInternalHelpers.GetOrAddDllNames(context.RefDllNameCache, bestRef, refDir);
+        var packageDlls = DocfxInternalHelpers.CollectPackageDllNames(Path.Combine(context.LibDir, tfm), refDllNames);
+
+        if (packageDlls.Count is 0)
+        {
+            LogNoPackageDlls(context.Logger, tfm);
+            entry = null!;
+            return false;
+        }
+
+        entry = new(
+            Src: [new($"api/lib/{tfm}", [.. packageDlls])],
+            Dest: dest)
+        {
+            Extra = context.SharedExtra,
+        };
+
+        LogMetadataEntry(context.Logger, tfm, packageDlls.Count, bestRef, dest);
+        return true;
     }
 
     /// <summary>
@@ -347,4 +396,21 @@ public static partial class DocfxConfigWriter
     /// <param name="outputPath">Path the configuration was written to.</param>
     [LoggerMessage(Level = LogLevel.Information, Message = "Wrote generated docfx config with {MetadataEntryCount} metadata entries to {OutputPath}")]
     private static partial void LogWroteConfig(ILogger logger, int metadataEntryCount, string outputPath);
+
+    /// <summary>
+    /// Shared state threaded through per-TFM metadata entry construction.
+    /// </summary>
+    /// <param name="LibDir">Root <c>lib/</c> directory.</param>
+    /// <param name="RefsDir">Root <c>refs/</c> directory.</param>
+    /// <param name="RefsTfms">Discovered reference TFMs.</param>
+    /// <param name="RefDllNameCache">Per-run refs DLL name cache.</param>
+    /// <param name="SharedExtra">Template metadata extras to copy.</param>
+    /// <param name="Logger">Logger for skip and summary messages.</param>
+    private readonly record struct MetadataEntryBuildContext(
+        string LibDir,
+        string RefsDir,
+        List<string> RefsTfms,
+        Dictionary<string, HashSet<string>> RefDllNameCache,
+        Dictionary<string, JsonElement>? SharedExtra,
+        ILogger Logger);
 }

@@ -22,6 +22,24 @@ internal static class AttributeExtractor
     /// <summary>The fully-qualified name of <c>System.ObsoleteAttribute</c>.</summary>
     internal const string ObsoleteAttributeFullName = "System.ObsoleteAttribute";
 
+    /// <summary>The standard <c>Attribute</c> class-name suffix.</summary>
+    internal const string AttributeSuffix = "Attribute";
+
+    /// <summary>Character literal for a double quote.</summary>
+    private const char DoubleQuote = '"';
+
+    /// <summary>Character literal for a single quote.</summary>
+    private const char SingleQuote = '\'';
+
+    /// <summary>Character literal for a backslash.</summary>
+    private const char Backslash = '\\';
+
+    /// <summary>The overhead (opening and closing quotes) for a string literal.</summary>
+    private const int StringLiteralQuoteOverhead = 2;
+
+    /// <summary>The index offset for the first character in a quoted string literal.</summary>
+    private const int QuotedStringStartOffset = 1;
+
     /// <summary>
     /// Returns the model representation of every attribute applied to
     /// <paramref name="symbol"/>, in declaration order.
@@ -58,10 +76,10 @@ internal static class AttributeExtractor
             attributes[i] = Convert(data);
 
             // Resolve the [Obsolete] state inline on the same iteration
-            // — first match wins. Multiple [Obsolete] applications are
-            // valid C# (latest in metadata is the active one) but rare;
-            // taking the first matches the behaviour of the prior
-            // standalone ResolveObsolete loop.
+            // — first match wins. Multiple Obsolete applications are
+            // legal in the language (latest in metadata is the active
+            // one) but rare; taking the first matches the behaviour of
+            // the prior standalone ResolveObsolete loop.
             if (isObsolete || !IsObsoleteAttribute(data.AttributeClass))
             {
                 continue;
@@ -107,7 +125,7 @@ internal static class AttributeExtractor
     /// <summary>Materialises the full attribute list — shared between <see cref="Extract"/> and the standalone path callers.</summary>
     /// <param name="raw">Raw Roslyn attribute data from <c>GetAttributes</c>.</param>
     /// <returns>The model attributes, or the shared empty array when none.</returns>
-    internal static ApiAttribute[] ExtractCore(System.Collections.Immutable.ImmutableArray<AttributeData> raw)
+    internal static ApiAttribute[] ExtractCore(in System.Collections.Immutable.ImmutableArray<AttributeData> raw)
     {
         if (raw.IsDefaultOrEmpty)
         {
@@ -137,7 +155,7 @@ internal static class AttributeExtractor
     {
         var attributeClass = data.AttributeClass;
         var displayName = attributeClass is null
-            ? "Attribute"
+            ? AttributeSuffix
             : StripAttributeSuffix(attributeClass.Name);
         var uid = attributeClass?.GetDocumentationCommentId() ?? string.Empty;
         var ctorUid = data.AttributeConstructor?.GetDocumentationCommentId() ?? string.Empty;
@@ -164,8 +182,8 @@ internal static class AttributeExtractor
     /// <param name="name">The class name.</param>
     /// <returns>The shortened name (e.g. <c>Obsolete</c> from <c>ObsoleteAttribute</c>).</returns>
     internal static string StripAttributeSuffix(string name) =>
-        name.EndsWith("Attribute", StringComparison.Ordinal) && name.Length > "Attribute".Length
-            ? name[..^"Attribute".Length]
+        name.EndsWith(AttributeSuffix, StringComparison.Ordinal) && name.Length > AttributeSuffix.Length
+            ? name[..^AttributeSuffix.Length]
             : name;
 
     /// <summary>
@@ -176,7 +194,7 @@ internal static class AttributeExtractor
     /// </summary>
     /// <param name="constant">The typed constant to format.</param>
     /// <returns>The source-like rendering.</returns>
-    internal static string FormatConstant(TypedConstant constant)
+    internal static string FormatConstant(in TypedConstant constant)
     {
         if (constant.IsNull)
         {
@@ -197,7 +215,7 @@ internal static class AttributeExtractor
     /// <summary>Formats an enum-typed constant as <c>EnumName.MemberName</c> (best effort).</summary>
     /// <param name="constant">An enum-typed constant.</param>
     /// <returns>The formatted enum literal.</returns>
-    internal static string FormatEnumConstant(TypedConstant constant)
+    internal static string FormatEnumConstant(in TypedConstant constant)
     {
         var typeName = constant.Type is INamedTypeSymbol named
             ? named.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)
@@ -208,7 +226,7 @@ internal static class AttributeExtractor
     /// <summary>Formats an array-typed constant as <c>[a, b, c]</c>.</summary>
     /// <param name="constant">An array-typed constant.</param>
     /// <returns>The formatted array literal.</returns>
-    internal static string FormatArrayConstant(TypedConstant constant)
+    internal static string FormatArrayConstant(in TypedConstant constant)
     {
         var sb = new StringBuilder().Append('[');
         for (var i = 0; i < constant.Values.Length; i++)
@@ -231,7 +249,7 @@ internal static class AttributeExtractor
     {
         null => "null",
         string s => QuoteStringLiteral(s),
-        char c => "'" + c + "'",
+        char c => string.Create(CultureInfo.InvariantCulture, $"{SingleQuote}{c}{SingleQuote}"),
         bool b => b ? "true" : "false",
         IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
         _ => value.ToString() ?? string.Empty,
@@ -244,40 +262,40 @@ internal static class AttributeExtractor
     /// <returns>The quoted literal.</returns>
     internal static string QuoteStringLiteral(string value)
     {
-        var firstEscapeIndex = value.AsSpan().IndexOfAny(['\\', '"']);
+        var firstEscapeIndex = value.AsSpan().IndexOfAny([Backslash, DoubleQuote]);
         if (firstEscapeIndex < 0)
         {
             return string.Create(
-                value.Length + 2,
+                value.Length + StringLiteralQuoteOverhead,
                 value,
                 static (dest, state) =>
                 {
-                    dest[0] = '"';
-                    state.CopyTo(dest[1..]);
-                    dest[^1] = '"';
+                    dest[0] = DoubleQuote;
+                    state.CopyTo(dest[QuotedStringStartOffset..]);
+                    dest[^1] = DoubleQuote;
                 });
         }
 
         return string.Create(
-            value.Length + 2 + CountEscapes(value.AsSpan(firstEscapeIndex)),
+            value.Length + StringLiteralQuoteOverhead + CountEscapes(value.AsSpan(firstEscapeIndex)),
             (Value: value, FirstEscapeIndex: firstEscapeIndex),
             static (dest, state) =>
             {
-                dest[0] = '"';
-                state.Value.AsSpan(0, state.FirstEscapeIndex).CopyTo(dest[1..]);
-                var destIndex = state.FirstEscapeIndex + 1;
+                dest[0] = DoubleQuote;
+                state.Value.AsSpan(0, state.FirstEscapeIndex).CopyTo(dest[QuotedStringStartOffset..]);
+                var destIndex = state.FirstEscapeIndex + QuotedStringStartOffset;
                 for (var i = state.FirstEscapeIndex; i < state.Value.Length; i++)
                 {
                     var current = state.Value[i];
-                    if (current is '\\' or '"')
+                    if (current is Backslash or DoubleQuote)
                     {
-                        dest[destIndex++] = '\\';
+                        dest[destIndex++] = Backslash;
                     }
 
                     dest[destIndex++] = current;
                 }
 
-                dest[destIndex] = '"';
+                dest[destIndex] = DoubleQuote;
             });
     }
 
@@ -291,7 +309,7 @@ internal static class AttributeExtractor
         var count = 0;
         for (var i = 0; i < text.Length; i++)
         {
-            count += text[i] is '\\' or '"' ? 1 : 0;
+            count += text[i] is Backslash or DoubleQuote ? 1 : 0;
         }
 
         return count;

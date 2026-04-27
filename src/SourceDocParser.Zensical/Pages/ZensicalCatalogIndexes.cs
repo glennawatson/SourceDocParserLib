@@ -9,15 +9,7 @@ using SourceDocParser.Model;
 namespace SourceDocParser.Zensical.Pages;
 
 /// <summary>
-/// Per-emit catalog rollups consumed by <see cref="TypePageEmitter"/>
-/// to render the "Derived types", "Inherited members", and
-/// "Extension members" markdown sections. Built once at the start of
-/// <see cref="ZensicalDocumentationEmitter.EmitAsync"/> and reused
-/// by every per-type render. Lookups return <see cref="Array.Empty{T}"/>
-/// (the shared singleton, no per-query allocation) when the type
-/// has no entry. Mirrors the docfx-side
-/// <c>SourceDocParser.Docfx.DocfxCatalogIndexes</c> shape so both
-/// emitters can stay independent of one another.
+/// Represents a catalog of derived classes, extension methods, and inherited members for a set of API types.
 /// </summary>
 public sealed class ZensicalCatalogIndexes
 {

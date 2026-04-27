@@ -14,6 +14,26 @@ namespace SourceDocParser.Docfx.Yaml;
 /// </summary>
 internal static class YamlScalarQuoting
 {
+    /// <summary>Leading plain-scalar indicator characters that force quoting.</summary>
+    private const string ReservedLeadingIndicators = " \t-?:,[]{}#&*!|>'\"%@`";
+
+    /// <summary>Reserved YAML 1.1 boolean and null tokens that must stay quoted to round-trip as strings.</summary>
+    private static readonly HashSet<string> _reservedYamlTokens =
+    [
+        "true",
+        "false",
+        "null",
+        "True",
+        "False",
+        "Null",
+        "TRUE",
+        "FALSE",
+        "NULL",
+        "~",
+        "yes",
+        "no",
+    ];
+
     /// <summary>
     /// Returns <see langword="true"/> when <paramref name="value"/> would be
     /// misparsed by a YAML reader without quoting.
@@ -50,7 +70,7 @@ internal static class YamlScalarQuoting
     /// <param name="first">First character of the scalar.</param>
     /// <returns><see langword="true"/> when the character is reserved.</returns>
     public static bool HasReservedLeadingIndicator(char first) =>
-        first is ' ' or '\t' or '-' or '?' or ':' or ',' or '[' or ']' or '{' or '}' or '#' or '&' or '*' or '!' or '|' or '>' or '\'' or '"' or '%' or '@' or '`';
+        ReservedLeadingIndicators.AsSpan().Contains(first);
 
     /// <summary>
     /// Returns <see langword="true"/> when <paramref name="value"/> matches one of
@@ -59,9 +79,7 @@ internal static class YamlScalarQuoting
     /// </summary>
     /// <param name="value">Scalar to test.</param>
     /// <returns><see langword="true"/> when the scalar matches a reserved token.</returns>
-    public static bool IsReservedYamlToken(string value) =>
-        value is "true" or "false" or "null" or "True" or "False" or "Null"
-            or "TRUE" or "FALSE" or "NULL" or "~" or "yes" or "no";
+    public static bool IsReservedYamlToken(string value) => _reservedYamlTokens.Contains(value);
 
     /// <summary>
     /// Walks <paramref name="value"/> once looking for any character
@@ -79,34 +97,56 @@ internal static class YamlScalarQuoting
     {
         for (var i = 0; i < value.Length; i++)
         {
-            switch (value[i])
+            var current = value[i];
+            if (TerminatesPlainScalar(current))
             {
-                case < ' ' or '"' or '\\':
-                    return true;
-                case ':':
-                    {
-                        var following = i == value.Length - 1 ? next : value[i + 1];
-                        if (following is ' ' or '\t' or '\0')
-                        {
-                            return true;
-                        }
+                return true;
+            }
 
-                        break;
-                    }
+            if (current is ':' && HasPlainScalarTerminatingFollower(value, i, next))
+            {
+                return true;
+            }
 
-                case '#':
-                    {
-                        var preceding = i is 0 ? prev : value[i - 1];
-                        if (preceding is ' ' or '\t')
-                        {
-                            return true;
-                        }
-
-                        break;
-                    }
+            if (current is '#' && HasYamlCommentPrefix(value, i, prev))
+            {
+                return true;
             }
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Returns whether a character is always invalid inside an unquoted YAML plain scalar.
+    /// </summary>
+    /// <param name="value">Character to inspect.</param>
+    /// <returns><see langword="true"/> when the character forces quoting.</returns>
+    private static bool TerminatesPlainScalar(char value) => value is < ' ' or '"' or '\\';
+
+    /// <summary>
+    /// Returns whether a colon is followed by whitespace or end-of-segment, terminating a plain scalar.
+    /// </summary>
+    /// <param name="value">Segment being scanned.</param>
+    /// <param name="index">Index of the colon within the segment.</param>
+    /// <param name="next">Character immediately after the segment, or <c>'\0'</c>.</param>
+    /// <returns><see langword="true"/> when the colon forces quoting.</returns>
+    private static bool HasPlainScalarTerminatingFollower(in ReadOnlySpan<char> value, int index, char next)
+    {
+        var following = index == value.Length - 1 ? next : value[index + 1];
+        return following is ' ' or '\t' or '\0';
+    }
+
+    /// <summary>
+    /// Returns whether a hash sign is preceded by whitespace, starting a YAML comment.
+    /// </summary>
+    /// <param name="value">Segment being scanned.</param>
+    /// <param name="index">Index of the hash sign within the segment.</param>
+    /// <param name="prev">Character immediately before the segment, or <c>'\0'</c>.</param>
+    /// <returns><see langword="true"/> when the hash sign forces quoting.</returns>
+    private static bool HasYamlCommentPrefix(in ReadOnlySpan<char> value, int index, char prev)
+    {
+        var preceding = index is 0 ? prev : value[index - 1];
+        return preceding is ' ' or '\t';
     }
 }

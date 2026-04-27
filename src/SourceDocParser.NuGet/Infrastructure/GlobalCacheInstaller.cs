@@ -45,11 +45,32 @@ public sealed class GlobalCacheInstaller : IDisposable
     /// <summary>Resolved fallback folders probed before any HTTP; set by InitializeAsync.</summary>
     private string[]? _fallbackFolders;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="GlobalCacheInstaller"/> class
+    /// using default logging and HTTP behavior.
+    /// </summary>
+    /// <param name="workingFolder">Project root used to start the nuget.config discovery walk.</param>
+    public GlobalCacheInstaller(string workingFolder)
+        : this(workingFolder, (ILogger?)null, (HttpClient?)null)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="GlobalCacheInstaller"/> class
+    /// using the supplied logger and default HTTP behavior.
+    /// </summary>
+    /// <param name="workingFolder">Project root used to start the nuget.config discovery walk.</param>
+    /// <param name="logger">Optional logger; defaults to a no-op.</param>
+    public GlobalCacheInstaller(string workingFolder, ILogger? logger)
+        : this(workingFolder, logger, (HttpClient?)null)
+    {
+    }
+
     /// <summary>Initializes a new instance of the <see cref="GlobalCacheInstaller"/> class.</summary>
     /// <param name="workingFolder">Project root used to start the nuget.config discovery walk.</param>
     /// <param name="logger">Optional logger; defaults to a no-op.</param>
     /// <param name="http">Optional HTTP client; pass-in lets tests share a handler. Wrapped in a default <see cref="NuGetFeedHttpClient"/>.</param>
-    public GlobalCacheInstaller(string workingFolder, ILogger? logger = null, HttpClient? http = null)
+    public GlobalCacheInstaller(string workingFolder, ILogger? logger, HttpClient? http)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(workingFolder);
         _workingFolder = workingFolder;
@@ -74,7 +95,6 @@ public sealed class GlobalCacheInstaller : IDisposable
     }
 
     /// <summary>Gets the resolved global packages folder.</summary>
-    /// <exception cref="InvalidOperationException">When called before <see cref="InitializeAsync"/>.</exception>
     public string GlobalPackagesFolder =>
         _globalPackagesFolder ?? throw new InvalidOperationException("Call InitializeAsync first.");
 
@@ -82,10 +102,17 @@ public sealed class GlobalCacheInstaller : IDisposable
     public IReadOnlyList<PackageSource> EnabledSources =>
         _enabledSources ?? throw new InvalidOperationException("Call InitializeAsync first.");
 
+    /// <summary>
+    /// Resolves the global cache, sources, credentials, disabled set, and fallback folders.
+    /// </summary>
+    /// <returns>A task representing the asynchronous initialise step.</returns>
+    public ValueTask InitializeAsync() =>
+        InitializeAsync(CancellationToken.None);
+
     /// <summary>Resolves the global cache, sources, credentials, disabled set, and fallback folders.</summary>
     /// <param name="cancellationToken">Token observed across each parse.</param>
     /// <returns>A task representing the asynchronous initialise step.</returns>
-    public async ValueTask InitializeAsync(CancellationToken cancellationToken = default)
+    public async ValueTask InitializeAsync(CancellationToken cancellationToken)
     {
         _globalPackagesFolder = await NuGetConfigDiscovery.ResolveAsync(_workingFolder, cancellationToken).ConfigureAwait(false);
         var allSources = await NuGetConfigDiscovery.ResolvePackageSourcesAsync(_workingFolder, cancellationToken).ConfigureAwait(false);
@@ -108,6 +135,17 @@ public sealed class GlobalCacheInstaller : IDisposable
     /// <summary>
     /// Returns the install path for <paramref name="packageId"/> /
     /// <paramref name="packageVersion"/> after ensuring the package is
+    /// available.
+    /// </summary>
+    /// <param name="packageId">NuGet package id.</param>
+    /// <param name="packageVersion">Normalised version string.</param>
+    /// <returns>The absolute install directory the caller can enumerate <c>lib/&lt;tfm&gt;/</c> under.</returns>
+    public ValueTask<string> InstallAsync(string packageId, string packageVersion) =>
+        InstallAsync(packageId, packageVersion, CancellationToken.None);
+
+    /// <summary>
+    /// Returns the install path for <paramref name="packageId"/> /
+    /// <paramref name="packageVersion"/> after ensuring the package is
     /// available — short-circuits when already in the global cache or a
     /// fallback folder, downloads + extracts otherwise.
     /// </summary>
@@ -115,7 +153,7 @@ public sealed class GlobalCacheInstaller : IDisposable
     /// <param name="packageVersion">Normalised version string.</param>
     /// <param name="cancellationToken">Token observed across the install.</param>
     /// <returns>The absolute install directory the caller can enumerate <c>lib/&lt;tfm&gt;/</c> under.</returns>
-    public async ValueTask<string> InstallAsync(string packageId, string packageVersion, CancellationToken cancellationToken = default)
+    public async ValueTask<string> InstallAsync(string packageId, string packageVersion, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(packageId);
         ArgumentException.ThrowIfNullOrWhiteSpace(packageVersion);
@@ -141,15 +179,16 @@ public sealed class GlobalCacheInstaller : IDisposable
             lockPath,
             alreadyDone: () => NuGetGlobalCache.IsPackageInstalled(installPath),
             work: ct => NuGetInstallHelpers.InstallFromSourcesAsync(
-                _enabledSources,
-                _credentials,
-                _feedHttp,
-                _logger,
-                _flatContainerByFeed,
-                packageId,
-                packageVersion,
-                installPath,
-                ct).AsTask(),
+                new(
+                    _enabledSources,
+                    _credentials,
+                    _feedHttp,
+                    _logger,
+                    _flatContainerByFeed,
+                    packageId,
+                    packageVersion,
+                    installPath,
+                    ct)).AsTask(),
             cancellationToken).ConfigureAwait(false);
 
         return installPath;

@@ -17,6 +17,52 @@ namespace SourceDocParser.Common;
 public static class BclTypeAliases
 {
     /// <summary>
+    /// Map of CLR names to C# keywords.
+    /// </summary>
+    private static readonly Dictionary<string, string> ToKeywordMap = new()
+    {
+        ["System.Object"] = "object",
+        ["System.String"] = "string",
+        ["System.Boolean"] = "bool",
+        ["System.Int32"] = "int",
+        ["System.UInt32"] = "uint",
+        ["System.Int64"] = "long",
+        ["System.UInt64"] = "ulong",
+        ["System.Int16"] = "short",
+        ["System.UInt16"] = "ushort",
+        ["System.Byte"] = "byte",
+        ["System.SByte"] = "sbyte",
+        ["System.Char"] = "char",
+        ["System.Double"] = "double",
+        ["System.Single"] = "float",
+        ["System.Decimal"] = "decimal",
+        ["System.Void"] = "void",
+    };
+
+    /// <summary>
+    /// Map of C# keywords to CLR names.
+    /// </summary>
+    private static readonly Dictionary<string, string> ToClrMap = new()
+    {
+        ["int"] = "System.Int32",
+        ["uint"] = "System.UInt32",
+        ["long"] = "System.Int64",
+        ["ulong"] = "System.UInt64",
+        ["short"] = "System.Int16",
+        ["ushort"] = "System.UInt16",
+        ["byte"] = "System.Byte",
+        ["sbyte"] = "System.SByte",
+        ["bool"] = "System.Boolean",
+        ["char"] = "System.Char",
+        ["string"] = "System.String",
+        ["object"] = "System.Object",
+        ["double"] = "System.Double",
+        ["float"] = "System.Single",
+        ["decimal"] = "System.Decimal",
+        ["void"] = "System.Void",
+    };
+
+    /// <summary>
     /// Returns the C# keyword alias for <paramref name="bareName"/>
     /// when it names one of the well-known BCL primitive types,
     /// otherwise returns <paramref name="fallback"/>. Use
@@ -28,26 +74,8 @@ public static class BclTypeAliases
     /// <param name="bareName">Reference name without any UID prefix (e.g. <c>System.Object</c>).</param>
     /// <param name="fallback">Display string to return when the name isn't a known primitive.</param>
     /// <returns>The keyword alias, or <paramref name="fallback"/>.</returns>
-    public static string ToKeyword(string bareName, string fallback) => bareName switch
-    {
-        "System.Object" => "object",
-        "System.String" => "string",
-        "System.Boolean" => "bool",
-        "System.Int32" => "int",
-        "System.UInt32" => "uint",
-        "System.Int64" => "long",
-        "System.UInt64" => "ulong",
-        "System.Int16" => "short",
-        "System.UInt16" => "ushort",
-        "System.Byte" => "byte",
-        "System.SByte" => "sbyte",
-        "System.Char" => "char",
-        "System.Double" => "double",
-        "System.Single" => "float",
-        "System.Decimal" => "decimal",
-        "System.Void" => "void",
-        _ => fallback,
-    };
+    public static string ToKeyword(string bareName, string fallback) =>
+        ToKeywordMap.GetValueOrDefault(bareName, fallback);
 
     /// <summary>
     /// Inverse of <see cref="ToKeyword"/> — promotes a C# keyword
@@ -58,24 +86,6 @@ public static class BclTypeAliases
     /// </summary>
     /// <param name="name">A possibly-aliased type name (e.g. <c>int</c>).</param>
     /// <returns>The promoted CLR name, or the input unchanged.</returns>
-    public static string ToClr(string name) => name switch
-    {
-        "int" => "System.Int32",
-        "uint" => "System.UInt32",
-        "long" => "System.Int64",
-        "ulong" => "System.UInt64",
-        "short" => "System.Int16",
-        "ushort" => "System.UInt16",
-        "byte" => "System.Byte",
-        "sbyte" => "System.SByte",
-        "bool" => "System.Boolean",
-        "char" => "System.Char",
-        "string" => "System.String",
-        "object" => "System.Object",
-        "double" => "System.Double",
-        "float" => "System.Single",
-        "decimal" => "System.Decimal",
-        "void" => "System.Void",
-        _ => name,
-    };
+    public static string ToClr(string name) =>
+        ToClrMap.GetValueOrDefault(name, name);
 }

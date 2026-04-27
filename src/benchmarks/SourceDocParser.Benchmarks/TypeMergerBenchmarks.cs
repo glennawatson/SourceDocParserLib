@@ -17,6 +17,15 @@ namespace SourceDocParser.Benchmarks;
 [MemoryDiagnoser]
 public class TypeMergerBenchmarks
 {
+    /// <summary>Small synthetic benchmark size.</summary>
+    private const int SmallTypeCount = 100;
+
+    /// <summary>Fixture-sized synthetic benchmark size.</summary>
+    private const int MediumTypeCount = 600;
+
+    /// <summary>Large owner-driven synthetic benchmark size.</summary>
+    private const int LargeTypeCount = 2000;
+
     /// <summary>TFMs the synthetic catalogs span (mirrors the slim fixture).</summary>
     private static readonly string[] Tfms = ["net8.0", "net9.0", "net10.0"];
 
@@ -28,7 +37,7 @@ public class TypeMergerBenchmarks
     /// per benchmark run. Picked to bracket the slim fixture (~600 types) and the
     /// full owner-driven run (~2000).
     /// </summary>
-    [Params(100, 600, 2000)]
+    [Params(SmallTypeCount, MediumTypeCount, LargeTypeCount)]
     public int TypeCount { get; set; }
 
     /// <summary>Builds the per-TFM catalogs once for the parameter combination so iterations don't rebuild fixtures.</summary>

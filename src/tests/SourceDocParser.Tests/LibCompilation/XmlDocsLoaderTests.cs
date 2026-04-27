@@ -42,12 +42,7 @@ public class XmlDocsLoaderTests
     }
 
     /// <summary>
-    /// An .xml sibling that exists but isn't readable (chmod 000 on
-    /// Unix) causes <see cref="XmlDocSource.Load"/> to throw on
-    /// <c>File.ReadAllBytes</c>; <see cref="XmlDocsLoader.TryLoad"/>
-    /// swallows the exception, logs a warning, and returns null.
-    /// Skipped on Windows (chmod is a no-op there) and when running
-    /// as root (which bypasses the perm bits).
+    /// Validates the fallback behavior of <see cref="XmlDocsLoader.TryLoad"/> when the associated .xml file is unreadable (e.g., no read permissions or it is a directory).
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -66,7 +61,10 @@ public class XmlDocsLoaderTests
             var xmlPath = Path.Combine(dir, "fake.xml");
             await File.WriteAllBytesAsync(assemblyPath, [0x4D, 0x5A]);
             await File.WriteAllTextAsync(xmlPath, "<doc/>");
-            File.SetUnixFileMode(xmlPath, UnixFileMode.None);
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(xmlPath, UnixFileMode.None);
+            }
 
             var docs = XmlDocsLoader.TryLoad(assemblyPath, NullLogger.Instance);
 
@@ -77,7 +75,7 @@ public class XmlDocsLoaderTests
             if (Directory.Exists(dir))
             {
                 var xmlPath = Path.Combine(dir, "fake.xml");
-                if (File.Exists(xmlPath))
+                if (File.Exists(xmlPath) && !OperatingSystem.IsWindows())
                 {
                     File.SetUnixFileMode(xmlPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
                 }

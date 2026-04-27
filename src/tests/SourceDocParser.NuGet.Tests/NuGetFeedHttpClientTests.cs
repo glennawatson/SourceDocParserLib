@@ -29,7 +29,7 @@ public class NuGetFeedHttpClientTests
     [Test]
     public async Task ReadServiceIndexAsyncReturnsContentOnSuccess()
     {
-        var handler = new FakeHandler((req, _) =>
+        var handler = new FakeHandler((_, _) =>
         {
             return new HttpResponseMessage(HttpStatusCode.OK)
             {

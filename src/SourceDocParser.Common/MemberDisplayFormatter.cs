@@ -19,6 +19,12 @@ public static class MemberDisplayFormatter
     /// <summary>Single comma-space separator — matches both the docfx and Microsoft Learn conventions.</summary>
     private const string ParameterSeparator = ", ";
 
+    /// <summary>Number of characters added by parentheses: '(' and ')'.</summary>
+    private const int ParenthesesLength = 2;
+
+    /// <summary>Length of a single-character separator.</summary>
+    private const int SingleCharSeparatorLength = 1;
+
     /// <summary>
     /// Builds <paramref name="label"/> + <c>(arg1, arg2)</c>. Empty
     /// <paramref name="parameterTypeDisplayNames"/> short-circuits to
@@ -34,10 +40,10 @@ public static class MemberDisplayFormatter
         ArgumentNullException.ThrowIfNull(parameterTypeDisplayNames);
         if (parameterTypeDisplayNames is [])
         {
-            return string.Create(label.Length + 2, label, static (span, source) =>
+            return string.Create(label.Length + ParenthesesLength, label, static (span, source) =>
             {
                 source.AsSpan().CopyTo(span);
-                span[^2] = '(';
+                span[^ParenthesesLength] = '(';
                 span[^1] = ')';
             });
         }
@@ -85,11 +91,11 @@ public static class MemberDisplayFormatter
             return suffix;
         }
 
-        return string.Create(prefix.Length + 1 + suffix.Length, (prefix, separator, suffix), static (span, state) =>
+        return string.Create(prefix.Length + SingleCharSeparatorLength + suffix.Length, (prefix, separator, suffix), static (span, state) =>
         {
             state.prefix.AsSpan().CopyTo(span);
             span[state.prefix.Length] = state.separator;
-            state.suffix.AsSpan().CopyTo(span[(state.prefix.Length + 1)..]);
+            state.suffix.AsSpan().CopyTo(span[(state.prefix.Length + SingleCharSeparatorLength)..]);
         });
     }
 
@@ -99,7 +105,7 @@ public static class MemberDisplayFormatter
     /// <returns>Total character count including parens and separators.</returns>
     private static int ComputeFormattedLength(string label, string[] parameterTypeDisplayNames)
     {
-        var total = label.Length + 2;
+        var total = label.Length + ParenthesesLength;
         for (var i = 0; i < parameterTypeDisplayNames.Length; i++)
         {
             if (i > 0)

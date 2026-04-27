@@ -21,5 +21,6 @@
     <PackageVersion Include="Roslynator.Analyzers" Version="4.15.0" />
     <PackageVersion Include="Blazor.Common.Analyzers" Version="1.0.28" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.203" />
+    <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.24.0.138807" />
   </ItemGroup>
 </Project>

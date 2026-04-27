@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Globalization;
+
 namespace SourceDocParser.Zensical.Tests;
 
 /// <summary>Self-cleaning temporary directory used by file-emitting tests.</summary>
@@ -10,7 +12,7 @@ internal sealed class TempDirectory : IDisposable
     /// <summary>Initializes a new instance of the <see cref="TempDirectory"/> class.</summary>
     public TempDirectory()
     {
-        Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sdp-zensical-" + Guid.NewGuid().ToString("N"));
+        Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sdp-zensical-" + Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture));
         Directory.CreateDirectory(Path);
     }
 

@@ -7,31 +7,30 @@ using SourceDocParser.Model;
 namespace SourceDocParser.Merge;
 
 /// <summary>
-/// Streaming counterpart to <see cref="TypeMerger.Merge"/>. Accepts
-/// <see cref="ApiCatalog"/>s one at a time as the parallel walk produces
-/// them and emits the merged canonical list once <see cref="Build"/> is
-/// called. Lets <see cref="MetadataExtractor.RunAsync"/> drop each
-/// catalog reference as soon as it lands instead of keeping the whole
-/// per-walk catalog set alive in a <c>ConcurrentBag</c> until the walk
-/// phase finishes.
+/// Responsible for merging types across multiple catalogs in a thread-safe manner.
+/// Allows incremental addition of per-TFM catalogs and produces a canonical, merged
+/// list of API types after processing. Once finalized, no further modifications are allowed.
 /// </summary>
-/// <remarks>
-/// Thread-safe: <see cref="Add"/> may be invoked concurrently by
-/// multiple <c>Parallel.ForEachAsync</c> workers. <see cref="Build"/>
-/// must be called exactly once after every <see cref="Add"/> has
-/// returned; concurrent <see cref="Add"/>/<see cref="Build"/> is not
-/// supported and will throw on misuse.
-/// </remarks>
 public sealed class StreamingTypeMerger
 {
     /// <summary>Initial capacity for the per-UID bucket dictionary; matches <see cref="TypeMerger.Merge"/>.</summary>
     private const int InitialBucketCapacity = 4096;
 
+    /// <summary>Initial capacity for each per-UID variant list.</summary>
+    private const int InitialVariantCapacity = 4;
+
+    /// <summary>Growth factor for the per-UID variant array.</summary>
+    private const int GrowthFactor = 2;
+
     /// <summary>Per-UID variant buckets being built up.</summary>
-    private readonly Dictionary<string, List<TypeVariant>> _byUid =
+    private readonly Dictionary<string, TypeVariant[]> _byUid =
         new(InitialBucketCapacity, StringComparer.Ordinal);
 
-    /// <summary>Lock guarding <see cref="_byUid"/> writes.</summary>
+    /// <summary>Current count for each bucket in <see cref="_byUid"/>.</summary>
+    private readonly Dictionary<string, int> _counts =
+        new(InitialBucketCapacity, StringComparer.Ordinal);
+
+    /// <summary>Lock guarding <see cref="_byUid"/> and <see cref="_counts"/> writes.</summary>
     private readonly Lock _lock = new();
 
     /// <summary>Set to true after <see cref="Build"/> runs so subsequent <see cref="Add"/>s throw.</summary>
@@ -69,11 +68,20 @@ public sealed class StreamingTypeMerger
 
                 if (!_byUid.TryGetValue(uid, out var bucket))
                 {
-                    bucket = new(4);
+                    bucket = new TypeVariant[InitialVariantCapacity];
+                    _byUid[uid] = bucket;
+                    _counts[uid] = 0;
+                }
+
+                var count = _counts[uid];
+                if (count == bucket.Length)
+                {
+                    Array.Resize(ref bucket, bucket.Length * GrowthFactor);
                     _byUid[uid] = bucket;
                 }
 
-                bucket.Add(new(tfm, type));
+                bucket[count] = new(tfm, type);
+                _counts[uid] = count + 1;
             }
         }
     }
@@ -90,28 +98,34 @@ public sealed class StreamingTypeMerger
             _built = true;
         }
 
-        var merged = new List<ApiType>(_byUid.Count);
-        foreach (var pair in _byUid)
+        var bucketCount = _byUid.Count;
+        var merged = new ApiType[bucketCount];
+        var keys = new string[bucketCount];
+        _byUid.Keys.CopyTo(keys, 0);
+
+        for (var i = 0; i < bucketCount; i++)
         {
-            var variants = pair.Value;
+            var uid = keys[i];
+            var variants = _byUid[uid];
+            var variantCount = _counts[uid];
 
             // Sort variants by descending TFM rank so the highest-priority TFM lands at index 0.
-            variants.Sort(static (a, b) => b.Tfm.Rank.CompareTo(a.Tfm.Rank));
+            Array.Sort(variants, 0, variantCount, Comparer<TypeVariant>.Create(static (a, b) => b.Tfm.Rank.CompareTo(a.Tfm.Rank)));
 
             var canonical = variants[0].Type;
-            var appliesTo = new List<string>(variants.Count);
-            for (var i = 0; i < variants.Count; i++)
+            var appliesTo = new string[variantCount];
+            for (var j = 0; j < variantCount; j++)
             {
-                appliesTo.Add(variants[i].Tfm.Raw);
+                appliesTo[j] = variants[j].Tfm.Raw;
             }
 
             // Prefer a non-null SourceUrl from any variant.
             var sourceUrl = canonical.SourceUrl;
             if (sourceUrl is null)
             {
-                for (var i = 1; i < variants.Count; i++)
+                for (var j = 1; j < variantCount; j++)
                 {
-                    var variantUrl = variants[i].Type.SourceUrl;
+                    var variantUrl = variants[j].Type.SourceUrl;
                     if (variantUrl is not { Length: > 0 })
                     {
                         continue;
@@ -122,11 +136,11 @@ public sealed class StreamingTypeMerger
                 }
             }
 
-            merged.Add(canonical with { AppliesTo = [.. appliesTo], SourceUrl = sourceUrl });
+            merged[i] = canonical with { AppliesTo = appliesTo, SourceUrl = sourceUrl };
         }
 
-        merged.Sort(static (a, b) => string.CompareOrdinal(a.FullName, b.FullName));
-        return [.. merged];
+        Array.Sort(merged, static (a, b) => string.CompareOrdinal(a.FullName, b.FullName));
+        return merged;
     }
 
     /// <summary>

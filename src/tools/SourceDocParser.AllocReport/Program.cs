@@ -21,27 +21,52 @@ internal static class Program
     /// <summary>Default number of rows to surface in each table.</summary>
     private const int DefaultTopN = 25;
 
+    /// <summary>The exit code when a trace file is not found.</summary>
+    private const int ExitCodeTraceFileNotFound = 2;
+
+    /// <summary>The exit code when no allocation samples are found.</summary>
+    private const int ExitCodeNoAllocationSamples = 3;
+
+    /// <summary>The exit code when usage is incorrect.</summary>
+    private const int ExitCodeUsageError = 1;
+
     /// <summary>How deep to walk each managed call stack when bucketing.</summary>
     private const int StackDepth = 6;
+
+    /// <summary>Bits to shift for Gigabytes.</summary>
+    private const int GbShift = 30;
+
+    /// <summary>Bits to shift for Megabytes.</summary>
+    private const int MbShift = 20;
+
+    /// <summary>Bits to shift for Kilobytes.</summary>
+    private const int KbShift = 10;
+
+    /// <summary>Multiplier for percentage calculations.</summary>
+    private const double PercentMultiplier = 100.0;
 
     /// <summary>
     /// Console entry point.
     /// </summary>
     /// <param name="args">Command-line args: <c>&lt;trace.nettrace&gt; [topN]</c>.</param>
-    /// <returns>0 on success; 1 on usage error; 2 if the trace path is missing; 3 if no allocation samples were found.</returns>
+    /// <returns>
+    /// 0 on success; <see cref="ExitCodeUsageError"/> on usage error;
+    /// <see cref="ExitCodeTraceFileNotFound"/> if the trace path is missing;
+    /// <see cref="ExitCodeNoAllocationSamples"/> if no allocation samples were found.
+    /// </returns>
     public static int Main(string[] args)
     {
         if (args.Length == 0)
         {
             Console.Error.WriteLine("usage: SourceDocParser.AllocReport <path-to-trace.nettrace> [topN]");
-            return 1;
+            return ExitCodeUsageError;
         }
 
         var tracePath = args[0];
         if (!File.Exists(tracePath))
         {
             Console.Error.WriteLine($"trace file not found: {tracePath}");
-            return 2;
+            return ExitCodeTraceFileNotFound;
         }
 
         var topN = args.Length > 1 && int.TryParse(args[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : DefaultTopN;
@@ -52,7 +77,7 @@ internal static class Program
             Console.Error.WriteLine(
                 "trace contained no GC allocation tick events. Make sure the benchmark was instrumented with " +
                 "[EventPipeProfiler(EventPipeProfile.GcVerbose)].");
-            return 3;
+            return ExitCodeNoAllocationSamples;
         }
 
         WriteHeader(tracePath, stats);
@@ -143,7 +168,7 @@ internal static class Program
         Console.WriteLine("|---|---:|---:|---:|");
         foreach (var (type, stat) in stats.ByType.OrderByDescending(static kvp => kvp.Value.Bytes).Take(topN))
         {
-            var pct = stats.TotalBytes == 0 ? 0d : stat.Bytes * 100d / stats.TotalBytes;
+            var pct = stats.TotalBytes == 0 ? 0d : stat.Bytes * PercentMultiplier / stats.TotalBytes;
             Console.WriteLine($"| `{Escape(type)}` | {FormatBytes(stat.Bytes)} | {pct:F1}% | {stat.Samples:N0} |");
         }
 
@@ -161,7 +186,7 @@ internal static class Program
         Console.WriteLine("|---|---:|---:|---:|---|");
         foreach (var (stack, stat) in stats.ByStack.OrderByDescending(static kvp => kvp.Value.Bytes).Take(topN))
         {
-            var pct = stats.TotalBytes == 0 ? 0d : stat.Bytes * 100d / stats.TotalBytes;
+            var pct = stats.TotalBytes == 0 ? 0d : stat.Bytes * PercentMultiplier / stats.TotalBytes;
             Console.WriteLine($"| `{Escape(stat.TopType ?? "<n/a>")}` | {FormatBytes(stat.Bytes)} | {pct:F1}% | {stat.Samples:N0} | {Escape(stack)} |");
         }
     }
@@ -171,9 +196,9 @@ internal static class Program
     /// <returns>Formatted "1.23 MB" / "456 B" string.</returns>
     private static string FormatBytes(long bytes) => bytes switch
     {
-        >= 1L << 30 => $"{bytes / (double)(1L << 30):F2} GB",
-        >= 1L << 20 => $"{bytes / (double)(1L << 20):F2} MB",
-        >= 1L << 10 => $"{bytes / (double)(1L << 10):F2} KB",
+        >= 1L << GbShift => $"{bytes / (double)(1L << GbShift):F2} GB",
+        >= 1L << MbShift => $"{bytes / (double)(1L << MbShift):F2} MB",
+        >= 1L << KbShift => $"{bytes / (double)(1L << KbShift):F2} KB",
         _ => $"{bytes} B",
     };
 
@@ -224,7 +249,7 @@ internal static class Program
         .Replace("\n", " ", StringComparison.Ordinal);
 
     /// <summary>Per-type allocation accumulator (mutable struct held in dictionary).</summary>
-    private struct AllocStat
+    private record struct AllocStat
     {
         /// <summary>Total sampled bytes attributed to this type.</summary>
         public long Bytes;
@@ -234,7 +259,7 @@ internal static class Program
     }
 
     /// <summary>Per-stack allocation accumulator (mutable struct held in dictionary).</summary>
-    private struct StackStat
+    private record struct StackStat
     {
         /// <summary>Total sampled bytes attributed to this stack.</summary>
         public long Bytes;

@@ -25,6 +25,16 @@ public interface IXmlDocToMarkdownConverter
     string Convert(string xmlFragment);
 
     /// <summary>
+    /// Converts a span of inner XML directly into Markdown without
+    /// going through string materialisation. Skips the XmlReader
+    /// allocation entirely for plain-text spans (no inline tags); falls
+    /// back to the string-based renderer for tagged content.
+    /// </summary>
+    /// <param name="innerXml">Inner XML span to convert.</param>
+    /// <returns>Markdown-formatted doc fragment.</returns>
+    string Convert(ReadOnlySpan<char> innerXml);
+
+    /// <summary>
     /// Converts the current element's child nodes into Markdown,
     /// streaming directly from <paramref name="reader"/> without
     /// materialising an intermediate string. The reader must be
@@ -46,14 +56,4 @@ public interface IXmlDocToMarkdownConverter
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>Markdown-formatted doc fragment.</returns>
     Task<string> ConvertAsync(XmlReader reader, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Converts a span of inner XML directly into Markdown without
-    /// going through string materialisation. Skips the XmlReader
-    /// allocation entirely for plain-text spans (no inline tags); falls
-    /// back to the string-based renderer for tagged content.
-    /// </summary>
-    /// <param name="innerXml">Inner XML span to convert.</param>
-    /// <returns>Markdown-formatted doc fragment.</returns>
-    string Convert(ReadOnlySpan<char> innerXml);
 }

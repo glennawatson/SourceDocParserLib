@@ -40,7 +40,7 @@ public class OwningStreamTests
         await Assert.That(sut.Length).IsEqualTo(5L);
 
         var buf = new byte[5];
-        var read = sut.Read(buf);
+        var read = await sut.ReadAsync(buf);
         await Assert.That(read).IsEqualTo(5);
         await Assert.That(Encoding.UTF8.GetString(buf)).IsEqualTo("hello");
     }
@@ -115,6 +115,7 @@ public class OwningStreamTests
     /// <returns>A task representing the test execution.</returns>
     [Test]
     [SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Item under test is Dispose")]
+    [SuppressMessage("Major Code Smell", "S6966:Awaitable method should be used", Justification = "Item under test is Dispose")]
     public async Task DisposeDisposesInnerAndOwner()
     {
         var inner = new TrackingStream();

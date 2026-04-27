@@ -51,11 +51,11 @@ public class NuGetAssemblySourceTests
         Directory.CreateDirectory(libTfmDir);
         Directory.CreateDirectory(refsTfmDir);
 
-        File.WriteAllBytes(Path.Combine(libTfmDir, "Package.dll"), []);
-        File.WriteAllBytes(Path.Combine(libTfmDir, "Shared.dll"), []);
-        File.WriteAllBytes(Path.Combine(refsTfmDir, "Shared.dll"), []);
+        await File.WriteAllBytesAsync(Path.Combine(libTfmDir, "Package.dll"), []);
+        await File.WriteAllBytesAsync(Path.Combine(libTfmDir, "Shared.dll"), []);
+        await File.WriteAllBytesAsync(Path.Combine(refsTfmDir, "Shared.dll"), []);
 
-        var source = new NuGetAssemblySource(root.Path, api.Path, fetcher: new NoOpFetcher());
+        var source = new NuGetAssemblySource(root.Path, api.Path, logger: null, fetcher: new NoOpFetcher());
         List<AssemblyGroup> groups = [];
         await foreach (var group in source.DiscoverAsync())
         {
@@ -100,8 +100,13 @@ public class NuGetAssemblySourceTests
     /// </summary>
     private sealed class NoOpFetcher : INuGetFetcher
     {
-        /// <inheritdoc />
-        public Task FetchPackagesAsync(string rootDirectory, string apiPath, ILogger? logger = null, CancellationToken cancellationToken = default) =>
-            Task.CompletedTask;
+        /// <inheritdoc/>
+        public Task FetchPackagesAsync(string rootDirectory, string apiPath) => Task.CompletedTask;
+
+        /// <inheritdoc/>
+        public Task FetchPackagesAsync(string rootDirectory, string apiPath, ILogger? logger) => Task.CompletedTask;
+
+        /// <inheritdoc/>
+        public Task FetchPackagesAsync(string rootDirectory, string apiPath, ILogger? logger, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

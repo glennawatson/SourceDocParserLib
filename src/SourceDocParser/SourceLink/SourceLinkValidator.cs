@@ -24,16 +24,53 @@ public sealed partial class SourceLinkValidator : ISourceLinkValidator
     private const int MaxConcurrentRequests = 8;
 
     /// <summary>
+    /// Token limit for the rate limiter.
+    /// </summary>
+    private const int RateLimitTokenLimit = 50;
+
+    /// <summary>
+    /// Tokens per period for the rate limiter.
+    /// </summary>
+    private const int RateLimitTokensPerPeriod = 10;
+
+    /// <summary>
+    /// Maximum retry attempts for the resilience pipeline.
+    /// </summary>
+    private const int MaxRetryAttempts = 3;
+
+    /// <summary>
+    /// Default number of tokens to acquire from the rate limiter.
+    /// </summary>
+    private const int DefaultTokenAcquisitionCount = 1;
+
+    /// <summary>
     /// Per-request HTTP timeout.
     /// </summary>
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(15);
 
+    /// <summary>
+    /// Replenishment period for the rate limiter.
+    /// </summary>
+    private static readonly TimeSpan RateLimitReplenishmentPeriod = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    /// Delay between retry attempts.
+    /// </summary>
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(0.5);
+
     /// <inheritdoc />
-    /// <exception cref="ArgumentNullException">When <paramref name="entries"/> is null.</exception>
-    public async Task<int> ValidateAsync(SourceLinkEntry[] entries, bool failOnBroken = false, ILogger? logger = null)
+    public Task<int> ValidateAsync(SourceLinkEntry[] entries) =>
+        ValidateAsync(entries, false, null);
+
+    /// <inheritdoc />
+    public Task<int> ValidateAsync(SourceLinkEntry[] entries, bool failOnBroken) =>
+        ValidateAsync(entries, failOnBroken, null);
+
+    /// <inheritdoc />
+    public async Task<int> ValidateAsync(SourceLinkEntry[] entries, bool failOnBroken, ILogger? logger)
     {
         ArgumentNullException.ThrowIfNull(entries);
-        logger ??= NullLogger.Instance;
+        logger = GetLoggerOrDefault(logger);
 
         if (entries is [])
         {
@@ -44,62 +81,28 @@ public sealed partial class SourceLinkValidator : ISourceLinkValidator
         var byFileUrl = GroupByFileUrl(entries);
         LogValidating(logger, byFileUrl.Count, entries.Length);
 
-        var rateLimiter = BuildRateLimiter();
-        try
-        {
-            var pipeline = BuildResiliencePipeline(rateLimiter);
+        await using var rateLimiter = BuildRateLimiter();
+        var pipeline = BuildResiliencePipeline(rateLimiter);
+        using var http = CreateHttpClient();
+        var broken = await ValidateGroupedEntriesAsync(byFileUrl, pipeline, http).ConfigureAwait(false);
 
-            using var http = new HttpClient();
-            http.Timeout = RequestTimeout;
-            var broken = new ConcurrentBag<BrokenLink>();
-            var checkedCount = 0;
-
-            var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = MaxConcurrentRequests };
-
-            await Parallel.ForEachAsync(
-                byFileUrl,
-                parallelOptions,
-                async (kvp, ct) =>
-                {
-                    Interlocked.Increment(ref checkedCount);
-                    var url = kvp.Key;
-                    try
-                    {
-                        using var response = await pipeline.ExecuteAsync(
-                            static async (vState, token) =>
-                            {
-                                using var request = new HttpRequestMessage(HttpMethod.Head, new Uri(vState.Url));
-                                return await vState.Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
-                            },
-                            new ValidatorState(url, http),
-                            ct).ConfigureAwait(false);
-
-                        if (response is { IsSuccessStatusCode: false })
-                        {
-                            broken.Add(new(url, [.. kvp.Value], $"HTTP {(int)response.StatusCode}"));
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        broken.Add(new(url, [.. kvp.Value], ex.Message));
-                    }
-                }).ConfigureAwait(false);
-
-            ReportResults(byFileUrl.Count, broken, failOnBroken, logger);
-            return broken.Count;
-        }
-        finally
-        {
-            await rateLimiter.DisposeAsync().ConfigureAwait(false);
-        }
+        ReportResults(byFileUrl.Count, broken, failOnBroken, logger);
+        return broken.Count;
     }
+
+    /// <summary>
+    /// Gets the supplied logger or the null logger when none was provided.
+    /// </summary>
+    /// <param name="logger">The caller-supplied logger.</param>
+    /// <returns>The logger to use.</returns>
+    internal static ILogger GetLoggerOrDefault(ILogger? logger) => logger ?? NullLogger.Instance;
 
     /// <summary>
     /// Groups entries by file URL to deduplicate HEAD checks.
     /// </summary>
     /// <param name="entries">Entries to group.</param>
     /// <returns>A dictionary mapping file URLs to lists of symbol UIDs.</returns>
-    private static Dictionary<string, List<string>> GroupByFileUrl(SourceLinkEntry[] entries)
+    internal static Dictionary<string, List<string>> GroupByFileUrl(SourceLinkEntry[] entries)
     {
         var byFileUrl = new Dictionary<string, List<string>>(entries.Length, StringComparer.Ordinal);
 
@@ -120,14 +123,120 @@ public sealed partial class SourceLinkValidator : ISourceLinkValidator
     }
 
     /// <summary>
+    /// Creates the shared HTTP client used for HEAD checks.
+    /// </summary>
+    /// <returns>The configured HTTP client.</returns>
+    internal static HttpClient CreateHttpClient() => new() { Timeout = RequestTimeout };
+
+    /// <summary>
+    /// Validates the grouped unique URLs and returns the broken-link set.
+    /// </summary>
+    /// <param name="byFileUrl">Grouped unique URLs and their referencing UIDs.</param>
+    /// <param name="pipeline">Resilience pipeline used for each request.</param>
+    /// <param name="http">HTTP client used for HEAD checks.</param>
+    /// <returns>The collected broken links.</returns>
+    internal static async Task<ConcurrentBag<BrokenLink>> ValidateGroupedEntriesAsync(
+        Dictionary<string, List<string>> byFileUrl,
+        ResiliencePipeline<HttpResponseMessage> pipeline,
+        HttpClient http)
+    {
+        var broken = new ConcurrentBag<BrokenLink>();
+        var parallelOptions = CreateParallelOptions();
+
+        await Parallel.ForEachAsync(
+            byFileUrl,
+            parallelOptions,
+            async (entry, cancellationToken) =>
+                await ValidateGroupedEntryAsync(entry, pipeline, http, broken, cancellationToken).ConfigureAwait(false)).ConfigureAwait(false);
+
+        return broken;
+    }
+
+    /// <summary>
+    /// Creates the parallel options used for URL validation.
+    /// </summary>
+    /// <returns>The configured parallel options.</returns>
+    internal static ParallelOptions CreateParallelOptions() => new() { MaxDegreeOfParallelism = MaxConcurrentRequests };
+
+    /// <summary>
+    /// Validates a single grouped URL and records any failure.
+    /// </summary>
+    /// <param name="entry">The grouped URL entry to validate.</param>
+    /// <param name="pipeline">Resilience pipeline used for the request.</param>
+    /// <param name="http">HTTP client used for the HEAD check.</param>
+    /// <param name="broken">Shared broken-link sink.</param>
+    /// <param name="cancellationToken">Cancellation token for the request.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    internal static async Task ValidateGroupedEntryAsync(
+        KeyValuePair<string, List<string>> entry,
+        ResiliencePipeline<HttpResponseMessage> pipeline,
+        HttpClient http,
+        ConcurrentBag<BrokenLink> broken,
+        CancellationToken cancellationToken)
+    {
+        var url = entry.Key;
+
+        try
+        {
+            using var response = await SendHeadAsync(url, pipeline, http, cancellationToken).ConfigureAwait(false);
+            if (response is { IsSuccessStatusCode: false })
+            {
+                broken.Add(CreateBrokenLink(url, entry.Value, $"HTTP {(int)response.StatusCode}"));
+            }
+        }
+        catch (Exception ex)
+        {
+            broken.Add(CreateBrokenLink(url, entry.Value, ex.Message));
+        }
+    }
+
+    /// <summary>
+    /// Sends one HEAD request through the resilience pipeline.
+    /// </summary>
+    /// <param name="url">URL to validate.</param>
+    /// <param name="pipeline">Resilience pipeline used for the request.</param>
+    /// <param name="http">HTTP client used for the HEAD check.</param>
+    /// <param name="cancellationToken">Cancellation token for the request.</param>
+    /// <returns>The HTTP response.</returns>
+    internal static Task<HttpResponseMessage> SendHeadAsync(
+        string url,
+        ResiliencePipeline<HttpResponseMessage> pipeline,
+        HttpClient http,
+        CancellationToken cancellationToken) =>
+        pipeline.ExecuteAsync(
+            static async (validatorState, token) =>
+            {
+                using var request = CreateHeadRequest(validatorState.Url);
+                return await validatorState.Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+            },
+            new ValidatorState(url, http),
+            cancellationToken).AsTask();
+
+    /// <summary>
+    /// Creates the HEAD request message for one URL.
+    /// </summary>
+    /// <param name="url">URL to validate.</param>
+    /// <returns>The request message.</returns>
+    internal static HttpRequestMessage CreateHeadRequest(string url) => new(HttpMethod.Head, new Uri(url));
+
+    /// <summary>
+    /// Creates a broken-link record from a grouped URL entry.
+    /// </summary>
+    /// <param name="url">Broken URL.</param>
+    /// <param name="uids">UIDs that reference the URL.</param>
+    /// <param name="reason">Reason the URL is considered broken.</param>
+    /// <returns>The broken-link record.</returns>
+    internal static BrokenLink CreateBrokenLink(string url, List<string> uids, string reason) => new(url, [.. uids], reason);
+
+    /// <summary>
     /// Builds a token-bucket rate limiter.
     /// </summary>
     /// <returns>A new rate limiter.</returns>
-    private static TokenBucketRateLimiter BuildRateLimiter() => new(new()
+    internal static TokenBucketRateLimiter BuildRateLimiter() => new(new()
     {
-        TokenLimit = 50,
-        TokensPerPeriod = 10,
-        ReplenishmentPeriod = TimeSpan.FromSeconds(1),
+        TokenLimit = RateLimitTokenLimit,
+        TokensPerPeriod = RateLimitTokensPerPeriod,
+        ReplenishmentPeriod = RateLimitReplenishmentPeriod,
         QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
         QueueLimit = int.MaxValue,
         AutoReplenishment = true,
@@ -138,16 +247,16 @@ public sealed partial class SourceLinkValidator : ISourceLinkValidator
     /// </summary>
     /// <param name="rateLimiter">The rate limiter to use.</param>
     /// <returns>A resilience pipeline.</returns>
-    private static ResiliencePipeline<HttpResponseMessage> BuildResiliencePipeline(RateLimiter rateLimiter) =>
+    internal static ResiliencePipeline<HttpResponseMessage> BuildResiliencePipeline(RateLimiter rateLimiter) =>
         new ResiliencePipelineBuilder<HttpResponseMessage>()
             .AddRetry(new()
             {
                 ShouldHandle = new PredicateBuilder<HttpResponseMessage>().Handle<HttpRequestException>(),
-                MaxRetryAttempts = 3,
-                Delay = TimeSpan.FromSeconds(0.5),
+                MaxRetryAttempts = MaxRetryAttempts,
+                Delay = RetryDelay,
                 BackoffType = DelayBackoffType.Exponential,
             })
-            .AddRateLimiter(new RateLimiterStrategyOptions { RateLimiter = args => rateLimiter.AcquireAsync(1, args.Context.CancellationToken) })
+            .AddRateLimiter(new RateLimiterStrategyOptions { RateLimiter = args => rateLimiter.AcquireAsync(DefaultTokenAcquisitionCount, args.Context.CancellationToken) })
             .Build();
 
     /// <summary>
@@ -157,7 +266,7 @@ public sealed partial class SourceLinkValidator : ISourceLinkValidator
     /// <param name="broken">List of broken links.</param>
     /// <param name="failOnBroken">Whether to throw on failures.</param>
     /// <param name="logger">Logger for the report lines.</param>
-    private static void ReportResults(int totalChecked, ConcurrentBag<BrokenLink> broken, bool failOnBroken, ILogger logger)
+    internal static void ReportResults(int totalChecked, ConcurrentBag<BrokenLink> broken, bool failOnBroken, ILogger logger)
     {
         if (broken.IsEmpty)
         {
@@ -176,7 +285,7 @@ public sealed partial class SourceLinkValidator : ISourceLinkValidator
             return;
         }
 
-        throw new InvalidOperationException($"Source link validation failed: {broken.Count} broken URL(s).");
+        throw new InvalidOperationException($"Source link validation failed: {broken.Count} links invalid.");
     }
 
     /// <summary>Logs that the validator was invoked with no entries.</summary>
@@ -217,7 +326,7 @@ public sealed partial class SourceLinkValidator : ISourceLinkValidator
     /// </summary>
     /// <param name="Url">The URL to check.</param>
     /// <param name="Http">The HTTP client to use.</param>
-    private readonly record struct ValidatorState(string Url, HttpClient Http);
+    internal readonly record struct ValidatorState(string Url, HttpClient Http);
 
     /// <summary>
     /// Record for a broken link.
@@ -225,5 +334,5 @@ public sealed partial class SourceLinkValidator : ISourceLinkValidator
     /// <param name="Url">Broken URL.</param>
     /// <param name="Uids">Symbols referencing this URL.</param>
     /// <param name="Reason">Reason for failure.</param>
-    private sealed record BrokenLink(string Url, string[] Uids, string Reason);
+    internal sealed record BrokenLink(string Url, string[] Uids, string Reason);
 }

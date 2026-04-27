@@ -8,14 +8,8 @@ using SourceDocParser.TestHelpers;
 namespace SourceDocParser.Docfx.Tests.Config;
 
 /// <summary>
-/// End-to-end pin on <see cref="Docfx.Config.DocfxConfigWriter.Write"/>: builds a
-/// fixture <c>lib/</c> + <c>refs/</c> directory tree under a scratch
-/// folder, runs the writer, and asserts the generated docfx.json
-/// surfaces the right metadata entries (package DLLs only, ref DLLs
-/// excluded), the right destination, and a parseable build section.
-/// Also covers the documented failure modes — missing <c>lib/</c>,
-/// empty <c>lib/</c>, and missing arguments — so a regression in the
-/// argument-validation contract surfaces on its own line.
+/// Contains unit tests for the <c>DocfxConfigWriter</c> class, verifying its functionality
+/// in generating DocFX configuration files based on specific inputs and conditions.
 /// </summary>
 public class DocfxConfigWriterTests
 {

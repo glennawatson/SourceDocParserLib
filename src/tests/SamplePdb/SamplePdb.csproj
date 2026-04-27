@@ -12,14 +12,7 @@
          SourceLink JSON map derived from this repo's git origin. -->
     <IsPackable>false</IsPackable>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-    <!-- Suppress the "missing XML doc" warning across the fixture
-         types; doc comments aren't the point here, the symbol shapes
-         are. -->
-    <!-- CA1040: IUnion is intentionally a marker interface (stand-in
-         for the upcoming BCL System.Runtime.CompilerServices.IUnion).
-         CA1028: SampleFlags's byte underlying type is intentional —
-         it pins the walker's enum-underlying-type capture. -->
-    <NoWarn>$(NoWarn);CS1591;SA1600;CA1822;CA1062;CA1052;RCS1102;CA1040;CA1028</NoWarn>
+    <NoWarn>$(NoWarn);CS1591;SA1600;CA1822;CA1062;CA1052;RCS1102;CA1040;CA1028;S2325;S3400;S2344;S1118;S2955;S3246;S4022;S2339</NoWarn>
   </PropertyGroup>
 
 </Project>

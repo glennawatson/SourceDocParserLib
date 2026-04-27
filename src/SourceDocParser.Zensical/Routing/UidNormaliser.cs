@@ -131,7 +131,7 @@ internal static class UidNormaliser
     /// <summary>Counts top-level type arguments in <paramref name="argList"/> (comma-separated, ignoring nested braces).</summary>
     /// <param name="argList">Inside-the-braces span.</param>
     /// <returns>Argument count, or 0 when the span is empty.</returns>
-    private static int CountTopLevelTypeArguments(ReadOnlySpan<char> argList)
+    private static int CountTopLevelTypeArguments(in ReadOnlySpan<char> argList)
     {
         if (argList.IsEmpty)
         {

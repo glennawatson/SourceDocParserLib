@@ -21,6 +21,15 @@ namespace SourceDocParser.Docfx.Yaml;
 /// </summary>
 internal static class DocfxYamlBuilderExtensions
 {
+    /// <summary>Length of an XML-doc comment-id prefix like <c>T:</c> or <c>M:</c>.</summary>
+    private const int CommentIdPrefixLength = 2;
+
+    /// <summary>Suffix used for YAML type fields once the surrounding indent has been written.</summary>
+    private const string TypeFieldLabel = "  type: ";
+
+    /// <summary>Shared header for a top-level syntax block.</summary>
+    private const string SyntaxBlockHeader = "  syntax:\n";
+
     /// <summary>
     /// Writes the type item header — uid / commentId / id / parent /
     /// children / langs / name / nameWithType / fullName / type /
@@ -58,7 +67,7 @@ internal static class DocfxYamlBuilderExtensions
             .Append("  name: ").AppendScalar(type.Name).AppendLine()
             .Append("  nameWithType: ").AppendScalar(type.Name).AppendLine()
             .Append("  fullName: ").AppendScalar(type.FullName).AppendLine()
-            .Append("  type: ")
+            .Append(TypeFieldLabel)
             .AppendLine(DocfxYamlEmitter.MemberTypeForType(type))
             .AppendLine("  assemblies:")
             .Append("  - ").AppendScalar(type.AssemblyName).AppendLine()
@@ -223,9 +232,9 @@ internal static class DocfxYamlBuilderExtensions
     /// <param name="baseRef">Base-type reference, or <see langword="null"/> to skip.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendBaseType(this StringBuilder sb, ApiTypeReference? baseRef) =>
-        baseRef is { Uid: var uid }
+        baseRef is not null
             ? sb.Append("  inheritance:\n  - ")
-                .AppendScalar(uid is [_, ..] ? CommentIdPrefix.Strip(uid) : baseRef.DisplayName)
+                .AppendScalar(ReferenceScalar(baseRef))
                 .AppendLine()
             : sb;
 
@@ -389,7 +398,7 @@ internal static class DocfxYamlBuilderExtensions
             var cref = seealso[i];
             sb.Append("  - linkType: CRef\n")
                 .Append("    commentId: ").AppendScalar(cref).AppendLine()
-                .Append("    altText: ").AppendScalar(cref is [_, ':', ..] ? cref[2..] : cref).AppendLine();
+                .Append("    altText: ").AppendScalar(StripCommentIdPrefixIfPresent(cref)).AppendLine();
         }
 
         return sb;
@@ -424,7 +433,7 @@ internal static class DocfxYamlBuilderExtensions
     /// <param name="type">Object-shaped type to render.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendObjectSyntax(this StringBuilder sb, ApiObjectType type) => sb
-        .Append("  syntax:\n")
+        .Append(SyntaxBlockHeader)
         .AppendSyntaxContent(type.Attributes, DocfxObjectSignature.Synthesise(type), indent: "    ");
 
     /// <summary>
@@ -443,10 +452,10 @@ internal static class DocfxYamlBuilderExtensions
             return sb;
         }
 
-        sb.Append("  syntax:\n")
+        sb.Append(SyntaxBlockHeader)
             .AppendSyntaxContent(type.Attributes, $"public enum {type.Name}", indent: "    ")
-            .Append("    return:\n      type: ")
-            .AppendScalar(type.UnderlyingType is { Uid: [_, ..] uid } ? CommentIdPrefix.Strip(uid) : type.UnderlyingType.DisplayName)
+            .Append("    return:\n    ").Append(TypeFieldLabel)
+            .AppendScalar(ReferenceScalar(type.UnderlyingType))
             .AppendLine()
             .Append("    parameters:\n");
 
@@ -475,7 +484,7 @@ internal static class DocfxYamlBuilderExtensions
     /// <param name="type">Delegate type to render.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendDelegateSyntax(this StringBuilder sb, ApiDelegateType type) => sb
-        .Append("  syntax:\n")
+        .Append(SyntaxBlockHeader)
         .AppendSyntaxContent(type.Attributes, type.Invoke.Signature, indent: "    ")
         .AppendParameters(type.Invoke.Parameters, indent: "    ")
         .AppendReturnIfPresent(type.Invoke.ReturnType, indent: "    ");
@@ -510,7 +519,7 @@ internal static class DocfxYamlBuilderExtensions
             .Append("  name: ").AppendScalar(unqualified).AppendLine()
             .Append("  nameWithType: ").AppendScalar(qualified).AppendLine()
             .Append("  fullName: ").AppendScalar(fullyQualified).AppendLine()
-            .Append("  type: ")
+            .Append(TypeFieldLabel)
             .AppendLine(DocfxYamlEmitter.MemberTypeForKind(member.Kind))
             .AppendLine("  assemblies:")
             .Append("  - ").AppendScalar(type.AssemblyName).AppendLine()
@@ -556,7 +565,7 @@ internal static class DocfxYamlBuilderExtensions
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendAttributeEntry(this StringBuilder sb, ApiAttribute attribute)
     {
-        var typeRef = attribute.Uid is [_, ':', ..] ? attribute.Uid[2..] : attribute.Uid;
+        var typeRef = StripCommentIdPrefixIfPresent(attribute.Uid);
         sb.Append("  - type: ").AppendScalar(typeRef).AppendLine();
 
         // Docfx renders the bound constructor uid (M: prefix stripped)
@@ -565,7 +574,7 @@ internal static class DocfxYamlBuilderExtensions
         // metadata level without parsing arguments.
         if (attribute.ConstructorUid is [_, ..] ctorUid)
         {
-            var ctorScalar = ctorUid is [_, ':', ..] ? ctorUid[2..] : ctorUid;
+            var ctorScalar = StripCommentIdPrefixIfPresent(ctorUid);
             sb.Append("    ctor: ").AppendScalar(ctorScalar).AppendLine();
         }
 
@@ -654,7 +663,7 @@ internal static class DocfxYamlBuilderExtensions
     /// <param name="member">Member whose syntax to emit.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendMemberSyntax(this StringBuilder sb, ApiMember member) => sb
-        .Append("  syntax:\n")
+        .Append(SyntaxBlockHeader)
         .AppendSyntaxContent(member.Attributes, member.Signature, indent: "    ")
         .AppendParameters(member.Parameters, indent: "    ")
         .AppendReturnIfPresent(member.ReturnType, indent: "    ");
@@ -734,8 +743,8 @@ internal static class DocfxYamlBuilderExtensions
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendParameter(this StringBuilder sb, ApiParameter parameter, string indent) => sb
         .Append(indent).Append("- id: ").AppendScalar(parameter.Name).AppendLine()
-        .Append(indent).Append("  type: ")
-        .AppendScalar(parameter.Type is { Uid: [_, ..] uid } ? CommentIdPrefix.Strip(uid) : parameter.Type.DisplayName).AppendLine()
+        .Append(indent).Append(TypeFieldLabel)
+        .AppendScalar(ReferenceScalar(parameter.Type)).AppendLine()
         .AppendDefaultValue(parameter.DefaultValue, indent);
 
     /// <summary>Writes the parameter's <c>defaultValue:</c> field when present.</summary>
@@ -765,28 +774,25 @@ internal static class DocfxYamlBuilderExtensions
     /// <param name="indent">Indent prefix carried over from the syntax block.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendReturn(this StringBuilder sb, ApiTypeReference returnType, string indent) => sb
-        .Append(indent).Append("return:\n").Append(indent).Append("  type: ")
-        .AppendScalar(returnType is { Uid: [_, ..] uid } ? CommentIdPrefix.Strip(uid) : returnType.DisplayName)
+        .Append(indent).Append("return:\n").Append(indent).Append(TypeFieldLabel)
+        .AppendScalar(ReferenceScalar(returnType))
         .AppendLine();
 
     /// <summary>
-    /// Writes one entry to the page-level <c>references:</c> list — uid,
-    /// commentId, name, nameWithType, fullName.
+    /// Returns the scalar docfx expects for a type reference.
     /// </summary>
-    /// <param name="sb">Destination builder.</param>
-    /// <param name="reference">Reference to emit.</param>
-    /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
-    public static StringBuilder AppendReference(this StringBuilder sb, ApiTypeReference reference)
-    {
-        var key = reference is { Uid: [_, ..] uid } ? CommentIdPrefix.Strip(uid) : reference.DisplayName;
-        var commentId = reference is { Uid: [_, ..] uid2 } ? uid2 : "T:" + reference.DisplayName;
-        return sb
-            .Append("- uid: ").AppendScalar(key).AppendLine()
-            .Append("  commentId: ").AppendScalar(commentId).AppendLine()
-            .Append("  name: ").AppendScalar(reference.DisplayName).AppendLine()
-            .Append("  nameWithType: ").AppendScalar(reference.DisplayName).AppendLine()
-            .Append("  fullName: ").AppendScalar(reference.DisplayName).AppendLine();
-    }
+    /// <param name="reference">Reference to normalise.</param>
+    /// <returns>Stripped UID when present; otherwise the display name.</returns>
+    public static string ReferenceScalar(ApiTypeReference reference) =>
+        reference is { Uid: [_, ..] uid } ? CommentIdPrefix.Strip(uid) : reference.DisplayName;
+
+    /// <summary>
+    /// Removes an XML-doc comment-id prefix when present.
+    /// </summary>
+    /// <param name="value">Comment-id-like string.</param>
+    /// <returns>The suffix after the prefix, or the original string when no prefix exists.</returns>
+    public static string StripCommentIdPrefixIfPresent(string value) =>
+        value is [_, ':', ..] ? value[CommentIdPrefixLength..] : value;
 
     /// <summary>
     /// Writes <paramref name="prefix"/> + <paramref name="value"/> when

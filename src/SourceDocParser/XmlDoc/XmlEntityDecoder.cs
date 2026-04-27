@@ -34,6 +34,9 @@ internal static class XmlEntityDecoder
     /// <summary>Standard XML entity name for the apostrophe.</summary>
     private const string EntityApos = "apos";
 
+    /// <summary>Maximum allowed value for a BMP code point (0xFFFF).</summary>
+    private const int MaxBmpCodePoint = 65535;
+
     /// <summary>
     /// Decodes the five standard entities + numeric character
     /// references into <paramref name="dest"/>. Unknown entities are
@@ -46,72 +49,25 @@ internal static class XmlEntityDecoder
     public static void AppendDecoded(StringBuilder dest, in ReadOnlySpan<char> text)
     {
         ArgumentNullException.ThrowIfNull(dest);
-        var i = 0;
-        while (i < text.Length)
+        var index = 0;
+        while (index < text.Length)
         {
-            var amp = text[i..].IndexOf('&');
-            if (amp < 0)
+            var match = FindNextEntity(text, index);
+            if (!match.HasAmpersand)
             {
-                dest.Append(text[i..]);
+                dest.Append(text[index..]);
                 return;
             }
 
-            dest.Append(text[i..(i + amp)]);
-            var entityStart = i + amp;
-            var semi = text[entityStart..].IndexOf(';');
-            if (semi < 0)
+            dest.Append(text[index..match.EntityStart]);
+            if (!match.HasSemicolon)
             {
-                // Malformed; append the rest verbatim.
-                dest.Append(text[entityStart..]);
+                dest.Append(text[match.EntityStart..]);
                 return;
             }
 
-            var entity = text[(entityStart + 1)..(entityStart + semi)];
-            switch (entity)
-            {
-                case EntityLt:
-                    {
-                        dest.Append('<');
-                        break;
-                    }
-
-                case EntityGt:
-                    {
-                        dest.Append('>');
-                        break;
-                    }
-
-                case EntityAmp:
-                    {
-                        dest.Append('&');
-                        break;
-                    }
-
-                case EntityQuot:
-                    {
-                        dest.Append('"');
-                        break;
-                    }
-
-                case EntityApos:
-                    {
-                        dest.Append('\'');
-                        break;
-                    }
-
-                default:
-                    {
-                        if (entity.Length > 1 && entity[0] == '#' && TryParseNumericRef(entity[1..], out var rune))
-                        {
-                            dest.Append(rune);
-                        }
-
-                        break;
-                    }
-            }
-
-            // Unknown entity → silently dropped.
-            i = entityStart + semi + 1;
+            AppendDecodedEntity(dest, text[(match.EntityStart + 1)..match.SemicolonIndex]);
+            index = match.SemicolonIndex + 1;
         }
     }
 
@@ -146,12 +102,115 @@ internal static class XmlEntityDecoder
             return false;
         }
 
-        if (code is < 0 or > 0xFFFF)
+        if (code is < 0 or > MaxBmpCodePoint)
         {
             return false;
         }
 
         rune = (char)code;
         return true;
+    }
+
+    /// <summary>
+    /// Finds the next entity candidate in the text.
+    /// </summary>
+    /// <param name="text">Text being scanned.</param>
+    /// <param name="startIndex">Index to start scanning from.</param>
+    /// <returns>The located entity candidate.</returns>
+    internal static EntityMatch FindNextEntity(ReadOnlySpan<char> text, int startIndex)
+    {
+        var ampOffset = text[startIndex..].IndexOf('&');
+        if (ampOffset < 0)
+        {
+            return default;
+        }
+
+        var entityStart = startIndex + ampOffset;
+        var semicolonOffset = text[entityStart..].IndexOf(';');
+        if (semicolonOffset < 0)
+        {
+            return new(entityStart);
+        }
+
+        return new(entityStart, entityStart + semicolonOffset);
+    }
+
+    /// <summary>
+    /// Appends a decoded entity, dropping unknown entities.
+    /// </summary>
+    /// <param name="dest">Destination buffer.</param>
+    /// <param name="entity">Entity body without the leading ampersand or trailing semicolon.</param>
+    internal static void AppendDecodedEntity(StringBuilder dest, ReadOnlySpan<char> entity)
+    {
+        if (TryAppendNamedEntity(dest, entity))
+        {
+            return;
+        }
+
+        if (!TryDecodeNumericEntity(entity, out var rune))
+        {
+            return;
+        }
+
+        dest.Append(rune);
+    }
+
+    /// <summary>
+    /// Appends a standard XML named entity when recognised.
+    /// </summary>
+    /// <param name="dest">Destination buffer.</param>
+    /// <param name="entity">Entity body without the leading ampersand or trailing semicolon.</param>
+    /// <returns>True when a named entity was recognised.</returns>
+    internal static bool TryAppendNamedEntity(StringBuilder dest, ReadOnlySpan<char> entity)
+    {
+        switch (entity)
+        {
+            case EntityLt:
+                {
+                    dest.Append('<');
+                    return true;
+                }
+
+            case EntityGt:
+                {
+                    dest.Append('>');
+                    return true;
+                }
+
+            case EntityAmp:
+                {
+                    dest.Append('&');
+                    return true;
+                }
+
+            case EntityQuot:
+                {
+                    dest.Append('"');
+                    return true;
+                }
+
+            case EntityApos:
+                {
+                    dest.Append('\'');
+                    return true;
+                }
+
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// Decodes a numeric entity body when valid.
+    /// </summary>
+    /// <param name="entity">Entity body without the leading ampersand or trailing semicolon.</param>
+    /// <param name="rune">Decoded character.</param>
+    /// <returns>True when the entity was numeric and valid.</returns>
+    internal static bool TryDecodeNumericEntity(ReadOnlySpan<char> entity, out char rune)
+    {
+        rune = '\0';
+        return entity.Length > 1
+            && entity[0] == '#'
+            && TryParseNumericRef(entity[1..], out rune);
     }
 }

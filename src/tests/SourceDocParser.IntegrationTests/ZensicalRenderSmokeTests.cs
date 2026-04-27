@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Globalization;
 
 namespace SourceDocParser.IntegrationTests;
 
@@ -171,7 +172,7 @@ public class ZensicalRenderSmokeTests
                 $"pip install failed.\nSTDOUT:\n{pipStdout}\nSTDERR:\n{pipStderr}");
         }
 
-        await File.WriteAllTextAsync(marker, requirementsStamp.ToString("O"));
+        await File.WriteAllTextAsync(marker, requirementsStamp.ToString("O", CultureInfo.InvariantCulture));
     }
 
     /// <summary>

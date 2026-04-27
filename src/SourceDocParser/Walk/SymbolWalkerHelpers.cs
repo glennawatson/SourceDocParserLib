@@ -82,17 +82,60 @@ internal static class SymbolWalkerHelpers
     /// </summary>
     /// <param name="member">Symbol to classify.</param>
     /// <returns>The classified member kind, or null.</returns>
-    public static ApiMemberKind? TryClassifyMember(ISymbol member) => member switch
+    public static ApiMemberKind? TryClassifyMember(ISymbol member)
     {
-        IMethodSymbol { MethodKind: MethodKind.Constructor or MethodKind.StaticConstructor } => ApiMemberKind.Constructor,
-        IMethodSymbol { MethodKind: MethodKind.UserDefinedOperator or MethodKind.Conversion } => ApiMemberKind.Operator,
-        IMethodSymbol { MethodKind: MethodKind.Ordinary or MethodKind.ExplicitInterfaceImplementation or MethodKind.DeclareMethod } => ApiMemberKind.Method,
-        IPropertySymbol => ApiMemberKind.Property,
-        IFieldSymbol { ContainingType.TypeKind: TypeKind.Enum } => ApiMemberKind.EnumValue,
-        IFieldSymbol => ApiMemberKind.Field,
-        IEventSymbol => ApiMemberKind.Event,
-        _ => null,
-    };
+        if (member is IMethodSymbol method)
+        {
+            return ClassifyMethod(method);
+        }
+
+        if (member is IPropertySymbol)
+        {
+            return ApiMemberKind.Property;
+        }
+
+        if (member is IFieldSymbol field)
+        {
+            return ClassifyField(field);
+        }
+
+        return member is IEventSymbol ? ApiMemberKind.Event : null;
+    }
+
+    /// <summary>
+    /// Classifies a method-like symbol into an API member kind.
+    /// </summary>
+    /// <param name="member">Method to classify.</param>
+    /// <returns>The classified member kind, or null.</returns>
+    public static ApiMemberKind? ClassifyMethod(IMethodSymbol member)
+    {
+        if (member.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor)
+        {
+            return ApiMemberKind.Constructor;
+        }
+
+        if (member.MethodKind is MethodKind.UserDefinedOperator or MethodKind.Conversion)
+        {
+            return ApiMemberKind.Operator;
+        }
+
+        if (member.MethodKind is not (MethodKind.Ordinary or MethodKind.ExplicitInterfaceImplementation or MethodKind.DeclareMethod))
+        {
+            return null;
+        }
+
+        return ApiMemberKind.Method;
+    }
+
+    /// <summary>
+    /// Classifies a field symbol into either an enum value or a field.
+    /// </summary>
+    /// <param name="member">Field to classify.</param>
+    /// <returns>The classified member kind.</returns>
+    public static ApiMemberKind ClassifyField(IFieldSymbol member) =>
+        member.ContainingType.TypeKind == TypeKind.Enum
+            ? ApiMemberKind.EnumValue
+            : ApiMemberKind.Field;
 
     /// <summary>
     /// Documents public, protected, and protected-internal members.

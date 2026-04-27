@@ -32,6 +32,14 @@ public static class MemberPageEmitter
     private const int InitialPageCapacity = 4096;
 
     /// <summary>
+    /// Length of the XML-doc cref prefix (for example <c>T:</c> or <c>M:</c>).
+    /// </summary>
+    private const int CrefPrefixLength = 2;
+
+    /// <summary>Markdown level 3 heading prefix.</summary>
+    private const string MarkdownH3Prefix = "### ";
+
+    /// <summary>
     /// Renders the Markdown for a set of overloads.
     /// </summary>
     /// <param name="containingType">The declaring type.</param>
@@ -218,7 +226,7 @@ public static class MemberPageEmitter
     /// <param name="options">Routing + cross-link tunables.</param>
     private static void AppendNumberedOverload(StringBuilder sb, ApiMember member, int ordinal, ZensicalEmitterOptions options)
     {
-        sb.Append("\n### ").Append(ordinal).Append(". Overload\n\n");
+        sb.Append('\n').Append(MarkdownH3Prefix).Append(ordinal).Append(". Overload\n\n");
         AppendSignatureBlock(sb, member);
         AppendSections(sb, member, options);
     }
@@ -270,20 +278,8 @@ public static class MemberPageEmitter
     {
         var doc = member.Documentation;
 
-        if (doc.InheritedFrom is [_, ..] inheritedFrom)
-        {
-            sb.Append($"""
-                !!! note "Inherited documentation"
-                    These docs were inherited from `{inheritedFrom}`. The member doesn't override them on this type.
-
-
-                """);
-        }
-
-        if (doc.Summary is [_, ..] summary)
-        {
-            sb.Append("**Summary:** ").Append(summary).Append("\n\n");
-        }
+        AppendInheritedDocumentationSection(sb, doc);
+        AppendSummarySection(sb, doc);
 
         if (member.TypeParameters is [_, ..])
         {
@@ -300,15 +296,8 @@ public static class MemberPageEmitter
             AppendReturnsSection(sb, returnType, doc.Returns, options);
         }
 
-        if (doc.Value is [_, ..] val)
-        {
-            sb.Append("**Value:** ").Append(val).Append("\n\n");
-        }
-
-        if (doc.Remarks is [_, ..] remarks)
-        {
-            sb.Append("**Remarks**\n\n").Append(remarks).Append("\n\n");
-        }
+        AppendValueSection(sb, doc);
+        AppendRemarksSection(sb, doc);
 
         if (doc.Exceptions is [_, ..] exceptions)
         {
@@ -320,6 +309,83 @@ public static class MemberPageEmitter
             AppendExamplesSection(sb, examples);
         }
 
+        AppendSeeAlsoSectionIfAny(sb, doc, options);
+    }
+
+    /// <summary>
+    /// Appends the inherited-documentation admonition when this member
+    /// pulls its docs from another API.
+    /// </summary>
+    /// <param name="sb">Destination buffer.</param>
+    /// <param name="doc">Member documentation payload.</param>
+    private static void AppendInheritedDocumentationSection(StringBuilder sb, ApiDocumentation doc)
+    {
+        if (doc.InheritedFrom is not [_, ..] inheritedFrom)
+        {
+            return;
+        }
+
+        sb.Append($"""
+            !!! note "Inherited documentation"
+                These docs were inherited from `{inheritedFrom}`. The member doesn't override them on this type.
+
+
+            """);
+    }
+
+    /// <summary>
+    /// Appends the summary section when present.
+    /// </summary>
+    /// <param name="sb">Destination buffer.</param>
+    /// <param name="doc">Member documentation payload.</param>
+    private static void AppendSummarySection(StringBuilder sb, ApiDocumentation doc)
+    {
+        if (doc.Summary is not [_, ..] summary)
+        {
+            return;
+        }
+
+        sb.Append("**Summary:** ").Append(summary).Append("\n\n");
+    }
+
+    /// <summary>
+    /// Appends the value section when present.
+    /// </summary>
+    /// <param name="sb">Destination buffer.</param>
+    /// <param name="doc">Member documentation payload.</param>
+    private static void AppendValueSection(StringBuilder sb, ApiDocumentation doc)
+    {
+        if (doc.Value is not [_, ..] value)
+        {
+            return;
+        }
+
+        sb.Append("**Value:** ").Append(value).Append("\n\n");
+    }
+
+    /// <summary>
+    /// Appends the remarks section when present.
+    /// </summary>
+    /// <param name="sb">Destination buffer.</param>
+    /// <param name="doc">Member documentation payload.</param>
+    private static void AppendRemarksSection(StringBuilder sb, ApiDocumentation doc)
+    {
+        if (doc.Remarks is not [_, ..] remarks)
+        {
+            return;
+        }
+
+        sb.Append("**Remarks**\n\n").Append(remarks).Append("\n\n");
+    }
+
+    /// <summary>
+    /// Appends the see-also section when present.
+    /// </summary>
+    /// <param name="sb">Destination buffer.</param>
+    /// <param name="doc">Member documentation payload.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    private static void AppendSeeAlsoSectionIfAny(StringBuilder sb, ApiDocumentation doc, ZensicalEmitterOptions options)
+    {
         if (doc.SeeAlso is not [_, ..])
         {
             return;
@@ -512,7 +578,7 @@ public static class MemberPageEmitter
     /// <returns>The rendered link.</returns>
     private static string FormatXref(string cref, ZensicalEmitterOptions options) =>
         cref is [_, ':', ..]
-            ? CrossLinkRouter.Format(new(cref[2..], cref), options)
+            ? CrossLinkRouter.Format(new(cref[CrefPrefixLength..], cref), options)
             : $"`{cref}`";
 
     /// <summary>

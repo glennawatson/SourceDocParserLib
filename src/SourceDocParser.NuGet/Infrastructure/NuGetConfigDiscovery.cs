@@ -78,6 +78,15 @@ internal static class NuGetConfigDiscovery
     /// <summary>
     /// Walks the discovery chain rooted at <paramref name="workingFolder"/>
     /// and returns the first <c>globalPackagesFolder</c> value found.
+    /// </summary>
+    /// <param name="workingFolder">Repository / project root to start the walk from.</param>
+    /// <returns>The configured value, or <see langword="null"/> when absent.</returns>
+    public static Task<string?> ResolveGlobalPackagesFolderAsync(string workingFolder) =>
+        ResolveGlobalPackagesFolderAsync(workingFolder, CancellationToken.None);
+
+    /// <summary>
+    /// Walks the discovery chain rooted at <paramref name="workingFolder"/>
+    /// and returns the first <c>globalPackagesFolder</c> value found.
     /// Returns <see langword="null"/> when no config file along the
     /// chain carries that setting — caller falls back to the
     /// platform default via
@@ -86,7 +95,7 @@ internal static class NuGetConfigDiscovery
     /// <param name="workingFolder">Repository / project root to start the walk from.</param>
     /// <param name="cancellationToken">Token observed across each parse.</param>
     /// <returns>The configured value, or <see langword="null"/> when absent.</returns>
-    public static async Task<string?> ResolveGlobalPackagesFolderAsync(string workingFolder, CancellationToken cancellationToken = default)
+    public static async Task<string?> ResolveGlobalPackagesFolderAsync(string workingFolder, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(workingFolder);
 
@@ -117,21 +126,36 @@ internal static class NuGetConfigDiscovery
     }
 
     /// <summary>
-    /// One-shot wrapper that returns the fully-resolved global
-    /// packages folder for <paramref name="workingFolder"/> —
-    /// chains <see cref="ResolveGlobalPackagesFolderAsync"/> +
-    /// <see cref="NuGetGlobalCache.ResolveGlobalPackagesFolder(string?)"/>
-    /// so callers get the same value the SDK would land on without
-    /// composing the two layers themselves.
+    /// Returns the fully-resolved global packages folder for
+    /// <paramref name="workingFolder"/>.
     /// </summary>
     /// <param name="workingFolder">Repository / project root to start the walk from.</param>
-    /// <param name="cancellationToken">Token observed across the parse.</param>
     /// <returns>The absolute path to the global packages folder.</returns>
-    public static async Task<string> ResolveAsync(string workingFolder, CancellationToken cancellationToken = default)
+    public static Task<string> ResolveAsync(string workingFolder) =>
+        ResolveAsync(workingFolder, CancellationToken.None);
+
+    /// <summary>
+    /// Resolves the global packages folder path based on the specified <paramref name="workingFolder"/>
+    /// and configuration settings. If no override is provided, the default global package location is used.
+    /// </summary>
+    /// <param name="workingFolder">The repository or project root for resolving the global packages folder.</param>
+    /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+    /// <returns>The resolved global packages folder path.</returns>
+    public static async Task<string> ResolveAsync(string workingFolder, CancellationToken cancellationToken)
     {
         var configValue = await ResolveGlobalPackagesFolderAsync(workingFolder, cancellationToken).ConfigureAwait(false);
         return NuGetGlobalCache.ResolveGlobalPackagesFolder(configValue);
     }
+
+    /// <summary>
+    /// Walks the discovery chain rooted at
+    /// <paramref name="workingFolder"/> and returns the merged
+    /// package-source list.
+    /// </summary>
+    /// <param name="workingFolder">Repository / project root to start the walk from.</param>
+    /// <returns>Ordered, deduplicated package sources — first entry has highest discovery precedence.</returns>
+    public static Task<PackageSource[]> ResolvePackageSourcesAsync(string workingFolder) =>
+        ResolvePackageSourcesAsync(workingFolder, CancellationToken.None);
 
     /// <summary>
     /// Walks the discovery chain rooted at
@@ -147,7 +171,7 @@ internal static class NuGetConfigDiscovery
     /// <param name="workingFolder">Repository / project root to start the walk from.</param>
     /// <param name="cancellationToken">Token observed across each parse.</param>
     /// <returns>Ordered, deduplicated package sources — first entry has highest discovery precedence.</returns>
-    public static async Task<PackageSource[]> ResolvePackageSourcesAsync(string workingFolder, CancellationToken cancellationToken = default)
+    public static async Task<PackageSource[]> ResolvePackageSourcesAsync(string workingFolder, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(workingFolder);
 
@@ -189,6 +213,15 @@ internal static class NuGetConfigDiscovery
 
     /// <summary>
     /// Walks the chain rooted at <paramref name="workingFolder"/>
+    /// and unions every disabled-source key.
+    /// </summary>
+    /// <param name="workingFolder">Repository / project root.</param>
+    /// <returns>Set of disabled source keys.</returns>
+    public static Task<HashSet<string>> ResolveDisabledSourcesAsync(string workingFolder) =>
+        ResolveDisabledSourcesAsync(workingFolder, CancellationToken.None);
+
+    /// <summary>
+    /// Walks the chain rooted at <paramref name="workingFolder"/>
     /// and unions every disabled-source key. There's no clear
     /// semantics for this section — once a config disables a
     /// source, the union prevents the fetcher from ever using it.
@@ -196,7 +229,7 @@ internal static class NuGetConfigDiscovery
     /// <param name="workingFolder">Repository / project root.</param>
     /// <param name="cancellationToken">Token observed across each parse.</param>
     /// <returns>Set of disabled source keys.</returns>
-    public static async Task<HashSet<string>> ResolveDisabledSourcesAsync(string workingFolder, CancellationToken cancellationToken = default)
+    public static async Task<HashSet<string>> ResolveDisabledSourcesAsync(string workingFolder, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(workingFolder);
         var disabled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -211,13 +244,22 @@ internal static class NuGetConfigDiscovery
     }
 
     /// <summary>
+    /// Walks the chain rooted at <paramref name="workingFolder"/>
+    /// and merges credential blocks.
+    /// </summary>
+    /// <param name="workingFolder">Repository / project root.</param>
+    /// <returns>Credentials by source key.</returns>
+    public static Task<Dictionary<string, PackageSourceCredential>> ResolveCredentialsAsync(string workingFolder) =>
+        ResolveCredentialsAsync(workingFolder, CancellationToken.None);
+
+    /// <summary>
     /// Walks the chain and merges credential blocks — closer
     /// configs' values win on key collision.
     /// </summary>
     /// <param name="workingFolder">Repository / project root.</param>
     /// <param name="cancellationToken">Token observed across each parse.</param>
     /// <returns>Credentials by source key.</returns>
-    public static async Task<Dictionary<string, PackageSourceCredential>> ResolveCredentialsAsync(string workingFolder, CancellationToken cancellationToken = default)
+    public static async Task<Dictionary<string, PackageSourceCredential>> ResolveCredentialsAsync(string workingFolder, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(workingFolder);
         var merged = new Dictionary<string, PackageSourceCredential>(StringComparer.OrdinalIgnoreCase);
@@ -235,6 +277,15 @@ internal static class NuGetConfigDiscovery
     }
 
     /// <summary>
+    /// Walks the chain rooted at <paramref name="workingFolder"/>
+    /// and merges fallback-folder paths.
+    /// </summary>
+    /// <param name="workingFolder">Repository / project root.</param>
+    /// <returns>Ordered fallback folder paths (closest config first).</returns>
+    public static Task<string[]> ResolveFallbackFoldersAsync(string workingFolder) =>
+        ResolveFallbackFoldersAsync(workingFolder, CancellationToken.None);
+
+    /// <summary>
     /// Walks the chain and merges fallback-folder paths, honouring
     /// <c>&lt;clear/&gt;</c> as the section-stop signal so a closer
     /// config can scope away parents.
@@ -242,7 +293,7 @@ internal static class NuGetConfigDiscovery
     /// <param name="workingFolder">Repository / project root.</param>
     /// <param name="cancellationToken">Token observed across each parse.</param>
     /// <returns>Ordered fallback folder paths (closest config first).</returns>
-    public static async Task<string[]> ResolveFallbackFoldersAsync(string workingFolder, CancellationToken cancellationToken = default)
+    public static async Task<string[]> ResolveFallbackFoldersAsync(string workingFolder, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(workingFolder);
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

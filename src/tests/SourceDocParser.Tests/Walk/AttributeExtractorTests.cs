@@ -347,16 +347,6 @@ public class AttributeExtractorTests
     [Test]
     public async Task FormatArrayConstantRendersBracketedList()
     {
-        var symbol = GetTypeSymbol(
-            """
-            using System;
-            using System.Diagnostics;
-            [DebuggerDisplay("x", Target = typeof(int), TargetTypeName = "int")]
-            [DebuggerTypeProxy(typeof(int))]
-            public class Target { }
-            """,
-            "Target");
-
         // Synthesise an array constant via a usage that takes one. The
         // simplest BCL attribute that takes an array is hard to find,
         // so we feed a manual values array via Roslyn — drive the

@@ -169,7 +169,7 @@ public class NuGetConfigDiscoveryTests
             // sources too — but our well-known nuget.org default is
             // always present at minimum.
             await Assert.That(sources.Length).IsGreaterThan(0);
-            await Assert.That(sources.Any(s => s.Key == "nuget.org" || s.Url.Contains("api.nuget.org", StringComparison.OrdinalIgnoreCase))).IsTrue();
+            await Assert.That(Array.Exists(sources, s => s.Key == "nuget.org" || s.Url.Contains("api.nuget.org", StringComparison.OrdinalIgnoreCase))).IsTrue();
         }
         finally
         {

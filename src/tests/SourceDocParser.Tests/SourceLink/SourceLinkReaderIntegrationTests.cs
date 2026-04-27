@@ -20,6 +20,12 @@ namespace SourceDocParser.Tests.SourceLink;
 /// </summary>
 public class SourceLinkReaderIntegrationTests
 {
+    /// <summary>The value returned by the SamplePdb anchor method.</summary>
+    private const int ExpectedAnchorReturnValue = 42;
+
+    /// <summary>The exact source line the anchor method should occupy in the fixture source file.</summary>
+    private const string ExpectedAnchorMethodSourceLine = "    public static int Anchor() => AnchorReturnValue;";
+
     /// <summary>Gets the on-disk path to the SamplePdb fixture assembly, sitting next to the test bin.</summary>
     private static string SamplePdbAssemblyPath => typeof(SamplePdbAnchor).Assembly.Location;
 
@@ -53,6 +59,37 @@ public class SourceLinkReaderIntegrationTests
         await Assert.That(location!.Value.LocalPath).EndsWith("SamplePdbAnchor.cs");
         await Assert.That(location.Value.StartLine).IsEqualTo(SamplePdbAnchor.KnownMethodBodyLine);
     }
+
+    /// <summary>
+    /// The SamplePdb anchor fixture stays self-consistent: its pinned
+    /// line constant still points at the anchor method declaration in
+    /// the checked-in source file.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task AnchorFixtureLineConstantMatchesSourceFile()
+    {
+        using var reader = new SourceLinkReader(SamplePdbAssemblyPath);
+        var anchorMethod = typeof(SamplePdbAnchor).GetMethod(nameof(SamplePdbAnchor.Anchor), BindingFlags.Public | BindingFlags.Static)!;
+        var location = reader.GetMethodLocation(anchorMethod.MetadataToken);
+
+        await Assert.That(location).IsNotNull();
+
+        var sourceLines = await File.ReadAllLinesAsync(location!.Value.LocalPath);
+
+        await Assert.That(sourceLines.Length).IsGreaterThanOrEqualTo(SamplePdbAnchor.KnownMethodBodyLine);
+        await Assert.That(sourceLines[SamplePdbAnchor.KnownMethodBodyLine - 1]).IsEqualTo(ExpectedAnchorMethodSourceLine);
+    }
+
+    /// <summary>
+    /// The anchor method returns the constant value the fixture is meant
+    /// to pin, so refactors of its implementation still preserve the
+    /// expected behavior.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task AnchorFixtureReturnsExpectedValue() =>
+        await Assert.That(SamplePdbAnchor.Anchor()).IsEqualTo(ExpectedAnchorReturnValue);
 
     /// <summary>
     /// GetMethodLocation against a metadata token whose row part is
