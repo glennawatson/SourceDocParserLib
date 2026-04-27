@@ -6,9 +6,16 @@ namespace SamplePdb;
 
 /// <summary>
 /// Carries a <see cref="MarkerAttribute"/> usage with a positional
-/// argument plus two named arguments so the walker's
-/// <c>AttributeExtractor</c> path is pinned end-to-end on real
-/// metadata (not just a synthetic <c>ApiAttribute</c>).
+/// string + named arguments covering every TypedConstant shape:
+/// primitive (int / string), <c>Type</c> via <c>typeof</c>, an enum
+/// value, and a string array. Pins the AttributeExtractor's
+/// FormatConstant switch arms end-to-end on real metadata.
 /// </summary>
-[Marker("primary", Priority = 7, Tag = "fixture")]
+[Marker(
+    "primary",
+    Priority = 7,
+    Tag = "fixture",
+    TargetType = typeof(SampleShape),
+    Severity = SampleSeverity.Warning,
+    Tags = ["alpha", "beta"])]
 public class AttributedTarget;

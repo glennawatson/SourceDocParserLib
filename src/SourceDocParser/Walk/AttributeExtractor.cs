@@ -20,7 +20,7 @@ namespace SourceDocParser.Walk;
 internal static class AttributeExtractor
 {
     /// <summary>The fully-qualified name of <c>System.ObsoleteAttribute</c>.</summary>
-    private const string ObsoleteAttributeFullName = "System.ObsoleteAttribute";
+    internal const string ObsoleteAttributeFullName = "System.ObsoleteAttribute";
 
     /// <summary>
     /// Returns the model representation of every attribute applied to
@@ -28,7 +28,7 @@ internal static class AttributeExtractor
     /// </summary>
     /// <param name="symbol">The symbol whose attributes to extract.</param>
     /// <returns>The attributes; an empty array when the symbol has none.</returns>
-    public static ApiAttribute[] Extract(ISymbol symbol) =>
+    internal static ApiAttribute[] Extract(ISymbol symbol) =>
         ExtractCore(symbol.GetAttributes());
 
     /// <summary>
@@ -41,7 +41,7 @@ internal static class AttributeExtractor
     /// </summary>
     /// <param name="symbol">The symbol to inspect.</param>
     /// <returns>Tuple of attributes, obsolete flag, and optional message.</returns>
-    public static (ApiAttribute[] Attributes, bool IsObsolete, string? ObsoleteMessage) ExtractAll(ISymbol symbol)
+    internal static (ApiAttribute[] Attributes, bool IsObsolete, string? ObsoleteMessage) ExtractAll(ISymbol symbol)
     {
         var raw = symbol.GetAttributes();
         if (raw.IsDefaultOrEmpty)
@@ -84,7 +84,7 @@ internal static class AttributeExtractor
     /// </summary>
     /// <param name="symbol">The symbol to inspect.</param>
     /// <returns>Tuple of obsolete flag and optional message.</returns>
-    public static (bool IsObsolete, string? Message) ResolveObsolete(ISymbol symbol)
+    internal static (bool IsObsolete, string? Message) ResolveObsolete(ISymbol symbol)
     {
         var attributes = symbol.GetAttributes();
         for (var i = 0; i < attributes.Length; i++)
@@ -126,14 +126,14 @@ internal static class AttributeExtractor
     /// <summary>Tests whether <paramref name="attributeClass"/> is <c>System.ObsoleteAttribute</c>.</summary>
     /// <param name="attributeClass">The attribute class symbol; may be null when Roslyn cannot resolve it.</param>
     /// <returns>True for <c>System.ObsoleteAttribute</c>.</returns>
-    private static bool IsObsoleteAttribute(INamedTypeSymbol? attributeClass) =>
+    internal static bool IsObsoleteAttribute(INamedTypeSymbol? attributeClass) =>
         attributeClass?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat.WithGlobalNamespaceStyle(SymbolDisplayGlobalNamespaceStyle.Omitted))
             == ObsoleteAttributeFullName;
 
     /// <summary>Converts one Roslyn <see cref="AttributeData"/> into an <see cref="ApiAttribute"/>.</summary>
     /// <param name="data">The Roslyn attribute usage.</param>
     /// <returns>The model attribute, with constructor and named arguments preserved in source order.</returns>
-    private static ApiAttribute Convert(AttributeData data)
+    internal static ApiAttribute Convert(AttributeData data)
     {
         var attributeClass = data.AttributeClass;
         var displayName = attributeClass is null
@@ -163,7 +163,7 @@ internal static class AttributeExtractor
     /// <summary>Drops the trailing <c>Attribute</c> suffix from a class name when present.</summary>
     /// <param name="name">The class name.</param>
     /// <returns>The shortened name (e.g. <c>Obsolete</c> from <c>ObsoleteAttribute</c>).</returns>
-    private static string StripAttributeSuffix(string name) =>
+    internal static string StripAttributeSuffix(string name) =>
         name.EndsWith("Attribute", StringComparison.Ordinal) && name.Length > "Attribute".Length
             ? name[..^"Attribute".Length]
             : name;
@@ -176,7 +176,7 @@ internal static class AttributeExtractor
     /// </summary>
     /// <param name="constant">The typed constant to format.</param>
     /// <returns>The source-like rendering.</returns>
-    private static string FormatConstant(TypedConstant constant)
+    internal static string FormatConstant(TypedConstant constant)
     {
         if (constant.IsNull)
         {
@@ -197,7 +197,7 @@ internal static class AttributeExtractor
     /// <summary>Formats an enum-typed constant as <c>EnumName.MemberName</c> (best effort).</summary>
     /// <param name="constant">An enum-typed constant.</param>
     /// <returns>The formatted enum literal.</returns>
-    private static string FormatEnumConstant(TypedConstant constant)
+    internal static string FormatEnumConstant(TypedConstant constant)
     {
         var typeName = constant.Type is INamedTypeSymbol named
             ? named.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)
@@ -208,7 +208,7 @@ internal static class AttributeExtractor
     /// <summary>Formats an array-typed constant as <c>[a, b, c]</c>.</summary>
     /// <param name="constant">An array-typed constant.</param>
     /// <returns>The formatted array literal.</returns>
-    private static string FormatArrayConstant(TypedConstant constant)
+    internal static string FormatArrayConstant(TypedConstant constant)
     {
         var sb = new StringBuilder().Append('[');
         for (var i = 0; i < constant.Values.Length; i++)
@@ -227,7 +227,7 @@ internal static class AttributeExtractor
     /// <summary>Formats a primitive constant value with C# source conventions (string quoting, bool lowercasing).</summary>
     /// <param name="value">The boxed primitive value.</param>
     /// <returns>The formatted literal.</returns>
-    private static string FormatPrimitive(object? value) => value switch
+    internal static string FormatPrimitive(object? value) => value switch
     {
         null => "null",
         string s => QuoteStringLiteral(s),
@@ -242,7 +242,7 @@ internal static class AttributeExtractor
     /// </summary>
     /// <param name="value">Raw string value.</param>
     /// <returns>The quoted literal.</returns>
-    private static string QuoteStringLiteral(string value)
+    internal static string QuoteStringLiteral(string value)
     {
         var firstEscapeIndex = value.AsSpan().IndexOfAny(['\\', '"']);
         if (firstEscapeIndex < 0)
@@ -286,7 +286,7 @@ internal static class AttributeExtractor
     /// </summary>
     /// <param name="text">Text to inspect.</param>
     /// <returns>The number of inserted escape characters.</returns>
-    private static int CountEscapes(in ReadOnlySpan<char> text)
+    internal static int CountEscapes(in ReadOnlySpan<char> text)
     {
         var count = 0;
         for (var i = 0; i < text.Length; i++)

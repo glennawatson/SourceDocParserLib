@@ -256,7 +256,13 @@ public class SamplePdbWalkerIntegrationTests
         await Assert.That(memberNames).Contains("All");
     }
 
-    /// <summary>Attributes with a positional argument plus named arguments preserve every value in source order (positional first, named after).</summary>
+    /// <summary>
+    /// Attributes with a positional argument plus named arguments
+    /// preserve every value in source order (positional first, named
+    /// after) and render every TypedConstant shape — primitive,
+    /// typeof, enum, and array — through the walker's FormatConstant
+    /// switch arms.
+    /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task AttributeArgumentsAreCaptured()
@@ -274,18 +280,34 @@ public class SamplePdbWalkerIntegrationTests
         }
 
         await Assert.That(marker).IsNotNull();
-        await Assert.That(marker!.Arguments.Length).IsEqualTo(3);
+        await Assert.That(marker!.Arguments.Length).IsEqualTo(6);
 
-        // Positional first.
+        // Positional first — the constructor's string parameter.
         await Assert.That(marker.Arguments[0].Name).IsNull();
         await Assert.That(marker.Arguments[0].Value).IsEqualTo("\"primary\"");
 
-        // Named arguments retain their declaration order.
-        await Assert.That(marker.Arguments[1].Name).IsEqualTo("Priority");
-        await Assert.That(marker.Arguments[1].Value).IsEqualTo("7");
+        // Named arguments retain declaration order.
+        var byName = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (var i = 1; i < marker.Arguments.Length; i++)
+        {
+            byName[marker.Arguments[i].Name!] = marker.Arguments[i].Value;
+        }
 
-        await Assert.That(marker.Arguments[2].Name).IsEqualTo("Tag");
-        await Assert.That(marker.Arguments[2].Value).IsEqualTo("\"fixture\"");
+        await Assert.That(byName["Priority"]).IsEqualTo("7");
+        await Assert.That(byName["Tag"]).IsEqualTo("\"fixture\"");
+
+        // typeof(...) renders through the Type-kind branch.
+        await Assert.That(byName["TargetType"]).IsEqualTo("typeof(SampleShape)");
+
+        // Enums render as TypeName.MemberName via the Enum-kind branch
+        // — but TypedConstant carries the underlying integer value,
+        // so the walker formats with the numeric literal rather than
+        // the symbolic member name. Pinned here so any improvement
+        // (resolving the symbolic name) lands as a deliberate change.
+        await Assert.That(byName["Severity"]).IsEqualTo("SampleSeverity.1");
+
+        // Arrays render as [v, v, v] through the Array-kind branch.
+        await Assert.That(byName["Tags"]).IsEqualTo("[\"alpha\", \"beta\"]");
     }
 
     /// <summary>Closed-hierarchy unions (any type implementing <c>System.Runtime.CompilerServices.IUnion</c>) surface as <see cref="ApiUnionType"/> with their case classes captured.</summary>
