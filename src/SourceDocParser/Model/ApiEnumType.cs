@@ -65,4 +65,27 @@ public sealed record ApiEnumType(
         AppliesTo,
         IsObsolete,
         ObsoleteMessage,
-        Attributes);
+        Attributes)
+{
+    /// <summary>Empty placeholder used as a <c>with</c>-expression starting point during construction.</summary>
+    public static readonly ApiEnumType Empty = new(
+        Name: string.Empty,
+        FullName: string.Empty,
+        Uid: string.Empty,
+        Namespace: string.Empty,
+        Arity: 0,
+        IsStatic: false,
+        IsSealed: false,
+        IsAbstract: false,
+        AssemblyName: string.Empty,
+        Documentation: ApiDocumentation.Empty,
+        BaseType: null,
+        Interfaces: [],
+        SourceUrl: null,
+        AppliesTo: [],
+        IsObsolete: false,
+        ObsoleteMessage: null,
+        Attributes: [],
+        UnderlyingType: new(string.Empty, string.Empty),
+        Values: []);
+}

@@ -63,4 +63,26 @@ public sealed record ApiDelegateType(
         AppliesTo,
         IsObsolete,
         ObsoleteMessage,
-        Attributes);
+        Attributes)
+{
+    /// <summary>Empty placeholder used as a <c>with</c>-expression starting point during construction.</summary>
+    public static readonly ApiDelegateType Empty = new(
+        Name: string.Empty,
+        FullName: string.Empty,
+        Uid: string.Empty,
+        Namespace: string.Empty,
+        Arity: 0,
+        IsStatic: false,
+        IsSealed: false,
+        IsAbstract: false,
+        AssemblyName: string.Empty,
+        Documentation: ApiDocumentation.Empty,
+        BaseType: null,
+        Interfaces: [],
+        SourceUrl: null,
+        AppliesTo: [],
+        IsObsolete: false,
+        ObsoleteMessage: null,
+        Attributes: [],
+        Invoke: new(string.Empty, null, [], []));
+}

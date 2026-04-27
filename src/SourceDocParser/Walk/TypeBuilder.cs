@@ -65,75 +65,39 @@ internal static class TypeBuilder
     /// <summary>Constructs the <see cref="ApiUnionType"/> branch.</summary>
     /// <param name="input">Per-type build inputs.</param>
     /// <returns>The constructed union type.</returns>
-    internal static ApiUnionType BuildUnion(in TypeBuildContext input) => new(
-        Name: input.Type.Name,
-        FullName: input.FullName,
-        Uid: input.Uid,
-        Namespace: input.Namespace,
-        Arity: input.Type.Arity,
-        IsStatic: input.Type.IsStatic,
-        IsSealed: input.Type.IsSealed,
-        IsAbstract: input.Type.IsAbstract,
-        AssemblyName: input.Context.AssemblyName,
-        Documentation: input.Documentation,
-        BaseType: input.BaseTypeRef,
-        Interfaces: input.Interfaces,
-        SourceUrl: input.SourceUrl,
-        AppliesTo: input.Context.AppliesTo,
-        IsObsolete: input.IsObsolete,
-        ObsoleteMessage: input.ObsoleteMessage,
-        Attributes: input.Attributes,
-        Members: MemberBuilder.Build(input.Type, input.Type.Name, input.Uid, input.Context),
-        Cases: SymbolWalkerHelpers.BuildUnionCases(input.Type, input.Context.TypeRefs));
+    internal static ApiUnionType BuildUnion(in TypeBuildContext input) =>
+        WithBaseFields(
+            ApiUnionType.Empty with
+            {
+                Members = MemberBuilder.Build(input.Type, input.Type.Name, input.Uid, input.Context),
+                Cases = SymbolWalkerHelpers.BuildUnionCases(input.Type, input.Context.TypeRefs),
+            },
+            input);
 
     /// <summary>Constructs the <see cref="ApiEnumType"/> branch.</summary>
     /// <param name="input">Per-type build inputs.</param>
     /// <returns>The constructed enum type.</returns>
-    internal static ApiEnumType BuildEnum(in TypeBuildContext input) => new(
-        Name: input.Type.Name,
-        FullName: input.FullName,
-        Uid: input.Uid,
-        Namespace: input.Namespace,
-        Arity: input.Type.Arity,
-        IsStatic: input.Type.IsStatic,
-        IsSealed: input.Type.IsSealed,
-        IsAbstract: input.Type.IsAbstract,
-        AssemblyName: input.Context.AssemblyName,
-        Documentation: input.Documentation,
-        BaseType: input.BaseTypeRef,
-        Interfaces: input.Interfaces,
-        SourceUrl: input.SourceUrl,
-        AppliesTo: input.Context.AppliesTo,
-        IsObsolete: input.IsObsolete,
-        ObsoleteMessage: input.ObsoleteMessage,
-        Attributes: input.Attributes,
-        UnderlyingType: input.Context.TypeRefs.GetOrAdd(
-            input.Type.EnumUnderlyingType ?? input.Type,
-            SymbolWalkerHelpers.BuildReference),
-        Values: SymbolWalkerHelpers.BuildEnumValues(input.Type, input.Context));
+    internal static ApiEnumType BuildEnum(in TypeBuildContext input) =>
+        WithBaseFields(
+            ApiEnumType.Empty with
+            {
+                UnderlyingType = input.Context.TypeRefs.GetOrAdd(
+                    input.Type.EnumUnderlyingType ?? input.Type,
+                    SymbolWalkerHelpers.BuildReference),
+                Values = SymbolWalkerHelpers.BuildEnumValues(input.Type, input.Context),
+            },
+            input);
 
     /// <summary>Constructs the <see cref="ApiDelegateType"/> branch.</summary>
     /// <param name="input">Per-type build inputs.</param>
     /// <returns>The constructed delegate type.</returns>
-    internal static ApiDelegateType BuildDelegate(in TypeBuildContext input) => new(
-        Name: input.Type.Name,
-        FullName: input.FullName,
-        Uid: input.Uid,
-        Namespace: input.Namespace,
-        Arity: input.Type.Arity,
-        IsStatic: input.Type.IsStatic,
-        IsSealed: input.Type.IsSealed,
-        IsAbstract: input.Type.IsAbstract,
-        AssemblyName: input.Context.AssemblyName,
-        Documentation: input.Documentation,
-        BaseType: input.BaseTypeRef,
-        Interfaces: input.Interfaces,
-        SourceUrl: input.SourceUrl,
-        AppliesTo: input.Context.AppliesTo,
-        IsObsolete: input.IsObsolete,
-        ObsoleteMessage: input.ObsoleteMessage,
-        Attributes: input.Attributes,
-        Invoke: SymbolWalkerHelpers.BuildDelegateInvoke(input.Type, input.Context));
+    internal static ApiDelegateType BuildDelegate(in TypeBuildContext input) =>
+        WithBaseFields(
+            ApiDelegateType.Empty with
+            {
+                Invoke = SymbolWalkerHelpers.BuildDelegateInvoke(input.Type, input.Context),
+            },
+            input);
 
     /// <summary>Constructs the <see cref="ApiObjectType"/> branch — class / struct / interface / record / record struct.</summary>
     /// <param name="input">Per-type build inputs.</param>
@@ -141,29 +105,52 @@ internal static class TypeBuilder
     internal static ApiObjectType? BuildObject(in TypeBuildContext input) =>
         SymbolWalkerHelpers.ClassifyObjectKind(input.Type) is not { } kind
             ? null
-            : new ApiObjectType(
-                Name: input.Type.Name,
-                FullName: input.FullName,
-                Uid: input.Uid,
-                Namespace: input.Namespace,
-                Arity: input.Type.Arity,
-                IsStatic: input.Type.IsStatic,
-                IsSealed: input.Type.IsSealed,
-                IsAbstract: input.Type.IsAbstract,
-                AssemblyName: input.Context.AssemblyName,
-                Documentation: input.Documentation,
-                BaseType: input.BaseTypeRef,
-                Interfaces: input.Interfaces,
-                SourceUrl: input.SourceUrl,
-                AppliesTo: input.Context.AppliesTo,
-                IsObsolete: input.IsObsolete,
-                ObsoleteMessage: input.ObsoleteMessage,
-                Attributes: input.Attributes,
-                Kind: kind,
-                IsReadOnly: input.Type.IsReadOnly,
-                IsByRefLike: input.Type.IsRefLikeType,
-                Members: MemberBuilder.Build(input.Type, input.Type.Name, input.Uid, input.Context),
-                ExtensionBlocks: ExtensionBlockBuilder.Build(input.Type, input.Context));
+            : WithBaseFields(
+                ApiObjectType.Empty with
+                {
+                    Kind = kind,
+                    IsReadOnly = input.Type.IsReadOnly,
+                    IsByRefLike = input.Type.IsRefLikeType,
+                    Members = MemberBuilder.Build(input.Type, input.Type.Name, input.Uid, input.Context),
+                    ExtensionBlocks = ExtensionBlockBuilder.Build(input.Type, input.Context),
+                },
+                input);
+
+    /// <summary>
+    /// Returns <paramref name="target"/> with every base
+    /// <see cref="ApiType"/> field populated from
+    /// <paramref name="input"/>. Centralising the 17 base-field
+    /// assignments here keeps each <c>Build*</c> branch focused on the
+    /// derivation-specific extras and removes the wide block of
+    /// duplicated initialisers SonarCloud was flagging across the four
+    /// branches.
+    /// </summary>
+    /// <typeparam name="T">Concrete <see cref="ApiType"/> derivation.</typeparam>
+    /// <param name="target">A starting instance — typically the static <c>Empty</c> with derived fields already overridden.</param>
+    /// <param name="input">Per-type build inputs.</param>
+    /// <returns>The same derivation with base fields filled in.</returns>
+    private static T WithBaseFields<T>(T target, in TypeBuildContext input)
+        where T : ApiType =>
+        target with
+        {
+            Name = input.Type.Name,
+            FullName = input.FullName,
+            Uid = input.Uid,
+            Namespace = input.Namespace,
+            Arity = input.Type.Arity,
+            IsStatic = input.Type.IsStatic,
+            IsSealed = input.Type.IsSealed,
+            IsAbstract = input.Type.IsAbstract,
+            AssemblyName = input.Context.AssemblyName,
+            Documentation = input.Documentation,
+            BaseType = input.BaseTypeRef,
+            Interfaces = input.Interfaces,
+            SourceUrl = input.SourceUrl,
+            AppliesTo = input.Context.AppliesTo,
+            IsObsolete = input.IsObsolete,
+            ObsoleteMessage = input.ObsoleteMessage,
+            Attributes = input.Attributes,
+        };
 
     /// <summary>
     /// Composes the namespace-qualified, containing-type-qualified

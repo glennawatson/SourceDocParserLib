@@ -72,4 +72,36 @@ public sealed record ApiObjectType(
         AppliesTo,
         IsObsolete,
         ObsoleteMessage,
-        Attributes);
+        Attributes)
+{
+    /// <summary>
+    /// Singleton placeholder used as a starting point by the walker
+    /// when constructing a real instance via <c>with</c> expressions —
+    /// every base field defaults to empty / false so callers only
+    /// have to spell out the fields the source symbol actually
+    /// contributes.
+    /// </summary>
+    public static readonly ApiObjectType Empty = new(
+        Name: string.Empty,
+        FullName: string.Empty,
+        Uid: string.Empty,
+        Namespace: string.Empty,
+        Arity: 0,
+        IsStatic: false,
+        IsSealed: false,
+        IsAbstract: false,
+        AssemblyName: string.Empty,
+        Documentation: ApiDocumentation.Empty,
+        BaseType: null,
+        Interfaces: [],
+        SourceUrl: null,
+        AppliesTo: [],
+        IsObsolete: false,
+        ObsoleteMessage: null,
+        Attributes: [],
+        Kind: default,
+        IsReadOnly: false,
+        IsByRefLike: false,
+        Members: [],
+        ExtensionBlocks: []);
+}

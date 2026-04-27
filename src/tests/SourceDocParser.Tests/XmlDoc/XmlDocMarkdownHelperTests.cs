@@ -12,7 +12,7 @@ namespace SourceDocParser.Tests.XmlDoc;
 /// <see cref="XmlDocMarkdownHelper"/>: cref-name shortening,
 /// table-cell escaping, blank-line / line-start whitespace control,
 /// the whitespace collapser, and the public
-/// <see cref="XmlDocMarkdownHelper.ConvertSpanToMarkdown"/> entry.
+/// <see cref="XmlDocMarkdownHelper.ConvertSpanToMarkdown(in System.ReadOnlySpan{char})"/> entry.
 /// The tag-dispatch surfaces are exercised end-to-end via
 /// <see cref="XmlDocToMarkdown"/>; this file pins the helpers in
 /// isolation so a regression in one of them lights up directly.
