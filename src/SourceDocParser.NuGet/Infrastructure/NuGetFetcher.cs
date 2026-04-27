@@ -198,6 +198,119 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     }
 
     /// <summary>
+    /// Adds dependency IDs that survive exclusion filtering.
+    /// </summary>
+    /// <param name="dependencyIds">Dependency IDs discovered in a nuspec.</param>
+    /// <param name="request">Shared resolution request state.</param>
+    /// <param name="newIds">Set collecting newly-discovered package IDs.</param>
+    internal static void AddEligibleDependencyIds(
+        string[] dependencyIds,
+        in TransitiveDependencyResolutionRequest request,
+        HashSet<string> newIds)
+    {
+        for (var i = 0; i < dependencyIds.Length; i++)
+        {
+            var dependencyId = dependencyIds[i];
+            if (!ShouldIncludeTransitiveDependency(dependencyId, request))
+            {
+                continue;
+            }
+
+            if (request.SeenIds.Add(dependencyId))
+            {
+                newIds.Add(dependencyId);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Returns true when the dependency survives exclusion and default-skip filters.
+    /// </summary>
+    /// <param name="dependencyId">Dependency ID to test.</param>
+    /// <param name="request">Shared resolution request state.</param>
+    /// <returns>True when the dependency should be resolved.</returns>
+    internal static bool ShouldIncludeTransitiveDependency(string dependencyId, in TransitiveDependencyResolutionRequest request) =>
+        !PackageExclusionFilter.IsExcludedByUser(dependencyId, request.ExcludeIds, request.ExcludePrefixes)
+        && !PackageExclusionFilter.IsDefaultTransitiveSkip(dependencyId);
+
+    /// <summary>
+    /// Builds the package batch for the next transitive resolution round.
+    /// </summary>
+    /// <param name="newIds">Newly-discovered package IDs.</param>
+    /// <param name="tfmOverrides">Per-package TFM overrides.</param>
+    /// <returns>The batch of package requests.</returns>
+    internal static (string Id, string? Version, string? Tfm)[] BuildTransitivePackageBatch(
+        HashSet<string> newIds,
+        Dictionary<string, string> tfmOverrides)
+    {
+        var newPackages = new (string Id, string? Version, string? Tfm)[newIds.Count];
+        var packageIndex = 0;
+        foreach (var id in newIds)
+        {
+            tfmOverrides.TryGetValue(id, out var tfm);
+            newPackages[packageIndex++] = (id, null, tfm);
+        }
+
+        return newPackages;
+    }
+
+    /// <summary>
+    /// Builds the owner search URI for a single page of NuGet package results.
+    /// </summary>
+    /// <param name="searchEndpoint">Resolved NuGet search endpoint.</param>
+    /// <param name="owner">Owner name to search for.</param>
+    /// <param name="take">Page size.</param>
+    /// <param name="skip">Page offset.</param>
+    /// <returns>The fully-composed search URI.</returns>
+    internal static Uri BuildOwnerSearchUri(Uri searchEndpoint, string owner, int take, int skip) =>
+        new UriBuilder(searchEndpoint)
+        {
+            Query = $"q=owner:{Uri.EscapeDataString(owner)}&take={take}&skip={skip}&semVerLevel=2.0.0",
+        }.Uri;
+
+    /// <summary>
+    /// Adds all eligible package identifiers from a NuGet owner search response.
+    /// </summary>
+    /// <param name="root">Root JSON element for the response document.</param>
+    /// <param name="packageIds">Destination list to append package IDs to.</param>
+    internal static void AddEligibleOwnerPackageIds(JsonElement root, List<string> packageIds)
+    {
+        foreach (var result in root.GetProperty("data"u8).EnumerateArray())
+        {
+            if (ShouldSkipOwnerSearchResult(result))
+            {
+                continue;
+            }
+
+            var id = result.GetProperty("id"u8).GetString();
+            if (id != null)
+            {
+                packageIds.Add(id);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Returns whether an owner-search result should be excluded from discovery.
+    /// </summary>
+    /// <param name="result">Result element from the NuGet search response.</param>
+    /// <returns>True when the package should be ignored.</returns>
+    internal static bool ShouldSkipOwnerSearchResult(JsonElement result)
+    {
+        // Skip deprecated packages (still listed but author-flagged).
+        if (result.TryGetProperty("deprecation"u8, out _))
+        {
+            return true;
+        }
+
+        // Skip packages with known vulnerabilities so the docs site
+        // never advertises a version a consumer should not pull.
+        return result.TryGetProperty("vulnerabilities"u8, out var vulnerabilities)
+            && vulnerabilities is { ValueKind: JsonValueKind.Array }
+            && vulnerabilities.GetArrayLength() is > 0;
+    }
+
+    /// <summary>
     /// Resolves the transitive dependencies for a given package based on the specified resolution request parameters.
     /// </summary>
     /// <param name="request">
@@ -293,63 +406,6 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         {
             LogNuspecReadFailed(request.Logger, ex, sidecarPath);
         }
-    }
-
-    /// <summary>
-    /// Adds dependency IDs that survive exclusion filtering.
-    /// </summary>
-    /// <param name="dependencyIds">Dependency IDs discovered in a nuspec.</param>
-    /// <param name="request">Shared resolution request state.</param>
-    /// <param name="newIds">Set collecting newly-discovered package IDs.</param>
-    private static void AddEligibleDependencyIds(
-        string[] dependencyIds,
-        in TransitiveDependencyResolutionRequest request,
-        HashSet<string> newIds)
-    {
-        for (var i = 0; i < dependencyIds.Length; i++)
-        {
-            var dependencyId = dependencyIds[i];
-            if (!ShouldIncludeTransitiveDependency(dependencyId, request))
-            {
-                continue;
-            }
-
-            if (request.SeenIds.Add(dependencyId))
-            {
-                newIds.Add(dependencyId);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Returns true when the dependency survives exclusion and default-skip filters.
-    /// </summary>
-    /// <param name="dependencyId">Dependency ID to test.</param>
-    /// <param name="request">Shared resolution request state.</param>
-    /// <returns>True when the dependency should be resolved.</returns>
-    private static bool ShouldIncludeTransitiveDependency(string dependencyId, in TransitiveDependencyResolutionRequest request) =>
-        !PackageExclusionFilter.IsExcludedByUser(dependencyId, request.ExcludeIds, request.ExcludePrefixes)
-        && !PackageExclusionFilter.IsDefaultTransitiveSkip(dependencyId);
-
-    /// <summary>
-    /// Builds the package batch for the next transitive resolution round.
-    /// </summary>
-    /// <param name="newIds">Newly-discovered package IDs.</param>
-    /// <param name="tfmOverrides">Per-package TFM overrides.</param>
-    /// <returns>The batch of package requests.</returns>
-    private static (string Id, string? Version, string? Tfm)[] BuildTransitivePackageBatch(
-        HashSet<string> newIds,
-        Dictionary<string, string> tfmOverrides)
-    {
-        var newPackages = new (string Id, string? Version, string? Tfm)[newIds.Count];
-        var packageIndex = 0;
-        foreach (var id in newIds)
-        {
-            tfmOverrides.TryGetValue(id, out var tfm);
-            newPackages[packageIndex++] = (id, null, tfm);
-        }
-
-        return newPackages;
     }
 
     /// <summary>
@@ -859,62 +915,6 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         LogSelectedTfms(logger, packageId, selectedTfms);
         ExtractSelectedAssemblies(libDir, selectedTfms, libEntries);
         ExtractNuspecSidecar(nupkgPath, nuspecEntry);
-    }
-
-    /// <summary>
-    /// Builds the owner search URI for a single page of NuGet package results.
-    /// </summary>
-    /// <param name="searchEndpoint">Resolved NuGet search endpoint.</param>
-    /// <param name="owner">Owner name to search for.</param>
-    /// <param name="take">Page size.</param>
-    /// <param name="skip">Page offset.</param>
-    /// <returns>The fully-composed search URI.</returns>
-    private static Uri BuildOwnerSearchUri(Uri searchEndpoint, string owner, int take, int skip) =>
-        new UriBuilder(searchEndpoint)
-        {
-            Query = $"q=owner:{Uri.EscapeDataString(owner)}&take={take}&skip={skip}&semVerLevel=2.0.0",
-        }.Uri;
-
-    /// <summary>
-    /// Adds all eligible package identifiers from a NuGet owner search response.
-    /// </summary>
-    /// <param name="root">Root JSON element for the response document.</param>
-    /// <param name="packageIds">Destination list to append package IDs to.</param>
-    private static void AddEligibleOwnerPackageIds(JsonElement root, List<string> packageIds)
-    {
-        foreach (var result in root.GetProperty("data"u8).EnumerateArray())
-        {
-            if (ShouldSkipOwnerSearchResult(result))
-            {
-                continue;
-            }
-
-            var id = result.GetProperty("id"u8).GetString();
-            if (id != null)
-            {
-                packageIds.Add(id);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Returns whether an owner-search result should be excluded from discovery.
-    /// </summary>
-    /// <param name="result">Result element from the NuGet search response.</param>
-    /// <returns>True when the package should be ignored.</returns>
-    private static bool ShouldSkipOwnerSearchResult(JsonElement result)
-    {
-        // Skip deprecated packages (still listed but author-flagged).
-        if (result.TryGetProperty("deprecation"u8, out _))
-        {
-            return true;
-        }
-
-        // Skip packages with known vulnerabilities so the docs site
-        // never advertises a version a consumer should not pull.
-        return result.TryGetProperty("vulnerabilities"u8, out var vulnerabilities)
-            && vulnerabilities is { ValueKind: JsonValueKind.Array }
-            && vulnerabilities.GetArrayLength() is > 0;
     }
 
     /// <summary>

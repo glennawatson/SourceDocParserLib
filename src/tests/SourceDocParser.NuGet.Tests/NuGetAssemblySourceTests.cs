@@ -20,9 +20,11 @@ public class NuGetAssemblySourceTests
     [Test]
     public async Task RejectsNullRootDirectory()
     {
+        var apiPath = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName(), "api");
+
         await Assert.That(Act).Throws<ArgumentNullException>();
 
-        static void Act() => _ = new NuGetAssemblySource(rootDirectory: null!, apiPath: "/tmp/api");
+        void Act() => _ = new NuGetAssemblySource(rootDirectory: null!, apiPath: apiPath);
     }
 
     /// <summary>Constructing with a null api path throws.</summary>
@@ -30,9 +32,11 @@ public class NuGetAssemblySourceTests
     [Test]
     public async Task RejectsNullApiPath()
     {
+        var rootDirectory = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName(), "repo");
+
         await Assert.That(Act).Throws<ArgumentNullException>();
 
-        static void Act() => _ = new NuGetAssemblySource(rootDirectory: "/tmp/repo", apiPath: null!);
+        void Act() => _ = new NuGetAssemblySource(rootDirectory: rootDirectory, apiPath: null!);
     }
 
     /// <summary>
