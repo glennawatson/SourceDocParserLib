@@ -16,20 +16,21 @@ using SourceDocParser.Walk;
 namespace SourceDocParser.Tests;
 
 /// <summary>
-/// Pins the pure helpers on <see cref="MetadataExtractorHelper"/> and
-/// <see cref="MetadataSourceLinkHelper"/>: source-link aggregation,
-/// (TFM × assembly) work-item flattening, and the output-directory
-/// reset. The async / Roslyn-coupled helpers are exercised via
+/// Pins the pure helpers wired into the metadata pipeline:
+/// <see cref="MetadataSourceLinkHelper.CollectSourceLinks"/>,
+/// <see cref="MetadataWalkerHelper.BuildAssemblyWorkItems"/>, and
+/// <see cref="MetadataIoHelper.PrepareOutputDirectory"/>. The async /
+/// Roslyn-coupled helpers are exercised via
 /// <see cref="MetadataExtractorTests"/>; the cases here keep the
 /// deterministic seams isolated.
 /// </summary>
-public class MetadataExtractorHelperTests
+public class MetadataPipelineHelperTests
 {
     /// <summary>An empty type array yields no entries.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task CollectSourceLinksReturnsEmptyForEmptyInput() =>
-        await Assert.That(MetadataExtractorHelper.CollectSourceLinks([]).Length).IsEqualTo(0);
+        await Assert.That(MetadataSourceLinkHelper.CollectSourceLinks([]).Length).IsEqualTo(0);
 
     /// <summary>Type-level URLs are surfaced in declaration order.</summary>
     /// <returns>A task representing the test execution.</returns>
@@ -43,7 +44,7 @@ public class MetadataExtractorHelperTests
             TestData.ObjectType("T:C", ApiObjectKind.Class, "Asm", "https://example/c.cs"),
         ];
 
-        var entries = MetadataExtractorHelper.CollectSourceLinks(types);
+        var entries = MetadataSourceLinkHelper.CollectSourceLinks(types);
 
         await Assert.That(entries.Length).IsEqualTo(2);
         await Assert.That(entries[0].Uid).IsEqualTo("T:A");
@@ -67,7 +68,7 @@ public class MetadataExtractorHelperTests
             ],
         };
 
-        var entries = MetadataExtractorHelper.CollectSourceLinks([withMember]);
+        var entries = MetadataSourceLinkHelper.CollectSourceLinks([withMember]);
 
         await Assert.That(entries.Length).IsEqualTo(3);
         await Assert.That(entries[0].Uid).IsEqualTo("T:A");
@@ -82,21 +83,7 @@ public class MetadataExtractorHelperTests
     public async Task CollectSourceLinksIgnoresEmptyUrls()
     {
         ApiType[] types = [TestData.ObjectType("T:A", ApiObjectKind.Class, "Asm", string.Empty)];
-        await Assert.That(MetadataExtractorHelper.CollectSourceLinks(types).Length).IsEqualTo(0);
-    }
-
-    /// <summary>The sibling helper preserves the same contract.</summary>
-    /// <returns>A task representing the test execution.</returns>
-    [Test]
-    public async Task MetadataSourceLinkHelperMatchesExtractorHelper()
-    {
-        ApiType[] types = [TestData.ObjectType("T:A", ApiObjectKind.Class, "Asm", "https://example/a.cs")];
-
-        var fromExtractor = MetadataExtractorHelper.CollectSourceLinks(types);
-        var fromSourceLink = MetadataSourceLinkHelper.CollectSourceLinks(types);
-
-        await Assert.That(fromSourceLink.Length).IsEqualTo(fromExtractor.Length);
-        await Assert.That(fromSourceLink[0]).IsEqualTo(fromExtractor[0]);
+        await Assert.That(MetadataSourceLinkHelper.CollectSourceLinks(types).Length).IsEqualTo(0);
     }
 
     /// <summary>One work item is produced per (TFM, assembly) pair.</summary>
@@ -111,7 +98,7 @@ public class MetadataExtractorHelperTests
             new(new("net10.0", ["/b/C.dll"], []), new RecordingLoader(), totalWalks: 1),
         };
 
-        var items = MetadataExtractorHelper.BuildAssemblyWorkItems(groups, ctx);
+        var items = MetadataWalkerHelper.BuildAssemblyWorkItems(groups, ctx);
 
         await Assert.That(items.Count).IsEqualTo(3);
         await Assert.That(items[0].AssemblyPath).IsEqualTo("/a/A.dll");
@@ -129,7 +116,7 @@ public class MetadataExtractorHelperTests
     [Test]
     public async Task BuildAssemblyWorkItemsHandlesEmptyGroupList()
     {
-        var items = MetadataExtractorHelper.BuildAssemblyWorkItems([], BuildContext());
+        var items = MetadataWalkerHelper.BuildAssemblyWorkItems([], BuildContext());
         await Assert.That(items.Count).IsEqualTo(0);
     }
 
@@ -141,7 +128,7 @@ public class MetadataExtractorHelperTests
         var path = Path.Combine(Path.GetTempPath(), $"sdp-prep-{Guid.NewGuid():N}");
         try
         {
-            MetadataExtractorHelper.PrepareOutputDirectory(path);
+            MetadataIoHelper.PrepareOutputDirectory(path);
             await Assert.That(Directory.Exists(path)).IsTrue();
         }
         finally
@@ -165,7 +152,7 @@ public class MetadataExtractorHelperTests
 
         try
         {
-            MetadataExtractorHelper.PrepareOutputDirectory(path);
+            MetadataIoHelper.PrepareOutputDirectory(path);
 
             await Assert.That(Directory.Exists(path)).IsTrue();
             await Assert.That(File.Exists(staleFile)).IsFalse();

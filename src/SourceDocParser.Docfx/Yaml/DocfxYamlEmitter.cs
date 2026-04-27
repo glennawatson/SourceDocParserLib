@@ -141,7 +141,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
 
             // Render raw-XML doc fragments to Markdown via the docfx
             // cref resolver before they get embedded as YAML scalars.
-            var rendered = DocfxRenderedTypeFactory.Render(type, converter);
+            var rendered = RenderedTypeFactory.Render(type, converter);
             await File.WriteAllTextAsync(fullPath, Render(rendered, internalUids, indexes), cancellationToken).ConfigureAwait(false);
             pages++;
         }

@@ -6,7 +6,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using SourceDocParser.Model;
 using SourceDocParser.Zensical.Options;
-using SourceDocParser.Zensical.Routing;
 
 namespace SourceDocParser.Zensical.Pages;
 
@@ -148,55 +147,25 @@ public static class LandingPageEmitter
     /// <summary>
     /// Buckets the supplied types into a package -&gt; namespace -&gt;
     /// entry tree using ordinal alphabetic ordering at every level.
+    /// Delegates the bucketing loop to the shared
+    /// <see cref="PackageNamespaceTreeBuilder.Build"/> helper so the
+    /// tree-building logic stays in one place.
     /// </summary>
     /// <param name="types">All types that received a type page.</param>
     /// <param name="options">Routing options used to derive the package folder.</param>
     /// <returns>The ordered tree.</returns>
     private static SortedDictionary<string, SortedDictionary<string, List<TypeEntry>>> BuildTree(
         ApiType[] types,
-        ZensicalEmitterOptions options)
-    {
-        var tree = new SortedDictionary<string, SortedDictionary<string, List<TypeEntry>>>(StringComparer.Ordinal);
-        for (var i = 0; i < types.Length; i++)
-        {
-            var type = types[i];
-            var package = PackageRouter.ResolveFolder(type.AssemblyName, options.PackageRouting);
-            if (package is null)
-            {
-                continue;
-            }
-
-            var ns = type.Namespace is [_, ..] ? type.Namespace : "(global)";
-
-            if (!tree.TryGetValue(package, out var nsBucket))
-            {
-                nsBucket = new(StringComparer.Ordinal);
-                tree[package] = nsBucket;
-            }
-
-            if (!nsBucket.TryGetValue(ns, out var entries))
-            {
-                entries = [];
-                nsBucket[ns] = entries;
-            }
-
-            entries.Add(new(
+        ZensicalEmitterOptions options) =>
+        PackageNamespaceTreeBuilder.Build(
+            types,
+            options.PackageRouting,
+            static type => new TypeEntry(
                 Title: ZensicalEmitterHelpers.FormatDisplayTypeName(type.Name, type.Arity),
                 FileName: ZensicalEmitterHelpers.FormatPathTypeName(type.Name, type.Arity) + TypePageEmitter.FileExtension,
                 KindLabel: KindLabelFor(type),
-                Summary: OneLineSummary(type.Documentation.Summary)));
-        }
-
-        foreach (var nsBucket in tree.Values)
-        {
-            foreach (var entries in nsBucket.Values)
-            {
-                entries.Sort(static (a, b) => string.CompareOrdinal(a.Title, b.Title));
-            }
-        }
-
-        return tree;
-    }
+                Summary: OneLineSummary(type.Documentation.Summary)),
+            static (a, b) => string.CompareOrdinal(a.Title, b.Title));
 
     /// <summary>Maps a namespace display name to its on-disk folder name.</summary>
     /// <param name="namespaceName">The display namespace.</param>

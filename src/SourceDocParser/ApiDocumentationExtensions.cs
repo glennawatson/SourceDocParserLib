@@ -5,15 +5,16 @@
 using SourceDocParser.Model;
 using SourceDocParser.XmlDoc;
 
-namespace SourceDocParser.Zensical.Pages;
+namespace SourceDocParser;
 
 /// <summary>
 /// Adapts <see cref="ApiDocumentation"/>, whose text fields hold raw
 /// inner XML as of v0.3, into a same-shaped <see cref="ApiDocumentation"/>
 /// whose fields hold rendered Markdown. Run once per page render so
-/// the existing emitter code can keep consuming the model directly.
+/// emitter code can keep consuming the model directly without a
+/// per-call conversion plumb-through.
 /// </summary>
-internal static class ApiDocumentationExtensions
+public static class ApiDocumentationExtensions
 {
     /// <summary>
     /// Returns a copy of <paramref name="doc"/> with every text-bearing

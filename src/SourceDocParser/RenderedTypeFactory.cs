@@ -5,17 +5,18 @@
 using SourceDocParser.Model;
 using SourceDocParser.XmlDoc;
 
-namespace SourceDocParser.Zensical.Pages;
+namespace SourceDocParser;
 
 /// <summary>
 /// Bulk-renders an <see cref="ApiType"/>'s doc strings (and those of
 /// any contained members or enum values) from raw inner XML into
-/// Markdown via the supplied converter. The resulting type carries
-/// <em>rendered</em> docs so the rest of the emitter — most of which
-/// was written when docs already arrived as Markdown — needs no
-/// per-call conversion plumbing.
+/// Markdown via the supplied converter. Shared by the Zensical and
+/// docfx emitters — both fold the doc-render pass over each type
+/// before the existing Markdown-shaped renderer consumes the result,
+/// so this helper sits in the core library to avoid duplicating the
+/// switch-on-derivation logic per emitter.
 /// </summary>
-internal static class RenderedTypeFactory
+public static class RenderedTypeFactory
 {
     /// <summary>
     /// Returns a copy of <paramref name="type"/> whose
@@ -53,8 +54,8 @@ internal static class RenderedTypeFactory
 
     /// <summary>
     /// Returns a copy of <paramref name="member"/> whose docs have
-    /// been rendered. Member-page emitters render one member at a time
-    /// and call this to fold conversion into the existing flow.
+    /// been rendered. Member-page emitters render one member at a
+    /// time and call this to fold conversion into the existing flow.
     /// </summary>
     /// <param name="member">Member with raw-XML docs.</param>
     /// <param name="converter">Converter wired with the emitter's <see cref="ICrefResolver"/>.</param>

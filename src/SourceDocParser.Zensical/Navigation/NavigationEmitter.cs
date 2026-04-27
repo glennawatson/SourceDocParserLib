@@ -6,7 +6,6 @@ using System.Text;
 using SourceDocParser.Model;
 using SourceDocParser.Zensical.Options;
 using SourceDocParser.Zensical.Pages;
-using SourceDocParser.Zensical.Routing;
 
 namespace SourceDocParser.Zensical.Navigation;
 
@@ -130,50 +129,21 @@ public sealed class NavigationEmitter
     /// <summary>
     /// Sorts the supplied types into an ordered package -&gt;
     /// namespace -&gt; entry tree using ordinal alphabetic ordering at
-    /// each level.
+    /// each level. Delegates the bucketing loop to the shared
+    /// <see cref="PackageNamespaceTreeBuilder.Build"/> helper.
     /// </summary>
     /// <param name="types">Source types.</param>
     /// <returns>The ordered tree.</returns>
     private SortedDictionary<string, SortedDictionary<string, List<NavEntry>>> BuildTree(ApiType[] types)
     {
-        var tree = new SortedDictionary<string, SortedDictionary<string, List<NavEntry>>>(StringComparer.Ordinal);
-        for (var i = 0; i < types.Length; i++)
-        {
-            var type = types[i];
-            var package = PackageRouter.ResolveFolder(type.AssemblyName, _options.PackageRouting);
-            if (package is null)
-            {
-                continue;
-            }
-
-            var ns = type.Namespace is [_, ..] ? type.Namespace : "(global)";
-
-            if (!tree.TryGetValue(package, out var nsBucket))
-            {
-                nsBucket = new(StringComparer.Ordinal);
-                tree[package] = nsBucket;
-            }
-
-            if (!nsBucket.TryGetValue(ns, out var entries))
-            {
-                entries = [];
-                nsBucket[ns] = entries;
-            }
-
-            entries.Add(new(
+        var options = _options;
+        return PackageNamespaceTreeBuilder.Build(
+            types,
+            options.PackageRouting,
+            type => new NavEntry(
                 Title: ZensicalEmitterHelpers.FormatDisplayTypeName(type.Name, type.Arity),
-                Path: ToPosixPath(TypePageEmitter.PathFor(type, _options))));
-        }
-
-        foreach (var nsBucket in tree.Values)
-        {
-            foreach (var entries in nsBucket.Values)
-            {
-                entries.Sort(static (a, b) => string.CompareOrdinal(a.Title, b.Title));
-            }
-        }
-
-        return tree;
+                Path: ToPosixPath(TypePageEmitter.PathFor(type, options))),
+            static (a, b) => string.CompareOrdinal(a.Title, b.Title));
     }
 
     /// <summary>One leaf in the nav tree — display title plus the relative page path.</summary>

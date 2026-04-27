@@ -134,14 +134,7 @@ public sealed class ZensicalCatalogIndexes
                 continue;
             }
 
-            var derivedRef = new ApiTypeReference(type.Name, type.Uid);
-            if (!map.TryGetValue(baseUid, out var bucket))
-            {
-                bucket = [];
-                map[baseUid] = bucket;
-            }
-
-            bucket.Add(derivedRef);
+            map.AddToBucket(baseUid, new ApiTypeReference(type.Name, type.Uid));
         }
 
         return map;
@@ -185,13 +178,7 @@ public sealed class ZensicalCatalogIndexes
                     continue;
                 }
 
-                if (!map.TryGetValue(extendedUid, out var bucket))
-                {
-                    bucket = [];
-                    map[extendedUid] = bucket;
-                }
-
-                bucket.Add(member);
+                map.AddToBucket(extendedUid, member);
             }
         }
 
