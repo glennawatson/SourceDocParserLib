@@ -602,8 +602,8 @@ public sealed partial class NuGetFetcher : INuGetFetcher
                         // Skip packages with known vulnerabilities so the docs site
                         // never advertises a version a consumer should not pull.
                         if (result.TryGetProperty("vulnerabilities"u8, out var vulns)
-                            && vulns.ValueKind == JsonValueKind.Array
-                            && vulns.GetArrayLength() > 0)
+                            && vulns is { ValueKind: JsonValueKind.Array }
+                            && vulns.GetArrayLength() is > 0)
                         {
                             continue;
                         }

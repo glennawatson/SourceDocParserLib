@@ -57,7 +57,7 @@ internal static class ExtensionBlockBuilder
             }
         }
 
-        return blocks.Count == 0 ? [] : [.. blocks];
+        return blocks.Count is 0 ? [] : [.. blocks];
     }
 
     /// <summary>

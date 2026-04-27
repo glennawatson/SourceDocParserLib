@@ -230,10 +230,70 @@ internal static class AttributeExtractor
     private static string FormatPrimitive(object? value) => value switch
     {
         null => "null",
-        string s => "\"" + s.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\"",
+        string s => QuoteStringLiteral(s),
         char c => "'" + c + "'",
         bool b => b ? "true" : "false",
         IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
         _ => value.ToString() ?? string.Empty,
     };
+
+    /// <summary>
+    /// Formats a C# string literal with escaped quotes and backslashes.
+    /// </summary>
+    /// <param name="value">Raw string value.</param>
+    /// <returns>The quoted literal.</returns>
+    private static string QuoteStringLiteral(string value)
+    {
+        var firstEscapeIndex = value.AsSpan().IndexOfAny(['\\', '"']);
+        if (firstEscapeIndex < 0)
+        {
+            return string.Create(
+                value.Length + 2,
+                value,
+                static (dest, state) =>
+                {
+                    dest[0] = '"';
+                    state.CopyTo(dest[1..]);
+                    dest[^1] = '"';
+                });
+        }
+
+        return string.Create(
+            value.Length + 2 + CountEscapes(value.AsSpan(firstEscapeIndex)),
+            (Value: value, FirstEscapeIndex: firstEscapeIndex),
+            static (dest, state) =>
+            {
+                dest[0] = '"';
+                state.Value.AsSpan(0, state.FirstEscapeIndex).CopyTo(dest[1..]);
+                var destIndex = state.FirstEscapeIndex + 1;
+                for (var i = state.FirstEscapeIndex; i < state.Value.Length; i++)
+                {
+                    var current = state.Value[i];
+                    if (current is '\\' or '"')
+                    {
+                        dest[destIndex++] = '\\';
+                    }
+
+                    dest[destIndex++] = current;
+                }
+
+                dest[destIndex] = '"';
+            });
+    }
+
+    /// <summary>
+    /// Counts quotes and backslashes so the escaped literal length can be precomputed.
+    /// </summary>
+    /// <param name="text">Text to inspect.</param>
+    /// <returns>The number of inserted escape characters.</returns>
+    private static int CountEscapes(in ReadOnlySpan<char> text)
+    {
+        var count = 0;
+        for (var i = 0; i < text.Length; i++)
+        {
+            count += text[i] is '\\' or '"' ? 1 : 0;
+        }
+
+        return count;
+    }
 }

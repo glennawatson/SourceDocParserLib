@@ -66,7 +66,7 @@ internal static class NuGetGlobalCache
             userProfile = Directory.GetCurrentDirectory();
         }
 
-        return Path.Combine(userProfile, DefaultRelativePath.Replace('/', Path.DirectorySeparatorChar));
+        return Path.Combine(userProfile, PathSeparatorHelpers.ToPlatformPath(DefaultRelativePath));
     }
 
     /// <summary>

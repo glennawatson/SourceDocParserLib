@@ -103,17 +103,14 @@ public static class TfmResolver
         ArgumentNullException.ThrowIfNull(availableTfms);
         ArgumentNullException.ThrowIfNull(tfmPreference);
 
-        if (tfmOverride is not null)
+        if (tfmOverride is { } requestedOverride && FirstExactMatch(availableTfms, requestedOverride) is { } exactOverride)
         {
-            if (FirstExactMatch(availableTfms, tfmOverride) is { } exact)
-            {
-                return exact;
-            }
+            return exactOverride;
+        }
 
-            if (FirstPrefixMatch(availableTfms, tfmOverride) is { } prefix)
-            {
-                return prefix;
-            }
+        if (tfmOverride is { } overridePrefix && FirstPrefixMatch(availableTfms, overridePrefix) is { } prefixOverride)
+        {
+            return prefixOverride;
         }
 
         for (var i = 0; i < tfmPreference.Length; i++)

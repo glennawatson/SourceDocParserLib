@@ -101,7 +101,7 @@ public sealed class NuGetAssemblySource : IAssemblySource
                 : new(StringComparer.OrdinalIgnoreCase);
 
             var packageDlls = CollectPackageDlls(libTfmDir, refDllNames, primaryPrefixes);
-            if (packageDlls.Count == 0)
+            if (packageDlls.Count is 0)
             {
                 continue;
             }

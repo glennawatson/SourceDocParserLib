@@ -534,7 +534,7 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
     private static void EnsureBlankLine(StringBuilder sb)
     {
         TrimTrailingWhitespace(sb);
-        if (sb.Length == 0)
+        if (sb.Length is 0)
         {
             return;
         }
@@ -547,7 +547,7 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
     private static void EnsureLineStart(StringBuilder sb)
     {
         TrimTrailingWhitespace(sb);
-        if (sb.Length == 0)
+        if (sb.Length is 0)
         {
             return;
         }

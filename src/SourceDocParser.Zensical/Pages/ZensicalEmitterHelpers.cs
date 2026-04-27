@@ -87,6 +87,36 @@ internal static class ZensicalEmitterHelpers
     }
 
     /// <summary>
+    /// Rewrites angle brackets to Mermaid-safe tildes.
+    /// </summary>
+    /// <param name="text">Source text.</param>
+    /// <returns>The Mermaid-safe text.</returns>
+    public static string EscapeMermaidText(string text)
+    {
+        var replacementIndex = text.IndexOfAny('<', '>');
+        if (replacementIndex < 0)
+        {
+            return text;
+        }
+
+        return string.Create(
+            text.Length,
+            (Text: text, ReplacementIndex: replacementIndex),
+            static (dest, state) =>
+            {
+                state.Text.AsSpan(0, state.ReplacementIndex).CopyTo(dest);
+                for (var i = state.ReplacementIndex; i < state.Text.Length; i++)
+                {
+                    dest[i] = state.Text[i] switch
+                    {
+                        '<' or '>' => '~',
+                        var c => c,
+                    };
+                }
+            });
+    }
+
+    /// <summary>
     /// Builds the relative path for a type page.
     /// </summary>
     /// <param name="namespaceName">Namespace of the type.</param>

@@ -55,6 +55,20 @@ public class ManagedAssemblyExtractorTests
         await Assert.That(entries.Count).IsEqualTo(1);
     }
 
+    /// <summary>Backslash prefixes are normalised before matching ZIP entry paths.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task BackslashPrefixStillMatches()
+    {
+        await using var memStream = BuildArchive(("ref/net8.0/Foo.dll", []));
+        await using var archive = new ZipArchive(memStream, ZipArchiveMode.Read);
+
+        var entries = ManagedAssemblyExtractor.SelectAssemblyEntries(archive, @"ref\net8.0").ToList();
+
+        await Assert.That(entries.Count).IsEqualTo(1);
+        await Assert.That(entries[0].Name).IsEqualTo("Foo.dll");
+    }
+
     /// <summary>Directory entries (<c>Name</c> is empty) are skipped.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]

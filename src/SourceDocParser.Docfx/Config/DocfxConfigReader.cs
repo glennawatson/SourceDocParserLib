@@ -147,7 +147,7 @@ public static class DocfxConfigReader
                 throw new JsonException("Each build content entry must be a JSON object.");
             }
 
-            var files = item.TryGetProperty("files"u8, out var filesEl) && filesEl.ValueKind == JsonValueKind.Array
+            var files = item.TryGetProperty("files"u8, out var filesEl) && filesEl is { ValueKind: JsonValueKind.Array }
                 ? ReadStringList(filesEl)
                 : null;
 

@@ -335,7 +335,7 @@ internal ref struct DocXmlScanner
     private static bool TryParseNumericRef(in ReadOnlySpan<char> body, out char rune)
     {
         rune = '\0';
-        if (body.Length == 0)
+        if (body is [])
         {
             return false;
         }

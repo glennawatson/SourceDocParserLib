@@ -222,12 +222,12 @@ public sealed class DocResolver : IDocResolver
         DocEntry[] child,
         DocEntry[] parent)
     {
-        if (child.Length == 0)
+        if (child is [])
         {
             return parent;
         }
 
-        if (parent.Length == 0)
+        if (parent is [])
         {
             return child;
         }

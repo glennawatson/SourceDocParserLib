@@ -677,7 +677,7 @@ public static class TypePageEmitter
             name = name[(lastDot + 1)..];
         }
 
-        return name.Replace('<', '~').Replace('>', '~');
+        return ZensicalEmitterHelpers.EscapeMermaidText(name);
     }
 
     /// <summary>

@@ -74,7 +74,7 @@ internal static class ManagedAssemblyExtractor
         ArgumentNullException.ThrowIfNull(archive);
         ArgumentException.ThrowIfNullOrWhiteSpace(pathPrefix);
 
-        var prefix = pathPrefix.TrimEnd('/') + "/";
+        var prefix = PathSeparatorHelpers.EnsureTrailingForwardSlash(pathPrefix);
         return SelectAssemblyEntriesIterator();
 
         IEnumerable<ZipArchiveEntry> SelectAssemblyEntriesIterator()

@@ -58,15 +58,7 @@ internal sealed class SourceLinkMap(List<SourceLinkMapEntry> entries)
                     continue;
                 }
 
-                var suffix = localPath.AsSpan(entry.LocalPrefix.Length);
-                var urlSuffix = suffix.ToString().Replace(Path.DirectorySeparatorChar, '/');
-
-                if (Path.AltDirectorySeparatorChar != Path.DirectorySeparatorChar && Path.AltDirectorySeparatorChar != '/')
-                {
-                    urlSuffix = urlSuffix.Replace(Path.AltDirectorySeparatorChar, '/');
-                }
-
-                return entry.UrlPrefix + urlSuffix;
+                return SourceLinkUrlBuilder.BuildWildcardUrl(entry.UrlPrefix, localPath, entry.LocalPrefix.Length);
             }
 
             if (string.Equals(entry.LocalPrefix, localPath, StringComparison.OrdinalIgnoreCase))
