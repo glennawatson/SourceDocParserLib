@@ -139,4 +139,145 @@ public class TfmResolverTests
 
         await Assert.That(label).IsNull();
     }
+
+    /// <summary>
+    /// SelectTfm: an exact override match wins over the preference list,
+    /// even when the preference list also contains a candidate.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task SelectTfmHonoursExactOverride()
+    {
+        var available = new List<string> { "net8.0", "net9.0", "net10.0" };
+
+        var result = TfmResolver.SelectTfm(available, "net8.0", ["net10.0"]);
+
+        await Assert.That(result).IsEqualTo("net8.0");
+    }
+
+    /// <summary>SelectTfm: a prefix override (<c>net8</c>) matches <c>net8.0</c>.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task SelectTfmHonoursPrefixOverride()
+    {
+        var available = new List<string> { "net8.0", "net9.0" };
+
+        var result = TfmResolver.SelectTfm(available, "net8", ["net9.0"]);
+
+        await Assert.That(result).IsEqualTo("net8.0");
+    }
+
+    /// <summary>SelectTfm: walks the preference list in order, returning the first available exact match.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task SelectTfmWalksPreferenceListInOrder()
+    {
+        var available = new List<string> { "net8.0", "net10.0" };
+
+        var result = TfmResolver.SelectTfm(available, tfmOverride: null, tfmPreference: ["net10.0", "net8.0"]);
+
+        await Assert.That(result).IsEqualTo("net10.0");
+    }
+
+    /// <summary>SelectTfm: preference prefix (<c>net8</c>) matches <c>net8.0</c> when no exact match exists.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task SelectTfmFallsBackToPreferencePrefix()
+    {
+        var available = new List<string> { "net8.0" };
+
+        var result = TfmResolver.SelectTfm(available, tfmOverride: null, tfmPreference: ["net8"]);
+
+        await Assert.That(result).IsEqualTo("net8.0");
+    }
+
+    /// <summary>SelectTfm: with no exact / prefix / major-version match, falls back to the highest netstandard available.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task SelectTfmFallsBackToHighestNetstandard()
+    {
+        var available = new List<string> { "netstandard2.0", "netstandard2.1" };
+
+        var result = TfmResolver.SelectTfm(available, tfmOverride: null, tfmPreference: ["net10.0"]);
+
+        await Assert.That(result).IsEqualTo("netstandard2.1");
+    }
+
+    /// <summary>SelectTfm: returns null when no preference match and no netstandard fallback is available.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task SelectTfmReturnsNullWhenNothingMatches()
+    {
+        var available = new List<string> { "monoandroid12.0" };
+
+        var result = TfmResolver.SelectTfm(available, tfmOverride: null, tfmPreference: ["net10.0"]);
+
+        await Assert.That(result).IsNull();
+    }
+
+    /// <summary>SelectTfm: an unmatched override falls through to the preference list (override is a priority hint, not a hard pin).</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task SelectTfmUnmatchedOverrideFallsThroughToPreference()
+    {
+        var available = new List<string> { "net8.0" };
+
+        var result = TfmResolver.SelectTfm(available, "net6.0", ["net8.0"]);
+
+        await Assert.That(result).IsEqualTo("net8.0");
+    }
+
+    /// <summary>SelectAllSupportedTfms: with no override, every TFM matching any preference (exact, prefix, or major version) is returned.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task SelectAllSupportedTfmsCollectsAllPreferenceMatches()
+    {
+        var available = new List<string> { "net8.0", "net9.0", "net10.0", "monoandroid12.0" };
+
+        var result = TfmResolver.SelectAllSupportedTfms(available, tfmOverride: null, tfmPreference: ["net8.0", "net10.0"]);
+
+        await Assert.That(result.Count).IsEqualTo(2);
+        await Assert.That(result).Contains("net8.0");
+        await Assert.That(result).Contains("net10.0");
+    }
+
+    /// <summary>SelectAllSupportedTfms: an override pins the result to whichever single TFM SelectTfm picks.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task SelectAllSupportedTfmsHonoursOverride()
+    {
+        var available = new List<string> { "net8.0", "net9.0" };
+
+        var result = TfmResolver.SelectAllSupportedTfms(available, "net9.0", ["net8.0"]);
+
+        await Assert.That(result.Count).IsEqualTo(1);
+        await Assert.That(result[0]).IsEqualTo("net9.0");
+    }
+
+    /// <summary>SelectAllSupportedTfms: when no preference matches, falls back to every available netstandard variant (not just the highest).</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task SelectAllSupportedTfmsCollectsAllNetstandardOnFallback()
+    {
+        var available = new List<string> { "netstandard2.0", "netstandard2.1" };
+
+        var result = TfmResolver.SelectAllSupportedTfms(available, tfmOverride: null, tfmPreference: ["net10.0"]);
+
+        await Assert.That(result.Count).IsEqualTo(2);
+        await Assert.That(result).Contains("netstandard2.0");
+        await Assert.That(result).Contains("netstandard2.1");
+    }
+
+    /// <summary>SelectAllSupportedTfms: an unmatched override pins the result to whatever the SelectTfm fallback picks (here the preference match).</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task SelectAllSupportedTfmsUnmatchedOverridePinsToPreferenceFallback()
+    {
+        var available = new List<string> { "net8.0" };
+
+        var result = TfmResolver.SelectAllSupportedTfms(available, "net6.0", ["net8.0"]);
+
+        await Assert.That(result.Count).IsEqualTo(1);
+        await Assert.That(result[0]).IsEqualTo("net8.0");
+    }
 }
