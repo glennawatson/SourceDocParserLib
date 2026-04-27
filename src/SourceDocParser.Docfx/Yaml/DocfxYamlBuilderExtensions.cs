@@ -444,8 +444,24 @@ internal static class DocfxYamlBuilderExtensions
     {
         ApiEnumType e => sb.AppendEnumSyntax(e),
         ApiDelegateType d => sb.AppendDelegateSyntax(d),
+        ApiObjectType o => sb.AppendObjectSyntax(o),
         _ => sb,
     };
+
+    /// <summary>
+    /// Writes the type-level <c>syntax:</c> block for class / struct
+    /// / interface / record / record-struct types — the C# declaration
+    /// line synthesised by <see cref="DocfxObjectSignature.Synthesise"/>,
+    /// folded through <see cref="AppendSyntaxContent"/> so the
+    /// surviving attributes prefix the signature inside a YAML
+    /// <c>&gt;-</c> block.
+    /// </summary>
+    /// <param name="sb">Destination builder.</param>
+    /// <param name="type">Object-shaped type to render.</param>
+    /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
+    public static StringBuilder AppendObjectSyntax(this StringBuilder sb, ApiObjectType type) => sb
+        .Append("  syntax:\n")
+        .AppendSyntaxContent(type.Attributes, DocfxObjectSignature.Synthesise(type), indent: "    ");
 
     /// <summary>
     /// Writes the enum value table as a syntax block — each value
