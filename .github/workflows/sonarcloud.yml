@@ -79,7 +79,8 @@ jobs:
             /o:"glennawatson" \
             /d:sonar.token="${SONAR_TOKEN}" \
             /d:sonar.host.url="https://sonarcloud.io" \
-            /d:sonar.cs.vscoveragexml.reportsPaths="**/TestResults/**/sonar-coverage.xml"
+            /d:sonar.cs.vscoveragexml.reportsPaths="**/TestResults/**/sonar-coverage.xml" \
+            /d:sonar.coverage.exclusions="**/tests/**,**/benchmarks/**,**/tools/**"
 
       - name: Build
         working-directory: src
