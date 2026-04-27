@@ -300,7 +300,13 @@ internal static class DocfxReferenceEnricher
         // Docfx convention: spec.csharp uid is bare (no T: prefix).
         sb.Append("  - uid: ").AppendScalar(StripPrefix(uid)).AppendLine()
             .Append("    name: ").AppendScalar(name).AppendLine();
-        AppendIsExternal(sb, isInternal, indent: "    ");
+
+        // spec.csharp components are always referenced as a separate
+        // entry — docfx emits `isExternal: true` regardless of whether
+        // the target type is in the current walk. This keeps the spec
+        // shape stable across pages and matches the docfx output we
+        // diff against.
+        sb.AppendLine("    isExternal: true");
         AppendHref(sb, href, indent: "    ");
     }
 

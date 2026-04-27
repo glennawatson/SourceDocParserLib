@@ -54,6 +54,31 @@ public class DocfxReferenceEnricherTests
         await Assert.That(page).DoesNotContain("isExternal: true\n  parent: My");
     }
 
+    /// <summary>spec.csharp components always carry <c>isExternal: true</c>, even when the open-generic target is in our walk set.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task SpecCsharpComponentsAlwaysCarryIsExternal()
+    {
+        // Open-generic IFoo`1 IS in the internal set yet docfx still
+        // emits `isExternal: true` on the spec.csharp entry — spec
+        // components are always referenced as a separate page entry.
+        var page = RenderPageWithReference(
+            new ApiTypeReference("IFoo<int>", "T:My.IFoo{System.Int32}"),
+            internalUids: ["T:My.IFoo`1"]);
+
+        await Assert.That(page).Contains("spec.csharp:");
+        await Assert.That(page).Contains("  - uid: My.IFoo`1");
+
+        // Pin the field appears under the open-generic spec entry.
+        var specBlockStart = page.IndexOf("spec.csharp:", StringComparison.Ordinal);
+        var afterOpen = page.IndexOf("  - uid: My.IFoo`1", specBlockStart, StringComparison.Ordinal);
+        var afterIsExternal = page.IndexOf("isExternal: true", afterOpen, StringComparison.Ordinal);
+        var nextSpecEntry = page.IndexOf("\n  - ", afterOpen + 1, StringComparison.Ordinal);
+
+        await Assert.That(afterIsExternal).IsGreaterThan(afterOpen);
+        await Assert.That(afterIsExternal).IsLessThan(nextSpecEntry);
+    }
+
     /// <summary>Constructed generics emit a spec.csharp token list and a definition back-pointer.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
