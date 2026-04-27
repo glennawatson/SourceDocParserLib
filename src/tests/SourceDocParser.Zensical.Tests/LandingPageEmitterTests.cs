@@ -5,7 +5,6 @@
 using SourceDocParser.TestHelpers;
 using SourceDocParser.Zensical.Options;
 using SourceDocParser.Zensical.Pages;
-using SourceDocParser.Zensical.Routing;
 
 namespace SourceDocParser.Zensical.Tests;
 
@@ -63,7 +62,7 @@ public class LandingPageEmitterTests
     {
         using var temp = new TempDirectory();
         var options = new ZensicalEmitterOptions([
-            new PackageRoutingRule(FolderName: "Primary", AssemblyPrefix: "Primary"),
+            new(FolderName: "Primary", AssemblyPrefix: "Primary"),
         ]);
         var matched = TestData.ObjectType("Foo", assemblyName: "Primary") with { Namespace = "Primary" };
         var skipped = TestData.ObjectType("Bar", assemblyName: "Other") with { Namespace = "Other" };

@@ -48,7 +48,7 @@ public class ZensicalCatalogIndexesTests
         var baseType = TestData.ObjectType("Base");
         var sub = TestData.ObjectType("Derived") with
         {
-            BaseType = new ApiTypeReference("Base", "Base"),
+            BaseType = new("Base", "Base"),
         };
 
         var indexes = ZensicalCatalogIndexes.Build([baseType, sub]);
@@ -66,7 +66,7 @@ public class ZensicalCatalogIndexesTests
         var baseType = TestData.ObjectType("Base");
         var sub = TestData.ObjectType("Derived") with
         {
-            BaseType = new ApiTypeReference("Base", "Base"),
+            BaseType = new("Base", "Base"),
         };
         var indexes = ZensicalCatalogIndexes.Build([baseType, sub]);
 

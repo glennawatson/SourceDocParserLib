@@ -37,8 +37,8 @@ public class DocfxMemberDisplayNameTests
             "ctor",
             ".ctor",
             ApiMemberKind.Constructor,
-            new ApiParameter("first", new ApiTypeReference("int", "T:System.Int32"), false, false, false, false, false, null),
-            new ApiParameter("second", new ApiTypeReference("string", "T:System.String"), false, false, false, false, false, null));
+            new ApiParameter("first", new("int", "T:System.Int32"), false, false, false, false, false, null),
+            new ApiParameter("second", new("string", "T:System.String"), false, false, false, false, false, null));
 
         var name = DocfxMemberDisplayName.Unqualified(ctor, TestData.ObjectType("ReactiveObject"));
 

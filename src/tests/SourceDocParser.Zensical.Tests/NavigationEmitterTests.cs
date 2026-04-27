@@ -5,7 +5,6 @@
 using SourceDocParser.TestHelpers;
 using SourceDocParser.Zensical.Navigation;
 using SourceDocParser.Zensical.Options;
-using SourceDocParser.Zensical.Routing;
 
 namespace SourceDocParser.Zensical.Tests;
 
@@ -22,7 +21,7 @@ public class NavigationEmitterTests
     public async Task EmitYamlGroupsByRoutedPackage()
     {
         var options = new ZensicalEmitterOptions([
-            new PackageRoutingRule(FolderName: "ReactiveUI", AssemblyPrefix: "ReactiveUI"),
+            new(FolderName: "ReactiveUI", AssemblyPrefix: "ReactiveUI"),
         ]);
         var emitter = new NavigationEmitter(options);
         var typeA = TestData.ObjectType("Foo", assemblyName: "ReactiveUI") with { Namespace = "ReactiveUI" };
@@ -82,5 +81,18 @@ public class NavigationEmitterTests
 
         await Assert.That(alphaIndex).IsGreaterThan(0);
         await Assert.That(alphaIndex).IsLessThan(zetaIndex);
+    }
+
+    /// <summary>Types without a namespace are bucketed under <c>(global)</c>.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task TypesWithoutNamespaceFallToGlobalBucket()
+    {
+        var emitter = new NavigationEmitter(ZensicalEmitterOptions.Default);
+        var type = TestData.ObjectType("Foo", assemblyName: "Splat") with { Namespace = string.Empty };
+
+        var yaml = emitter.EmitYaml([type]);
+
+        await Assert.That(yaml).Contains("    - (global):");
     }
 }

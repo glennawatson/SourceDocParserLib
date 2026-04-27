@@ -45,7 +45,7 @@ public class ExtensionBlocksRenderTests
             Signature: "public bool IsEmpty",
             Parameters: [],
             TypeParameters: [],
-            ReturnType: new ApiTypeReference("bool", "T:System.Boolean"),
+            ReturnType: new("bool", "T:System.Boolean"),
             ContainingTypeUid: "T:Helpers.<>E__0",
             ContainingTypeName: "<>E__0",
             SourceUrl: null,
@@ -58,7 +58,7 @@ public class ExtensionBlocksRenderTests
             IsStatic = true,
             ExtensionBlocks =
             [
-                new("source", new ApiTypeReference("string", "T:System.String"), [member]),
+                new("source", new("string", "T:System.String"), [member]),
             ],
         };
 

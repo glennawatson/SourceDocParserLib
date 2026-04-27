@@ -369,7 +369,7 @@ public class SamplePdbWalkerIntegrationTests
             "SamplePdbConsumer",
             syntaxTrees: [],
             references,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            new(OutputKind.DynamicallyLinkedLibrary));
 
         var samplePdbAssembly = FindAssemblySymbol(compilation, "SamplePdb");
 

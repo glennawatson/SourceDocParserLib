@@ -61,6 +61,54 @@ public class DocfxObjectSignatureTests
         await Assert.That(sig).IsEqualTo("public abstract class Foo");
     }
 
+    /// <summary>Both abstract+sealed yields <c>public abstract sealed</c> (rare; produced for some BCL shapes).</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task AbstractSealedClassUsesBothModifiers()
+    {
+        var type = TestData.ObjectType("Foo") with { IsAbstract = true, IsSealed = true };
+
+        var sig = DocfxObjectSignature.Synthesise(type);
+
+        await Assert.That(sig).IsEqualTo("public abstract sealed class Foo");
+    }
+
+    /// <summary>A <c>readonly ref struct</c> renders both modifiers.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ReadonlyRefStructUsesBothModifiers()
+    {
+        var type = TestData.ObjectType("Foo", kind: ApiObjectKind.Struct) with { IsByRefLike = true, IsReadOnly = true };
+
+        var sig = DocfxObjectSignature.Synthesise(type);
+
+        await Assert.That(sig).IsEqualTo("public readonly ref struct Foo");
+    }
+
+    /// <summary>A plain <c>ref struct</c> renders the ref modifier only.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task RefStructUsesRefModifier()
+    {
+        var type = TestData.ObjectType("Foo", kind: ApiObjectKind.Struct) with { IsByRefLike = true };
+
+        var sig = DocfxObjectSignature.Synthesise(type);
+
+        await Assert.That(sig).IsEqualTo("public ref struct Foo");
+    }
+
+    /// <summary>A plain <c>readonly struct</c> renders the readonly modifier only.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ReadonlyStructUsesReadonlyModifier()
+    {
+        var type = TestData.ObjectType("Foo", kind: ApiObjectKind.Struct) with { IsReadOnly = true };
+
+        var sig = DocfxObjectSignature.Synthesise(type);
+
+        await Assert.That(sig).IsEqualTo("public readonly struct Foo");
+    }
+
     /// <summary>Each <see cref="ApiObjectKind"/> maps to the right C# keyword.</summary>
     /// <param name="kind">Kind value.</param>
     /// <param name="expected">Expected keyword span.</param>
@@ -85,7 +133,7 @@ public class DocfxObjectSignatureTests
     {
         var type = TestData.ObjectType("Sub") with
         {
-            BaseType = new ApiTypeReference("Base", "T:My.Base"),
+            BaseType = new("Base", "T:My.Base"),
         };
 
         var sig = DocfxObjectSignature.Synthesise(type);
@@ -100,11 +148,11 @@ public class DocfxObjectSignatureTests
     {
         var type = TestData.ObjectType("Foo") with
         {
-            BaseType = new ApiTypeReference("Base", "T:My.Base"),
+            BaseType = new("Base", "T:My.Base"),
             Interfaces =
             [
-                new ApiTypeReference("IBaz", "T:My.IBaz"),
-                new ApiTypeReference("IQux", "T:My.IQux"),
+                new("IBaz", "T:My.IBaz"),
+                new("IQux", "T:My.IQux"),
             ],
         };
 
@@ -120,7 +168,7 @@ public class DocfxObjectSignatureTests
     {
         var type = TestData.ObjectType("Foo") with
         {
-            BaseType = new ApiTypeReference("Object", "T:System.Object"),
+            BaseType = new("Object", "T:System.Object"),
         };
 
         var sig = DocfxObjectSignature.Synthesise(type);
@@ -135,7 +183,7 @@ public class DocfxObjectSignatureTests
     {
         var type = TestData.ObjectType("Foo") with
         {
-            Interfaces = [new ApiTypeReference("IFoo", "T:My.IFoo")],
+            Interfaces = [new("IFoo", "T:My.IFoo")],
         };
 
         var yaml = DocfxYamlEmitter.Render(type);

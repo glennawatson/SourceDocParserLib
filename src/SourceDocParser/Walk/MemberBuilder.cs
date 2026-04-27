@@ -118,7 +118,7 @@ internal static class MemberBuilder
     {
         var uid = member.GetDocumentationCommentId() ?? string.Empty;
         var (memberAttributes, memberObsolete, memberObsoleteMessage) = AttributeExtractor.ExtractAll(member);
-        return new ApiMember(
+        return new(
             Name: member.Name,
             Uid: uid,
             Kind: kind,

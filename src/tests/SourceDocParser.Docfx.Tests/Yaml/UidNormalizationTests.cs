@@ -48,12 +48,11 @@ public class UidNormalizationTests
     /// <summary>ParentOf walks above the brace boundary so type-arg dots aren't consumed.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ParentOfRespectsBraceBoundary()
-    {
+    public async Task ParentOfRespectsBraceBoundary() =>
+
         // Foo.Bar`1{Baz.Qux} — the dot inside the brace region must
         // not be picked as the namespace boundary.
         await Assert.That(UidNormalization.ParentOf("My.Sub.Foo`1{Baz.Qux}")).IsEqualTo("My.Sub");
-    }
 
     /// <summary>ToOpenGenericUid synthesises <c>`N</c> when the walker omits it.</summary>
     /// <returns>A task representing the test execution.</returns>
@@ -69,21 +68,17 @@ public class UidNormalizationTests
     /// <summary>ToOpenGenericUid passes through non-generic UIDs unchanged.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ToOpenGenericUidPassesThroughNonGeneric()
-    {
-        await Assert.That(UidNormalization.ToOpenGenericUid("T:My.Foo")).IsEqualTo("T:My.Foo");
-    }
+    public async Task ToOpenGenericUidPassesThroughNonGeneric() => await Assert.That(UidNormalization.ToOpenGenericUid("T:My.Foo")).IsEqualTo("T:My.Foo");
 
     /// <summary>ToOpenGenericUid keeps the existing arity backtick when the walker already provided one.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ToOpenGenericUidPreservesExistingBacktick()
-    {
+    public async Task ToOpenGenericUidPreservesExistingBacktick() =>
+
         // When the head already carries `1, the helper returns the bare
         // head without re-counting (avoids double-counting when the
         // walker pre-populates the arity).
         await Assert.That(UidNormalization.ToOpenGenericUid("T:My.Foo`1{Bar}")).IsEqualTo("T:My.Foo`1");
-    }
 
     /// <summary>SynthesiseFullName: plain non-generic UIDs round-trip with namespace intact.</summary>
     /// <returns>A task representing the test execution.</returns>

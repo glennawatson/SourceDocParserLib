@@ -100,10 +100,7 @@ public class PackageSourceCredentialParserTests
     /// <summary>ExpandEnvironmentVariables passes through values without env-var sequences unchanged.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ExpandEnvironmentVariablesPassesThroughLiteralValues()
-    {
-        await Assert.That(PackageSourceCredentialParser.ExpandEnvironmentVariables("plain")).IsEqualTo("plain");
-    }
+    public async Task ExpandEnvironmentVariablesPassesThroughLiteralValues() => await Assert.That(PackageSourceCredentialParser.ExpandEnvironmentVariables("plain")).IsEqualTo("plain");
 
     /// <summary>Parses <paramref name="xml"/> and advances to the first start element with <paramref name="elementName"/>.</summary>
     /// <param name="xml">XML document to parse.</param>

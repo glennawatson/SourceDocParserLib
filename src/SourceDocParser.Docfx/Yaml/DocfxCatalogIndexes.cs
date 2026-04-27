@@ -81,7 +81,7 @@ public sealed class DocfxCatalogIndexes
         var extensionsRaw = BuildExtensionsRaw(types);
         var inheritedRaw = BuildInheritedRaw(types, typesByUid);
 
-        return new DocfxCatalogIndexes(
+        return new(
             FreezeArrays(derivedRaw),
             FreezeArrays(extensionsRaw),
             FreezeArrays(inheritedRaw));

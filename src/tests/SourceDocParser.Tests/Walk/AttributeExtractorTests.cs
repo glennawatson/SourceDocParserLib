@@ -391,7 +391,7 @@ public class AttributeExtractorTests
     /// <returns>The named type's symbol.</returns>
     private static INamedTypeSymbol GetTypeSymbol(string source, string typeName)
     {
-        var tree = CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Preview));
+        var tree = CSharpSyntaxTree.ParseText(source, new(LanguageVersion.Preview));
         List<MetadataReference> references = [];
         foreach (var loaded in AppDomain.CurrentDomain.GetAssemblies())
         {

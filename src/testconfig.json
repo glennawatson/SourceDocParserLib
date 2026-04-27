@@ -9,6 +9,11 @@
                         ".*SamplePdb\\.dll$"
                     ]
                 },
+                "Sources": {
+                    "Exclude": [
+                        ".*\\.g\\.cs$"
+                    ]
+                },
                 "Attributes": {
                     "Exclude": [
                         "^System\\.Diagnostics\\.DebuggerHiddenAttribute$",

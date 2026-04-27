@@ -27,7 +27,7 @@ public class DocfxAttributeCtorTests
             "Browsable",
             "T:System.ComponentModel.BrowsableAttribute",
             "M:System.ComponentModel.BrowsableAttribute.#ctor(System.Boolean)",
-            [new ApiAttributeArgument(Name: null, Value: "false")]);
+            [new(Name: null, Value: "false")]);
 
         sb.AppendAttributeEntry(attribute);
 

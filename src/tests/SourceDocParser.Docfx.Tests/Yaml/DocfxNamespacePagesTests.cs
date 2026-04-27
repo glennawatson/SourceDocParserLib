@@ -78,11 +78,9 @@ public class DocfxNamespacePagesTests
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task PathForUsesNamespaceStemWithExtension()
-    {
+    public async Task PathForUsesNamespaceStemWithExtension() =>
         await Assert.That(DocfxNamespacePages.PathFor("DynamicData.Aggregation"))
             .IsEqualTo("DynamicData.Aggregation.yml");
-    }
 
     /// <summary>
     /// Render produces a parseable YAML page with the docfx

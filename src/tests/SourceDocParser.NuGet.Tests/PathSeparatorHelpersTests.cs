@@ -14,11 +14,9 @@ public class PathSeparatorHelpersTests
     /// <summary>Mixed archive separators collapse to forward slashes and keep a trailing slash.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task EnsureTrailingForwardSlashNormalisesMixedSeparators()
-    {
+    public async Task EnsureTrailingForwardSlashNormalisesMixedSeparators() =>
         await Assert.That(PathSeparatorHelpers.EnsureTrailingForwardSlash(@"ref\net8.0\"))
             .IsEqualTo("ref/net8.0/");
-    }
 
     /// <summary>Platform path normalization rewrites both slash forms to the current OS separator.</summary>
     /// <returns>A task representing the test execution.</returns>

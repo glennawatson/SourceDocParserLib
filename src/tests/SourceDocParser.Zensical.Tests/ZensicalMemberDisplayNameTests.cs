@@ -36,7 +36,7 @@ public class ZensicalMemberDisplayNameTests
         var method = NewMember(
             "Run",
             ApiMemberKind.Method,
-            new ApiParameter("arg", new ApiTypeReference("int", "T:System.Int32"), false, false, false, false, false, null));
+            new ApiParameter("arg", new("int", "T:System.Int32"), false, false, false, false, false, null));
 
         var heading = ZensicalMemberDisplayName.Heading(method, TestData.ObjectType("Foo"));
 

@@ -27,42 +27,27 @@ public class BlobUrlProvidersTests
     /// <summary>GitHub raw URL with too few path segments returns null (no owner/repo/sha extractable).</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task GitHubReturnsNullForMalformedRawUrl()
-    {
-        await Assert.That(BlobUrlProviders.TryRewriteGitHub("https://raw.githubusercontent.com/owner/onlyone", 1)).IsNull();
-    }
+    public async Task GitHubReturnsNullForMalformedRawUrl() => await Assert.That(BlobUrlProviders.TryRewriteGitHub("https://raw.githubusercontent.com/owner/onlyone", 1)).IsNull();
 
     /// <summary>GitLab provider returns null for URLs without the <c>/-/raw/</c> segment.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task GitLabReturnsNullWithoutRawSegment()
-    {
-        await Assert.That(BlobUrlProviders.TryRewriteGitLab("https://gitlab.com/x/y/blob/main/a.cs", 1)).IsNull();
-    }
+    public async Task GitLabReturnsNullWithoutRawSegment() => await Assert.That(BlobUrlProviders.TryRewriteGitLab("https://gitlab.com/x/y/blob/main/a.cs", 1)).IsNull();
 
     /// <summary>Bitbucket provider returns null for non-API URLs.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task BitbucketReturnsNullForNonApiUrl()
-    {
-        await Assert.That(BlobUrlProviders.TryRewriteBitbucket("https://bitbucket.org/owner/repo/foo.cs", 1)).IsNull();
-    }
+    public async Task BitbucketReturnsNullForNonApiUrl() => await Assert.That(BlobUrlProviders.TryRewriteBitbucket("https://bitbucket.org/owner/repo/foo.cs", 1)).IsNull();
 
     /// <summary>Azure DevOps provider returns null when the URL doesn't match the dev.azure.com prefix.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task AzureDevOpsReturnsNullForNonAzureUrl()
-    {
-        await Assert.That(BlobUrlProviders.TryRewriteAzureDevOps("https://example.org/foo.cs", 1)).IsNull();
-    }
+    public async Task AzureDevOpsReturnsNullForNonAzureUrl() => await Assert.That(BlobUrlProviders.TryRewriteAzureDevOps("https://example.org/foo.cs", 1)).IsNull();
 
     /// <summary>Azure DevOps provider returns null when the URL has the prefix but no <c>_apis/git/repositories/</c> segment.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task AzureDevOpsReturnsNullWithoutGitApiSegment()
-    {
-        await Assert.That(BlobUrlProviders.TryRewriteAzureDevOps("https://dev.azure.com/org/project/foo.cs", 1)).IsNull();
-    }
+    public async Task AzureDevOpsReturnsNullWithoutGitApiSegment() => await Assert.That(BlobUrlProviders.TryRewriteAzureDevOps("https://dev.azure.com/org/project/foo.cs", 1)).IsNull();
 
     /// <summary>AppendDefaultAnchor returns the URL unchanged for line=0.</summary>
     /// <returns>A task representing the test execution.</returns>
@@ -76,9 +61,7 @@ public class BlobUrlProvidersTests
     /// <summary>AppendDefaultAnchor adds <c>#L{line}</c> for positive lines.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task DefaultAnchorAppendedForPositiveLine()
-    {
+    public async Task DefaultAnchorAppendedForPositiveLine() =>
         await Assert.That(BlobUrlProviders.AppendDefaultAnchor("https://example.org/foo.cs", 42))
             .IsEqualTo("https://example.org/foo.cs#L42");
-    }
 }

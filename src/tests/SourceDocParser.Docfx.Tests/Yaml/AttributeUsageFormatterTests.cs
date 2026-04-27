@@ -23,7 +23,7 @@ public class AttributeUsageFormatterTests
     public async Task NoArgumentsRendersBareName()
     {
         var rendered = AttributeUsageFormatter.Render(
-            new ApiAttribute("Serializable", "T:System.SerializableAttribute", string.Empty, []));
+            new("Serializable", "T:System.SerializableAttribute", string.Empty, []));
 
         await Assert.That(rendered).IsEqualTo("Serializable");
     }
@@ -33,11 +33,11 @@ public class AttributeUsageFormatterTests
     [Test]
     public async Task SinglePositionalArgumentRenders()
     {
-        var rendered = AttributeUsageFormatter.Render(new ApiAttribute(
+        var rendered = AttributeUsageFormatter.Render(new(
             "Browsable",
             "T:System.ComponentModel.BrowsableAttribute",
             string.Empty,
-            [new ApiAttributeArgument(Name: null, Value: "false")]));
+            [new(Name: null, Value: "false")]));
 
         await Assert.That(rendered).IsEqualTo("Browsable(false)");
     }
@@ -47,13 +47,13 @@ public class AttributeUsageFormatterTests
     [Test]
     public async Task MixedPositionalAndNamedRenders()
     {
-        var rendered = AttributeUsageFormatter.Render(new ApiAttribute(
+        var rendered = AttributeUsageFormatter.Render(new(
             "StyleTypedProperty",
             "T:System.Windows.StyleTypedPropertyAttribute",
             string.Empty,
             [
-                new ApiAttributeArgument(Name: null, Value: "\"ItemContainerStyle\""),
-                new ApiAttributeArgument(Name: "StyleTargetType", Value: "typeof(ListBoxItem)"),
+                new(Name: null, Value: "\"ItemContainerStyle\""),
+                new(Name: "StyleTargetType", Value: "typeof(ListBoxItem)"),
             ]));
 
         await Assert.That(rendered).IsEqualTo("StyleTypedProperty(\"ItemContainerStyle\", StyleTargetType=typeof(ListBoxItem))");
@@ -72,7 +72,7 @@ public class AttributeUsageFormatterTests
         var args = new ApiAttributeArgument[argCount];
         for (var i = 0; i < argCount; i++)
         {
-            args[i] = new ApiAttributeArgument(Name: i % 2 == 0 ? null : "Named" + i, Value: "v" + i);
+            args[i] = new(Name: i % 2 == 0 ? null : "Named" + i, Value: "v" + i);
         }
 
         var attribute = new ApiAttribute("Foo", "T:My.FooAttribute", string.Empty, args);

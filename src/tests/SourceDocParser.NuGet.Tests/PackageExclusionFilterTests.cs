@@ -36,10 +36,7 @@ public class PackageExclusionFilterTests
     /// <summary>Empty exclude lists never match.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ExcludedByUserReturnsFalseForEmptyLists()
-    {
-        await Assert.That(PackageExclusionFilter.IsExcludedByUser("Anything", [], [])).IsFalse();
-    }
+    public async Task ExcludedByUserReturnsFalseForEmptyLists() => await Assert.That(PackageExclusionFilter.IsExcludedByUser("Anything", [], [])).IsFalse();
 
     /// <summary>Native runtime.* packages are always default-transitive-skipped.</summary>
     /// <param name="id">Native runtime package ID.</param>
@@ -54,10 +51,7 @@ public class PackageExclusionFilterTests
     /// <summary>Microsoft.NET.Native.* packages are default-transitive-skipped.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task DefaultTransitiveSkipsMicrosoftNetNative()
-    {
-        await Assert.That(PackageExclusionFilter.IsDefaultTransitiveSkip("Microsoft.NET.Native.Compiler")).IsTrue();
-    }
+    public async Task DefaultTransitiveSkipsMicrosoftNetNative() => await Assert.That(PackageExclusionFilter.IsDefaultTransitiveSkip("Microsoft.NET.Native.Compiler")).IsTrue();
 
     /// <summary>Microsoft.NETCore.* shim families are default-transitive-skipped.</summary>
     /// <param name="id">Microsoft.NETCore subfamily package id.</param>
@@ -95,8 +89,5 @@ public class PackageExclusionFilterTests
     /// <summary>Empty package id returns false rather than throwing.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task DefaultTransitiveSkipReturnsFalseForEmpty()
-    {
-        await Assert.That(PackageExclusionFilter.IsDefaultTransitiveSkip(string.Empty)).IsFalse();
-    }
+    public async Task DefaultTransitiveSkipReturnsFalseForEmpty() => await Assert.That(PackageExclusionFilter.IsDefaultTransitiveSkip(string.Empty)).IsFalse();
 }

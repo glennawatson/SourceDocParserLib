@@ -136,9 +136,7 @@ public class NuGetServiceIndexReaderTests
     /// <summary>Null stream argument throws.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task AsyncStreamRejectsNull()
-    {
+    public async Task AsyncStreamRejectsNull() =>
         await Assert.That(() => NuGetServiceIndexReader.ReadFlatContainerUrlAsync(null!))
             .Throws<ArgumentNullException>();
-    }
 }

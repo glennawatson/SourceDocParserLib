@@ -119,4 +119,19 @@ public class SourceLinkReaderIntegrationTests
 
         await Assert.That(reader.HasSourceLink).IsFalse();
     }
+
+    /// <summary>
+    /// GetMethodLocation against a reader whose constructor failed
+    /// (so <c>_pdbReader</c> is null) returns null without throwing.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task GetMethodLocationReturnsNullWhenPdbReaderIsNull()
+    {
+        using var reader = new SourceLinkReader("/does/not/exist.dll");
+
+        var location = reader.GetMethodLocation(0x06000001);
+
+        await Assert.That(location).IsNull();
+    }
 }

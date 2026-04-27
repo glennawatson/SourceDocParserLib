@@ -37,10 +37,7 @@ public class AttributeExtractorHelperTests
     /// <summary>The exact string <c>Attribute</c> stays as-is — stripping it would leave an empty name.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task StripAttributeSuffixKeepsBareAttribute()
-    {
-        await Assert.That(AttributeExtractor.StripAttributeSuffix("Attribute")).IsEqualTo("Attribute");
-    }
+    public async Task StripAttributeSuffixKeepsBareAttribute() => await Assert.That(AttributeExtractor.StripAttributeSuffix("Attribute")).IsEqualTo("Attribute");
 
     /// <summary>QuoteStringLiteral wraps a no-escape string in double quotes via the fast path.</summary>
     /// <returns>A task representing the test execution.</returns>
@@ -64,34 +61,22 @@ public class AttributeExtractorHelperTests
     /// <summary>QuoteStringLiteral preserves the leading non-escape prefix when escapes appear later in the string.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task QuoteStringLiteralPreservesPrefixBeforeFirstEscape()
-    {
-        await Assert.That(AttributeExtractor.QuoteStringLiteral("prefix\"middle")).IsEqualTo("\"prefix\\\"middle\"");
-    }
+    public async Task QuoteStringLiteralPreservesPrefixBeforeFirstEscape() => await Assert.That(AttributeExtractor.QuoteStringLiteral("prefix\"middle")).IsEqualTo("\"prefix\\\"middle\"");
 
     /// <summary>FormatPrimitive returns <c>null</c> for null values.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task FormatPrimitiveHandlesNull()
-    {
-        await Assert.That(AttributeExtractor.FormatPrimitive(null)).IsEqualTo("null");
-    }
+    public async Task FormatPrimitiveHandlesNull() => await Assert.That(AttributeExtractor.FormatPrimitive(null)).IsEqualTo("null");
 
     /// <summary>FormatPrimitive renders strings via the QuoteStringLiteral path.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task FormatPrimitiveQuotesStrings()
-    {
-        await Assert.That(AttributeExtractor.FormatPrimitive("hello")).IsEqualTo("\"hello\"");
-    }
+    public async Task FormatPrimitiveQuotesStrings() => await Assert.That(AttributeExtractor.FormatPrimitive("hello")).IsEqualTo("\"hello\"");
 
     /// <summary>FormatPrimitive renders chars in single quotes.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task FormatPrimitiveRendersChars()
-    {
-        await Assert.That(AttributeExtractor.FormatPrimitive('x')).IsEqualTo("'x'");
-    }
+    public async Task FormatPrimitiveRendersChars() => await Assert.That(AttributeExtractor.FormatPrimitive('x')).IsEqualTo("'x'");
 
     /// <summary>FormatPrimitive renders bools as lowercase <c>true</c>/<c>false</c>.</summary>
     /// <returns>A task representing the test execution.</returns>
@@ -137,10 +122,7 @@ public class AttributeExtractorHelperTests
     /// <summary>The <c>ObsoleteAttributeFullName</c> constant matches the actual <see cref="ObsoleteAttribute"/> fully-qualified name.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ObsoleteAttributeFullNameMatchesBclType()
-    {
-        await Assert.That(AttributeExtractor.ObsoleteAttributeFullName).IsEqualTo(typeof(ObsoleteAttribute).FullName);
-    }
+    public async Task ObsoleteAttributeFullNameMatchesBclType() => await Assert.That(AttributeExtractor.ObsoleteAttributeFullName).IsEqualTo(typeof(ObsoleteAttribute).FullName);
 
     /// <summary>Type with a custom <c>ToString</c> override — drives the FormatPrimitive fallback arm for boxed values that aren't string / char / bool / IFormattable.</summary>
     private sealed class CustomFormattableless

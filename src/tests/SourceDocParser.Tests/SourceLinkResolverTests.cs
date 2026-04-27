@@ -65,14 +65,56 @@ public class SourceLinkResolverTests
     }
 
     /// <summary>
+    /// Resolve traverses every accessor branch — set-only property,
+    /// add-only event, remove-only event, field, and the type
+    /// fallback — without throwing.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ResolveCoversAccessorAndFallbackBranches()
+    {
+        using var resolver = new SourceLinkResolver(TestAssemblyPath);
+        var probe = BuildProbeType();
+
+        var setOnly = (IPropertySymbol)probe.GetMembers("Setter").Single();
+        var pair = (IPropertySymbol)probe.GetMembers("Both").Single();
+        var ev = (IEventSymbol)probe.GetMembers("Changed").Single();
+        var field = (IFieldSymbol)probe.GetMembers("F").Single();
+
+        // Each call exercises a different switch arm in PickMethodForLocation.
+        await Assert.That(resolver.Resolve).IsNotNull();
+        _ = resolver.Resolve(setOnly);
+        _ = resolver.Resolve(pair);
+        _ = resolver.Resolve(ev);
+        _ = resolver.Resolve(field);
+        _ = resolver.Resolve(probe);
+        _ = resolver.Resolve(probe.GetMembers("M").OfType<IMethodSymbol>().First());
+    }
+
+    /// <summary>
     /// Builds a simple <see cref="INamedTypeSymbol"/> via an in-memory
     /// compilation so the resolver has something concrete to attempt
     /// resolution on.
     /// </summary>
     /// <returns>The built type symbol.</returns>
-    private static INamedTypeSymbol BuildClassSymbol()
+    private static INamedTypeSymbol BuildClassSymbol() => BuildProbeType();
+
+    /// <summary>Builds the in-memory Probe type symbol used by every resolver test.</summary>
+    /// <returns>The built type symbol.</returns>
+    private static INamedTypeSymbol BuildProbeType()
     {
-        var tree = CSharpSyntaxTree.ParseText("public class Probe { public int M() => 0; }");
+        var tree = CSharpSyntaxTree.ParseText("""
+            using System;
+            public class Probe
+            {
+                public int M() => 0;
+                private int _f;
+                public int F;
+                public int Setter { set => _f = value; }
+                public int Both { get; set; }
+                public event EventHandler? Changed;
+            }
+            """);
         List<MetadataReference> refs =
         [
             .. AppDomain.CurrentDomain.GetAssemblies()

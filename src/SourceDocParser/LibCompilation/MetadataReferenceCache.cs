@@ -4,7 +4,6 @@
 
 using System.Collections.Concurrent;
 using Microsoft.CodeAnalysis;
-using SourceDocParser.XmlDoc;
 
 namespace SourceDocParser.LibCompilation;
 
@@ -20,7 +19,7 @@ namespace SourceDocParser.LibCompilation;
 /// that drives the parser repeatedly, like benchmarks) don't accumulate
 /// pinned native memory across runs.
 /// </remarks>
-internal sealed partial class MetadataReferenceCache : IDisposable
+internal sealed class MetadataReferenceCache : IDisposable
 {
     /// <summary>
     /// Map of assembly paths to cached references. Case-insensitive for Windows path variations.
@@ -48,7 +47,7 @@ internal sealed partial class MetadataReferenceCache : IDisposable
             assemblyPath,
             static (path, state) =>
             {
-                var documentation = TryLoadXmlDocs(path, state.Logger);
+                var documentation = XmlDocsLoader.TryLoad(path, state.Logger);
                 return documentation is null
                     ? MetadataReference.CreateFromFile(path)
                     : MetadataReference.CreateFromFile(path, documentation: documentation);
@@ -73,47 +72,6 @@ internal sealed partial class MetadataReferenceCache : IDisposable
         }
 
         _byPath.Clear();
-    }
-
-    /// <summary>Logs a successful XML doc load alongside an assembly.</summary>
-    /// <param name="logger">Target logger.</param>
-    /// <param name="entryCount">Number of XML doc entries parsed.</param>
-    /// <param name="xmlPath">Absolute path to the loaded XML doc file.</param>
-    [LoggerMessage(Level = LogLevel.Trace, Message = "  loaded {EntryCount} XML doc entry/ies from {XmlPath}")]
-    private static partial void LogXmlDocLoaded(ILogger logger, int entryCount, string xmlPath);
-
-    /// <summary>Logs failure to parse the XML doc file (load continues without docs).</summary>
-    /// <param name="logger">Target logger.</param>
-    /// <param name="exception">Parse exception.</param>
-    /// <param name="xmlPath">Absolute path to the failed XML doc file.</param>
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to parse XML doc file '{XmlPath}'")]
-    private static partial void LogXmlDocParseFailed(ILogger logger, Exception exception, string xmlPath);
-
-    /// <summary>
-    /// Attempts to load XML documentation sitting next to the assembly.
-    /// </summary>
-    /// <param name="assemblyPath">The absolute path to the assembly DLL.</param>
-    /// <param name="logger">Target logger.</param>
-    /// <returns>A documentation provider if the XML exists and is valid; otherwise, null.</returns>
-    private static FileXmlDocumentationProvider? TryLoadXmlDocs(string assemblyPath, ILogger logger)
-    {
-        var xmlPath = Path.ChangeExtension(assemblyPath, ".xml");
-        if (!File.Exists(xmlPath))
-        {
-            return null;
-        }
-
-        try
-        {
-            var source = XmlDocSource.Load(xmlPath);
-            LogXmlDocLoaded(logger, source.Count, xmlPath);
-            return new(source, xmlPath);
-        }
-        catch (Exception ex)
-        {
-            LogXmlDocParseFailed(logger, ex, xmlPath);
-            return null;
-        }
     }
 
     /// <summary>

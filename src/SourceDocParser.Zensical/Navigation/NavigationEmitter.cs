@@ -2,7 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Buffers;
 using System.Text;
 using SourceDocParser.Model;
 using SourceDocParser.Zensical.Options;
@@ -21,9 +20,6 @@ namespace SourceDocParser.Zensical.Navigation;
 /// </summary>
 public sealed class NavigationEmitter
 {
-    /// <summary>Characters that force a YAML scalar to be quoted.</summary>
-    private static readonly SearchValues<char> _yamlReservedChars = SearchValues.Create(":#'\"[]{},&*!|>%@`");
-
     /// <summary>Routing options — drive the package-folder grouping.</summary>
     private readonly ZensicalEmitterOptions _options;
 
@@ -124,79 +120,12 @@ public sealed class NavigationEmitter
     /// <summary>Quotes a YAML scalar key when it contains characters that need quoting.</summary>
     /// <param name="value">The raw scalar.</param>
     /// <returns>Either the bare scalar or a double-quoted form.</returns>
-    private static string YamlScalar(string value) =>
-        value.AsSpan().IndexOfAny(_yamlReservedChars) < 0
-            ? value
-            : QuoteString(value, escapeBackslashes: false);
+    private static string YamlScalar(string value) => NavigationStringQuoter.YamlScalar(value);
 
     /// <summary>Quotes a TOML string literal.</summary>
     /// <param name="value">The raw string.</param>
     /// <returns>The TOML double-quoted form.</returns>
-    private static string TomlString(string value) => QuoteString(value, escapeBackslashes: true);
-
-    /// <summary>
-    /// Wraps a value in double quotes and escapes the required characters.
-    /// </summary>
-    /// <param name="value">The raw text.</param>
-    /// <param name="escapeBackslashes">Whether backslashes should be escaped.</param>
-    /// <returns>The quoted value.</returns>
-    private static string QuoteString(string value, bool escapeBackslashes)
-    {
-        var firstEscapeIndex = escapeBackslashes
-            ? value.AsSpan().IndexOfAny(['\\', '"'])
-            : value.IndexOf('"');
-        if (firstEscapeIndex < 0)
-        {
-            return string.Create(
-                value.Length + 2,
-                value,
-                static (dest, state) =>
-                {
-                    dest[0] = '"';
-                    state.CopyTo(dest[1..]);
-                    dest[^1] = '"';
-                });
-        }
-
-        return string.Create(
-            value.Length + 2 + CountEscapes(value.AsSpan(firstEscapeIndex), escapeBackslashes),
-            (Value: value, FirstEscapeIndex: firstEscapeIndex, EscapeBackslashes: escapeBackslashes),
-            static (dest, state) =>
-            {
-                dest[0] = '"';
-                state.Value.AsSpan(0, state.FirstEscapeIndex).CopyTo(dest[1..]);
-                var destIndex = state.FirstEscapeIndex + 1;
-                for (var i = state.FirstEscapeIndex; i < state.Value.Length; i++)
-                {
-                    var current = state.Value[i];
-                    if (current is '"' || (state.EscapeBackslashes && current is '\\'))
-                    {
-                        dest[destIndex++] = '\\';
-                    }
-
-                    dest[destIndex++] = current;
-                }
-
-                dest[destIndex] = '"';
-            });
-    }
-
-    /// <summary>
-    /// Counts the number of extra escape characters needed.
-    /// </summary>
-    /// <param name="text">Text to inspect.</param>
-    /// <param name="escapeBackslashes">Whether backslashes should be escaped.</param>
-    /// <returns>The number of inserted escape characters.</returns>
-    private static int CountEscapes(in ReadOnlySpan<char> text, bool escapeBackslashes)
-    {
-        var count = 0;
-        for (var i = 0; i < text.Length; i++)
-        {
-            count += text[i] is '"' || (escapeBackslashes && text[i] is '\\') ? 1 : 0;
-        }
-
-        return count;
-    }
+    private static string TomlString(string value) => NavigationStringQuoter.TomlString(value);
 
     /// <summary>
     /// Sorts the supplied types into an ordered package -&gt;
@@ -221,7 +150,7 @@ public sealed class NavigationEmitter
 
             if (!tree.TryGetValue(package, out var nsBucket))
             {
-                nsBucket = new SortedDictionary<string, List<NavEntry>>(StringComparer.Ordinal);
+                nsBucket = new(StringComparer.Ordinal);
                 tree[package] = nsBucket;
             }
 
@@ -231,7 +160,7 @@ public sealed class NavigationEmitter
                 nsBucket[ns] = entries;
             }
 
-            entries.Add(new NavEntry(
+            entries.Add(new(
                 Title: ZensicalEmitterHelpers.FormatDisplayTypeName(type.Name, type.Arity),
                 Path: ToPosixPath(TypePageEmitter.PathFor(type, _options))));
         }

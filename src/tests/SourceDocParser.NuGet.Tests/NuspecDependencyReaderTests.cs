@@ -260,7 +260,7 @@ public class NuspecDependencyReaderTests
               <dependency id="X" />
             </root>
             """;
-        using var reader = XmlReader.Create(StreamFor(xml), new XmlReaderSettings { Async = true });
+        using var reader = XmlReader.Create(StreamFor(xml), new() { Async = true });
         await AdvanceToFirstElementWithLocalName(reader, "dependency");
         await Assert.That(NuspecDependencyReader.IsDependencyElement(reader)).IsTrue();
     }
@@ -275,7 +275,7 @@ public class NuspecDependencyReaderTests
               <metadata id="X" />
             </root>
             """;
-        using var reader = XmlReader.Create(StreamFor(xml), new XmlReaderSettings { Async = true });
+        using var reader = XmlReader.Create(StreamFor(xml), new() { Async = true });
         await AdvanceToFirstElementWithLocalName(reader, "metadata");
         await Assert.That(NuspecDependencyReader.IsDependencyElement(reader)).IsFalse();
     }

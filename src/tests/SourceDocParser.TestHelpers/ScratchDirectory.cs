@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics.CodeAnalysis;
+
 namespace SourceDocParser.TestHelpers;
 
 /// <summary>
@@ -10,6 +12,7 @@ namespace SourceDocParser.TestHelpers;
 /// one inside a using block; the directory is recursively removed on
 /// dispose.
 /// </summary>
+[ExcludeFromCodeCoverage]
 public sealed class ScratchDirectory : IDisposable
 {
     /// <summary>

@@ -148,16 +148,16 @@ internal static class AttributeExtractor
 
         for (var i = 0; i < positional.Length; i++)
         {
-            args[i] = new ApiAttributeArgument(Name: null, Value: FormatConstant(positional[i]));
+            args[i] = new(Name: null, Value: FormatConstant(positional[i]));
         }
 
         for (var i = 0; i < named.Length; i++)
         {
             var entry = named[i];
-            args[positional.Length + i] = new ApiAttributeArgument(Name: entry.Key, Value: FormatConstant(entry.Value));
+            args[positional.Length + i] = new(Name: entry.Key, Value: FormatConstant(entry.Value));
         }
 
-        return new ApiAttribute(displayName, uid, ctorUid, args);
+        return new(displayName, uid, ctorUid, args);
     }
 
     /// <summary>Drops the trailing <c>Attribute</c> suffix from a class name when present.</summary>

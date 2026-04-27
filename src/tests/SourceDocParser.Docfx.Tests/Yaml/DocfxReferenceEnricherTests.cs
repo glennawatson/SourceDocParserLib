@@ -22,7 +22,7 @@ public class DocfxReferenceEnricherTests
     [Test]
     public async Task BclPrimitiveClassReferenceLowersToKeyword()
     {
-        var page = RenderPageWithReference(new ApiTypeReference("Object", "T:System.Object"), internalUids: []);
+        var page = RenderPageWithReference(new("Object", "T:System.Object"), internalUids: []);
 
         await Assert.That(page).Contains("  name: object");
         await Assert.That(page).Contains("  nameWithType: object");
@@ -34,7 +34,7 @@ public class DocfxReferenceEnricherTests
     [Test]
     public async Task BclReferenceRoutesToMicrosoftLearn()
     {
-        var page = RenderPageWithReference(new ApiTypeReference("Object", "T:System.Object"), internalUids: []);
+        var page = RenderPageWithReference(new("Object", "T:System.Object"), internalUids: []);
 
         await Assert.That(page).Contains("- uid: System.Object");
         await Assert.That(page).Contains("  parent: System");
@@ -48,7 +48,7 @@ public class DocfxReferenceEnricherTests
     public async Task InternalReferenceLinksToLocalPage()
     {
         var page = RenderPageWithReference(
-            new ApiTypeReference("IFoo", "T:My.IFoo"),
+            new("IFoo", "T:My.IFoo"),
             internalUids: ["T:My.IFoo"]);
 
         await Assert.That(page).Contains("- uid: My.IFoo");
@@ -65,7 +65,7 @@ public class DocfxReferenceEnricherTests
         // emits `isExternal: true` on the spec.csharp entry — spec
         // components are always referenced as a separate page entry.
         var page = RenderPageWithReference(
-            new ApiTypeReference("IFoo<int>", "T:My.IFoo{System.Int32}"),
+            new("IFoo<int>", "T:My.IFoo{System.Int32}"),
             internalUids: ["T:My.IFoo`1"]);
 
         await Assert.That(page).Contains("spec.csharp:");
@@ -87,12 +87,30 @@ public class DocfxReferenceEnricherTests
     public async Task GenericReferenceEmitsSpecCsharp()
     {
         var page = RenderPageWithReference(
-            new ApiTypeReference("IObservable<int>", "T:System.IObservable{System.Int32}"),
+            new("IObservable<int>", "T:System.IObservable{System.Int32}"),
             internalUids: []);
 
         await Assert.That(page).Contains("definition: System.IObservable`1");
         await Assert.That(page).Contains("spec.csharp:");
         await Assert.That(page).Contains("  - uid: System.IObservable`1");
+        await Assert.That(page).Contains("  - name: <");
+        await Assert.That(page).Contains("  - name: '>'");
+    }
+
+    /// <summary>A nested generic emits one inner spec block per type argument with comma separators.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task NestedGenericReferenceEmitsRecursiveSpecBlocks()
+    {
+        var page = RenderPageWithReference(
+            new("Dictionary<List<int>, string>", "T:System.Collections.Generic.Dictionary{System.Collections.Generic.List{System.Int32},System.String}"),
+            internalUids: []);
+
+        await Assert.That(page).Contains("spec.csharp:");
+        await Assert.That(page).Contains("  - uid: System.Collections.Generic.Dictionary`2");
+        await Assert.That(page).Contains("  - uid: System.Collections.Generic.List`1");
+        await Assert.That(page).Contains("  - uid: System.Int32");
+        await Assert.That(page).Contains("  - name: ', '");
         await Assert.That(page).Contains("  - name: <");
         await Assert.That(page).Contains("  - name: '>'");
     }

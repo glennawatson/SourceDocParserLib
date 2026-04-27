@@ -82,7 +82,7 @@ public sealed class ZensicalCatalogIndexes
         var extensionsRaw = BuildExtensionsRaw(types);
         var inheritedRaw = BuildInheritedRaw(types, typesByUid);
 
-        return new ZensicalCatalogIndexes(
+        return new(
             FreezeArrays(derivedRaw),
             FreezeArrays(extensionsRaw),
             FreezeArrays(inheritedRaw));

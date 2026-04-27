@@ -95,7 +95,7 @@ public class CompilationDiagnosticsExtensionsTests
                     """),
             ],
             BclReferences,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            new(OutputKind.DynamicallyLinkedLibrary));
         var logger = new RecordingLogger();
 
         var hasErrors = compilation.ReportDiagnostics(logger);

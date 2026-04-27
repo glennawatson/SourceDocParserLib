@@ -18,11 +18,6 @@ namespace SourceDocParser.SourceLink;
 internal sealed class SourceLinkReader : IDisposable
 {
     /// <summary>
-    /// GUID for the SourceLink custom debug information record in portable PDBs.
-    /// </summary>
-    private static readonly Guid SourceLinkGuid = new("CC110556-A091-4D38-9FEC-25AB9A351A6A");
-
-    /// <summary>
     /// The opened PE stream for the assembly.
     /// </summary>
     private readonly Stream? _peStream;
@@ -65,7 +60,7 @@ internal sealed class SourceLinkReader : IDisposable
 
             _pdbProvider = provider;
             _pdbReader = reader;
-            _map = TryReadSourceLink(reader);
+            _map = SourceLinkBlobParser.FindAndParse(reader);
         }
         catch
         {
@@ -180,74 +175,6 @@ internal sealed class SourceLinkReader : IDisposable
             }
         }
 
-        var pdbPath = Path.ChangeExtension(assemblyPath, ".pdb");
-        if (!File.Exists(pdbPath))
-        {
-            return false;
-        }
-
-        // Hold both the stream and the provider in locals until
-        // ownership transfers — to the provider on success of
-        // FromPortablePdbStream, then to the out parameter on success
-        // of GetMetadataReader. The finally only disposes whatever
-        // ownership we still hold, so a disposed provider never leaks
-        // out to the caller.
-        FileStream? pdbStream = null;
-        MetadataReaderProvider? localProvider = null;
-        try
-        {
-            pdbStream = File.OpenRead(pdbPath);
-            localProvider = MetadataReaderProvider.FromPortablePdbStream(
-                pdbStream,
-                MetadataStreamOptions.PrefetchMetadata,
-                size: 0);
-            pdbStream = null;
-            reader = localProvider.GetMetadataReader();
-            provider = localProvider;
-            localProvider = null;
-            return true;
-        }
-        catch
-        {
-            provider = null;
-            reader = null;
-            return false;
-        }
-        finally
-        {
-            pdbStream?.Dispose();
-            localProvider?.Dispose();
-        }
-    }
-
-    /// <summary>
-    /// Walks the CustomDebugInformation table looking for the SourceLink record.
-    /// </summary>
-    /// <param name="pdb">The opened PDB metadata reader.</param>
-    /// <returns>The SourceLink map, or null.</returns>
-    private static SourceLinkMap? TryReadSourceLink(MetadataReader pdb)
-    {
-        foreach (var handle in pdb.CustomDebugInformation)
-        {
-            var info = pdb.GetCustomDebugInformation(handle);
-            if (pdb.GetGuid(info.Kind) != SourceLinkGuid)
-            {
-                continue;
-            }
-
-            try
-            {
-                var blob = pdb.GetBlobReader(info.Value);
-                var bytes = blob.ReadBytes(blob.Length);
-                List<SourceLinkMapEntry> entries = [.. SourceLinkJsonParser.Parse(bytes)];
-                return entries is [_, ..] ? new SourceLinkMap(entries) : null;
-            }
-            catch
-            {
-                return null;
-            }
-        }
-
-        return null;
+        return StandalonePdbOpener.TryOpen(Path.ChangeExtension(assemblyPath, ".pdb"), out provider, out reader);
     }
 }

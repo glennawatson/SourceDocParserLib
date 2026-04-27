@@ -135,16 +135,10 @@ public class XmlEntityDecoderTests
     /// <summary>TryParseNumericRef rejects code points above the BMP (we work on chars, not Runes).</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task TryParseNumericRefRejectsAboveBmp()
-    {
-        await Assert.That(XmlEntityDecoder.TryParseNumericRef("x10000".AsSpan(), out _)).IsFalse();
-    }
+    public async Task TryParseNumericRefRejectsAboveBmp() => await Assert.That(XmlEntityDecoder.TryParseNumericRef("x10000".AsSpan(), out _)).IsFalse();
 
     /// <summary>TryParseNumericRef rejects negative values (defensive — int.TryParse accepts a leading minus).</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task TryParseNumericRefRejectsNegative()
-    {
-        await Assert.That(XmlEntityDecoder.TryParseNumericRef("-5".AsSpan(), out _)).IsFalse();
-    }
+    public async Task TryParseNumericRefRejectsNegative() => await Assert.That(XmlEntityDecoder.TryParseNumericRef("-5".AsSpan(), out _)).IsFalse();
 }

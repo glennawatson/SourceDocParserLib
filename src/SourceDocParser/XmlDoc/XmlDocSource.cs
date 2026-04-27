@@ -96,6 +96,17 @@ public sealed class XmlDocSource : IXmlDocSource
         return new(content, BuildIndex(content));
     }
 
+    /// <summary>
+    /// Attempts to load XML documentation sitting next to the assembly.
+    /// </summary>
+    /// <param name="assemblyPath">The absolute path to the assembly DLL.</param>
+    /// <returns>A documentation source if the XML exists; otherwise, null.</returns>
+    public static XmlDocSource? TryLoad(string assemblyPath)
+    {
+        var xmlPath = Path.ChangeExtension(assemblyPath, ".xml");
+        return File.Exists(xmlPath) ? Load(xmlPath) : null;
+    }
+
     /// <inheritdoc />
     public string? Get(string memberId) =>
         _ranges.TryGetValue(memberId, out var range) ? _content[range.Start..range.End] : null;

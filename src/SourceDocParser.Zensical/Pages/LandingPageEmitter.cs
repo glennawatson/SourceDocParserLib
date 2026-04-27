@@ -142,7 +142,7 @@ public static class LandingPageEmitter
 
             if (!tree.TryGetValue(package, out var nsBucket))
             {
-                nsBucket = new SortedDictionary<string, List<TypeEntry>>(StringComparer.Ordinal);
+                nsBucket = new(StringComparer.Ordinal);
                 tree[package] = nsBucket;
             }
 
@@ -152,7 +152,7 @@ public static class LandingPageEmitter
                 nsBucket[ns] = entries;
             }
 
-            entries.Add(new TypeEntry(
+            entries.Add(new(
                 Title: ZensicalEmitterHelpers.FormatDisplayTypeName(type.Name, type.Arity),
                 FileName: ZensicalEmitterHelpers.FormatPathTypeName(type.Name, type.Arity) + TypePageEmitter.FileExtension,
                 KindLabel: KindLabelFor(type),

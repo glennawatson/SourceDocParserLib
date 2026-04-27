@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using SourceDocParser.Docfx.Yaml;
-using SourceDocParser.Model;
 using SourceDocParser.TestHelpers;
 
 namespace SourceDocParser.Docfx.Tests.Yaml;
@@ -67,8 +66,8 @@ public class DocfxAttributeAndCompilerGenTests
                     "T:System.Windows.StyleTypedPropertyAttribute",
                     string.Empty,
                     [
-                        new ApiAttributeArgument(Name: null, Value: "\"ItemContainerStyle\""),
-                        new ApiAttributeArgument(Name: "StyleTargetType", Value: "typeof(ListBoxItem)"),
+                        new(Name: null, Value: "\"ItemContainerStyle\""),
+                        new(Name: "StyleTargetType", Value: "typeof(ListBoxItem)"),
                     ]),
             ],
         };

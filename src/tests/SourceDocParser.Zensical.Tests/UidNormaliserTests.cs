@@ -17,36 +17,26 @@ public class UidNormaliserTests
     /// <summary>Single type-arg constructed form folds back to arity 1.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task NormalisesSingleTypeArgConstructedForm()
-    {
-        await Assert.That(UidNormaliser.Normalise("T:System.Action{`0}")).IsEqualTo("T:System.Action`1");
-    }
+    public async Task NormalisesSingleTypeArgConstructedForm() => await Assert.That(UidNormaliser.Normalise("T:System.Action{`0}")).IsEqualTo("T:System.Action`1");
 
     /// <summary>Multi-type-arg constructed form folds back to its arity.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task NormalisesMultiTypeArgConstructedForm()
-    {
-        await Assert.That(UidNormaliser.Normalise("T:System.Func{`0,`1,`2}")).IsEqualTo("T:System.Func`3");
-    }
+    public async Task NormalisesMultiTypeArgConstructedForm() => await Assert.That(UidNormaliser.Normalise("T:System.Func{`0,`1,`2}")).IsEqualTo("T:System.Func`3");
 
     /// <summary>Concrete type-arg lists collapse to arity too.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task NormalisesConcreteTypeArgList()
-    {
+    public async Task NormalisesConcreteTypeArgList() =>
         await Assert.That(UidNormaliser.Normalise("T:ReactiveUI.IBindingTypeConverter{System.Boolean,System.String}"))
             .IsEqualTo("T:ReactiveUI.IBindingTypeConverter`2");
-    }
 
     /// <summary>Nested type-arg braces don't inflate the count.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task NestedBracesCountAsOneTopLevelArg()
-    {
+    public async Task NestedBracesCountAsOneTopLevelArg() =>
         await Assert.That(UidNormaliser.Normalise("T:System.Func{System.IObservable{`0}}"))
             .IsEqualTo("T:System.Func`1");
-    }
 
     /// <summary>Already-canonical UIDs pass through unchanged.</summary>
     /// <returns>A task representing the test execution.</returns>
@@ -78,8 +68,29 @@ public class UidNormaliserTests
     /// <summary>A bare-name (no T: prefix) constructed form still folds.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task BareNameConstructedFormFolds()
-    {
-        await Assert.That(UidNormaliser.Normalise("System.Action{`0,`1}")).IsEqualTo("System.Action`2");
-    }
+    public async Task BareNameConstructedFormFolds() => await Assert.That(UidNormaliser.Normalise("System.Action{`0,`1}")).IsEqualTo("System.Action`2");
+
+    /// <summary>A type with no <c>{</c> at all passes through unchanged.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task TypeWithoutBraceIsUnchanged() =>
+        await Assert.That(UidNormaliser.Normalise("T:System.Boring")).IsEqualTo("T:System.Boring");
+
+    /// <summary>A malformed UID with an open <c>{</c> but no matching close passes through unchanged.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task MalformedOpenBraceIsUnchanged() =>
+        await Assert.That(UidNormaliser.Normalise("T:System.Action{`0")).IsEqualTo("T:System.Action{`0");
+
+    /// <summary>A close-brace with trailing content (e.g. an array suffix) is left alone.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task BraceWithTrailingContentIsUnchanged() =>
+        await Assert.That(UidNormaliser.Normalise("T:System.Action{`0}[]")).IsEqualTo("T:System.Action{`0}[]");
+
+    /// <summary>An empty brace pair counts as zero arity and falls back to the original name.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task EmptyBracesAreUnchanged() =>
+        await Assert.That(UidNormaliser.Normalise("T:System.Action{}")).IsEqualTo("T:System.Action{}");
 }

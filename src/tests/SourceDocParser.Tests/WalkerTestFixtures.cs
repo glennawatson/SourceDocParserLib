@@ -29,7 +29,7 @@ internal static class WalkerTestFixtures
     /// <returns>The compiled (but not emitted) compilation.</returns>
     internal static CSharpCompilation Compile(string source)
     {
-        var tree = CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Preview));
+        var tree = CSharpSyntaxTree.ParseText(source, new(LanguageVersion.Preview));
         List<MetadataReference> references =
         [
             .. AppDomain.CurrentDomain.GetAssemblies()
@@ -40,7 +40,7 @@ internal static class WalkerTestFixtures
             "WalkerTest",
             [tree],
             references,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            new(OutputKind.DynamicallyLinkedLibrary));
     }
 
     /// <summary>

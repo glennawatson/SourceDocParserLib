@@ -57,8 +57,8 @@ public class AttributeFilterTests
                 "T:System.Windows.StyleTypedPropertyAttribute",
                 string.Empty,
                 [
-                    new ApiAttributeArgument(Name: null, Value: "\"ItemContainerStyle\""),
-                    new ApiAttributeArgument(Name: "StyleTargetType", Value: "typeof(ListBoxItem)"),
+                    new(Name: null, Value: "\"ItemContainerStyle\""),
+                    new(Name: "StyleTargetType", Value: "typeof(ListBoxItem)"),
                 ]),
         ];
 

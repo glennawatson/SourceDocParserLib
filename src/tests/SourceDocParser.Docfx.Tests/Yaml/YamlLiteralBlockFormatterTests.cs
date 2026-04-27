@@ -69,8 +69,5 @@ public class YamlLiteralBlockFormatterTests
     /// <summary>An all-spaces prefix returns the full prefix length (degenerate but defined).</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task AllSpacesPrefixReturnsFullLength()
-    {
-        await Assert.That(YamlLiteralBlockFormatter.ComputeIndentLength("    ")).IsEqualTo(4);
-    }
+    public async Task AllSpacesPrefixReturnsFullLength() => await Assert.That(YamlLiteralBlockFormatter.ComputeIndentLength("    ")).IsEqualTo(4);
 }

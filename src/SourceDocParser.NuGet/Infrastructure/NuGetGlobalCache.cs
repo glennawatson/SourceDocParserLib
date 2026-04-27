@@ -21,11 +21,8 @@ internal static class NuGetGlobalCache
     /// <summary>NuGet's environment-variable override for the global packages folder.</summary>
     internal const string GlobalPackagesFolderEnvVar = "NUGET_PACKAGES";
 
-    /// <summary>Tail of the platform-default path under the user profile.</summary>
-    private const string DefaultRelativePath = ".nuget/packages";
-
     /// <summary>Sentinel file NuGet writes after a successful extraction — its presence means "no need to re-download / re-extract".</summary>
-    private const string ExtractionMarkerFileName = ".nupkg.metadata";
+    internal const string ExtractionMarkerFileName = ".nupkg.metadata";
 
     /// <summary>The lib subfolder under each per-package directory.</summary>
     private const string LibFolderName = "lib";
@@ -58,15 +55,7 @@ internal static class NuGetGlobalCache
         }
 
         var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (!TextHelpers.HasValue(userProfile))
-        {
-            // Unix without HOME set is rare but happens in some
-            // sandboxes; fall back to the same literal `.nuget/packages`
-            // resolved against cwd so we still produce a usable path.
-            userProfile = Directory.GetCurrentDirectory();
-        }
-
-        return Path.Combine(userProfile, PathSeparatorHelpers.ToPlatformPath(DefaultRelativePath));
+        return NuGetConfigPathsResolver.GetDefaultGlobalPackagesFolder(userProfile);
     }
 
     /// <summary>
@@ -126,34 +115,11 @@ internal static class NuGetGlobalCache
     /// walk-from-cwd on top and machine-scoped underneath.
     /// </summary>
     /// <returns>Candidate nuget.config paths in precedence order.</returns>
-    public static string[] GetUserNuGetConfigPaths()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            if (!TextHelpers.HasValue(appData))
-            {
-                return [];
-            }
-
-            return
-            [
-                Path.Combine(appData, "NuGet", "NuGet.Config"),
-            ];
-        }
-
-        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (!TextHelpers.HasValue(userProfile))
-        {
-            return [];
-        }
-
-        return
-        [
-            Path.Combine(userProfile, ".nuget", "NuGet", "NuGet.Config"),
-            Path.Combine(userProfile, ".config", "NuGet", "NuGet.Config"),
-        ];
-    }
+    public static string[] GetUserNuGetConfigPaths() =>
+        NuGetConfigPathsResolver.GetUserPaths(
+            OperatingSystem.IsWindows(),
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
 
     /// <summary>
     /// Returns every <c>*.config</c> file under the machine-wide
@@ -170,13 +136,25 @@ internal static class NuGetGlobalCache
             ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "NuGet", "Config")
             : "/etc/opt/NuGet/Config";
 
-        if (!TextHelpers.HasValue(root) || !Directory.Exists(root))
+        return NuGetConfigPathsResolver.GetMachinePaths(root);
+    }
+
+    /// <summary>Probes each configured fallback folder for an already-extracted install.</summary>
+    /// <param name="fallbackFolders">Resolved fallback folders probed before any HTTP.</param>
+    /// <param name="packageId">NuGet package id.</param>
+    /// <param name="packageVersion">Normalised version string.</param>
+    /// <returns>The fallback install path when found; null otherwise.</returns>
+    public static string? ProbeFallbackFolders(string[] fallbackFolders, string packageId, string packageVersion)
+    {
+        for (var i = 0; i < fallbackFolders.Length; i++)
         {
-            return [];
+            var candidate = GetPackageInstallPath(fallbackFolders[i], packageId, packageVersion);
+            if (IsPackageInstalled(candidate))
+            {
+                return candidate;
+            }
         }
 
-        var files = Directory.GetFiles(root, "*.config", SearchOption.AllDirectories);
-        Array.Sort(files, StringComparer.Ordinal);
-        return files;
+        return null;
     }
 }

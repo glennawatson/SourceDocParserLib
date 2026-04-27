@@ -83,6 +83,6 @@ internal static class ExtensionBlockBuilder
 
         var receiverRef = context.TypeRefs.GetOrAdd(receiverParam.Type, SymbolWalkerHelpers.BuildReference);
         var blockMembers = MemberBuilder.Build(marker, marker.Name, marker.GetDocumentationCommentId() ?? string.Empty, context);
-        return new ApiExtensionBlock(receiverParam.Name, receiverRef, blockMembers);
+        return new(receiverParam.Name, receiverRef, blockMembers);
     }
 }

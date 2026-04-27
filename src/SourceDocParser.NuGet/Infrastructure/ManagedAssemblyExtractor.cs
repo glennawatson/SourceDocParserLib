@@ -75,17 +75,23 @@ internal static class ManagedAssemblyExtractor
         ArgumentException.ThrowIfNullOrWhiteSpace(pathPrefix);
 
         var prefix = PathSeparatorHelpers.EnsureTrailingForwardSlash(pathPrefix);
-        return SelectAssemblyEntriesIterator();
+        return SelectAssemblyEntriesIterator(archive, prefix);
+    }
 
-        IEnumerable<ZipArchiveEntry> SelectAssemblyEntriesIterator()
+    /// <summary>
+    /// Implementation of <see cref="SelectAssemblyEntries"/>.
+    /// </summary>
+    /// <param name="archive">Open the NuGet package archive.</param>
+    /// <param name="prefix">Path prefix inside the archive.</param>
+    /// <returns>Lazy enumeration of matching entries.</returns>
+    private static IEnumerable<ZipArchiveEntry> SelectAssemblyEntriesIterator(ZipArchive archive, string prefix)
+    {
+        for (var i = 0; i < archive.Entries.Count; i++)
         {
-            for (var i = 0; i < archive.Entries.Count; i++)
+            var entry = archive.Entries[i];
+            if (IsCandidateDllEntry(entry, prefix))
             {
-                var entry = archive.Entries[i];
-                if (IsCandidateDllEntry(entry, prefix))
-                {
-                    yield return entry;
-                }
+                yield return entry;
             }
         }
     }

@@ -48,7 +48,7 @@ public class DocfxExtensionBlocksTests
             Signature: "public bool IsEmpty",
             Parameters: [],
             TypeParameters: [],
-            ReturnType: new ApiTypeReference("bool", "T:System.Boolean"),
+            ReturnType: new("bool", "T:System.Boolean"),
             ContainingTypeUid: "T:Helpers.<>E__0",
             ContainingTypeName: "<>E__0",
             SourceUrl: null,
@@ -58,7 +58,7 @@ public class DocfxExtensionBlocksTests
             Attributes: []);
         ApiExtensionBlock[] blocks =
         [
-            new("source", new ApiTypeReference("string", "T:System.String"), [member]),
+            new("source", new("string", "T:System.String"), [member]),
         ];
 
         var sb = new StringBuilder();
@@ -91,7 +91,7 @@ public class DocfxExtensionBlocksTests
             Signature: "public string ToShouty()",
             Parameters: [],
             TypeParameters: [],
-            ReturnType: new ApiTypeReference("string", "T:System.String"),
+            ReturnType: new("string", "T:System.String"),
             ContainingTypeUid: "T:Helpers.<>E__0",
             ContainingTypeName: "<>E__0",
             SourceUrl: null,
@@ -104,7 +104,7 @@ public class DocfxExtensionBlocksTests
             IsStatic = true,
             ExtensionBlocks =
             [
-                new("source", new ApiTypeReference("string", "T:System.String"), [member]),
+                new("source", new("string", "T:System.String"), [member]),
             ],
         };
 

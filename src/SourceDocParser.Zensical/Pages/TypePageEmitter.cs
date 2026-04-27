@@ -294,7 +294,7 @@ public static class TypePageEmitter
         {
             var cref = seealso[i];
             var displayName = cref is [_, ':', ..] ? cref[2..] : cref;
-            sb.Append("- ").AppendLine(CrossLinkRouter.Format(new ApiTypeReference(displayName, cref), options));
+            sb.Append("- ").AppendLine(CrossLinkRouter.Format(new(displayName, cref), options));
         }
     }
 

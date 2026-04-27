@@ -159,4 +159,57 @@ public class NuGetGlobalCacheTests
             await Assert.That(paths[i]).EndsWith("NuGet.Config");
         }
     }
+
+    /// <summary>
+    /// ProbeFallbackFolders checks each folder in order and returns
+    /// the first one that contains a successful install marker.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ProbeFallbackFoldersReturnsFirstMatchingPath()
+    {
+        var root1 = Path.Combine(Path.GetTempPath(), $"sdp-fallback1-{Guid.NewGuid():N}");
+        var root2 = Path.Combine(Path.GetTempPath(), $"sdp-fallback2-{Guid.NewGuid():N}");
+        try
+        {
+            Directory.CreateDirectory(root1);
+            Directory.CreateDirectory(root2);
+
+            var fallbackFolders = new[] { root1, root2 };
+            const string packageId = "Splat";
+            const string packageVersion = "15.1.1";
+
+            // Case 1: None installed
+            var result = NuGetGlobalCache.ProbeFallbackFolders(fallbackFolders, packageId, packageVersion);
+            await Assert.That(result).IsNull();
+
+            // Case 2: Installed in the second one
+            var install2 = NuGetGlobalCache.GetPackageInstallPath(root2, packageId, packageVersion);
+            Directory.CreateDirectory(install2);
+            await File.WriteAllTextAsync(Path.Combine(install2, ".nupkg.metadata"), "{}").ConfigureAwait(false);
+
+            result = NuGetGlobalCache.ProbeFallbackFolders(fallbackFolders, packageId, packageVersion);
+            await Assert.That(result).IsEqualTo(install2);
+
+            // Case 3: Installed in the first one (should win)
+            var install1 = NuGetGlobalCache.GetPackageInstallPath(root1, packageId, packageVersion);
+            Directory.CreateDirectory(install1);
+            await File.WriteAllTextAsync(Path.Combine(install1, ".nupkg.metadata"), "{}").ConfigureAwait(false);
+
+            result = NuGetGlobalCache.ProbeFallbackFolders(fallbackFolders, packageId, packageVersion);
+            await Assert.That(result).IsEqualTo(install1);
+        }
+        finally
+        {
+            if (Directory.Exists(root1))
+            {
+                Directory.Delete(root1, recursive: true);
+            }
+
+            if (Directory.Exists(root2))
+            {
+                Directory.Delete(root2, recursive: true);
+            }
+        }
+    }
 }

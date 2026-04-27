@@ -69,7 +69,7 @@ public class ClassicExtensionMethodMarkdownTests
             Parameters:
             [
                 new("self", targetRef, false, false, false, false, false, null),
-                new("count", new ApiTypeReference("int", "T:System.Int32"), false, false, false, false, false, null),
+                new("count", new("int", "T:System.Int32"), false, false, false, false, false, null),
             ],
             TypeParameters: [],
             ReturnType: null,

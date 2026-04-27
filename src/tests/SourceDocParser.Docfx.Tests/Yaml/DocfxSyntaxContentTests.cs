@@ -89,7 +89,7 @@ public class DocfxSyntaxContentTests
             Documentation: ApiDocumentation.Empty,
             IsObsolete: false,
             ObsoleteMessage: null,
-            Attributes: [new ApiAttribute("Obsolete", "T:System.ObsoleteAttribute", string.Empty, [])]);
+            Attributes: [new("Obsolete", "T:System.ObsoleteAttribute", string.Empty, [])]);
         var type = TestData.ObjectType("Foo") with { Members = [member] };
 
         var yaml = DocfxYamlEmitter.Render(type);

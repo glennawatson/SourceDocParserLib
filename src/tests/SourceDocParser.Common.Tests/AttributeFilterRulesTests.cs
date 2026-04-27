@@ -21,20 +21,15 @@ public class AttributeFilterRulesTests
     [Arguments("T:System.Runtime.CompilerServices.IsReadOnlyAttribute")]
     [Arguments("T:System.Runtime.CompilerServices.RefSafetyRulesAttribute")]
     [Arguments("T:System.Runtime.CompilerServices.CompilerGeneratedAttribute")]
-    public async Task CompilerServicesAttributesAreExcluded(string uid)
-    {
-        await Assert.That(AttributeFilterRules.IsExcluded(uid)).IsTrue();
-    }
+    public async Task CompilerServicesAttributesAreExcluded(string uid) => await Assert.That(AttributeFilterRules.IsExcluded(uid)).IsTrue();
 
     /// <summary><c>ExtensionAttribute</c> is allowlisted despite being in the denylisted namespace.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ExtensionAttributeIsAllowlisted()
-    {
+    public async Task ExtensionAttributeIsAllowlisted() =>
         await Assert.That(
-            AttributeFilterRules.IsExcluded("T:System.Runtime.CompilerServices.ExtensionAttribute"))
+                AttributeFilterRules.IsExcluded("T:System.Runtime.CompilerServices.ExtensionAttribute"))
             .IsFalse();
-    }
 
     /// <summary>Attributes outside the denylisted namespace pass through.</summary>
     /// <param name="uid">Attribute documentation comment ID.</param>
@@ -44,18 +39,13 @@ public class AttributeFilterRulesTests
     [Arguments("T:System.FlagsAttribute")]
     [Arguments("T:System.ObsoleteAttribute")]
     [Arguments("T:My.Custom.MyAttribute")]
-    public async Task UserAttributesArePassedThrough(string uid)
-    {
-        await Assert.That(AttributeFilterRules.IsExcluded(uid)).IsFalse();
-    }
+    public async Task UserAttributesArePassedThrough(string uid) => await Assert.That(AttributeFilterRules.IsExcluded(uid)).IsFalse();
 
     /// <summary>Inputs without a Roslyn prefix still go through the namespace match.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task UnprefixedUidsStillMatchDenylist()
-    {
+    public async Task UnprefixedUidsStillMatchDenylist() =>
         await Assert.That(
-            AttributeFilterRules.IsExcluded("System.Runtime.CompilerServices.NullableContextAttribute"))
+                AttributeFilterRules.IsExcluded("System.Runtime.CompilerServices.NullableContextAttribute"))
             .IsTrue();
-    }
 }

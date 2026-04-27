@@ -27,10 +27,7 @@ public class QueryParameterParserTests
     /// <summary>The last parameter (no trailing <c>&amp;</c>) is still readable.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ExtractReadsLastParameter()
-    {
-        await Assert.That(QueryParameterParser.Extract("foo=1&bar=last".AsSpan(), "bar")).IsEqualTo("last");
-    }
+    public async Task ExtractReadsLastParameter() => await Assert.That(QueryParameterParser.Extract("foo=1&bar=last".AsSpan(), "bar")).IsEqualTo("last");
 
     /// <summary>Name match is case-insensitive.</summary>
     /// <returns>A task representing the test execution.</returns>
@@ -53,10 +50,7 @@ public class QueryParameterParserTests
     /// <summary>Empty value still returns the empty string (not null).</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ExtractReturnsEmptyStringForEmptyValue()
-    {
-        await Assert.That(QueryParameterParser.Extract("foo=&bar=2".AsSpan(), "foo")).IsEqualTo(string.Empty);
-    }
+    public async Task ExtractReturnsEmptyStringForEmptyValue() => await Assert.That(QueryParameterParser.Extract("foo=&bar=2".AsSpan(), "foo")).IsEqualTo(string.Empty);
 
     /// <summary>Pairs without an <c>=</c> sign are skipped (the parser requires <c>name=value</c> form).</summary>
     /// <returns>A task representing the test execution.</returns>

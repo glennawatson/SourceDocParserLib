@@ -512,7 +512,7 @@ public static class MemberPageEmitter
     /// <returns>The rendered link.</returns>
     private static string FormatXref(string cref, ZensicalEmitterOptions options) =>
         cref is [_, ':', ..]
-            ? CrossLinkRouter.Format(new ApiTypeReference(cref[2..], cref), options)
+            ? CrossLinkRouter.Format(new(cref[2..], cref), options)
             : $"`{cref}`";
 
     /// <summary>

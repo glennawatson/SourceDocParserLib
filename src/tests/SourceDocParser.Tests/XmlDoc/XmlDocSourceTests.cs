@@ -199,7 +199,7 @@ public class XmlDocSourceTests
     [Test]
     public async Task LoadReadsFileFromDisk()
     {
-        var path = Path.GetTempFileName();
+        var path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         try
         {
             const string xml = """
@@ -225,7 +225,7 @@ public class XmlDocSourceTests
     [Test]
     public async Task LoadStripsUtf8Bom()
     {
-        var path = Path.GetTempFileName();
+        var path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         try
         {
             byte[] bom = [0xEF, 0xBB, 0xBF];
@@ -243,6 +243,58 @@ public class XmlDocSourceTests
         finally
         {
             File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    /// TryLoad returns a source when the XML file exists next to the assembly.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task TryLoadReturnsSourceWhenXmlFileExists()
+    {
+        var baseDir = Path.Combine(Path.GetTempPath(), $"sdp-tryload-{Guid.NewGuid():N}");
+        var assemblyPath = Path.Combine(baseDir, "TestAssembly.dll");
+        var xmlPath = Path.Combine(baseDir, "TestAssembly.xml");
+        try
+        {
+            Directory.CreateDirectory(baseDir);
+            await File.WriteAllTextAsync(xmlPath, "<doc><members><member name=\"T:A\">summary</member></members></doc>");
+
+            var source = XmlDocSource.TryLoad(assemblyPath);
+            await Assert.That(source).IsNotNull();
+            await Assert.That(source!.Get("T:A")).IsEqualTo("<member name=\"T:A\">summary</member>");
+        }
+        finally
+        {
+            if (Directory.Exists(baseDir))
+            {
+                Directory.Delete(baseDir, recursive: true);
+            }
+        }
+    }
+
+    /// <summary>
+    /// TryLoad returns null when the XML file is missing.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task TryLoadReturnsNullWhenXmlFileIsMissing()
+    {
+        var baseDir = Path.Combine(Path.GetTempPath(), $"sdp-tryload-missing-{Guid.NewGuid():N}");
+        var assemblyPath = Path.Combine(baseDir, "TestAssembly.dll");
+        try
+        {
+            Directory.CreateDirectory(baseDir);
+            var source = XmlDocSource.TryLoad(assemblyPath);
+            await Assert.That(source).IsNull();
+        }
+        finally
+        {
+            if (Directory.Exists(baseDir))
+            {
+                Directory.Delete(baseDir, recursive: true);
+            }
         }
     }
 }

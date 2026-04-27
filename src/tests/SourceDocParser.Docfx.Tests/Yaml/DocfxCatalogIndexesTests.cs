@@ -47,7 +47,7 @@ public class DocfxCatalogIndexesTests
         var baseType = TestData.ObjectType("Base");
         var sub = TestData.ObjectType("Derived") with
         {
-            BaseType = new ApiTypeReference("Base", "Base"),
+            BaseType = new("Base", "Base"),
         };
 
         var indexes = DocfxCatalogIndexes.Build([baseType, sub]);
@@ -66,7 +66,7 @@ public class DocfxCatalogIndexesTests
             "DoIt",
             "M:Helpers.DoIt",
             isExtension: true,
-            new ApiParameter("self", new ApiTypeReference("Foo", "Foo"), false, false, false, false, false, null));
+            new ApiParameter("self", new("Foo", "Foo"), false, false, false, false, false, null));
         var helpers = TestData.ObjectType("Helpers", assemblyName: "Test") with
         {
             IsStatic = true,
@@ -101,7 +101,7 @@ public class DocfxCatalogIndexesTests
         var baseType = TestData.ObjectType("Base") with { Members = [baseMember] };
         var sub = TestData.ObjectType("Derived") with
         {
-            BaseType = new ApiTypeReference("Base", "Base"),
+            BaseType = new("Base", "Base"),
         };
 
         var indexes = DocfxCatalogIndexes.Build([baseType, sub]);
@@ -118,7 +118,7 @@ public class DocfxCatalogIndexesTests
         var baseType = TestData.ObjectType("Base");
         var sub = TestData.ObjectType("Derived") with
         {
-            BaseType = new ApiTypeReference("Base", "Base"),
+            BaseType = new("Base", "Base"),
         };
         var indexes = DocfxCatalogIndexes.Build([baseType, sub]);
 
