@@ -132,6 +132,20 @@ public class XmlDocSourceTests
         await Assert.That(source.Get("T:Good")).IsNotNull();
     }
 
+    /// <summary>A truncated <c>&lt;member</c> opener with no <c>&gt;</c> anywhere terminates the walk before adding an entry.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task BuildIndexStopsOnTruncatedMemberOpener()
+    {
+        var source = XmlDocSource.FromString(
+            "<doc><members><member name=\"T:Closed\"/></members><member name=\"T:Trunc\"");
+
+        // The first complete entry indexes; the truncated opener has
+        // no '>' so the scanner gives up cleanly.
+        await Assert.That(source.Get("T:Closed")).IsNotNull();
+        await Assert.That(source.Get("T:Trunc")).IsNull();
+    }
+
     /// <summary>Get returns null for a member id that wasn't indexed.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]

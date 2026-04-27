@@ -142,6 +142,130 @@ public class DocXmlScannerTests
         await Assert.That(DocXmlScanner.IsWhitespace(' ')).IsFalse();
     }
 
+    /// <summary>A processing instruction is silently consumed and the scanner reports the trailing text token.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ProcessingInstructionsAreSkipped()
+    {
+        var (kind, text) = ProbeFirstToken("<?xml version=\"1.0\"?>after");
+        await Assert.That(kind).IsEqualTo(DocTokenKind.Text);
+        await Assert.That(text).IsEqualTo("after");
+    }
+
+    /// <summary>Truncated comment (no closing <c>--&gt;</c>) yields a None token and exhausts the input.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task TruncatedCommentTerminatesScanner()
+    {
+        var (read, kind) = ProbeFirstReadResult("<!-- never closes");
+        await Assert.That(read).IsFalse();
+        await Assert.That(kind).IsEqualTo(DocTokenKind.None);
+    }
+
+    /// <summary>Truncated CDATA (no closing <c>]]&gt;</c>) yields a None token.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task TruncatedCdataTerminatesScanner()
+    {
+        var (read, kind) = ProbeFirstReadResult("<![CDATA[ never closes");
+        await Assert.That(read).IsFalse();
+        await Assert.That(kind).IsEqualTo(DocTokenKind.None);
+    }
+
+    /// <summary>Truncated processing instruction (no closing <c>?&gt;</c>) yields a None token.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task TruncatedProcessingInstructionTerminatesScanner()
+    {
+        var (read, kind) = ProbeFirstReadResult("<?xml version=\"1.0\"");
+        await Assert.That(read).IsFalse();
+        await Assert.That(kind).IsEqualTo(DocTokenKind.None);
+    }
+
+    /// <summary>End element missing the closing <c>&gt;</c> yields a None token.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task TruncatedEndElementTerminatesScanner()
+    {
+        var (read, kind) = ProbeFirstReadResult("</foo");
+        await Assert.That(read).IsFalse();
+        await Assert.That(kind).IsEqualTo(DocTokenKind.None);
+    }
+
+    /// <summary>Start element missing the closing <c>&gt;</c> yields a None token.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task TruncatedStartElementTerminatesScanner()
+    {
+        var (read, kind) = ProbeFirstReadResult("<foo cref=\"X\"");
+        await Assert.That(read).IsFalse();
+        await Assert.That(kind).IsEqualTo(DocTokenKind.None);
+    }
+
+    /// <summary>GetAttribute returns empty when the value is not double-quoted (the scanner only supports the .NET-emitted quoted form).</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task GetAttributeReturnsEmptyForUnquotedValue()
+    {
+        var scanner = new DocXmlScanner("<see cref=bare/>".AsSpan());
+        scanner.Read();
+
+        var cref = scanner.GetAttribute("cref").ToString();
+        await Assert.That(cref).IsEqualTo(string.Empty);
+    }
+
+    /// <summary>GetAttribute returns empty when the quoted value never closes — the scanner doesn't pretend to recover an unterminated attribute.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task GetAttributeReturnsEmptyForUnterminatedValue()
+    {
+        // The trailing `/` of the self-closer would normally close the
+        // tag at <…/>; but the IsEmptyElement check is byte-level and
+        // the scanner consumes the final `>` first, so the attr area
+        // is `cref="open` with no closing quote.
+        var scanner = new DocXmlScanner("<see cref=\"open>".AsSpan());
+        scanner.Read();
+
+        var cref = scanner.GetAttribute("cref").ToString();
+        await Assert.That(cref).IsEqualTo(string.Empty);
+    }
+
+    /// <summary>GetAttribute on a tag with no attribute area returns empty — the early-return fast path.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task GetAttributeReturnsEmptyForElementWithoutAttributes()
+    {
+        var scanner = new DocXmlScanner("<summary>body</summary>".AsSpan());
+        scanner.Read();
+
+        var attr = scanner.GetAttribute("cref").ToString();
+        await Assert.That(attr).IsEqualTo(string.Empty);
+    }
+
+    /// <summary>ReadInnerSpan returns the empty span when the input runs out before a matching end tag.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ReadInnerSpanReturnsEmptyForUnclosedElement()
+    {
+        var scanner = new DocXmlScanner("<summary>orphan content".AsSpan());
+        scanner.Read();
+
+        var inner = scanner.ReadInnerSpan().ToString();
+        await Assert.That(inner).IsEqualTo(string.Empty);
+    }
+
+    /// <summary>SkipElement is a no-op when called on a self-closing element (nothing to skip).</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task SkipElementIsNoOpForSelfClosing()
+    {
+        var scanner = new DocXmlScanner("<see/>after".AsSpan());
+        scanner.Read();
+        scanner.SkipElement();
+        scanner.Read();
+        await Assert.That(scanner.RawText.ToString()).IsEqualTo("after");
+    }
+
     /// <summary>Synchronously runs the scanner over an empty input.</summary>
     /// <returns>The Read result and the kind after.</returns>
     private static (bool Read, DocTokenKind Kind) ProbeEmpty()
@@ -193,6 +317,16 @@ public class DocXmlScannerTests
         var scanner = new DocXmlScanner(input.AsSpan());
         scanner.Read();
         return (scanner.Kind, scanner.RawText.ToString());
+    }
+
+    /// <summary>Captures whether the first <see cref="DocXmlScanner.Read"/> succeeded plus the resulting kind.</summary>
+    /// <param name="input">Raw XML span.</param>
+    /// <returns>The Read result and the resulting kind.</returns>
+    private static (bool Read, DocTokenKind Kind) ProbeFirstReadResult(string input)
+    {
+        var scanner = new DocXmlScanner(input.AsSpan());
+        var read = scanner.Read();
+        return (read, scanner.Kind);
     }
 
     /// <summary>Probes attribute lookup on the canonical param element.</summary>
