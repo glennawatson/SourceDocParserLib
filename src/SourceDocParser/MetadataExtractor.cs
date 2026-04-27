@@ -172,7 +172,11 @@ public sealed partial class MetadataExtractor : IMetadataExtractor
     /// <returns>One entry per documented source URL.</returns>
     private static SourceLinkEntry[] CollectSourceLinks(ApiType[] merged)
     {
-        var entries = new List<SourceLinkEntry>(merged.Length * 5);
+        // Most types contribute 0–1 source URLs (the type-level URL,
+        // occasionally a member URL on top), so the type count is the
+        // right capacity hint — leaves room for the dominant case
+        // without front-loading dead capacity on a large catalog.
+        var entries = new List<SourceLinkEntry>(merged.Length);
 
         for (var t = 0; t < merged.Length; t++)
         {

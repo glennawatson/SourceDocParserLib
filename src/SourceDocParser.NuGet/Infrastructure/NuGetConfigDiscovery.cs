@@ -227,10 +227,7 @@ internal static class NuGetConfigDiscovery
             var fileEntries = await Readers.PackageSourceCredentialsReader.ReadAsync(configPath, cancellationToken).ConfigureAwait(false);
             foreach (var (key, cred) in fileEntries)
             {
-                if (!merged.ContainsKey(key))
-                {
-                    merged[key] = cred;
-                }
+                merged.TryAdd(key, cred);
             }
         }
 

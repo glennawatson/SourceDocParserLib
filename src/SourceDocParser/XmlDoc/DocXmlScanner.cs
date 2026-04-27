@@ -459,7 +459,7 @@ internal ref struct DocXmlScanner
         }
 
         var tagBody = _input[(_pos + LtLen)..(_pos + tagEnd)];
-        IsEmptyElement = tagBody.Length > 0 && tagBody[^1] == '/';
+        IsEmptyElement = tagBody is [.., '/'];
         if (IsEmptyElement)
         {
             tagBody = tagBody[..^1];

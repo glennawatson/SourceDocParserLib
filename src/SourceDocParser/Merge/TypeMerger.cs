@@ -48,7 +48,10 @@ public static class TypeMerger
 
                 if (!byUid.TryGetValue(uid, out var bucket))
                 {
-                    bucket = new(4);
+                    // Most types appear in 1–2 TFM variants — sizing
+                    // the bucket to 2 covers the common case without
+                    // over-provisioning.
+                    bucket = new(2);
                     byUid[uid] = bucket;
                 }
 
