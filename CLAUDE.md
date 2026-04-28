@@ -125,6 +125,78 @@ The venv lives under the project so it's isolated from the user's system Python 
 - Public concrete classes that have an interface counterpart (`MetadataExtractor`/`IMetadataExtractor`, `NuGetFetcher`/`INuGetFetcher`, `SourceLinkValidator`/`ISourceLinkValidator`) keep their private helpers + `[LoggerMessage]` partials `static`; only the public entry point is instance.
 - Path-typed public APIs use `string`, never `Nuke.Common.IO.AbsolutePath` — the libraries don't take a Nuke dependency. Validate with `ArgumentException.ThrowIfNullOrWhiteSpace`.
 
+## Performance & Idiomatic C# Rules
+
+These rules apply to **production code** (everything under `src/` that isn't a test project). Test projects (`src/tests/**`) are exempt from the allocation-discipline rules — `foreach`, LINQ, and `List<T>` are fine in tests where readability beats micro-optimisation. The pattern-matching, switch-expression, and list-pattern rules still apply to tests because they're style-not-perf.
+
+### Pattern matching & flow control
+
+- **Invert `if`s to flatten the happy path.** Guard-clauses + early `return`/`continue` first; main logic stays unindented. No `else` clauses on guarded branches.
+- **Switch expressions over `if`/`else` chains** — use property patterns (`{ IsPublic: true }`), positional patterns, and recursive patterns. Every `ModifierLabel`/`KindLabel` style helper should be a switch expression.
+- **List patterns for emptiness/cardinality.** Prefer `is [_, ..]` over `.Length > 0` / `.Count > 0` / `!string.IsNullOrEmpty`. Prefer `is []` for empty. Use `is [var single]` to bind a single-element collection in one shot.
+- **`is`/`is not` patterns over `==`/`!=`** for null and type checks. Combine type test + property check in one line: `member is IMethodSymbol { IsExtensionMethod: true }`.
+- **`is 0` / `is { Length: 0 }`** etc. for property-pattern numeric and length checks where it reads cleanly.
+
+### Allocation discipline
+
+- **Zero-LINQ policy.** No `System.Linq` in production code. LINQ pulls in lambdas + iterators on every call. Use plain `for` loops.
+- **Avoid `foreach` whenever a `for` loop with an indexer works.** `foreach` over `IEnumerable<T>` boxes/allocates an enumerator; even on `List<T>`/`Dictionary<T,U>` it allocates a struct enumerator the JIT often can't elide. Use `for (var i = 0; i < x.Length; i++)` on arrays / `Span<T>` / `ReadOnlySpan<T>`. Only use `foreach` when iterating a type that genuinely lacks an indexer (e.g. `HashSet<T>`) and you've considered materialising it to an array first.
+- **Arrays over `List<T>`** when the final length is known up front. Pre-size and write by index. Reserve `List<T>` for genuinely unbounded growth, and pre-size with a capacity hint.
+- **`Span<char>` / `ReadOnlySpan<char>` + range expressions** for prefix checks, slicing, parsing — never allocate a temporary `string` to call `.StartsWith` / `.Substring`.
+- **UTF-8 string literals (`"..."u8`)** in JSON / byte-level parsing paths to skip the UTF-16 → UTF-8 round-trip. Default for `Utf8JsonReader` / `Utf8JsonWriter` property names and any byte-sequence comparisons.
+- **Pre-size `StringBuilder` / `Dictionary` / `HashSet`** with a capacity hint that reflects the expected size. The integration tests catch cases where this matters.
+- **`string.Create(length, state, span => ...)`** for short, hot-path string assembly when concatenation would otherwise build a tree of intermediates.
+
+### Collection expressions & syntax
+
+- **Collection expressions `[...]`** for arrays, lists, and search sets — `IndexOfAny(['/', '\\'])`, `[..]` for spread, etc. Lets the compiler pick the optimal layout.
+- **Range expressions (`x[..n]`, `x[n..]`)** for slicing, never `Substring`.
+- **`TryPop` / `TryDequeue` / `TryGetValue`** in loops — drop the redundant `Count > 0` / `ContainsKey` pre-check.
+
+### Constants & maintainability
+
+- **Hoist magic strings/numbers to `private const`** with one-line XML docs explaining the *why*. Especially URL prefixes, separators, capacity hints, and length-of-suffix-style values.
+- **No magic numbers in `string.Create` size calculations** — name them (e.g. `ParentDirectorySegmentLength = 3`).
+
+### Pooling & buffer reuse
+
+- **`ArrayPool<T>.Shared.Rent` / `.Return`** for transient byte/char buffers in I/O paths (see `PageWriter` for the pattern). Always pair `Rent` with a `try`/`finally` `Return`.
+- **Custom pools for hot allocations.** `PageBuilderPool` + `PageBuilderRental` is the project pattern: a thread-static / concurrent stack of pre-sized `StringBuilder`s, returned via a `readonly struct` rental that calls `Return` on `Dispose`. Use this when a type is allocated thousands of times per emit run.
+- **`stream.WriteAsync(buffer.AsMemory(0, length))`** to write a partially-filled rented buffer without copying.
+
+### Span / search APIs
+
+- **`SearchValues<T>` for repeated multi-character searches.** Cache as `private static readonly SearchValues<char>` (e.g. `XmlAttributeParser.WhitespaceChars`) and pass to `IndexOfAny` / `IndexOfAnyExcept`. Faster than `IndexOfAny([...])` for any call site hit more than once.
+- **`IndexOfAnyExcept`** for "skip whitespace" / "skip terminator" loops — single intrinsic-backed call instead of a hand-rolled loop.
+- **`in` modifier on span/struct parameters** (`in ReadOnlySpan<char>`, `in MarkupResult`) when the parameter is read-only and the struct is large enough that a copy matters.
+- **Spans as fields on `ref struct`s** (e.g. `DocXmlScanner`) for stack-only stateful parsers. The struct can hold a `ReadOnlySpan<char>` cursor without ever allocating.
+- **`TryFormat` / `TryParse` over `ToString` / `Parse`** when writing into a span buffer — skips the intermediate string allocation.
+
+### Read-mostly lookups
+
+- **`FrozenDictionary<TKey, TValue>` / `FrozenSet<T>`** for tables built once at startup and read many times (see `CatalogIndexes`). Build with `ToFrozenDictionary(StringComparer.Ordinal)`. Lookup is faster than `Dictionary<,>` and the table is immutable.
+- **Always pass `StringComparer.Ordinal`** to dictionaries/sets keyed on identifiers, file paths, UIDs. Default culture-aware comparison is wrong for these and 5-10× slower. Same for `StringComparison.Ordinal` on `string.Equals` / `IndexOf`.
+
+### Async & concurrency
+
+- **`ConfigureAwait(false)` on every library `await`.** No exceptions in `src/SourceDocParser*/`. Tests don't need it.
+- **`ValueTask` / `ValueTask.CompletedTask`** for hot async paths that may complete synchronously. Avoids `Task` allocation per call. Watch the consumption rules — never `await` a `ValueTask` twice.
+- **`IAsyncEnumerable<T>`** for streaming sources (`IAssemblySource.DiscoverAsync`). Consumer pulls with `await foreach` (one of the few legitimate `foreach` uses — there is no indexed alternative).
+- **`Parallel.ForEachAsync`** with an explicit `MaxDegreeOfParallelism` over hand-rolled `Task.WhenAll` fan-out. The cap is critical: `MetadataExtractor` uses `MaxParallelCompilations` so we don't OOM on large NuGet sets.
+- **`Interlocked.Increment` / `Interlocked.Decrement`** for simple counters under contention. Reserve `lock` for genuine multi-field invariants.
+
+### Type design
+
+- **`sealed` every class** that isn't designed for inheritance. The default in this repo. Helps inlining and avoids accidental override surface.
+- **`readonly record struct`** for immutable value-shaped data: small (≤ 4-5 fields) or holding only references (strings, arrays). Equality and hashing come for free, no GC pressure.
+- **`sealed record` (class)** when the record participates in inheritance hierarchies (e.g. `ApiObjectType : ApiType`) or holds many fields.
+- **Static helpers** for stateless functions; only the public entry-point class is instance-shaped (already documented above).
+- **Singleton comparers (`private sealed class XComparer : IComparer<T>` with `public static readonly XComparer Instance`)** instead of allocating a fresh comparer / lambda per `Array.Sort` call.
+
+### When in doubt
+
+The order of preference is: **for-loop over array → for-loop over `List<T>` → `foreach` over indexable → `foreach` over `IEnumerable<T>` (last resort)**. If a hot path can't be expressed with the top option, leave a one-line comment explaining why.
+
 ## Versioning
 
 `Nerdbank.GitVersioning` (`version.json` at the repo root) computes version on every build. Base is `0.1-alpha`. Public releases are gated on the `master`/`main` branch via `publicReleaseRefSpec`; off-branch builds get the height + commit suffix.
