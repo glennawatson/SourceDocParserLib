@@ -11,7 +11,7 @@ namespace SourceDocParser.XmlDoc;
 /// overloads are provided so callers that already have an
 /// <see cref="XmlReader"/> open (e.g. <see cref="DocResolver"/> walking
 /// the per-symbol XML) can convert the current element's subtree
-/// without round-tripping through a string — eliminating the inner
+/// without round-tripping through a string -- eliminating the inner
 /// <c>ReadInnerXml</c> + nested <c>XmlReader.Create</c> pair that
 /// dominates the doc-parse allocation profile.
 /// </summary>

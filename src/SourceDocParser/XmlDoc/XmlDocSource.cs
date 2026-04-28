@@ -17,14 +17,14 @@ namespace SourceDocParser.XmlDoc;
 /// Uses a hand-rolled forward scanner over the file's text rather than
 /// XmlReader.ReadOuterXml per member. Stores per-member offset/length
 /// ranges instead of materialising the element substring at load time
-/// — the substring is only allocated when a consumer asks for it via
+/// -- the substring is only allocated when a consumer asks for it via
 /// Get(). Keeps peak memory bounded to one source string plus a small
 /// Range entry per member, instead of thousands of small per-member
 /// strings hanging off the dictionary.
 ///
 /// Thread safety: build-once-then-read-many. Both factories build the
 /// internal dictionary and return; nothing writes after that. Get() is
-/// safe to call from multiple threads concurrently — the parallel
+/// safe to call from multiple threads concurrently -- the parallel
 /// walker fans out symbol lookups across worker threads that share a
 /// compilation, and Roslyn routes those into this source via the
 /// FileXmlDocumentationProvider hook.
@@ -40,14 +40,14 @@ public sealed class XmlDocSource : IXmlDocSource
     /// <summary>Raw .xml file content; member ranges index into this string.</summary>
     private readonly string _content;
 
-    /// <summary>Member ID → (start offset, exclusive end) into <see cref="_content"/>.</summary>
+    /// <summary>Member ID -> (start offset, exclusive end) into <see cref="_content"/>.</summary>
     private readonly Dictionary<string, MemberRange> _ranges;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="XmlDocSource"/> class.
     /// </summary>
     /// <param name="content">Raw .xml file text the ranges index into.</param>
-    /// <param name="ranges">Member-id → range map.</param>
+    /// <param name="ranges">Member-id -> range map.</param>
     internal XmlDocSource(string content, Dictionary<string, MemberRange> ranges)
     {
         _content = content;
@@ -70,7 +70,7 @@ public sealed class XmlDocSource : IXmlDocSource
         // ReadAllBytes + GetString allocates one byte[] sized to the
         // file plus one string. The default ReadAllText path goes via
         // StreamReader which grows a StringBuilder in 1KB increments
-        // and then ToStrings it — several extra MB of transient
+        // and then ToStrings it -- several extra MB of transient
         // allocation per assembly.
         var bytes = File.ReadAllBytes(xmlPath);
         var bytesSpan = bytes.AsSpan();
@@ -120,7 +120,7 @@ public sealed class XmlDocSource : IXmlDocSource
     /// produces.
     /// </summary>
     /// <param name="content">Raw file text.</param>
-    /// <returns>The populated member-id → range map.</returns>
+    /// <returns>The populated member-id -> range map.</returns>
     internal static Dictionary<string, MemberRange> BuildIndex(string content)
     {
         var ranges = new Dictionary<string, MemberRange>(InitialMemberCapacity, StringComparer.Ordinal);
@@ -147,7 +147,7 @@ public sealed class XmlDocSource : IXmlDocSource
     }
 
     /// <summary>
-    /// Locates the next <c>&lt;member ...&gt;</c> element in
+    /// Locates the next <c>member ...</c> element in
     /// <paramref name="span"/> at or after <paramref name="from"/>
     /// and returns the offsets needed to record (or skip) it. Pulled
     /// out of <see cref="BuildIndex"/> so the per-iteration parse
@@ -203,7 +203,7 @@ public sealed class XmlDocSource : IXmlDocSource
     /// tag, returning false when the attribute is missing or the
     /// closing quote can't be located.
     /// </summary>
-    /// <param name="startTagSpan">The start-tag substring including the opening <c>&lt;</c> and closing <c>&gt;</c>.</param>
+    /// <param name="startTagSpan">The start-tag substring including the opening <c>&lt;</c> and closing <c>></c>.</param>
     /// <param name="nameAttr">The <c>name="</c> literal.</param>
     /// <param name="memberId">Receives the parsed member id.</param>
     /// <returns>True when the attribute was parsed.</returns>

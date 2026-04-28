@@ -9,8 +9,8 @@ using SourceDocParser.Zensical.Pages;
 namespace SourceDocParser.Zensical.Tests;
 
 /// <summary>
-/// Pins the public surface of <see cref="TypePageEmitter"/> — heading
-/// label, file path layout, kind-specific section presence — so any
+/// Pins the public surface of <see cref="TypePageEmitter"/> -- heading
+/// label, file path layout, kind-specific section presence -- so any
 /// future change to the markdown shape surfaces here before it lands
 /// in a downstream emitter consumer.
 /// </summary>

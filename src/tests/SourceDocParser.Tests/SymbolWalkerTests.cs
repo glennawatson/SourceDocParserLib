@@ -14,7 +14,7 @@ namespace SourceDocParser.Tests;
 /// <summary>
 /// Tests for <see cref="SymbolWalker"/> and <see cref="ISymbolWalker"/>
 /// driven against a tiny in-memory <see cref="CSharpCompilation"/> built
-/// from source — no Roslyn-loaded DLL needed.
+/// from source -- no Roslyn-loaded DLL needed.
 /// </summary>
 public class SymbolWalkerTests
 {
@@ -180,7 +180,7 @@ public class SymbolWalkerTests
 
     /// <summary>
     /// <see cref="ISourceLinkResolver"/> implementation that always returns
-    /// null — used by walker tests that don't care about source URLs.
+    /// null -- used by walker tests that don't care about source URLs.
     /// </summary>
     private sealed class NullSourceLinkResolver : ISourceLinkResolver
     {

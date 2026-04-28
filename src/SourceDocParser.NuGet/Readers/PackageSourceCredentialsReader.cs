@@ -8,7 +8,7 @@ using SourceDocParser.NuGet.Models;
 namespace SourceDocParser.NuGet.Readers;
 
 /// <summary>
-/// Reads <c>&lt;packageSourceCredentials&gt;</c> entries — one
+/// Reads <c>packageSourceCredentials</c> entries -- one
 /// nested element per source whose name is the source key
 /// (with spaces escaped as <c>_x0020_</c>). Inside each, the
 /// <c>Username</c> + <c>ClearTextPassword</c> + optional
@@ -59,7 +59,7 @@ internal static class PackageSourceCredentialsReader
     /// Reads all credential entries from the specified <paramref name="configPath"/>.
     /// </summary>
     /// <remarks>
-    /// This method opens the <c>nuget.config</c> file for reading and parses the <c>&lt;packageSourceCredentials&gt;</c> section.
+    /// This method opens the <c>nuget.config</c> file for reading and parses the <c>packageSourceCredentials</c> section.
     /// It handles environment variable expansion in the password and username fields using the <c>%VAR%</c> syntax.
     /// Encrypted passwords are not supported and will be skipped.
     /// </remarks>

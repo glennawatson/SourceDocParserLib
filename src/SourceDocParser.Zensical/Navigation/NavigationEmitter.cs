@@ -19,7 +19,7 @@ namespace SourceDocParser.Zensical.Navigation;
 /// </summary>
 public sealed class NavigationEmitter
 {
-    /// <summary>Routing options — drive the package-folder grouping.</summary>
+    /// <summary>Routing options -- drive the package-folder grouping.</summary>
     private readonly ZensicalEmitterOptions _options;
 
     /// <summary>Initializes a new instance of the <see cref="NavigationEmitter"/> class.</summary>
@@ -127,8 +127,8 @@ public sealed class NavigationEmitter
     private static string TomlString(string value) => NavigationStringQuoter.TomlString(value);
 
     /// <summary>
-    /// Sorts the supplied types into an ordered package -&gt;
-    /// namespace -&gt; entry tree using ordinal alphabetic ordering at
+    /// Sorts the supplied types into an ordered package ->
+    /// namespace -> entry tree using ordinal alphabetic ordering at
     /// each level. Delegates the bucketing loop to the shared
     /// <see cref="PackageNamespaceTreeBuilder.Build"/> helper.
     /// </summary>
@@ -146,7 +146,7 @@ public sealed class NavigationEmitter
             static (a, b) => string.CompareOrdinal(a.Title, b.Title));
     }
 
-    /// <summary>One leaf in the nav tree — display title plus the relative page path.</summary>
+    /// <summary>One leaf in the nav tree -- display title plus the relative page path.</summary>
     /// <param name="Title">The display title (formatted type name with generics).</param>
     /// <param name="Path">The relative page path with forward slashes.</param>
     private readonly record struct NavEntry(string Title, string Path);

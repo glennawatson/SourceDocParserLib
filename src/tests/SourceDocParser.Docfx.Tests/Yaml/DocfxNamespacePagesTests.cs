@@ -10,8 +10,8 @@ using YamlDotNet.RepresentationModel;
 namespace SourceDocParser.Docfx.Tests.Yaml;
 
 /// <summary>
-/// Pins the namespace-page emission contract — bucketing, sort
-/// order, page rendering — against the DocfxNamespacePages helper
+/// Pins the namespace-page emission contract -- bucketing, sort
+/// order, page rendering -- against the DocfxNamespacePages helper
 /// in isolation. End-to-end coverage of the items+children shape
 /// happens via YamlDotNet round-trip on the rendered string.
 /// </summary>
@@ -43,7 +43,7 @@ public class DocfxNamespacePagesTests
 
     /// <summary>
     /// Types in the global namespace (empty <c>Namespace</c> field)
-    /// don't get a namespace page — docfx skips those too.
+    /// don't get a namespace page -- docfx skips those too.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -84,7 +84,7 @@ public class DocfxNamespacePagesTests
 
     /// <summary>
     /// Render produces a parseable YAML page with the docfx
-    /// namespace shape — uid + N: commentId + children list +
+    /// namespace shape -- uid + N: commentId + children list +
     /// type: Namespace + assemblies.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -120,7 +120,7 @@ public class DocfxNamespacePagesTests
     }
 
     /// <summary>
-    /// Parent and child namespaces each get their own page — a type
+    /// Parent and child namespaces each get their own page -- a type
     /// in <c>DynamicData</c> doesn't pollute <c>DynamicData.Aggregation</c>'s
     /// children list and vice versa.
     /// </summary>

@@ -8,11 +8,11 @@ namespace SourceDocParser.Tests;
 
 /// <summary>
 /// Pins <see cref="MarkdownListTableRenderer"/>: turns a
-/// <c>&lt;list type="table"&gt;</c> XML doc element into a GFM table.
-/// Header detection (<c>&lt;listheader&gt;</c>), default-header
+/// <c>&lt;list type="table"></c> XML doc element into a GFM table.
+/// Header detection (<c>listheader</c>), default-header
 /// fallback when items appear first, and per-item term/description
 /// extraction are exercised end-to-end via
-/// <see cref="XmlDocToMarkdown.Convert(string)"/> — that's the path
+/// <see cref="XmlDocToMarkdown.Convert(string)"/> -- that's the path
 /// the production dispatcher uses to land on the renderer, and
 /// keeping the test there proves the dispatch wiring still works.
 /// The <c>ReadTermAndDescription</c> helper has its own

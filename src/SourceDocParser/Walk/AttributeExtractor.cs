@@ -12,7 +12,7 @@ namespace SourceDocParser.Walk;
 /// <summary>
 /// Pulls attribute metadata off any <see cref="ISymbol"/> and converts
 /// it into the model's <see cref="ApiAttribute"/> shape. The walker
-/// emits attributes faithfully — every attribute Roslyn surfaces is
+/// emits attributes faithfully -- every attribute Roslyn surfaces is
 /// returned, including compiler-emitted markers from
 /// <c>System.Runtime.CompilerServices</c>. Presentation-layer
 /// filtering belongs to the consuming emitter.
@@ -50,7 +50,7 @@ internal static class AttributeExtractor
         ExtractCore(symbol.GetAttributes());
 
     /// <summary>
-    /// Combined extraction — returns both the full attribute list and
+    /// Combined extraction -- returns both the full attribute list and
     /// the resolved <c>[Obsolete]</c> state in a single
     /// <c>GetAttributes</c> walk. Walker call sites that need both
     /// fields should call this rather than <see cref="Extract"/> +
@@ -76,7 +76,7 @@ internal static class AttributeExtractor
             attributes[i] = Convert(data);
 
             // Resolve the [Obsolete] state inline on the same iteration
-            // — first match wins. Multiple Obsolete applications are
+            // -- first match wins. Multiple Obsolete applications are
             // legal in the language (latest in metadata is the active
             // one) but rare; taking the first matches the behaviour of
             // the prior standalone ResolveObsolete loop.
@@ -122,7 +122,7 @@ internal static class AttributeExtractor
         return (false, null);
     }
 
-    /// <summary>Materialises the full attribute list — shared between <see cref="Extract"/> and the standalone path callers.</summary>
+    /// <summary>Materialises the full attribute list -- shared between <see cref="Extract"/> and the standalone path callers.</summary>
     /// <param name="raw">Raw Roslyn attribute data from <c>GetAttributes</c>.</param>
     /// <returns>The model attributes, or the shared empty array when none.</returns>
     internal static ApiAttribute[] ExtractCore(in System.Collections.Immutable.ImmutableArray<AttributeData> raw)

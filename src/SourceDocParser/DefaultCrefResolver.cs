@@ -7,14 +7,14 @@ namespace SourceDocParser;
 /// <summary>
 /// Backwards-compatible <see cref="ICrefResolver"/> that emits the
 /// pre-refactor "always autoref" form: <c>[shortName][uid]</c>. Used
-/// when the converter is invoked without a custom resolver — keeps the
+/// when the converter is invoked without a custom resolver -- keeps the
 /// behaviour callers had before <see cref="ICrefResolver"/> existed,
 /// so unit tests and ad-hoc converter use don't need to wire one up.
 /// </summary>
 /// <remarks>
 /// Generic-parameter placeholder UIDs (the <c>!:T</c> form Roslyn
 /// emits when a cref points at a method-local type parameter) get
-/// rendered as inline code instead — autoref form for those would
+/// rendered as inline code instead -- autoref form for those would
 /// always fail to resolve and the inline-code form matches what
 /// every emitter wants in practice.
 /// </remarks>

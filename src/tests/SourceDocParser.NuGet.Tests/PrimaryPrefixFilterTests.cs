@@ -9,7 +9,7 @@ namespace SourceDocParser.NuGet.Tests;
 
 /// <summary>
 /// Pins the primary-package filtering helpers on
-/// <see cref="NuGetAssemblySource"/> — the change that stops the
+/// <see cref="NuGetAssemblySource"/> -- the change that stops the
 /// walker from emitting documentation pages for transitively-pulled
 /// runtime/platform assemblies (Microsoft.MAUI.Controls, Xamarin.*,
 /// AndroidX.*, Kotlin.*) that came in via a primary's nuspec deps.
@@ -41,7 +41,7 @@ public class PrimaryPrefixFilterTests
 
     /// <summary>
     /// An empty <c>additionalPackages</c> list returns an empty
-    /// prefix array — which <see cref="NuGetAssemblySource.IsPrimaryDll"/>
+    /// prefix array -- which <see cref="NuGetAssemblySource.IsPrimaryDll"/>
     /// reads as "no filter, walk everything" so owner-discovery and
     /// no-config flows aren't broken.
     /// </summary>
@@ -65,7 +65,7 @@ public class PrimaryPrefixFilterTests
 
     /// <summary>
     /// Bare-ID exact match: the umbrella DLL (<c>Splat.dll</c>)
-    /// matches the bare <c>Splat</c> entry — case-insensitive.
+    /// matches the bare <c>Splat</c> entry -- case-insensitive.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -80,7 +80,7 @@ public class PrimaryPrefixFilterTests
 
     /// <summary>
     /// Sibling assemblies (<c>Splat.Core.dll</c>, <c>Splat.Logging.dll</c>)
-    /// match the dotted prefix entry — that's how the umbrella's
+    /// match the dotted prefix entry -- that's how the umbrella's
     /// <c>[TypeForwardedTo]</c> targets get their own pages.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -97,7 +97,7 @@ public class PrimaryPrefixFilterTests
     /// <summary>
     /// Transitive DLLs that don't share a primary's prefix
     /// (<c>Microsoft.Maui.Controls.dll</c>, <c>Xamarin.Google.*</c>,
-    /// <c>System.Reactive.dll</c>) get filtered out — they stay on
+    /// <c>System.Reactive.dll</c>) get filtered out -- they stay on
     /// disk for the compilation's fallback index but the walker
     /// never visits them.
     /// </summary>
@@ -114,7 +114,7 @@ public class PrimaryPrefixFilterTests
     }
 
     /// <summary>
-    /// An empty prefix array means "no filter configured" — every
+    /// An empty prefix array means "no filter configured" -- every
     /// DLL passes. Mirrors the behaviour of the source when the
     /// config has no <c>additionalPackages</c>.
     /// </summary>
@@ -158,7 +158,7 @@ public class PrimaryPrefixFilterTests
     }
 
     /// <summary>
-    /// Null / empty entries are skipped — the helper allocates an
+    /// Null / empty entries are skipped -- the helper allocates an
     /// exact-sized array sized off the surviving id count so a
     /// hand-edited sidecar with stray blank lines doesn't leak nulls
     /// into the prefix array.
@@ -188,7 +188,7 @@ public class PrimaryPrefixFilterTests
     /// <summary>
     /// The sidecar reader trims whitespace, ignores blank lines and
     /// <c>#</c>-prefixed comments. Mirrors the format the fetcher
-    /// writes — one id per line, in declaration order.
+    /// writes -- one id per line, in declaration order.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -210,7 +210,7 @@ public class PrimaryPrefixFilterTests
 
     /// <summary>
     /// <see cref="NuGetAssemblySource.ResolvePrimaryPrefixes"/> prefers
-    /// the sidecar over the manifest — the bug fix's contract. When
+    /// the sidecar over the manifest -- the bug fix's contract. When
     /// both files exist on disk, the owner-discovered ids in the
     /// sidecar win over the (smaller) additionalPackages list.
     /// </summary>
@@ -237,7 +237,7 @@ public class PrimaryPrefixFilterTests
 
     /// <summary>
     /// Falls back to the manifest's additionalPackages when no
-    /// sidecar is present — preserves backwards compatibility with
+    /// sidecar is present -- preserves backwards compatibility with
     /// hand-populated apiPaths and integration tests that don't go
     /// through the fetcher.
     /// </summary>
@@ -261,7 +261,7 @@ public class PrimaryPrefixFilterTests
     }
 
     /// <summary>
-    /// Returns an empty array when neither file exists — caller's
+    /// Returns an empty array when neither file exists -- caller's
     /// <see cref="NuGetAssemblySource.IsPrimaryDll"/> reads that as
     /// "no filter configured, walk everything".
     /// </summary>

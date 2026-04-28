@@ -68,7 +68,7 @@ public class MetadataExtractorBenchmarks
     /// <summary>
     /// Per-iteration cleanup. Drops the iteration's output tree and
     /// forces a full GC pass so the next iteration starts on a clean
-    /// heap — without this the Roslyn compilation state accumulates
+    /// heap -- without this the Roslyn compilation state accumulates
     /// across iterations and inflates measurements.
     /// </summary>
     [IterationCleanup]

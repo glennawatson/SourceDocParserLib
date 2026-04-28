@@ -13,15 +13,15 @@ namespace SourceDocParser.Model;
 /// no longer renders Markdown; emitters do that at render time via
 /// <see cref="SourceDocParser.XmlDoc.XmlDocToMarkdown"/>.
 /// </remarks>
-/// <param name="Summary">Raw inner XML of the <c>&lt;summary/&gt;</c> tag.</param>
-/// <param name="Remarks">Raw inner XML of the <c>&lt;remarks/&gt;</c> tag.</param>
-/// <param name="Returns">Raw inner XML of the <c>&lt;returns/&gt;</c> tag.</param>
-/// <param name="Value">Raw inner XML of the <c>&lt;value/&gt;</c> tag.</param>
-/// <param name="Examples">Raw inner XML of each <c>&lt;example/&gt;</c> tag, in declaration order.</param>
+/// <param name="Summary">Raw inner XML of the <c>summary/</c> tag.</param>
+/// <param name="Remarks">Raw inner XML of the <c>remarks/</c> tag.</param>
+/// <param name="Returns">Raw inner XML of the <c>returns/</c> tag.</param>
+/// <param name="Value">Raw inner XML of the <c>value/</c> tag.</param>
+/// <param name="Examples">Raw inner XML of each <c>example/</c> tag, in declaration order.</param>
 /// <param name="Parameters">Per-parameter description; <see cref="DocEntry.Value"/> is raw inner XML.</param>
 /// <param name="TypeParameters">Per-type-parameter description; <see cref="DocEntry.Value"/> is raw inner XML.</param>
 /// <param name="Exceptions">Per-exception description; <see cref="DocEntry.Value"/> is raw inner XML.</param>
-/// <param name="SeeAlso">Cref strings collected from top-level <c>&lt;seealso/&gt;</c> tags.</param>
+/// <param name="SeeAlso">Cref strings collected from top-level <c>seealso/</c> tags.</param>
 /// <param name="HasInheritDoc">Whether an inheritdoc element was present.</param>
 /// <param name="InheritDocCref">The inheritdoc cref attribute, if any.</param>
 internal sealed record RawDocumentation(

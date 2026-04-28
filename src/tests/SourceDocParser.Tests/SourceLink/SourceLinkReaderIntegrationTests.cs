@@ -10,7 +10,7 @@ namespace SourceDocParser.Tests.SourceLink;
 
 /// <summary>
 /// End-to-end coverage of <see cref="SourceLinkReader"/> against a
-/// real on-disk DLL — the SamplePdb fixture builds with an embedded
+/// real on-disk DLL -- the SamplePdb fixture builds with an embedded
 /// portable PDB and the Microsoft.SourceLink.GitHub package wired in
 /// (inherited via Directory.Build.props), so each build produces an
 /// assembly carrying the full SourceLink JSON map for this repo's
@@ -42,7 +42,7 @@ public class SourceLinkReaderIntegrationTests
     /// <summary>
     /// GetMethodLocation against the SamplePdb anchor returns the
     /// SamplePdbAnchor.cs source path and the body line pinned by
-    /// <see cref="SamplePdb.SamplePdbAnchor.KnownMethodBodyLine"/> —
+    /// <see cref="SamplePdb.SamplePdbAnchor.KnownMethodBodyLine"/> --
     /// keeps the test in lockstep with the fixture: any time the
     /// body moves, the const moves with it.
     /// </summary>
@@ -94,7 +94,7 @@ public class SourceLinkReaderIntegrationTests
     /// <summary>
     /// GetMethodLocation against a metadata token whose row part is
     /// zero (a TypeRef row, an out-of-range RID, etc.) returns null
-    /// rather than throwing — the helper's defensive contract.
+    /// rather than throwing -- the helper's defensive contract.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -145,7 +145,7 @@ public class SourceLinkReaderIntegrationTests
 
     /// <summary>
     /// Pointing the reader at a path that isn't a managed PE flips
-    /// HasSourceLink to false instead of throwing — the constructor
+    /// HasSourceLink to false instead of throwing -- the constructor
     /// catches every failure and degrades gracefully.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>

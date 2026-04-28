@@ -22,6 +22,10 @@
   <ItemGroup>
     <InternalsVisibleTo Include="SourceDocParser.Tests" />
     <InternalsVisibleTo Include="SourceDocParser.IntegrationTests" />
+    <InternalsVisibleTo Include="SourceDocParser.Zensical" />
+    <InternalsVisibleTo Include="SourceDocParser.Zensical.Tests" />
+    <InternalsVisibleTo Include="SourceDocParser.Docfx" />
+    <InternalsVisibleTo Include="SourceDocParser.Docfx.Tests" />
   </ItemGroup>
 
 </Project>

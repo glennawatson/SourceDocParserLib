@@ -10,7 +10,7 @@ namespace SourceDocParser.Docfx.Yaml;
 /// Formats one attribute usage as the <c>Name(arg, Named=val)</c>
 /// string the docfx syntax-content prefix carries above each member's
 /// signature. Walker provides arguments pre-formatted, so this is
-/// pure layout — exact-length precompute + single
+/// pure layout -- exact-length precompute + single
 /// <see cref="string.Create{TState}"/> fill so each rendered usage
 /// allocates one string and nothing else.
 /// </summary>

@@ -193,7 +193,7 @@ public class PipelinePhaseBenchmarks
     }
 
     /// <summary>
-    /// Just walks the NuGet source's <c>DiscoverAsync</c> stream — no
+    /// Just walks the NuGet source's <c>DiscoverAsync</c> stream -- no
     /// Roslyn, no merge, no emit. Captures the per-call cost of the
     /// owner discovery + per-package fallback-index build.
     /// </summary>
@@ -215,7 +215,7 @@ public class PipelinePhaseBenchmarks
     /// Loads + walks every assembly across every TFM group using a fresh
     /// <see cref="CompilationLoader"/> per group (matching the production
     /// pipeline). Disposes the loader on scope exit so memory-mapped DLL
-    /// views aren't pinned across iterations. Sequential — measures the
+    /// views aren't pinned across iterations. Sequential -- measures the
     /// raw walker cost without parallel-dispatch overhead.
     /// </summary>
     /// <returns>The number of catalogs produced.</returns>
@@ -290,7 +290,7 @@ public class PipelinePhaseBenchmarks
 
     /// <summary>
     /// Walks every pre-loaded compilation (held alive in setup). Measures
-    /// pure walker cost — no loader, no PDB construction.
+    /// pure walker cost -- no loader, no PDB construction.
     /// </summary>
     /// <returns>Number of catalogs produced.</returns>
     [Benchmark]

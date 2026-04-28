@@ -6,7 +6,7 @@ namespace SamplePdb;
 
 /// <summary>
 /// Plain enum with three members + an explicit underlying value on
-/// one of them — exercises the walker's <c>TypeKind.Enum</c> branch
+/// one of them -- exercises the walker's <c>TypeKind.Enum</c> branch
 /// and per-member EnumValue capture.
 /// </summary>
 public enum SampleSeverity

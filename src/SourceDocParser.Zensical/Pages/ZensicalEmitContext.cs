@@ -14,7 +14,7 @@ namespace SourceDocParser.Zensical.Pages;
 /// Per-run rendering bundle threaded through the Zensical page
 /// emitters. Holds everything that depends on the catalog being
 /// emitted: routing options, catalog rollups, the set of UIDs that
-/// will own a page, and the XML→Markdown converter wired up with the
+/// will own a page, and the XML->Markdown converter wired up with the
 /// matching <see cref="ZensicalCrefResolver"/>.
 /// </summary>
 /// <remarks>
@@ -28,7 +28,7 @@ internal sealed class ZensicalEmitContext
     /// <param name="options">Routing + cross-link tunables.</param>
     /// <param name="indexes">Catalog rollups computed once.</param>
     /// <param name="emittedUids">Set of UIDs (types + members) the emitter produces pages for.</param>
-    /// <param name="converter">XML→Markdown converter wired with the cref resolver for this run.</param>
+    /// <param name="converter">XML->Markdown converter wired with the cref resolver for this run.</param>
     public ZensicalEmitContext(
         ZensicalEmitterOptions options,
         ZensicalCatalogIndexes indexes,
@@ -54,7 +54,7 @@ internal sealed class ZensicalEmitContext
     /// <summary>Gets the UIDs the emitter is producing pages for.</summary>
     public FrozenSet<string> EmittedUids { get; }
 
-    /// <summary>Gets the XML→Markdown converter wired with the cref resolver for this run.</summary>
+    /// <summary>Gets the XML->Markdown converter wired with the cref resolver for this run.</summary>
     public XmlDocToMarkdown Converter { get; }
 
     /// <summary>

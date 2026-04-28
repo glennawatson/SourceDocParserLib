@@ -37,7 +37,7 @@ public sealed class SymbolWalker : ISymbolWalker
     /// <summary>
     /// Initializes a new instance of the <see cref="SymbolWalker"/> class.
     /// </summary>
-    /// <param name="docResolverFactory">Factory invoked once per <see cref="Walk"/> to create the per-compilation doc resolver. Defaults to <c>c =&gt; new DocResolver(c)</c>.</param>
+    /// <param name="docResolverFactory">Factory invoked once per <see cref="Walk"/> to create the per-compilation doc resolver. Defaults to <c>c => new DocResolver(c)</c>.</param>
     public SymbolWalker(Func<Compilation, IDocResolver>? docResolverFactory) =>
         _docResolverFactory = docResolverFactory ?? (static c => new DocResolver(c));
 
@@ -80,8 +80,8 @@ public sealed class SymbolWalker : ISymbolWalker
             NamespaceDisplayNames: new(),
             AppliesTo: [tfm]);
 
-        // Total count isn't known upfront — typical assemblies land in
-        // the low hundreds of public types — so let the list grow
+        // Total count isn't known upfront -- typical assemblies land in
+        // the low hundreds of public types -- so let the list grow
         // dynamically rather than picking an arbitrary capacity.
         List<ApiType> types = [];
         var seenTypeUids = new HashSet<string>(StringComparer.Ordinal);
@@ -128,7 +128,7 @@ public sealed class SymbolWalker : ISymbolWalker
     /// </summary>
     /// <param name="pendingTypes">Stack of types to drain.</param>
     /// <param name="types">Catalog list to append into.</param>
-    /// <param name="seenTypeUids">UIDs already produced — used for dedupe.</param>
+    /// <param name="seenTypeUids">UIDs already produced -- used for dedupe.</param>
     /// <param name="context">Per-walk state bundle.</param>
     internal static void DrainPendingTypes(
         Stack<INamedTypeSymbol> pendingTypes,

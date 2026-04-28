@@ -143,7 +143,7 @@ public class OwningStreamTests
         await Assert.That(owner.Disposed).IsTrue();
     }
 
-    /// <summary>Test helper — disposable that records when it was disposed.</summary>
+    /// <summary>Test helper -- disposable that records when it was disposed.</summary>
     private sealed class TrackingDisposable : IDisposable
     {
         /// <summary>
@@ -155,7 +155,7 @@ public class OwningStreamTests
         public void Dispose() => Disposed = true;
     }
 
-    /// <summary>Test helper — memory-backed stream that records disposal.</summary>
+    /// <summary>Test helper -- memory-backed stream that records disposal.</summary>
     private sealed class TrackingStream : MemoryStream
     {
         /// <summary>

@@ -72,7 +72,7 @@ public class SourceLinkBlobParserTests
 
     /// <summary>
     /// FindAndParse against the SamplePdb fixture's real embedded PDB
-    /// finds the SourceLink record and parses it into a usable map —
+    /// finds the SourceLink record and parses it into a usable map --
     /// pins the success path (foreach-match-then-decode) of the
     /// helper that the synthetic-bytes tests can't reach.
     /// </summary>

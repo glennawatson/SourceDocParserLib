@@ -56,7 +56,7 @@ public static class TestData
 
     /// <summary>
     /// Creates a minimal <see cref="ApiObjectType"/> in a deterministic
-    /// shape — defaults to a class with no members.
+    /// shape -- defaults to a class with no members.
     /// </summary>
     /// <param name="uid">Unique identifier (also drives FullName when not supplied).</param>
     /// <param name="kind">Object kind (class / struct / interface / record / record struct).</param>

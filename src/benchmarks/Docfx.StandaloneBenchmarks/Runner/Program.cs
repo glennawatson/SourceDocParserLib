@@ -10,7 +10,7 @@ namespace Docfx.StandaloneBenchmarks.Runner;
 
 /// <summary>
 /// Entry point for the docfx-only standalone benchmark. With no args
-/// it runs each TFM once via Stopwatch + allocated-bytes telemetry —
+/// it runs each TFM once via Stopwatch + allocated-bytes telemetry --
 /// fast enough to land baseline numbers before docfx's verbose
 /// resolver-warning spew turns a full BenchmarkDotNet sweep into an
 /// hours-long affair. With args it defers to BenchmarkDotNet.
@@ -56,7 +56,7 @@ public static class Program
         bench.GlobalSetup();
 
         Console.WriteLine();
-        Console.WriteLine("docfx GenerateManagedReferenceYamlFiles — one pass per TFM");
+        Console.WriteLine("docfx GenerateManagedReferenceYamlFiles -- one pass per TFM");
         Console.WriteLine();
         Console.WriteLine("| TFM      | Wall time | Allocated |");
         Console.WriteLine("|----------|----------:|----------:|");

@@ -5,7 +5,7 @@
 namespace SourceDocParser.Model;
 
 /// <summary>
-/// Object-shaped type — class, struct, interface, record class, or
+/// Object-shaped type -- class, struct, interface, record class, or
 /// record struct. Carries a member list. The <see cref="Kind"/> field
 /// distinguishes the underlying flavour for emitters that only need a
 /// label change between them (e.g. the <c>class</c> vs <c>struct</c>
@@ -76,7 +76,7 @@ public sealed record ApiObjectType(
 {
     /// <summary>
     /// Singleton placeholder used as a starting point by the walker
-    /// when constructing a real instance via <c>with</c> expressions —
+    /// when constructing a real instance via <c>with</c> expressions --
     /// every base field defaults to empty / false so callers only
     /// have to spell out the fields the source symbol actually
     /// contributes.

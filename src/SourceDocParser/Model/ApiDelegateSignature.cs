@@ -5,7 +5,7 @@
 namespace SourceDocParser.Model;
 
 /// <summary>
-/// The Invoke signature of an <see cref="ApiDelegateType"/> — return
+/// The Invoke signature of an <see cref="ApiDelegateType"/> -- return
 /// type, parameters, and any generic type parameters declared on the
 /// delegate itself. The emitter renders this directly on the delegate's
 /// type page; no per-overload pages are produced for delegate types.

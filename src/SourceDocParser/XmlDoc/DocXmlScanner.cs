@@ -6,7 +6,7 @@ namespace SourceDocParser.XmlDoc;
 
 /// <summary>
 /// Forward-only scanner over a span of XML doc text. Replaces XmlReader
-/// on the doc-parse hot path — every XmlReader.Create instantiated an
+/// on the doc-parse hot path -- every XmlReader.Create instantiated an
 /// XmlTextReaderImpl with multi-KB internal buffers (NodeData arrays,
 /// NamespaceManager, char buffers, Entry arrays) per symbol, which
 /// dominated the post-streaming allocation profile (~18% of the
@@ -20,7 +20,7 @@ namespace SourceDocParser.XmlDoc;
 /// character references in decimal or hex form, comments and
 /// processing instructions (skipped), and CDATA sections (surfaced as
 /// text). Single-quoted attributes, DTDs, internal subsets, mixed
-/// encodings, and other production-XML edge cases are out of scope —
+/// encodings, and other production-XML edge cases are out of scope --
 /// the .NET XML doc emitter never produces them.
 /// </remarks>
 internal ref struct DocXmlScanner

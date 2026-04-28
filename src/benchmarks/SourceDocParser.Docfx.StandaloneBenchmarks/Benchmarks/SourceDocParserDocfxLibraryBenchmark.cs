@@ -10,7 +10,7 @@ using SourceDocParser.NuGet.Infrastructure;
 namespace SourceDocParser.Docfx.StandaloneBenchmarks.Benchmarks;
 
 /// <summary>
-/// Equivalent benchmark for the SourceDocParser.Docfx YAML emitter —
+/// Equivalent benchmark for the SourceDocParser.Docfx YAML emitter --
 /// the apples-to-apples partner of Docfx.StandaloneBenchmarks. One
 /// <c>[Params]</c>-selected TFM per row keeps each measurement scoped
 /// to a single framework slice so the side-by-side comparison runs on
@@ -22,7 +22,7 @@ public class SourceDocParserDocfxLibraryBenchmark
     /// <summary>Scratch directory holding per-TFM scratch + warmed cache.</summary>
     private string _scratchRoot = string.Empty;
 
-    /// <summary>Per-TFM configured assembly source — populated in GlobalSetup, indexed by short TFM.</summary>
+    /// <summary>Per-TFM configured assembly source -- populated in GlobalSetup, indexed by short TFM.</summary>
     private Dictionary<string, NuGetAssemblySource> _sourcePerTfm = new(StringComparer.Ordinal);
 
     /// <summary>Per-iteration output directory.</summary>
@@ -37,11 +37,11 @@ public class SourceDocParserDocfxLibraryBenchmark
     /// <summary>The pipeline orchestrator.</summary>
     private MetadataExtractor _extractor = null!;
 
-    /// <summary>Gets or sets the TFM under measurement — BDN runs one row per value.</summary>
+    /// <summary>Gets or sets the TFM under measurement -- BDN runs one row per value.</summary>
     [Params("net8.0", "net9.0", "net10.0", "net472")]
     public string Tfm { get; set; } = string.Empty;
 
-    /// <summary>Gets the scratch root directory — exposed so the dump-mode runner can point users at the emitted YAML for diffing.</summary>
+    /// <summary>Gets the scratch root directory -- exposed so the dump-mode runner can point users at the emitted YAML for diffing.</summary>
     public string ScratchRootForInspection => _scratchRoot;
 
     /// <summary>Per-TFM scaffold + cache warmup.</summary>

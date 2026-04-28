@@ -8,7 +8,7 @@ using SourceDocParser.TestHelpers;
 namespace SourceDocParser.Tests;
 
 /// <summary>
-/// Direct coverage of <see cref="CatalogIndexes"/> — the shared
+/// Direct coverage of <see cref="CatalogIndexes"/> -- the shared
 /// algorithm the Zensical and Docfx wrappers delegate to. Pins the
 /// empty-singleton path, derived / extension / inherited bucket
 /// shapes, the compiler-generated filter, the supplied
@@ -191,7 +191,7 @@ public class CatalogIndexesTests
         await Assert.That(indexes.GetInherited("T:Foo")).IsEquivalentTo(baseline);
     }
 
-    /// <summary>Docfx's bare-name baseline flows through verbatim — emitter-specific format is just opaque data.</summary>
+    /// <summary>Docfx's bare-name baseline flows through verbatim -- emitter-specific format is just opaque data.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task InheritedLookupPreservesDocfxBaselineFormat()

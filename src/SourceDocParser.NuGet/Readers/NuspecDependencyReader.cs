@@ -14,7 +14,7 @@ namespace SourceDocParser.NuGet.Readers;
 /// the transitive-closure loop in <c>NuGetFetcher</c> so an umbrella
 /// package like <c>Splat</c> automatically pulls in its
 /// <c>Splat.Core</c> / <c>Splat.Logging</c> / <c>Splat.Builder</c>
-/// siblings — without those, the walker can't follow type-forwards
+/// siblings -- without those, the walker can't follow type-forwards
 /// to the real type definitions.
 /// </summary>
 internal static class NuspecDependencyReader
@@ -35,7 +35,7 @@ internal static class NuspecDependencyReader
     private const string IdAttributeName = "id";
 
     /// <summary>
-    /// Reader settings shared across every parse — async on so the
+    /// Reader settings shared across every parse -- async on so the
     /// XmlReader can pump from <see cref="ZipArchiveEntry.OpenAsync"/>'s
     /// async stream without the runtime throwing on sync .Read().
     /// </summary>
@@ -65,7 +65,7 @@ internal static class NuspecDependencyReader
         ReadDependencyIdsAsync(nuspecStream, CancellationToken.None);
 
     /// <summary>
-    /// Stream-based overload — useful for tests that want to feed
+    /// Stream-based overload -- useful for tests that want to feed
     /// canned nuspec XML without zipping it first. Reads dependency
     /// elements regardless of which nuspec schema namespace the file
     /// declares.
@@ -139,7 +139,7 @@ internal static class NuspecDependencyReader
 
     /// <summary>
     /// Reads dependency IDs straight from a sidecar nuspec file on
-    /// disk — written by the fetcher next to each cached nupkg so
+    /// disk -- written by the fetcher next to each cached nupkg so
     /// the transitive-dep walk doesn't have to re-OpenRead the zip
     /// just to read a few hundred bytes of XML.
     /// </summary>
@@ -158,7 +158,7 @@ internal static class NuspecDependencyReader
 
     /// <summary>
     /// Returns the first <c>.nuspec</c> entry at the archive root.
-    /// NuGet packages always carry exactly one — but defensive against
+    /// NuGet packages always carry exactly one -- but defensive against
     /// nested entries: the spec only recognises the root one.
     /// </summary>
     /// <param name="archive">Open NuGet package archive.</param>
@@ -180,7 +180,7 @@ internal static class NuspecDependencyReader
 
     /// <summary>
     /// Returns true when <paramref name="entryName"/> looks like the
-    /// root-level nuspec — case-insensitive <c>.nuspec</c> suffix and
+    /// root-level nuspec -- case-insensitive <c>.nuspec</c> suffix and
     /// no path separator before it.
     /// </summary>
     /// <param name="entryName">Zip entry FullName to test.</param>
@@ -198,7 +198,7 @@ internal static class NuspecDependencyReader
 
     /// <summary>
     /// Returns true when the reader is positioned on a
-    /// <c>&lt;dependency&gt;</c> element — local-name match, with the
+    /// <c>dependency</c> element -- local-name match, with the
     /// namespace check restricted to the nuspec schemas we recognise
     /// so unrelated XML files dropped into a nupkg don't poison the
     /// dependency set.

@@ -222,7 +222,7 @@ public class MetadataExtractorInjectionTests
     }
 
     /// <summary>
-    /// Loader that always throws — used to exercise the load-failure path.
+    /// Loader that always throws -- used to exercise the load-failure path.
     /// </summary>
     private sealed class ThrowingCompilationLoader : ICompilationLoader
     {

@@ -12,7 +12,7 @@ namespace SourceDocParser;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The resolver decides what the Markdown should look like — a
+/// The resolver decides what the Markdown should look like -- a
 /// cross-reference link to a page in the same site (mkdocs-autorefs
 /// form), an external link (e.g. Microsoft Learn for the BCL),
 /// inline code for unresolvable references, or any other shape an
@@ -23,7 +23,7 @@ namespace SourceDocParser;
 /// </para>
 /// <para>
 /// Implementations must be thread-safe across <see cref="Render"/>
-/// calls — emitters that parallelise page rendering will share a
+/// calls -- emitters that parallelise page rendering will share a
 /// single resolver instance across worker tasks.
 /// </para>
 /// </remarks>

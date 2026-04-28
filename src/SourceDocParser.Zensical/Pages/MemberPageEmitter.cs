@@ -4,6 +4,7 @@
 
 using System.Text;
 using SourceDocParser.Model;
+using SourceDocParser.XmlDoc;
 using SourceDocParser.Zensical.Options;
 using SourceDocParser.Zensical.Routing;
 
@@ -21,11 +22,11 @@ namespace SourceDocParser.Zensical.Pages;
 /// detail is appended via small helpers that keep StringBuilder
 /// growth bounded.
 /// </summary>
-public static class MemberPageEmitter
+internal static class MemberPageEmitter
 {
     /// <summary>
     /// Initial StringBuilder capacity for a member-group page. Pages
-    /// scale with overload count — most are 2–6 KB total — so 4 KB
+    /// scale with overload count -- most are 2-6 KB total -- so 4 KB
     /// covers the common case without over-allocating for the long
     /// tail of single-overload members.
     /// </summary>
@@ -58,60 +59,8 @@ public static class MemberPageEmitter
     /// <param name="overloads">The overloads to render.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
     /// <returns>The rendered Markdown.</returns>
-    public static string Render(ApiType containingType, string memberName, ApiMember[] overloads, ZensicalEmitterOptions options)
-    {
-        ArgumentNullException.ThrowIfNull(containingType);
-        ArgumentException.ThrowIfNullOrWhiteSpace(memberName);
-        ArgumentNullException.ThrowIfNull(overloads);
-        ArgumentNullException.ThrowIfNull(options);
-        var first = overloads[0];
-        var heading = ZensicalMemberDisplayName.Heading(first, containingType);
-        var kindLabel = MemberKindLabel(first.Kind);
-        var typePagePath = TypePageEmitter.PathFor(containingType, options);
-        var typeName = ZensicalEmitterHelpers.FormatDisplayTypeName(containingType.Name, containingType.Arity);
-
-        var sb = new StringBuilder(capacity: InitialPageCapacity)
-            .Append(PageFrontmatter.ForMember(containingType, first, overloads, options))
-            .Append($"""
-            # {heading} {kindLabel}
-
-            !!! info "Defined in"
-                Type: [{typeName}](../{Path.GetFileName(typePagePath)})
-                Namespace: `{(containingType.Namespace is [_, ..] ns ? ns : "(global)")}`
-                Assembly: `{containingType.AssemblyName}.dll`
-
-            """);
-
-        if (containingType.AppliesTo is [_, ..] appliesTo)
-        {
-            sb.Append("!!! tip \"Applies to\"\n    ");
-            for (var i = 0; i < appliesTo.Length; i++)
-            {
-                if (i > 0)
-                {
-                    sb.Append(", ");
-                }
-
-                sb.Append('`').Append(appliesTo[i]).Append('`');
-            }
-
-            sb.Append("\n\n");
-        }
-
-        if (overloads is [var single])
-        {
-            AppendSingleOverload(sb, single, options);
-            return sb.ToString();
-        }
-
-        AppendOverloadList(sb, overloads);
-        for (var i = 0; i < overloads.Length; i++)
-        {
-            AppendNumberedOverload(sb, overloads[i], i + 1, options);
-        }
-
-        return sb.ToString();
-    }
+    public static string Render(ApiType containingType, string memberName, ApiMember[] overloads, ZensicalEmitterOptions options) =>
+        Render(containingType, memberName, overloads, BuildDefaultConverter(), options);
 
     /// <summary>
     /// Gets the documentation path for a member.
@@ -168,25 +117,19 @@ public static class MemberPageEmitter
     /// <param name="overloads">The overloads to render.</param>
     /// <param name="outputRoot">Directory that contains the api/ tree.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
-    public static void RenderToFile(ApiType containingType, string memberName, ApiMember[] overloads, string outputRoot, ZensicalEmitterOptions options)
-    {
-        ArgumentNullException.ThrowIfNull(options);
-        var relativePath = PathFor(containingType, memberName, options);
-        var fullPath = Path.Combine(outputRoot, relativePath);
-        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        File.WriteAllText(fullPath, Render(containingType, memberName, overloads, options));
-    }
+    public static void RenderToFile(ApiType containingType, string memberName, ApiMember[] overloads, string outputRoot, ZensicalEmitterOptions options) =>
+        RenderToFile(containingType, memberName, overloads, outputRoot, BuildDefaultConverter(), options);
 
     /// <summary>
     /// Render-and-write entry point used by
-    /// <see cref="ZensicalDocumentationEmitter"/>. Folds the doc-render
-    /// pass over the containing type and each overload's docs so the
-    /// existing Markdown-shaped renderer can consume the result
-    /// unchanged.
+    /// <see cref="ZensicalDocumentationEmitter"/>. Consumes raw walker
+    /// output; the per-section <see cref="RenderedDoc"/> facade pulls
+    /// each XML fragment through the supplied converter exactly once
+    /// when the section actually reads it.
     /// </summary>
-    /// <param name="containingType">Type the overloads are declared on (raw-XML doc fragments).</param>
+    /// <param name="containingType">The declaring type -- raw walker output.</param>
     /// <param name="memberName">Shared overload group name.</param>
-    /// <param name="overloads">The overloads to render.</param>
+    /// <param name="overloads">The overloads -- raw walker output.</param>
     /// <param name="outputRoot">Directory that contains the api/ tree.</param>
     /// <param name="context">Render context built once per emit run.</param>
     internal static void RenderToFile(
@@ -198,15 +141,107 @@ public static class MemberPageEmitter
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(overloads);
+        RenderToFile(containingType, memberName, overloads, outputRoot, context.Converter, context.Options);
+    }
 
-        var renderedContaining = RenderedTypeFactory.Render(containingType, context.Converter);
-        var renderedOverloads = new ApiMember[overloads.Length];
-        for (var i = 0; i < overloads.Length; i++)
+    /// <summary>
+    /// Production render path that consumes raw walker output and
+    /// folds XML->Markdown conversion lazily at the section level via
+    /// <see cref="RenderedDoc"/>. Each overload's documentation is
+    /// converted exactly once even if multiple sections read from it.
+    /// </summary>
+    /// <param name="containingType">The declaring type -- raw walker output.</param>
+    /// <param name="memberName">The shared overload-group name.</param>
+    /// <param name="overloads">The overloads to render -- raw walker output.</param>
+    /// <param name="converter">Markdown converter wired with the emitter's <see cref="ICrefResolver"/>.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    /// <returns>The rendered Markdown.</returns>
+    internal static string Render(
+        ApiType containingType,
+        string memberName,
+        ApiMember[] overloads,
+        XmlDocToMarkdown converter,
+        ZensicalEmitterOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(containingType);
+        ArgumentException.ThrowIfNullOrWhiteSpace(memberName);
+        ArgumentNullException.ThrowIfNull(overloads);
+        ArgumentNullException.ThrowIfNull(converter);
+        ArgumentNullException.ThrowIfNull(options);
+        var first = overloads[0];
+        var heading = ZensicalMemberDisplayName.Heading(first, containingType);
+        var kindLabel = MemberKindLabel(first.Kind);
+        var typePagePath = TypePageEmitter.PathFor(containingType, options);
+        var typeName = ZensicalEmitterHelpers.FormatDisplayTypeName(containingType.Name, containingType.Arity);
+
+        var sb = new StringBuilder(capacity: InitialPageCapacity)
+            .Append(PageFrontmatter.ForMember(containingType, first, overloads, options))
+            .Append($"""
+            # {heading} {kindLabel}
+
+            !!! info "Defined in"
+                Type: [{typeName}](../{Path.GetFileName(typePagePath)})
+                Namespace: `{(containingType.Namespace is [_, ..] ns ? ns : "(global)")}`
+                Assembly: `{containingType.AssemblyName}.dll`
+
+            """);
+
+        if (containingType.AppliesTo is [_, ..] appliesTo)
         {
-            renderedOverloads[i] = RenderedTypeFactory.Render(overloads[i], context.Converter);
+            sb.Append("!!! tip \"Applies to\"\n    ");
+            for (var i = 0; i < appliesTo.Length; i++)
+            {
+                if (i > 0)
+                {
+                    sb.Append(", ");
+                }
+
+                sb.Append('`').Append(appliesTo[i]).Append('`');
+            }
+
+            sb.Append("\n\n");
         }
 
-        RenderToFile(renderedContaining, memberName, renderedOverloads, outputRoot, context.Options);
+        if (overloads is [var single])
+        {
+            AppendSingleOverload(sb, single, converter, options);
+            return sb.ToString();
+        }
+
+        AppendOverloadList(sb, overloads);
+        for (var i = 0; i < overloads.Length; i++)
+        {
+            AppendNumberedOverload(sb, overloads[i], i + 1, converter, options);
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Lower-level render-and-write that takes the converter
+    /// directly. Used internally by the context overload and by the
+    /// converter-less public overload (which builds a default
+    /// converter for tests).
+    /// </summary>
+    /// <param name="containingType">The declaring type.</param>
+    /// <param name="memberName">Shared overload group name.</param>
+    /// <param name="overloads">The overloads.</param>
+    /// <param name="outputRoot">Directory that contains the api/ tree.</param>
+    /// <param name="converter">XML->Markdown converter.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    private static void RenderToFile(
+        ApiType containingType,
+        string memberName,
+        ApiMember[] overloads,
+        string outputRoot,
+        XmlDocToMarkdown converter,
+        ZensicalEmitterOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        var relativePath = PathFor(containingType, memberName, options);
+        var fullPath = Path.Combine(outputRoot, relativePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        File.WriteAllText(fullPath, Render(containingType, memberName, overloads, converter, options));
     }
 
     /// <summary>
@@ -215,11 +250,12 @@ public static class MemberPageEmitter
     /// </summary>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="member">Member to render.</param>
+    /// <param name="converter">Markdown converter wired with the emitter's resolver.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
-    private static void AppendSingleOverload(StringBuilder sb, ApiMember member, ZensicalEmitterOptions options)
+    private static void AppendSingleOverload(StringBuilder sb, ApiMember member, XmlDocToMarkdown converter, ZensicalEmitterOptions options)
     {
         AppendSignatureBlock(sb, member);
-        AppendSections(sb, member, options);
+        AppendSections(sb, member, converter, options);
     }
 
     /// <summary>
@@ -255,12 +291,13 @@ public static class MemberPageEmitter
     /// <param name="sb">Destination buffer.</param>
     /// <param name="member">Overload to render.</param>
     /// <param name="ordinal">1-based overload index for the heading.</param>
+    /// <param name="converter">Markdown converter wired with the emitter's resolver.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
-    private static void AppendNumberedOverload(StringBuilder sb, ApiMember member, int ordinal, ZensicalEmitterOptions options)
+    private static void AppendNumberedOverload(StringBuilder sb, ApiMember member, int ordinal, XmlDocToMarkdown converter, ZensicalEmitterOptions options)
     {
         sb.Append('\n').Append(MarkdownH3Prefix).Append(ordinal).Append(". Overload\n\n");
         AppendSignatureBlock(sb, member);
-        AppendSections(sb, member, options);
+        AppendSections(sb, member, converter, options);
     }
 
     /// <summary>
@@ -299,16 +336,17 @@ public static class MemberPageEmitter
 
     /// <summary>
     /// Appends the standard per-overload sections in conventional
-    /// order: summary → type parameters → parameters → returns →
-    /// remarks → exceptions → examples → see also. Each section is
+    /// order: summary -> type parameters -> parameters -> returns ->
+    /// remarks -> exceptions -> examples -> see also. Each section is
     /// only emitted when it has content.
     /// </summary>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="member">Member to render.</param>
+    /// <param name="converter">Markdown converter wired with the emitter's resolver.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
-    private static void AppendSections(StringBuilder sb, ApiMember member, ZensicalEmitterOptions options)
+    private static void AppendSections(StringBuilder sb, ApiMember member, XmlDocToMarkdown converter, ZensicalEmitterOptions options)
     {
-        var doc = member.Documentation;
+        var doc = new RenderedDoc(member.Documentation, converter);
 
         AppendInheritedDocumentationSection(sb, doc);
         AppendSummarySection(sb, doc);
@@ -350,7 +388,7 @@ public static class MemberPageEmitter
     /// </summary>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="doc">Member documentation payload.</param>
-    private static void AppendInheritedDocumentationSection(StringBuilder sb, ApiDocumentation doc)
+    private static void AppendInheritedDocumentationSection(StringBuilder sb, RenderedDoc doc)
     {
         if (doc.InheritedFrom is not [_, ..] inheritedFrom)
         {
@@ -370,7 +408,7 @@ public static class MemberPageEmitter
     /// </summary>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="doc">Member documentation payload.</param>
-    private static void AppendSummarySection(StringBuilder sb, ApiDocumentation doc)
+    private static void AppendSummarySection(StringBuilder sb, RenderedDoc doc)
     {
         if (doc.Summary is not [_, ..] summary)
         {
@@ -385,7 +423,7 @@ public static class MemberPageEmitter
     /// </summary>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="doc">Member documentation payload.</param>
-    private static void AppendValueSection(StringBuilder sb, ApiDocumentation doc)
+    private static void AppendValueSection(StringBuilder sb, RenderedDoc doc)
     {
         if (doc.Value is not [_, ..] value)
         {
@@ -400,7 +438,7 @@ public static class MemberPageEmitter
     /// </summary>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="doc">Member documentation payload.</param>
-    private static void AppendRemarksSection(StringBuilder sb, ApiDocumentation doc)
+    private static void AppendRemarksSection(StringBuilder sb, RenderedDoc doc)
     {
         if (doc.Remarks is not [_, ..] remarks)
         {
@@ -416,7 +454,7 @@ public static class MemberPageEmitter
     /// <param name="sb">Destination buffer.</param>
     /// <param name="doc">Member documentation payload.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
-    private static void AppendSeeAlsoSectionIfAny(StringBuilder sb, ApiDocumentation doc, ZensicalEmitterOptions options)
+    private static void AppendSeeAlsoSectionIfAny(StringBuilder sb, RenderedDoc doc, ZensicalEmitterOptions options)
     {
         if (doc.SeeAlso is not [_, ..])
         {
@@ -427,14 +465,14 @@ public static class MemberPageEmitter
     }
 
     /// <summary>
-    /// Renders a Type parameters table — one row per declared type
+    /// Renders a Type parameters table -- one row per declared type
     /// parameter with whatever description the doc author wrote (or
     /// an em-dash placeholder when undocumented).
     /// </summary>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="member">Member with the type parameters.</param>
     /// <param name="doc">Member documentation containing the typeparam descriptions.</param>
-    private static void AppendTypeParametersSection(StringBuilder sb, ApiMember member, ApiDocumentation doc)
+    private static void AppendTypeParametersSection(StringBuilder sb, ApiMember member, RenderedDoc doc)
     {
         sb.Append("**Type parameters**\n\n| Name | Description |\n| ---- | ----------- |\n");
         for (var i = 0; i < member.TypeParameters.Length; i++)
@@ -455,7 +493,7 @@ public static class MemberPageEmitter
     /// <param name="member">Member with the parameters.</param>
     /// <param name="doc">Member documentation containing the param descriptions.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
-    private static void AppendParametersSection(StringBuilder sb, ApiMember member, ApiDocumentation doc, ZensicalEmitterOptions options)
+    private static void AppendParametersSection(StringBuilder sb, ApiMember member, RenderedDoc doc, ZensicalEmitterOptions options)
     {
         sb.Append("**Parameters**\n\n| Name | Type | Description |\n| ---- | ---- | ----------- |\n");
         for (var i = 0; i < member.Parameters.Length; i++)
@@ -487,7 +525,7 @@ public static class MemberPageEmitter
         sb.Append("**Returns:** ").Append(FormatTypeReference(returnType, options));
         if (returnsDoc is [_, ..])
         {
-            sb.Append(" — ").Append(returnsDoc);
+            sb.Append(" -- ").Append(returnsDoc);
         }
 
         sb.Append("\n\n");
@@ -589,7 +627,7 @@ public static class MemberPageEmitter
             }
         }
 
-        return "—";
+        return "--";
     }
 
     /// <summary>
@@ -619,4 +657,14 @@ public static class MemberPageEmitter
     /// <param name="text">The text.</param>
     /// <returns>The escaped text.</returns>
     private static string TableEscape(string text) => ZensicalEmitterHelpers.EscapeTableCell(text);
+
+    /// <summary>
+    /// Constructs the default per-call <see cref="XmlDocToMarkdown"/> the
+    /// converter-less Render overloads use -- wired with the
+    /// <see cref="DefaultCrefResolver"/> so unrouted call sites still
+    /// resolve crefs through the legacy <c>[name][uid]</c> autoref form.
+    /// Production emit paths supply their own resolver-aware converter.
+    /// </summary>
+    /// <returns>A fresh converter; cheap, single-purpose, not cached.</returns>
+    private static XmlDocToMarkdown BuildDefaultConverter() => new(DefaultCrefResolver.Instance);
 }

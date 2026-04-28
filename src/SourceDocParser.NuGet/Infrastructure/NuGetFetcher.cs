@@ -140,7 +140,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
 
         // Persist the explicit primary id list so NuGetAssemblySource
         // routes both owner-discovered and additionalPackages ids into
-        // its primary-DLL filter — without this, owner-only manifests
+        // its primary-DLL filter -- without this, owner-only manifests
         // see no primaryPrefixes and skip every documentation page
         // (the bug that hides reactiveui/reactivemarbles output when
         // additionalPackages only carries System.Reactive + DynamicData).
@@ -151,8 +151,8 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         cancellationToken.ThrowIfCancellationRequested();
 
         // Walk transitive package dependencies via each downloaded
-        // .nupkg's nuspec. Splat → Splat.Core/Splat.Logging/Splat.Builder
-        // is the canonical case — without these the walker can't follow
+        // .nupkg's nuspec. Splat -> Splat.Core/Splat.Logging/Splat.Builder
+        // is the canonical case -- without these the walker can't follow
         // the type-forwards in the umbrella assembly.
         await ResolveTransitiveDependenciesAsync(
             new(
@@ -218,7 +218,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// <summary>
     /// Returns true when the file at <paramref name="destPath"/> already
     /// matches <paramref name="entry"/>'s uncompressed length and last
-    /// write time — cheap fingerprint that lets the extract loop
+    /// write time -- cheap fingerprint that lets the extract loop
     /// skip the I/O on cache-warm runs without hashing the bytes.
     /// </summary>
     /// <param name="destPath">Absolute path to the candidate already-on-disk file.</param>
@@ -1023,10 +1023,10 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// Selects the best TFM in the supplied <c>.nupkg</c>'s <c>lib/</c>
     /// folder via <see cref="TfmResolver.SelectAllSupportedTfms"/>,
     /// then extracts every supported variant's <c>.dll</c> and
-    /// <c>.xml</c> files into <c>libDir/&lt;tfm&gt;/</c>. Extracting
+    /// <c>.xml</c> files into <c>libDir/{tfm}/</c>. Extracting
     /// every supported TFM (rather than just one canonical pick) is
     /// what enables the downstream merger to surface a real
-    /// "Applies to" listing in the docs — readers can see exactly
+    /// "Applies to" listing in the docs -- readers can see exactly
     /// which TFMs ship the type instead of getting whichever variant
     /// the fetcher happened to prefer.
     /// </remarks>
@@ -1093,7 +1093,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// dependency, and going to nuget.org for "what's the latest" each
     /// time turns the warm-cache <c>DiscoverAsync</c> into a fan-out of
     /// HTTP round-trips. We honour the cached version exclusively
-    /// when no version was pinned — same contract as before, just
+    /// when no version was pinned -- same contract as before, just
     /// without the redundant network call.
     /// </summary>
     /// <param name="state">Per-package fetch state.</param>
@@ -1125,9 +1125,9 @@ public sealed partial class NuGetFetcher : INuGetFetcher
 
     /// <summary>
     /// Returns the version of an already-installed package by reading
-    /// its sidecar nuspec filename — <c>{idLower}.{versionLower}.nupkg.nuspec</c>.
+    /// its sidecar nuspec filename -- <c>{idLower}.{versionLower}.nupkg.nuspec</c>.
     /// Returns null when no sidecar matches; the caller falls back to a
-    /// network resolve. When multiple cached versions exist (rare —
+    /// network resolve. When multiple cached versions exist (rare --
     /// happens after a manifest version bump that left the prior file
     /// behind), the highest-sorting version is returned so the rest of
     /// the pipeline keeps using the newest cached copy. The first
@@ -1253,7 +1253,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// </summary>
     /// <param name="archive">Package archive to inspect.</param>
     /// <param name="nuspecEntry">Captured root nuspec entry, if any.</param>
-    /// <returns>The archive's <c>lib/&lt;tfm&gt;/</c> entries grouped by TFM.</returns>
+    /// <returns>The archive's <c>lib/{tfm}/</c> entries grouped by TFM.</returns>
     private static Dictionary<string, List<ZipArchiveEntry>> CollectLibEntries(ZipArchive archive, out ZipArchiveEntry? nuspecEntry)
     {
         // Single foreach replaces the prior Where + GroupBy + Where +
@@ -1291,7 +1291,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         // Capture the nuspec while we already have the central
         // directory open. Sidecar-extracting it here means the
         // transitive-dep walk never has to re-OpenRead the zip
-        // just to read deps — it tail-reads the XML from disk.
+        // just to read deps -- it tail-reads the XML from disk.
         if (nuspecEntry is not null || !NuspecDependencyReader.IsRootNuspecEntry(entry.FullName))
         {
             return;
@@ -1301,7 +1301,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     }
 
     /// <summary>
-    /// Attempts to extract the TFM segment from a <c>lib/&lt;tfm&gt;/...</c> archive entry.
+    /// Attempts to extract the TFM segment from a <c>lib/{tfm}/...</c> archive entry.
     /// </summary>
     /// <param name="entry">Archive entry to inspect.</param>
     /// <param name="tfm">Resolved TFM segment when present.</param>
@@ -1454,7 +1454,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
             // cache and re-entering ExtractAssemblies. Without this
             // check every package's per-TFM DLL set re-extracts
             // every round (and SelectAllSupportedTfms multiplies
-            // that by every compatible TFM family) — on a heavy
+            // that by every compatible TFM family) -- on a heavy
             // fixture that fans out to tens of GB of redundant
             // disk writes. Compare uncompressed length + last
             // write time so a real package upgrade still copies.
@@ -1516,7 +1516,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     [LoggerMessage(Level = LogLevel.Information, Message = "Fetching transitive dep round {Round}: {Count} new package(s)")]
     private static partial void LogFetchingTransitiveDeps(ILogger logger, int round, int count);
 
-    /// <summary>Logs a per-nupkg nuspec read failure — non-fatal, the closure loop skips it.</summary>
+    /// <summary>Logs a per-nupkg nuspec read failure -- non-fatal, the closure loop skips it.</summary>
     /// <param name="logger">Target logger.</param>
     /// <param name="ex">Exception thrown while reading the nuspec.</param>
     /// <param name="nupkgPath">Path to the package whose nuspec we couldn't read.</param>
@@ -1655,7 +1655,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// <param name="packageId">Package identifier.</param>
     /// <param name="tfmCount">Number of TFMs selected.</param>
     /// <param name="selectedTfms">Comma-separated list of selected TFMs.</param>
-    [LoggerMessage(Level = LogLevel.Information, Message = "  {PackageId}: extracting {TfmCount} TFM(s) — {SelectedTfms}")]
+    [LoggerMessage(Level = LogLevel.Information, Message = "  {PackageId}: extracting {TfmCount} TFM(s) -- {SelectedTfms}")]
     private static partial void LogExtractingTfms(ILogger logger, string packageId, int tfmCount, string selectedTfms);
 
     /// <summary>

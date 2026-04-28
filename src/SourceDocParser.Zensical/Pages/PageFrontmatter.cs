@@ -11,9 +11,9 @@ namespace SourceDocParser.Zensical.Pages;
 
 /// <summary>
 /// Builds the YAML frontmatter block that prefixes every emitted
-/// page. Tags follow the <c>kind/&lt;label&gt;</c>,
-/// <c>namespace/&lt;ns&gt;</c>, <c>assembly/&lt;name&gt;</c>,
-/// <c>package/&lt;folder&gt;</c> convention so the Material/Zensical
+/// page. Tags follow the <c>kind/{label}</c>,
+/// <c>namespace/{ns}</c>, <c>assembly/{name}</c>,
+/// <c>package/{folder}</c> convention so the Material/Zensical
 /// tags plugin renders a usable index without per-site mapping.
 /// The package tag is only emitted when it differs from the
 /// assembly tag (i.e. a routing rule renamed it).
@@ -49,7 +49,7 @@ internal static class PageFrontmatter
     /// <summary>
     /// Renders the member-page frontmatter block, scoping the kind tag
     /// to the member's <see cref="ApiMemberKind"/>. Followed by hidden
-    /// mkdocs-autorefs anchors — one per overload — so cross-references
+    /// mkdocs-autorefs anchors -- one per overload -- so cross-references
     /// to specific overload UIDs resolve to this page.
     /// </summary>
     /// <param name="containingType">The declaring type.</param>
@@ -108,7 +108,7 @@ internal static class PageFrontmatter
 
     /// <summary>
     /// Appends a hidden mkdocs-autorefs anchor for <paramref name="uid"/>
-    /// — the <c>[](){#UID}</c> form picks up as a cross-reference
+    /// -- the <c>[](){#UID}</c> form picks up as a cross-reference
     /// target without rendering anything visible. No-op for empty UIDs.
     /// </summary>
     /// <param name="sb">Destination buffer.</param>
@@ -131,7 +131,7 @@ internal static class PageFrontmatter
     /// <summary>
     /// Appends hidden anchors for the type's contained members so cross-
     /// references to a specific member resolve to the type page when
-    /// the emitter doesn't produce a separate per-overload page —
+    /// the emitter doesn't produce a separate per-overload page --
     /// enum values fall into this bucket. Object/union member UIDs
     /// already get their own anchors on the per-overload page; we
     /// don't duplicate them here.

@@ -7,7 +7,7 @@ namespace SourceDocParser.NuGet.Infrastructure;
 /// <summary>
 /// Stream decorator that also disposes a paired owner resource
 /// (typically the HttpResponseMessage the stream came from) when
-/// the stream itself is disposed — lets callers consume the
+/// the stream itself is disposed -- lets callers consume the
 /// content with a single <c>using</c> without leaking the owner.
 /// Lifted out of the HTTP client so the disposal contract can be
 /// exercised against a plain in-memory stream + tracking owner.

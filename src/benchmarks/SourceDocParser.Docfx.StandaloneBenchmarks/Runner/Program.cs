@@ -10,7 +10,7 @@ namespace SourceDocParser.Docfx.StandaloneBenchmarks.Runner;
 
 /// <summary>
 /// Entry point for our docfx YAML emitter standalone benchmark.
-/// With no args runs each TFM once via Stopwatch + allocated-bytes —
+/// With no args runs each TFM once via Stopwatch + allocated-bytes --
 /// matches the dump mode of the sibling Docfx.StandaloneBenchmarks
 /// runner so the README can put both numbers side by side. With args
 /// defers to BenchmarkDotNet for full multi-iteration runs.
@@ -53,7 +53,7 @@ public static class Program
         await bench.GlobalSetupAsync().ConfigureAwait(false);
 
         Console.WriteLine();
-        Console.WriteLine("SourceDocParser MetadataExtractor + DocfxYamlEmitter — one pass per TFM");
+        Console.WriteLine("SourceDocParser MetadataExtractor + DocfxYamlEmitter -- one pass per TFM");
         Console.WriteLine();
         Console.WriteLine("| TFM      | Wall time | Allocated |");
         Console.WriteLine("|----------|----------:|----------:|");

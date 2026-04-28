@@ -9,9 +9,9 @@ namespace SourceDocParser.SourceLink;
 /// <summary>
 /// Parses the SourceLink JSON map embedded in a portable PDB into a
 /// list of <see cref="SourceLinkMapEntry"/>. Lifted out of
-/// <see cref="SourceLinkReader"/> so the JSON parsing rules — the
+/// <see cref="SourceLinkReader"/> so the JSON parsing rules -- the
 /// <c>documents</c> object, the trailing-asterisk wildcard convention,
-/// and the skip rules for malformed entries — read at problem-domain
+/// and the skip rules for malformed entries -- read at problem-domain
 /// level and are testable in isolation against synthetic JSON without
 /// needing a real PDB.
 /// </summary>

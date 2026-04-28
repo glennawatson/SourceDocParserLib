@@ -10,7 +10,7 @@ namespace SourceDocParser.Walk;
 /// <summary>
 /// Small composable helpers for walking type-forwarding metadata on
 /// an <see cref="IAssemblySymbol"/>. Roslyn surfaces forwards via
-/// <see cref="IAssemblySymbol.GetForwardedTypes"/> — the targets
+/// <see cref="IAssemblySymbol.GetForwardedTypes"/> -- the targets
 /// resolve to their real definitions when the destination assembly
 /// is in the compilation references, or to error symbols when it
 /// isn't. Each helper here does one thing so the SymbolWalker can
@@ -25,7 +25,7 @@ internal static class TypeForwardingHelpers
     /// have to repeat the null/default handling shape.
     /// </summary>
     /// <param name="assembly">Assembly whose forward attributes to read.</param>
-    /// <returns>The forwarded type array — possibly empty, never default.</returns>
+    /// <returns>The forwarded type array -- possibly empty, never default.</returns>
     public static ImmutableArray<INamedTypeSymbol> GetForwardedTypes(IAssemblySymbol assembly)
     {
         ArgumentNullException.ThrowIfNull(assembly);
@@ -35,7 +35,7 @@ internal static class TypeForwardingHelpers
 
     /// <summary>
     /// Returns true when <paramref name="forwarded"/> resolves to a
-    /// real type definition — i.e. the destination assembly is loaded
+    /// real type definition -- i.e. the destination assembly is loaded
     /// and Roslyn handed back something other than an error symbol. A
     /// false return means the metadata says "this type lives in
     /// assembly X" but X isn't in the compilation references; the
@@ -73,7 +73,7 @@ internal static class TypeForwardingHelpers
     /// Lets the SymbolWalker reuse its existing
     /// <see cref="Stack{T}"/> instead of allocating a new one per
     /// assembly walk. Caller is responsible for filtering as items
-    /// pop — this overload is the cheapest seed.
+    /// pop -- this overload is the cheapest seed.
     /// </summary>
     /// <param name="assembly">Assembly whose forwards to seed from.</param>
     /// <param name="pending">Pre-allocated stack to push into.</param>

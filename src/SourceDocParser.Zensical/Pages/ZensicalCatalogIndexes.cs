@@ -41,7 +41,7 @@ public sealed class ZensicalCatalogIndexes
         _core = core;
     }
 
-    /// <summary>Gets the empty index bundle — used by callers that don't supply a catalog.</summary>
+    /// <summary>Gets the empty index bundle -- used by callers that don't supply a catalog.</summary>
     public static ZensicalCatalogIndexes Empty { get; } = new(CatalogIndexes.Empty);
 
     /// <summary>

@@ -95,7 +95,7 @@ public class MetadataDiscoveryHelperTests
             NullLogger.Instance,
             CancellationToken.None);
 
-        // The TfmGroup retires its loader after AssemblyPaths.Length retires —
+        // The TfmGroup retires its loader after AssemblyPaths.Length retires --
         // first two retires return early, the third disposes.
         var loader = (RecordingLoader)groups[0].Loader;
         groups[0].TryRetire();

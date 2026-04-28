@@ -77,7 +77,7 @@ public class ClassicExtensionMethodWalkerTests
         await Assert.That(plain.IsExtension).IsFalse();
     }
 
-    /// <summary>SourceLink resolver that returns null for every symbol — keeps tests free of a real PDB dependency.</summary>
+    /// <summary>SourceLink resolver that returns null for every symbol -- keeps tests free of a real PDB dependency.</summary>
     private sealed class NullSourceLinkResolver : ISourceLinkResolver
     {
         /// <inheritdoc />

@@ -47,7 +47,7 @@ public class LoaderRegistryTests
         await Assert.That(second.DisposeCount).IsEqualTo(1);
     }
 
-    /// <summary>Disposing twice only flushes loaders once — second call is a no-op because the registry clears its list.</summary>
+    /// <summary>Disposing twice only flushes loaders once -- second call is a no-op because the registry clears its list.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task DisposeIsIdempotentForRegistry()

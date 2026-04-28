@@ -61,8 +61,8 @@ internal static class MemberBuilder
     /// compiler-implicit symbols and unsupported kinds.
     /// </summary>
     /// <param name="type">Containing type whose members to collect.</param>
-    /// <param name="containingTypeName">Display name of the containing type — propagated into each member.</param>
-    /// <param name="containingTypeUid">Roslyn UID of the containing type — propagated into each member.</param>
+    /// <param name="containingTypeName">Display name of the containing type -- propagated into each member.</param>
+    /// <param name="containingTypeUid">Roslyn UID of the containing type -- propagated into each member.</param>
     /// <param name="context">Per-walk state bundle.</param>
     /// <returns>The documented members.</returns>
     internal static ApiMember[] Build(
@@ -71,7 +71,7 @@ internal static class MemberBuilder
         string containingTypeUid,
         SymbolWalkContext context)
     {
-        // Pre-size to the raw member count from Roslyn — we'll filter
+        // Pre-size to the raw member count from Roslyn -- we'll filter
         // some out (non-public, implicitly declared, unsupported kinds)
         // but it's a tight upper bound that avoids List growth on the
         // chunkier types.

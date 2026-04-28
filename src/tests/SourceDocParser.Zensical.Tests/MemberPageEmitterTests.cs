@@ -9,7 +9,7 @@ using SourceDocParser.Zensical.Pages;
 namespace SourceDocParser.Zensical.Tests;
 
 /// <summary>
-/// Pins the public surface of <see cref="MemberPageEmitter"/> — what
+/// Pins the public surface of <see cref="MemberPageEmitter"/> -- what
 /// the per-overload-group page looks like, where it lands on disk,
 /// and how it handles overload buckets that share a name.
 /// </summary>
@@ -34,7 +34,7 @@ public class MemberPageEmitterTests
 
     /// <summary>
     /// Multiple overloads sharing the same name all surface on the same
-    /// page — the bucket-by-name behaviour the Zensical emitter relies
+    /// page -- the bucket-by-name behaviour the Zensical emitter relies
     /// on to keep page count bounded.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>

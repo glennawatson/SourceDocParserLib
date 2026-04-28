@@ -8,7 +8,7 @@ namespace SourceDocParser.Model;
 /// One attribute applied to a type, member, parameter, or return
 /// value. Walker-extracted attributes are filtered to drop
 /// compiler-emitted markers from <c>System.Runtime.CompilerServices</c>
-/// (CompilerGenerated, NullableContext, ScopedRef, etc.) — what
+/// (CompilerGenerated, NullableContext, ScopedRef, etc.) -- what
 /// remains matches what Microsoft Learn renders above a type's
 /// signature line.
 /// </summary>

@@ -4,7 +4,7 @@
 
 namespace SamplePdb;
 
-/// <summary>Record with a primary constructor — checks positional-record handling.</summary>
+/// <summary>Record with a primary constructor -- checks positional-record handling.</summary>
 /// <param name="Name">The name.</param>
 /// <param name="Score">The score.</param>
 public record Player(string Name, int Score);

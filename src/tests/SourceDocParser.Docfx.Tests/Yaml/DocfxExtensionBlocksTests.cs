@@ -10,7 +10,7 @@ using SourceDocParser.TestHelpers;
 namespace SourceDocParser.Docfx.Tests.Yaml;
 
 /// <summary>
-/// Pins the docfx <c>extensionBlocks:</c> emit shape — one block
+/// Pins the docfx <c>extensionBlocks:</c> emit shape -- one block
 /// entry per <see cref="ApiExtensionBlock"/>, each carrying the
 /// receiver name + type uid plus the conceptual member uids
 /// declared inside the block.

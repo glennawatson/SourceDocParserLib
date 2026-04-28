@@ -83,7 +83,7 @@ public class CompilationDiagnosticsExtensionsTests
     public async Task ReportDiagnosticsLogsWarningsButReturnsFalse()
     {
         // CS0114: 'override' missing on a member that hides an inherited
-        // virtual member is a declaration warning — perfect for exercising
+        // virtual member is a declaration warning -- perfect for exercising
         // the warning branch without tripping the error path.
         var compilation = CSharpCompilation.Create(
             "Warnings",

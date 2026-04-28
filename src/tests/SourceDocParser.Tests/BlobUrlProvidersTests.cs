@@ -11,7 +11,7 @@ namespace SourceDocParser.Tests;
 /// isolation: the dispatcher (covered by SourceUrlRewriterTests)
 /// chains them in priority order, but per-provider tests confirm
 /// each one returns <see langword="null"/> when its raw URL shape
-/// doesn't match — that's the contract the dispatcher relies on.
+/// doesn't match -- that's the contract the dispatcher relies on.
 /// </summary>
 public class BlobUrlProvidersTests
 {

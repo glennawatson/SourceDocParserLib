@@ -14,7 +14,7 @@ namespace SourceDocParser.Zensical;
 /// <summary>
 /// <see cref="IDocumentationEmitter"/> implementation that renders the
 /// merged catalog as a flat tree of Zensical/mkdocs Material Markdown
-/// pages — one page per type, plus one overload-group page per
+/// pages -- one page per type, plus one overload-group page per
 /// distinct member name. Sequential write loop: the merge pass already
 /// happened so there's no concurrency benefit, and File.WriteAllText
 /// over ~30k small files is plenty fast.
@@ -61,7 +61,7 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
     }
 
     /// <summary>
-    /// Builds the set of UIDs the emitter is producing pages for —
+    /// Builds the set of UIDs the emitter is producing pages for --
     /// types that survive the routing + compiler-generated filter,
     /// plus the UIDs of every non-compiler-generated member on each
     /// surviving type (for object and union shapes), plus enum-value
@@ -124,6 +124,13 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
                 continue;
             }
 
+            // Walker output is consumed raw -- the emit code converts
+            // raw-XML doc fragments to Markdown lazily via a
+            // RenderedDoc facade per symbol, so we don't pay the
+            // type/member with-rebuild cost an eager pre-pass had.
+            // Both the type page and every member-overload page see
+            // the same raw type and share the converter so XML
+            // fragments are converted exactly once each.
             TypePageEmitter.RenderToFile(type, outputRoot, context);
             pages++;
             pages += EmitMemberPages(type, outputRoot, context);
@@ -216,7 +223,7 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
 
     /// <summary>
     /// Emits one Markdown page per overload group on the supplied type.
-    /// Only object and union types contribute member pages — enums and
+    /// Only object and union types contribute member pages -- enums and
     /// delegates are typed away from this code path entirely, so there's
     /// no per-call kind check needed. Members are bucketed by name;
     /// the bucket dictionary is pre-sized to the member count, which
@@ -224,7 +231,7 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
     /// </summary>
     /// <param name="type">Type whose members to emit pages for.</param>
     /// <param name="outputRoot">Markdown output root.</param>
-    /// <param name="context">Render context — supplies routing options + the doc converter.</param>
+    /// <param name="context">Render context -- supplies routing options + the doc converter.</param>
     /// <returns>Total page count written.</returns>
     private static int EmitMemberPages(ApiType type, string outputRoot, ZensicalEmitContext context)
     {

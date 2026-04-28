@@ -10,7 +10,7 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 
 /// <summary>
 /// Pins the secondary branches of <see cref="DocfxYamlBuilderExtensions"/>
-/// — the bare-empty-scalar form, seealso emission, qualified-scalar
+/// -- the bare-empty-scalar form, seealso emission, qualified-scalar
 /// fast paths, and the legacy single-arg <c>AppendTypeItem</c> shim.
 /// </summary>
 public class DocfxYamlBuilderExtensionsExtraTests

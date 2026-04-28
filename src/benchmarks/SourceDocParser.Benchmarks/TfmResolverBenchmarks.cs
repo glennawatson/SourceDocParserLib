@@ -8,7 +8,7 @@ using SourceDocParser.Tfm;
 namespace SourceDocParser.Benchmarks;
 
 /// <summary>
-/// Micro-benchmarks for <see cref="TfmResolver"/> — the per-package
+/// Micro-benchmarks for <see cref="TfmResolver"/> -- the per-package
 /// hot path called once per (lib TFM, refs/ TFM set) tuple by the
 /// NuGet source. Cheap enough to run under the default
 /// <c>[SimpleJob]</c>.

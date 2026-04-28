@@ -9,7 +9,7 @@ namespace SourceDocParser.Tests.SourceLink;
 
 /// <summary>
 /// Direct coverage of <see cref="SourceLinkJsonParser"/>: pinpoints
-/// each branch the SamplePdb integration tests can't reach — non-
+/// each branch the SamplePdb integration tests can't reach -- non-
 /// object roots, missing / wrong-typed <c>documents</c> property,
 /// malformed entries (empty key, non-string value, blank value),
 /// and the wildcard / exact-match shape decision. Synthetic JSON
@@ -61,7 +61,7 @@ public class SourceLinkJsonParserTests
         await Assert.That(entries[0].IsWildcard).IsFalse();
     }
 
-    /// <summary>Multiple entries are returned in declaration order — first-match-wins later in the resolver.</summary>
+    /// <summary>Multiple entries are returned in declaration order -- first-match-wins later in the resolver.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task EntriesPreserveDeclarationOrder()
@@ -130,7 +130,7 @@ public class SourceLinkJsonParserTests
         await Assert.That(entries[0].LocalPrefix).IsEqualTo("/keep/me/");
     }
 
-    /// <summary>A blank string value is skipped — the parser requires a non-empty URL pattern.</summary>
+    /// <summary>A blank string value is skipped -- the parser requires a non-empty URL pattern.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task BlankStringValueIsSkipped()

@@ -46,7 +46,7 @@ public class XmlDocSourceTests
         await Assert.That(methodXml!).Contains("<summary>Method.</summary>");
     }
 
-    /// <summary>Self-closing <c>&lt;member name="..." /&gt;</c> entries are captured at their tag length (no body).</summary>
+    /// <summary>Self-closing <c>member name="..." /</c> entries are captured at their tag length (no body).</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task BuildIndexHandlesSelfClosingMember()
@@ -66,7 +66,7 @@ public class XmlDocSourceTests
         await Assert.That(captured).EndsWith("/>");
     }
 
-    /// <summary>A <c>&lt;member&gt;</c> element with no <c>name=</c> attribute is skipped without breaking the walk.</summary>
+    /// <summary>A <c>member</c> element with no <c>name=</c> attribute is skipped without breaking the walk.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task BuildIndexSkipsMemberWithoutNameAttribute()
@@ -89,7 +89,7 @@ public class XmlDocSourceTests
         await Assert.That(source.Get("T:Foo")).IsNotNull();
     }
 
-    /// <summary>A <c>&lt;member name="..."&gt;</c> with no <c>&lt;/member&gt;</c> close tag stops the walk; nothing is captured for that entry.</summary>
+    /// <summary>A <c>member</c> opener (with attributes) with no <c>/member</c> close tag stops the walk; nothing is captured for that entry.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task BuildIndexStopsOnMissingCloseTag()
@@ -105,13 +105,13 @@ public class XmlDocSourceTests
 
         // The first complete element captures cleanly; the second is
         // incomplete so the walk gives up before adding it. This is
-        // the documented behaviour — a real .NET-emitted file is
+        // the documented behaviour -- a real .NET-emitted file is
         // never truncated mid-element, and the scanner stops cleanly.
         await Assert.That(source.Get("T:Closed")).IsNotNull();
         await Assert.That(source.Get("T:Open")).IsNull();
     }
 
-    /// <summary>A name attribute with no closing quote is skipped — the entry isn't captured but the walk continues from the start tag's end.</summary>
+    /// <summary>A name attribute with no closing quote is skipped -- the entry isn't captured but the walk continues from the start tag's end.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task BuildIndexSkipsMemberWithUnterminatedNameAttribute()
@@ -125,14 +125,14 @@ public class XmlDocSourceTests
             """);
 
         // "bad>oops" includes a `>` inside the name attribute value
-        // before any closing quote — the scanner takes the first '>'
+        // before any closing quote -- the scanner takes the first '>'
         // as the start-tag terminator and the resulting `name="bad`
         // attribute body has no closing quote, so the entry is
         // skipped. The well-formed entry that follows is still found.
         await Assert.That(source.Get("T:Good")).IsNotNull();
     }
 
-    /// <summary>A truncated <c>&lt;member</c> opener with no <c>&gt;</c> anywhere terminates the walk before adding an entry.</summary>
+    /// <summary>A truncated <c>member</c> opener with no close-bracket anywhere terminates the walk before adding an entry.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task BuildIndexStopsOnTruncatedMemberOpener()
@@ -168,7 +168,7 @@ public class XmlDocSourceTests
         await Assert.That(source.Get("T:Anything")).IsNull();
     }
 
-    /// <summary>Input without any <c>&lt;member</c> tag returns an empty source (the wrapping doc / members elements are skipped).</summary>
+    /// <summary>Input without any <c>member</c> tag returns an empty source (the wrapping doc / members elements are skipped).</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task BuildIndexReturnsEmptyForInputWithoutMemberTags()

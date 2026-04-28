@@ -9,8 +9,8 @@ namespace SourceDocParser.Zensical.Navigation;
 /// <summary>
 /// String quoter shared by <see cref="NavigationEmitter"/>'s YAML
 /// and TOML emitters. Lifted out of the emitter so the (rare in
-/// practice but valid in spec) escape paths — embedded
-/// <c>"</c> and, for TOML, embedded <c>\</c> — can be exercised
+/// practice but valid in spec) escape paths -- embedded
+/// <c>"</c> and, for TOML, embedded <c>\</c> -- can be exercised
 /// directly without driving the full nav pipeline.
 /// </summary>
 internal static class NavigationStringQuoter

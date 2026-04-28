@@ -23,7 +23,7 @@ public static class CompilerGeneratedNames
     public static bool IsCompilerGenerated(string symbolName) =>
         symbolName.AsSpan().IndexOfAny('<', '>') >= 0;
 
-    /// <summary>Span-based overload — lets call sites that already hold a span avoid the implicit AsSpan().</summary>
+    /// <summary>Span-based overload -- lets call sites that already hold a span avoid the implicit AsSpan().</summary>
     /// <param name="symbolName">The metadata name to test.</param>
     /// <returns>True when the symbol should be skipped from rendered output.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

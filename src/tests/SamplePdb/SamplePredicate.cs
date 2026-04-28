@@ -5,7 +5,7 @@
 namespace SamplePdb;
 
 /// <summary>
-/// Generic delegate — exercises arity + type-parameter capture on a
+/// Generic delegate -- exercises arity + type-parameter capture on a
 /// delegate (the walker has to thread <see cref="System.Type"/>-style
 /// generic args through a <c>TypeKind.Delegate</c> as well as classes).
 /// </summary>

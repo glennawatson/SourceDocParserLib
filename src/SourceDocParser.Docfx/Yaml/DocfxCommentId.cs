@@ -8,7 +8,7 @@ namespace SourceDocParser.Docfx.Yaml;
 
 /// <summary>
 /// Lightweight helper that produces docfx <c>commentId</c> values from
-/// our own model — kept separate so the YAML emitter stays focused on
+/// our own model -- kept separate so the YAML emitter stays focused on
 /// layout and the convention lives in one place.
 /// </summary>
 internal static class DocfxCommentId

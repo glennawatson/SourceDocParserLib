@@ -23,7 +23,7 @@ namespace SourceDocParser.Zensical.Routing;
 /// that we do not walk,
 /// </description></item>
 /// <item><description>
-/// or inline code (<c>`Name`</c>) when neither applies — empty UIDs
+/// or inline code (<c>`Name`</c>) when neither applies -- empty UIDs
 /// and the <c>!:</c> generic-parameter sentinel always fall here so
 /// we never emit a reference link that mkdocs cannot resolve.
 /// </description></item>
@@ -42,7 +42,7 @@ public sealed class ZensicalCrefResolver : ICrefResolver
 
     /// <summary>Initializes a new instance of the <see cref="ZensicalCrefResolver"/> class.</summary>
     /// <param name="emittedUids">UIDs (types and members) the emitter is producing pages for. References that hit this set render as autoref links.</param>
-    /// <param name="options">Emitter options — contributes the Microsoft Learn base URL.</param>
+    /// <param name="options">Emitter options -- contributes the Microsoft Learn base URL.</param>
     public ZensicalCrefResolver(FrozenSet<string> emittedUids, ZensicalEmitterOptions options)
     {
         ArgumentNullException.ThrowIfNull(emittedUids);
@@ -59,7 +59,7 @@ public sealed class ZensicalCrefResolver : ICrefResolver
             return $"`{shortName}`";
         }
 
-        // Generic-parameter sentinel — Roslyn emits `!:T`, `!:TAwaiter`,
+        // Generic-parameter sentinel -- Roslyn emits `!:T`, `!:TAwaiter`,
         // etc. when a cref points at a method-local type parameter.
         // Always inline code; an autoref link could never resolve.
         if (uid is ['!', ':', ..])
@@ -70,7 +70,7 @@ public sealed class ZensicalCrefResolver : ICrefResolver
         // In-set wins over BCL prefix detection: types we walk (e.g.
         // System.Reactive.Unit) start with "System." but live on a
         // page in our own site, not on Microsoft Learn. The autoref
-        // bracket carries the autoref-safe form (backtick → hyphen)
+        // bracket carries the autoref-safe form (backtick -> hyphen)
         // so Python-Markdown's reference-label parser doesn't trip on
         // arity backticks; the matching anchor on the target page
         // applies the same transform via PageFrontmatter.
@@ -85,7 +85,7 @@ public sealed class ZensicalCrefResolver : ICrefResolver
             return learnLink;
         }
 
-        // Unknown UID and not BCL — emit inline code so mkdocs-autorefs
+        // Unknown UID and not BCL -- emit inline code so mkdocs-autorefs
         // doesn't warn about an unresolvable reference target.
         return $"`{shortName}`";
     }
@@ -132,7 +132,7 @@ public sealed class ZensicalCrefResolver : ICrefResolver
         }
 
         // Microsoft Learn URLs lowercase the type and replace the
-        // arity backtick with a hyphen — System.Action`1 becomes
+        // arity backtick with a hyphen -- System.Action`1 becomes
         // system.action-1.
         var slug = bareName.ToString().ToLower(CultureInfo.InvariantCulture).Replace('`', '-');
         link = $"[{displayName}]({_microsoftLearnBaseUrl}{slug})";

@@ -8,7 +8,7 @@ namespace SourceDocParser.XmlDoc;
 /// Tracks whether the writer is emitting prose, bullet-list
 /// items, or numbered-list items. Used by nested writers to
 /// decide whether a paragraph break should also reset list
-/// numbering — though most of our doc XML is shallow enough
+/// numbering -- though most of our doc XML is shallow enough
 /// that this stays at None most of the time.
 /// </summary>
 public enum ListContext

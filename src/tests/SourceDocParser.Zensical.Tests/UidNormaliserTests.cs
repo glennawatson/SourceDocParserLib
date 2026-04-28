@@ -8,7 +8,7 @@ namespace SourceDocParser.Zensical.Tests;
 
 /// <summary>
 /// Pins <see cref="UidNormaliser"/> on the constructed-generic
-/// rewrite shape — the bug we identified in the docfx slice
+/// rewrite shape -- the bug we identified in the docfx slice
 /// where the walker emits <c>T:System.Action{`0}</c> instead of
 /// the canonical open-generic <c>T:System.Action`1</c>.
 /// </summary>

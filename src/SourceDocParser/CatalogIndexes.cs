@@ -36,7 +36,7 @@ public sealed class CatalogIndexes
         InheritedMembers = inheritedMembers;
     }
 
-    /// <summary>Gets the empty index bundle — used when no catalog is supplied.</summary>
+    /// <summary>Gets the empty index bundle -- used when no catalog is supplied.</summary>
     public static CatalogIndexes Empty { get; } = new(
         FrozenDictionary<string, ApiTypeReference[]>.Empty,
         FrozenDictionary<string, ApiMember[]>.Empty,
@@ -52,7 +52,7 @@ public sealed class CatalogIndexes
     public FrozenDictionary<string, string[]> InheritedMembers { get; }
 
     /// <summary>
-    /// Builds all three indexes in a single O(N) + O(N×Mext) sweep
+    /// Builds all three indexes in a single O(N) + O(NxMext) sweep
     /// over <paramref name="types"/>. Compiler-generated symbols are
     /// skipped so display-class artefacts don't appear in any rollup.
     /// </summary>
@@ -145,8 +145,8 @@ public sealed class CatalogIndexes
     /// <remarks>
     /// Best-effort: only extension methods whose first parameter has
     /// a concrete type uid are indexed. Generic-receiver extensions
-    /// of the form <c>static void Foo&lt;T&gt;(this T self) where T : IBar</c>
-    /// are skipped — docfx itself propagates these onto every type
+    /// of the form <c>static void Foo&lt;T>(this T self) where T : IBar</c>
+    /// are skipped -- docfx itself propagates these onto every type
     /// satisfying the constraint, but emitters here follow the same
     /// best-effort policy so the outputs stay aligned.
     /// </remarks>

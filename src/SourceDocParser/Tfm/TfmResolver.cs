@@ -67,7 +67,7 @@ public static class TfmResolver
     /// </summary>
     private static readonly FrameworkReducer _frameworkReducer = new();
 
-    /// <summary>Version-aware comparer — embedded digits compare as numbers (net10 &gt; net9).</summary>
+    /// <summary>Version-aware comparer -- embedded digits compare as numbers (net10 > net9).</summary>
     private static readonly StringComparer _versionAware = StringComparer.Create(CultureInfo.InvariantCulture, CompareOptions.NumericOrdering);
 
     /// <summary>

@@ -5,6 +5,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using SourceDocParser.Model;
+using SourceDocParser.XmlDoc;
 using SourceDocParser.Zensical.Options;
 using SourceDocParser.Zensical.Routing;
 
@@ -16,7 +17,7 @@ namespace SourceDocParser.Zensical.Pages;
 /// <remarks>
 /// Cross-refs render as <c>[text][uid]</c> links for Zensical's autorefs plugin.
 /// </remarks>
-public static class TypePageEmitter
+internal static class TypePageEmitter
 {
     /// <summary>
     /// Default output filename suffix.
@@ -82,7 +83,7 @@ public static class TypePageEmitter
 
     /// <summary>
     /// Catalog-aware <see cref="RenderToFile(ApiType, string, ZensicalEmitterOptions)"/>
-    /// — threads <paramref name="indexes"/> through to the page render
+    /// -- threads <paramref name="indexes"/> through to the page render
     /// so the type page picks up the "Derived types", "Inherited
     /// members", and "Extension members" sections.
     /// </summary>
@@ -90,15 +91,8 @@ public static class TypePageEmitter
     /// <param name="outputRoot">The directory that contains the api/ tree.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
     /// <param name="indexes">Pre-built catalog rollups.</param>
-    public static void RenderToFile(ApiType type, string outputRoot, ZensicalEmitterOptions options, ZensicalCatalogIndexes indexes)
-    {
-        ArgumentNullException.ThrowIfNull(options);
-        ArgumentNullException.ThrowIfNull(indexes);
-        var relativePath = PathFor(type, options);
-        var fullPath = Path.Combine(outputRoot, relativePath);
-        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        File.WriteAllText(fullPath, Render(type, options, indexes));
-    }
+    public static void RenderToFile(ApiType type, string outputRoot, ZensicalEmitterOptions options, ZensicalCatalogIndexes indexes) =>
+        RenderToFile(type, outputRoot, BuildDefaultConverter(), options, indexes);
 
     /// <summary>
     /// Renders the supplied ApiType into a Markdown string with
@@ -130,73 +124,12 @@ public static class TypePageEmitter
     /// <param name="options">Routing + cross-link tunables.</param>
     /// <param name="indexes">Catalog rollups; pass <see cref="ZensicalCatalogIndexes.Empty"/> to skip them.</param>
     /// <returns>The rendered Markdown string.</returns>
-    public static string Render(ApiType type, ZensicalEmitterOptions options, ZensicalCatalogIndexes indexes)
-    {
-        ArgumentNullException.ThrowIfNull(type);
-        ArgumentNullException.ThrowIfNull(options);
-        ArgumentNullException.ThrowIfNull(indexes);
-        var heading = RenderHeading(type);
-        var fullDisplayName = ZensicalEmitterHelpers.FormatDisplayTypeName(type.FullName, type.Arity);
-        var summary = type.Documentation.Summary is [_, ..] documentedSummary
-            ? documentedSummary
-            : "_No description provided._";
-        var inheritedNote = type.Documentation.InheritedFrom is { Length: > 0 } inheritedFrom
-            ? $"\n!!! note \"Inherited documentation\"\n    These docs were inherited from `{inheritedFrom}`.\n\n"
-            : string.Empty;
-        var sourceLink = type.SourceUrl is { Length: > 0 } sourceUrl
-            ? $"\n[:material-source-branch: View source]({sourceUrl})\n"
-            : string.Empty;
-        var modifiers = JoinModifiers(type);
-
-        var frontmatter = PageFrontmatter.ForType(type, options);
-        var deprecation = RenderDeprecationAdmonition(type.IsObsolete, type.ObsoleteMessage);
-        var attributesLine = RenderAttributesLine(type.Attributes);
-        var sb = new StringBuilder($"""
-            {frontmatter}# {heading}
-            {deprecation}{attributesLine}
-            !!! info "Defined in"
-                Namespace: `{(type.Namespace is [_, ..] ns ? ns : "(global)")}`
-                Assembly: `{type.AssemblyName}.dll`
-                Full name: `{MarkdownEscape(fullDisplayName)}`
-                Modifiers: `{modifiers}`
-
-            ## Summary
-            {inheritedNote}{sourceLink}
-            {summary}
-
-            """);
-
-        AppendAppliesTo(sb, type.AppliesTo);
-        AppendHierarchy(sb, type, options);
-        AppendUnionCases(sb, type, options);
-
-        if (type.Documentation.Remarks is [_, ..] remarks)
-        {
-            sb.Append($"""
-
-                ## Remarks
-
-                {remarks}
-
-                """);
-        }
-
-        AppendExamples(sb, type.Documentation.Examples);
-        AppendMembers(sb, type);
-        AppendEnumValues(sb, type);
-        AppendDelegateSignature(sb, type);
-        AppendDerivedTypes(sb, indexes.GetDerived(type.Uid), options);
-        AppendInheritedMembers(sb, indexes.GetInherited(type.Uid), options);
-        AppendExtensionMembers(sb, indexes.GetExtensions(type.Uid), options);
-        AppendExtensionBlocks(sb, type is ApiObjectType obj ? obj.ExtensionBlocks : [], options);
-        AppendSeeAlso(sb, type.Documentation.SeeAlso, options);
-
-        return sb.ToString();
-    }
+    public static string Render(ApiType type, ZensicalEmitterOptions options, ZensicalCatalogIndexes indexes) =>
+        Render(type, BuildDefaultConverter(), options, indexes);
 
     /// <summary>
     /// Returns a relative file path for the type's page (legacy
-    /// flat-namespace layout — no per-package folder routing).
+    /// flat-namespace layout -- no per-package folder routing).
     /// </summary>
     /// <param name="type">The type whose page path to compute.</param>
     /// <returns>The relative file path for the type's page.</returns>
@@ -222,25 +155,24 @@ public static class TypePageEmitter
 
     /// <summary>
     /// Render-and-write entry point used by
-    /// <see cref="ZensicalDocumentationEmitter"/>. Folds the doc-render
-    /// pass — XML→Markdown via the resolver in
-    /// <paramref name="context"/> — over the supplied type so the
-    /// existing Markdown-shaped renderer can consume the result
-    /// unchanged.
+    /// <see cref="ZensicalDocumentationEmitter"/>. Consumes raw walker
+    /// output; XML->Markdown conversion runs lazily through
+    /// <see cref="RenderedDoc"/> so per-symbol fields are materialised
+    /// at most once even if multiple sections (or per-overload pages)
+    /// read them.
     /// </summary>
-    /// <param name="type">Type with raw-XML doc fragments (walker output).</param>
+    /// <param name="type">Type to render -- raw walker output.</param>
     /// <param name="outputRoot">Markdown output root.</param>
     /// <param name="context">Render context built once per emit run.</param>
     internal static void RenderToFile(ApiType type, string outputRoot, ZensicalEmitContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-        var rendered = RenderedTypeFactory.Render(type, context.Converter);
-        RenderToFile(rendered, outputRoot, context.Options, context.Indexes);
+        RenderToFile(type, outputRoot, context.Converter, context.Options, context.Indexes);
     }
 
     /// <summary>
     /// Renders the "Derived types" section as a bullet list of
-    /// autoref links. No-op when the type has no derivers — the empty-
+    /// autoref links. No-op when the type has no derivers -- the empty-
     /// array check is branch-and-bail with no allocation.
     /// </summary>
     /// <param name="sb">Destination buffer.</param>
@@ -262,7 +194,7 @@ public static class TypePageEmitter
 
     /// <summary>
     /// Renders an "Inherited members" collapsible admonition. No-op
-    /// when there are no inherited entries — the empty-array path
+    /// when there are no inherited entries -- the empty-array path
     /// allocates nothing. Each row is routed through
     /// <see cref="CrossLinkRouter"/> so BCL members
     /// (System.Object.ToString, etc.) become Microsoft Learn links
@@ -373,13 +305,14 @@ public static class TypePageEmitter
     /// <summary>
     /// Renders the enum value table for an <see cref="ApiEnumType"/>.
     /// Skipped for any other kind. The values come straight off the
-    /// structured <see cref="ApiEnumType.Values"/> list — no per-value
+    /// structured <see cref="ApiEnumType.Values"/> list -- no per-value
     /// markdown page is produced (those would explode the file count
     /// for icon-font enums).
     /// </summary>
     /// <param name="sb">The destination string builder.</param>
     /// <param name="type">The type whose enum values to emit.</param>
-    private static void AppendEnumValues(StringBuilder sb, ApiType type)
+    /// <param name="converter">XML->Markdown converter for the value summaries.</param>
+    private static void AppendEnumValues(StringBuilder sb, ApiType type, XmlDocToMarkdown converter)
     {
         if (type is not ApiEnumType { Values: [_, ..] } enumType)
         {
@@ -390,7 +323,7 @@ public static class TypePageEmitter
         for (var i = 0; i < enumType.Values.Length; i++)
         {
             var value = enumType.Values[i];
-            var summary = value.Documentation.Summary is [_, ..] documentedSummary
+            var summary = converter.Convert(value.Documentation.Summary) is [_, ..] documentedSummary
                 ? documentedSummary.ReplaceLineEndings(" ")
                 : string.Empty;
             sb.Append("| `").Append(value.Name)
@@ -653,7 +586,7 @@ public static class TypePageEmitter
     }
 
     /// <summary>
-    /// Renders an <see cref="ApiTypeReference"/> as a Markdown string —
+    /// Renders an <see cref="ApiTypeReference"/> as a Markdown string --
     /// autoref key for primary-package types, Microsoft Learn URL
     /// for BCL types, inline code as the final fallback.
     /// </summary>
@@ -786,7 +719,8 @@ public static class TypePageEmitter
     /// </remarks>
     /// <param name="sb">The destination string builder.</param>
     /// <param name="type">The type whose documented members to emit.</param>
-    private static void AppendMembers(StringBuilder sb, ApiType type)
+    /// <param name="converter">XML->Markdown converter for the per-member table summaries.</param>
+    private static void AppendMembers(StringBuilder sb, ApiType type, XmlDocToMarkdown converter)
     {
         var members = type switch
         {
@@ -816,12 +750,12 @@ public static class TypePageEmitter
             bucket.Add(member);
         }
 
-        AppendMemberSection(sb, "Constructors", byKind, ApiMemberKind.Constructor, type);
-        AppendMemberSection(sb, "Properties", byKind, ApiMemberKind.Property, type);
-        AppendMemberSection(sb, "Fields", byKind, ApiMemberKind.Field, type);
-        AppendMemberSection(sb, "Methods", byKind, ApiMemberKind.Method, type);
-        AppendMemberSection(sb, "Operators", byKind, ApiMemberKind.Operator, type);
-        AppendMemberSection(sb, "Events", byKind, ApiMemberKind.Event, type);
+        AppendMemberSection(sb, "Constructors", byKind, ApiMemberKind.Constructor, type, converter);
+        AppendMemberSection(sb, "Properties", byKind, ApiMemberKind.Property, type, converter);
+        AppendMemberSection(sb, "Fields", byKind, ApiMemberKind.Field, type, converter);
+        AppendMemberSection(sb, "Methods", byKind, ApiMemberKind.Method, type, converter);
+        AppendMemberSection(sb, "Operators", byKind, ApiMemberKind.Operator, type, converter);
+        AppendMemberSection(sb, "Events", byKind, ApiMemberKind.Event, type, converter);
     }
 
     /// <summary>
@@ -832,12 +766,14 @@ public static class TypePageEmitter
     /// <param name="byKind">The pre-grouped members lookup.</param>
     /// <param name="kind">The kind to emit.</param>
     /// <param name="containingType">The type the members belong to.</param>
+    /// <param name="converter">XML->Markdown converter for the per-row summaries.</param>
     private static void AppendMemberSection(
         StringBuilder sb,
         string title,
         Dictionary<ApiMemberKind, List<ApiMember>> byKind,
         ApiMemberKind kind,
-        ApiType containingType)
+        ApiType containingType,
+        XmlDocToMarkdown converter)
     {
         if (!byKind.TryGetValue(kind, out var entries) || entries.Count is 0)
         {
@@ -870,7 +806,7 @@ public static class TypePageEmitter
             var name = MarkdownEscape(member.Name);
             var staticPrefix = member.IsStatic ? "_static_ " : string.Empty;
             var memberFile = SanitiseForFilename(member.Name) + FileExtension;
-            var summary = TableEscape(OneLineSummary(member.Documentation.Summary));
+            var summary = TableEscape(OneLineSummary(converter.Convert(member.Documentation.Summary)));
             sb.Append("| ").Append(staticPrefix)
               .Append('[').Append(name).Append("](").Append(typeFolder).Append('/').Append(memberFile).Append(')')
               .Append(" | ").Append(summary).AppendLine(" |");
@@ -945,4 +881,110 @@ public static class TypePageEmitter
     /// <param name="text">The cell content.</param>
     /// <returns>The escaped table cell content.</returns>
     private static string TableEscape(string text) => ZensicalEmitterHelpers.EscapeTableCell(text);
+
+    /// <summary>
+    /// Constructs the default per-call <see cref="XmlDocToMarkdown"/> the
+    /// converter-less Render overloads use. Production emit paths
+    /// supply their own resolver-aware converter.
+    /// </summary>
+    /// <returns>A fresh converter; cheap, single-purpose, not cached.</returns>
+    private static XmlDocToMarkdown BuildDefaultConverter() => new(DefaultCrefResolver.Instance);
+
+    /// <summary>
+    /// Production render path that takes raw walker output and folds
+    /// XML to Markdown conversion lazily through <see cref="RenderedDoc"/>.
+    /// Each non-empty doc field is materialised exactly once when a
+    /// section actually reads it; undocumented members never allocate
+    /// converted strings.
+    /// </summary>
+    /// <param name="type">The type to render -- raw walker output.</param>
+    /// <param name="converter">Markdown converter wired with the emitter's <see cref="ICrefResolver"/>.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    /// <param name="indexes">Pre-built catalog rollups.</param>
+    /// <returns>The rendered Markdown string.</returns>
+    private static string Render(ApiType type, XmlDocToMarkdown converter, ZensicalEmitterOptions options, ZensicalCatalogIndexes indexes)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(converter);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(indexes);
+        var doc = new RenderedDoc(type.Documentation, converter);
+        var heading = RenderHeading(type);
+        var fullDisplayName = ZensicalEmitterHelpers.FormatDisplayTypeName(type.FullName, type.Arity);
+        var summary = doc.Summary is [_, ..] documentedSummary
+            ? documentedSummary
+            : "_No description provided._";
+        var inheritedNote = doc.InheritedFrom is { Length: > 0 } inheritedFrom
+            ? $"\n!!! note \"Inherited documentation\"\n    These docs were inherited from `{inheritedFrom}`.\n\n"
+            : string.Empty;
+        var sourceLink = type.SourceUrl is { Length: > 0 } sourceUrl
+            ? $"\n[:material-source-branch: View source]({sourceUrl})\n"
+            : string.Empty;
+        var modifiers = JoinModifiers(type);
+
+        var frontmatter = PageFrontmatter.ForType(type, options);
+        var deprecation = RenderDeprecationAdmonition(type.IsObsolete, type.ObsoleteMessage);
+        var attributesLine = RenderAttributesLine(type.Attributes);
+        var sb = new StringBuilder($"""
+            {frontmatter}# {heading}
+            {deprecation}{attributesLine}
+            !!! info "Defined in"
+                Namespace: `{(type.Namespace is [_, ..] ns ? ns : "(global)")}`
+                Assembly: `{type.AssemblyName}.dll`
+                Full name: `{MarkdownEscape(fullDisplayName)}`
+                Modifiers: `{modifiers}`
+
+            ## Summary
+            {inheritedNote}{sourceLink}
+            {summary}
+
+            """);
+
+        AppendAppliesTo(sb, type.AppliesTo);
+        AppendHierarchy(sb, type, options);
+        AppendUnionCases(sb, type, options);
+
+        if (doc.Remarks is [_, ..] remarks)
+        {
+            sb.Append($"""
+
+                ## Remarks
+
+                {remarks}
+
+                """);
+        }
+
+        AppendExamples(sb, doc.Examples);
+        AppendMembers(sb, type, converter);
+        AppendEnumValues(sb, type, converter);
+        AppendDelegateSignature(sb, type);
+        AppendDerivedTypes(sb, indexes.GetDerived(type.Uid), options);
+        AppendInheritedMembers(sb, indexes.GetInherited(type.Uid), options);
+        AppendExtensionMembers(sb, indexes.GetExtensions(type.Uid), options);
+        AppendExtensionBlocks(sb, type is ApiObjectType obj ? obj.ExtensionBlocks : [], options);
+        AppendSeeAlso(sb, doc.SeeAlso, options);
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Lower-level render-and-write that takes the converter directly.
+    /// Used by the context overload and by the converter-less public
+    /// overload (which builds a default converter for tests).
+    /// </summary>
+    /// <param name="type">The type to render.</param>
+    /// <param name="outputRoot">Output root.</param>
+    /// <param name="converter">XML->Markdown converter.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    /// <param name="indexes">Pre-built catalog rollups.</param>
+    private static void RenderToFile(ApiType type, string outputRoot, XmlDocToMarkdown converter, ZensicalEmitterOptions options, ZensicalCatalogIndexes indexes)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(indexes);
+        var relativePath = PathFor(type, options);
+        var fullPath = Path.Combine(outputRoot, relativePath);
+        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        File.WriteAllText(fullPath, Render(type, converter, options, indexes));
+    }
 }

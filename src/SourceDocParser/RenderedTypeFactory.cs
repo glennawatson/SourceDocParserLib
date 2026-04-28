@@ -11,7 +11,7 @@ namespace SourceDocParser;
 /// Bulk-renders an <see cref="ApiType"/>'s doc strings (and those of
 /// any contained members or enum values) from raw inner XML into
 /// Markdown via the supplied converter. Shared by the Zensical and
-/// docfx emitters — both fold the doc-render pass over each type
+/// docfx emitters -- both fold the doc-render pass over each type
 /// before the existing Markdown-shaped renderer consumes the result,
 /// so this helper sits in the core library to avoid duplicating the
 /// switch-on-derivation logic per emitter.
@@ -34,7 +34,7 @@ public static class RenderedTypeFactory
         var renderedDoc = type.Documentation.RenderWith(converter);
 
         // Returning the input type unchanged when nothing rendered
-        // saves the per-type record allocation — dominant once the
+        // saves the per-type record allocation -- dominant once the
         // member-array short-circuit kicks in for compiler-generated
         // accessors and BCL-shaped inherits.
         return type switch
@@ -65,7 +65,7 @@ public static class RenderedTypeFactory
     /// <summary>
     /// Renders every member's docs. Returns the input array unchanged
     /// when none of the per-member <see cref="ApiDocumentation"/>
-    /// records actually transformed — the common case for types whose
+    /// records actually transformed -- the common case for types whose
     /// members are all undocumented (overrides, accessor pairs).
     /// </summary>
     /// <param name="members">Members to render.</param>

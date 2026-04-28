@@ -6,7 +6,7 @@ namespace SourceDocParser.Common.Tests;
 
 /// <summary>
 /// Pins <see cref="CompilerGeneratedNames.IsCompilerGenerated(string)"/>
-/// — the angle-bracket heuristic both emitter packages share for
+/// -- the angle-bracket heuristic both emitter packages share for
 /// dropping mangled metadata names. Both the string and span overloads
 /// must agree.
 /// </summary>

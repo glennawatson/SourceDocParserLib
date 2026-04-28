@@ -11,14 +11,14 @@ namespace SourceDocParser.NuGet.Tests;
 
 /// <summary>
 /// Pins each helper in <see cref="NuspecDependencyReader"/> against
-/// canned nuspec XML — covers the schema namespaces we recognise,
+/// canned nuspec XML -- covers the schema namespaces we recognise,
 /// the per-TFM-group dedupe, the root-only nuspec rule, and the
 /// end-to-end nupkg-zip path.
 /// </summary>
 public class NuspecDependencyReaderTests
 {
     /// <summary>
-    /// Reads a typical multi-group nuspec — one dependency in each
+    /// Reads a typical multi-group nuspec -- one dependency in each
     /// of two TFM groups, plus a duplicate in a third group. The
     /// returned set should have one entry per distinct package id.
     /// </summary>
@@ -55,8 +55,8 @@ public class NuspecDependencyReaderTests
     }
 
     /// <summary>
-    /// A nuspec with no <c>&lt;dependencies&gt;</c> element returns
-    /// an empty set rather than throwing — package leaves of the
+    /// A nuspec with no <c>dependencies</c> element returns
+    /// an empty set rather than throwing -- package leaves of the
     /// dep graph are common (System.Reactive bottoms out).
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -80,7 +80,7 @@ public class NuspecDependencyReaderTests
 
     /// <summary>
     /// Splat 19.x and other recent ReactiveUI packages ship with the
-    /// 2013/05 nuspec namespace — that's the schema bump the original
+    /// 2013/05 nuspec namespace -- that's the schema bump the original
     /// allow-list missed and the regression that left
     /// <c>Splat.Core</c> / <c>Splat.Logging</c> / <c>Splat.Builder</c>
     /// out of the transitive fetch.
@@ -112,7 +112,7 @@ public class NuspecDependencyReaderTests
     }
 
     /// <summary>
-    /// Older nuspec namespace (2011/08) is recognised — we still see
+    /// Older nuspec namespace (2011/08) is recognised -- we still see
     /// these on legacy packages that haven't been re-published since
     /// the schema changed.
     /// </summary>
@@ -140,7 +140,7 @@ public class NuspecDependencyReaderTests
 
     /// <summary>
     /// Foreign XML files dropped into a nupkg aren't allowed to
-    /// poison the dependency set — only elements declared under a
+    /// poison the dependency set -- only elements declared under a
     /// recognised nuspec namespace count as dependency entries.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -160,7 +160,7 @@ public class NuspecDependencyReaderTests
     }
 
     /// <summary>
-    /// Whitespace-only ids skip — defensive against malformed nuspecs
+    /// Whitespace-only ids skip -- defensive against malformed nuspecs
     /// that would otherwise feed an empty string into the fetch queue.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>

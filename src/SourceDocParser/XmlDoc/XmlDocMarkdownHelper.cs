@@ -31,7 +31,7 @@ internal static class XmlDocMarkdownHelper
     /// Renders a captured inner span into Markdown via a fresh scanner.
     /// </summary>
     /// <param name="span">Inner XML span to render.</param>
-    /// <param name="resolver">Cref resolver invoked when a <c>&lt;see cref="..."/&gt;</c> is encountered.</param>
+    /// <param name="resolver">Cref resolver invoked when a <c>see cref="..."/</c> is encountered.</param>
     /// <returns>Markdown text.</returns>
     public static string ConvertSpanToMarkdown(in ReadOnlySpan<char> span, ICrefResolver resolver)
     {
@@ -183,7 +183,7 @@ internal static class XmlDocMarkdownHelper
     /// inline tags (see/paramref/c/code/para/br) are matched in the
     /// hot path; less-common structural tags fall through to
     /// <see cref="WriteRareElement"/>. Per-symbol render is on the hot
-    /// path, so the dispatch is intentionally flat — splitting it into
+    /// path, so the dispatch is intentionally flat -- splitting it into
     /// a deeper tree of helpers shows up directly in
     /// <c>XmlDocToMarkdownBenchmarks</c>.
     /// </summary>
@@ -280,10 +280,10 @@ internal static class XmlDocMarkdownHelper
     }
 
     /// <summary>
-    /// Renders a see or seealso reference. cref → delegates to the
+    /// Renders a see or seealso reference. cref -> delegates to the
     /// configured <see cref="ICrefResolver"/> so each emitter decides
     /// whether the result is an autoref link, an external link, or
-    /// inline code; langword → inline code; href → autolink or
+    /// inline code; langword -> inline code; href -> autolink or
     /// hyperlink.
     /// </summary>
     /// <param name="scanner">Scanner positioned on the see/seealso start tag.</param>
@@ -345,7 +345,7 @@ internal static class XmlDocMarkdownHelper
 
     /// <summary>
     /// Renders a list element based on its type attribute (bullet,
-    /// number, or table — bullet by default).
+    /// number, or table -- bullet by default).
     /// </summary>
     /// <param name="scanner">Scanner positioned on the list start tag.</param>
     /// <param name="sb">Destination buffer.</param>
@@ -414,7 +414,7 @@ internal static class XmlDocMarkdownHelper
 
     /// <summary>
     /// Renders a list as a Markdown table by delegating to
-    /// <see cref="MarkdownListTableRenderer.Render"/> — kept here as a
+    /// <see cref="MarkdownListTableRenderer.Render"/> -- kept here as a
     /// thin shim so the WriteElement dispatcher still names the
     /// table path explicitly.
     /// </summary>

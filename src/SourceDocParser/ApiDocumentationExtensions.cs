@@ -20,7 +20,7 @@ public static class ApiDocumentationExtensions
     /// Returns a copy of <paramref name="doc"/> with every text-bearing
     /// field run through <paramref name="converter"/>. Cref-bearing
     /// fields (<see cref="ApiDocumentation.SeeAlso"/>) and the
-    /// inheritance marker stay untouched — those are UID strings and a
+    /// inheritance marker stay untouched -- those are UID strings and a
     /// display name, not doc content.
     /// </summary>
     /// <param name="doc">Doc with raw inner-XML fragments (walker output).</param>
@@ -33,10 +33,10 @@ public static class ApiDocumentationExtensions
 
         // Hot path: most members ship with no documentation at all
         // (compiler-synthesised accessors, internal-but-public helpers,
-        // generic instantiations). Skip the full record rebuild — and
-        // the eight Convert calls inside it — when there is nothing
+        // generic instantiations). Skip the full record rebuild -- and
+        // the eight Convert calls inside it -- when there is nothing
         // for the converter to do. This is the single biggest emit-
-        // phase win after the v0.3 walker→emitter doc-rendering shift.
+        // phase win after the v0.3 walker->emitter doc-rendering shift.
         if (IsBlank(doc))
         {
             return doc;
@@ -57,7 +57,7 @@ public static class ApiDocumentationExtensions
 
     /// <summary>
     /// Returns true when <paramref name="doc"/> carries nothing the
-    /// converter could meaningfully render — every text-shaped field
+    /// converter could meaningfully render -- every text-shaped field
     /// is empty and every list is zero-length. Identity-checks the
     /// shared <see cref="ApiDocumentation.Empty"/> first so the very
     /// common "DocResolver returned the singleton" case avoids the

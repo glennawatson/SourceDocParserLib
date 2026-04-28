@@ -45,7 +45,7 @@ public class PackageSourceCredentialsReaderTests
 
     /// <summary>
     /// Source names with spaces use NuGet's <c>_x0020_</c> XML
-    /// escape — the reader unescapes back to the friendly name.
+    /// escape -- the reader unescapes back to the friendly name.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -97,7 +97,7 @@ public class PackageSourceCredentialsReaderTests
     }
 
     /// <summary>
-    /// A source block missing the password is skipped — partial
+    /// A source block missing the password is skipped -- partial
     /// credentials are not surfaced.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>

@@ -10,7 +10,7 @@ namespace SourceDocParser.Walk;
 /// <summary>
 /// Bundle of pre-resolved per-type build inputs threaded through
 /// <see cref="TypeBuilder"/>'s kind-specific branches. Lifted out to
-/// keep each branch's signature short — they all consume the same
+/// keep each branch's signature short -- they all consume the same
 /// shape, only the assembled <see cref="ApiType"/> differs. As a
 /// readonly record struct it stack-allocates, so passing it by
 /// <c>in</c> at every call site costs the same as passing the

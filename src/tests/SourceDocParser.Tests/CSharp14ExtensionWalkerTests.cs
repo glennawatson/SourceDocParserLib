@@ -68,12 +68,12 @@ public class CSharp14ExtensionWalkerTests
 
         var catalog = walker.Walk("net10.0", compilation.Assembly, compilation, resolver);
 
-        // Only the Helpers type — no <>E__N marker page slipping through.
+        // Only the Helpers type -- no <>E__N marker page slipping through.
         await Assert.That(catalog.Types.Length).IsEqualTo(1);
         await Assert.That(catalog.Types[0].Name).IsEqualTo("Helpers");
     }
 
-    /// <summary>SourceLink resolver that returns null for every symbol — keeps the walker tests free of a real PDB dependency.</summary>
+    /// <summary>SourceLink resolver that returns null for every symbol -- keeps the walker tests free of a real PDB dependency.</summary>
     private sealed class NullSourceLinkResolver : ISourceLinkResolver
     {
         /// <inheritdoc />

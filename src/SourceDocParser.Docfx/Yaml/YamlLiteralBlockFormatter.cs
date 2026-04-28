@@ -17,7 +17,7 @@ internal static class YamlLiteralBlockFormatter
     /// <summary>
     /// Writes <paramref name="value"/> as a literal block under
     /// <paramref name="prefix"/>. The body is indented by the prefix's
-    /// leading-space count plus two — the standard YAML literal-block
+    /// leading-space count plus two -- the standard YAML literal-block
     /// continuation indent.
     /// </summary>
     /// <param name="sb">Destination builder.</param>
@@ -40,7 +40,7 @@ internal static class YamlLiteralBlockFormatter
     }
 
     /// <summary>
-    /// Returns the leading-space count of <paramref name="prefix"/> —
+    /// Returns the leading-space count of <paramref name="prefix"/> --
     /// this is the indent of the key line, and the body is indented
     /// two further spaces.
     /// </summary>

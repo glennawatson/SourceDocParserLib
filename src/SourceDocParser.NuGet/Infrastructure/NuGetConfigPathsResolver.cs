@@ -7,7 +7,7 @@ namespace SourceDocParser.NuGet.Infrastructure;
 /// <summary>
 /// Pure helpers for the OS-conditional branches in
 /// <see cref="NuGetGlobalCache"/>. Lifted out so each branch can be
-/// driven directly with explicit inputs — the surrounding
+/// driven directly with explicit inputs -- the surrounding
 /// <c>OperatingSystem.IsWindows()</c> + special-folder reads are
 /// not test-substitutable in the host process.
 /// </summary>
@@ -18,7 +18,7 @@ internal static class NuGetConfigPathsResolver
 
     /// <summary>
     /// Resolves the user-scoped <c>nuget.config</c> candidate paths
-    /// for the current OS — Windows looks under <c>%AppData%\NuGet</c>,
+    /// for the current OS -- Windows looks under <c>%AppData%\NuGet</c>,
     /// Unix looks under both <c>~/.nuget/NuGet</c> and
     /// <c>~/.config/NuGet</c>. Returns an empty array when the
     /// required folder isn't resolvable.
@@ -53,7 +53,7 @@ internal static class NuGetConfigPathsResolver
 
     /// <summary>
     /// Returns every <c>*.config</c> file under
-    /// <paramref name="root"/>, sorted ordinal — the same shape
+    /// <paramref name="root"/>, sorted ordinal -- the same shape
     /// NuGet's machine-scope walk produces. Returns an empty array
     /// when the root is blank or doesn't exist.
     /// </summary>
@@ -73,7 +73,7 @@ internal static class NuGetConfigPathsResolver
 
     /// <summary>
     /// Composes the platform-default global packages path from a
-    /// resolved user profile — falls back to the current working
+    /// resolved user profile -- falls back to the current working
     /// directory when the user profile is blank (rare on Unix, only
     /// happens in some sandboxes that don't set <c>HOME</c>).
     /// </summary>

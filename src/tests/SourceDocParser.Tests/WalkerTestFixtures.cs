@@ -11,7 +11,7 @@ using SourceDocParser.XmlDoc;
 namespace SourceDocParser.Tests;
 
 /// <summary>
-/// Shared helpers for the walker / builder unit tests — compile a
+/// Shared helpers for the walker / builder unit tests -- compile a
 /// snippet to a <see cref="CSharpCompilation"/> against the
 /// runtime's BCL references and produce a default
 /// <see cref="SymbolWalkContext"/> ready for the focused builders
@@ -61,7 +61,7 @@ internal static class WalkerTestFixtures
         NamespaceDisplayNames: new(),
         AppliesTo: ["net10.0"]);
 
-    /// <summary>SourceLink resolver that returns null for every symbol — keeps the builder tests free of a real PDB dependency.</summary>
+    /// <summary>SourceLink resolver that returns null for every symbol -- keeps the builder tests free of a real PDB dependency.</summary>
     private sealed class NullSourceLinkResolver : ISourceLinkResolver
     {
         /// <inheritdoc />

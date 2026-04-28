@@ -22,7 +22,7 @@ internal static class NuGetGlobalCache
     /// <summary>NuGet's environment-variable override for the global packages folder.</summary>
     internal const string GlobalPackagesFolderEnvVar = "NUGET_PACKAGES";
 
-    /// <summary>Sentinel file NuGet writes after a successful extraction — its presence means "no need to re-download / re-extract".</summary>
+    /// <summary>Sentinel file NuGet writes after a successful extraction -- its presence means "no need to re-download / re-extract".</summary>
     internal const string ExtractionMarkerFileName = ".nupkg.metadata";
 
     /// <summary>The lib subfolder under each per-package directory.</summary>
@@ -39,9 +39,9 @@ internal static class NuGetGlobalCache
     /// <summary>
     /// Returns the path to NuGet's global packages folder using
     /// the same precedence chain the SDK does:
-    /// <c>NUGET_PACKAGES</c> env var → <c>nuget.config</c>
+    /// <c>NUGET_PACKAGES</c> env var -> <c>nuget.config</c>
     /// <c>globalPackagesFolder</c> setting (when <paramref name="configOverride"/>
-    /// is supplied) → platform default
+    /// is supplied) -> platform default
     /// (<c>~/.nuget/packages</c> on Unix, <c>%USERPROFILE%\.nuget\packages</c>
     /// on Windows). The optional override is the resolved value from
     /// <see cref="NuGetConfigReader.ReadGlobalPackagesFolderAsync(string,System.Threading.CancellationToken)"/>;
@@ -86,8 +86,8 @@ internal static class NuGetGlobalCache
 
     /// <summary>
     /// Returns the absolute path to the per-TFM lib directory under
-    /// <paramref name="packageInstallPath"/> — i.e.
-    /// <c>&lt;packageInstallPath&gt;/lib/&lt;tfm&gt;/</c>. Doesn't
+    /// <paramref name="packageInstallPath"/> -- i.e.
+    /// <c>{packageInstallPath}/lib/{tfm}/</c>. Doesn't
     /// check existence; pair with <see cref="Directory.Exists(string)"/>
     /// at the call site to detect packages that don't ship a lib
     /// folder for the requested TFM.
@@ -106,7 +106,7 @@ internal static class NuGetGlobalCache
     /// Returns true when the SDK-written extraction marker file is
     /// present in <paramref name="packageInstallPath"/>. NuGet uses
     /// <c>.nupkg.metadata</c> as the canonical "fully extracted"
-    /// signal — added in NuGet 4.x specifically because the older
+    /// signal -- added in NuGet 4.x specifically because the older
     /// <c>.sha512</c> sidecar wasn't sufficient on its own.
     /// </summary>
     /// <param name="packageInstallPath">Result of <see cref="GetPackageInstallPath"/>.</param>
@@ -131,7 +131,7 @@ internal static class NuGetGlobalCache
 
     /// <summary>
     /// Returns every <c>*.config</c> file under the machine-wide
-    /// NuGet config root — NuGet recursively reads them all so
+    /// NuGet config root -- NuGet recursively reads them all so
     /// admins can drop multiple files alongside the default
     /// (e.g. <c>NuGetDefaults.Config</c>). Windows uses
     /// <c>%ProgramData%\NuGet\Config\</c>; Unix uses

@@ -7,7 +7,7 @@ using SourceDocParser.XmlDoc;
 namespace SourceDocParser.Tests;
 
 /// <summary>
-/// Tests for <see cref="DocXmlScanner"/> — the span-based forward
+/// Tests for <see cref="DocXmlScanner"/> -- the span-based forward
 /// scanner that replaces XmlReader on the doc-parse hot path. The
 /// scanner is a <c>ref struct</c> so each test collects observations
 /// into local primitives before any <c>await</c>.
@@ -152,7 +152,7 @@ public class DocXmlScannerTests
         await Assert.That(text).IsEqualTo("after");
     }
 
-    /// <summary>Truncated comment (no closing <c>--&gt;</c>) yields a None token and exhausts the input.</summary>
+    /// <summary>Truncated comment (no closing comment-end marker) yields a None token and exhausts the input.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task TruncatedCommentTerminatesScanner()
@@ -162,7 +162,7 @@ public class DocXmlScannerTests
         await Assert.That(kind).IsEqualTo(DocTokenKind.None);
     }
 
-    /// <summary>Truncated CDATA (no closing <c>]]&gt;</c>) yields a None token.</summary>
+    /// <summary>Truncated CDATA (no closing CDATA-end marker) yields a None token.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task TruncatedCdataTerminatesScanner()
@@ -172,7 +172,7 @@ public class DocXmlScannerTests
         await Assert.That(kind).IsEqualTo(DocTokenKind.None);
     }
 
-    /// <summary>Truncated processing instruction (no closing <c>?&gt;</c>) yields a None token.</summary>
+    /// <summary>Truncated processing instruction (no closing PI-end marker) yields a None token.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task TruncatedProcessingInstructionTerminatesScanner()
@@ -182,7 +182,7 @@ public class DocXmlScannerTests
         await Assert.That(kind).IsEqualTo(DocTokenKind.None);
     }
 
-    /// <summary>End element missing the closing <c>&gt;</c> yields a None token.</summary>
+    /// <summary>End element missing the close-bracket yields a None token.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task TruncatedEndElementTerminatesScanner()
@@ -192,7 +192,7 @@ public class DocXmlScannerTests
         await Assert.That(kind).IsEqualTo(DocTokenKind.None);
     }
 
-    /// <summary>Start element missing the closing <c>&gt;</c> yields a None token.</summary>
+    /// <summary>Start element missing the close-bracket yields a None token.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task TruncatedStartElementTerminatesScanner()
@@ -214,13 +214,13 @@ public class DocXmlScannerTests
         await Assert.That(cref).IsEqualTo(string.Empty);
     }
 
-    /// <summary>GetAttribute returns empty when the quoted value never closes — the scanner doesn't pretend to recover an unterminated attribute.</summary>
+    /// <summary>GetAttribute returns empty when the quoted value never closes -- the scanner doesn't pretend to recover an unterminated attribute.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task GetAttributeReturnsEmptyForUnterminatedValue()
     {
         // The trailing `/` of the self-closer would normally close the
-        // tag at <…/>; but the IsEmptyElement check is byte-level and
+        // tag at <.../>; but the IsEmptyElement check is byte-level and
         // the scanner consumes the final `>` first, so the attr area
         // is `cref="open` with no closing quote.
         var scanner = new DocXmlScanner("<see cref=\"open>".AsSpan());
@@ -230,7 +230,7 @@ public class DocXmlScannerTests
         await Assert.That(cref).IsEqualTo(string.Empty);
     }
 
-    /// <summary>GetAttribute on a tag with no attribute area returns empty — the early-return fast path.</summary>
+    /// <summary>GetAttribute on a tag with no attribute area returns empty -- the early-return fast path.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task GetAttributeReturnsEmptyForElementWithoutAttributes()

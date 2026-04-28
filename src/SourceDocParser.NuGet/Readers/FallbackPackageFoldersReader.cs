@@ -9,7 +9,7 @@ using SourceDocParser.NuGet.Models;
 namespace SourceDocParser.NuGet.Readers;
 
 /// <summary>
-/// Reads <c>&lt;fallbackPackageFolders&gt;</c> entries — read-only
+/// Reads <c>fallbackPackageFolders</c> entries -- read-only
 /// extra global caches the SDK probes before downloading. The
 /// .NET SDK ships one at <c>~/.dotnet/NuGetFallbackFolder</c> that
 /// we should consult so CI runs don't re-download common packages.
@@ -47,7 +47,7 @@ internal static class FallbackPackageFoldersReader
 
     /// <summary>Reads fallback folder paths from the specified <paramref name="configPath"/>.</summary>
     /// <remarks>
-    /// This method opens the <c>nuget.config</c> file for reading and parses the <c>&lt;fallbackPackageFolders&gt;</c> section.
+    /// This method opens the <c>nuget.config</c> file for reading and parses the <c>fallbackPackageFolders</c> section.
     /// It returns an ordered list of folder paths found in the configuration.
     /// </remarks>
     /// <param name="configPath">The absolute path to a <c>nuget.config</c> file.</param>
@@ -83,8 +83,8 @@ internal static class FallbackPackageFoldersReader
     /// <summary>Reads fallback folder paths from the provided <paramref name="configStream"/>.</summary>
     /// <remarks>
     /// This overload is primarily intended for testing purposes. It parses the XML content from the stream
-    /// and extracts fallback package folders. It handles <c>&lt;clear /&gt;</c> and <c>&lt;add /&gt;</c> elements
-    /// within the <c>&lt;fallbackPackageFolders&gt;</c> section.
+    /// and extracts fallback package folders. It handles <c>clear /</c> and <c>add /</c> elements
+    /// within the <c>fallbackPackageFolders</c> section.
     /// </remarks>
     /// <param name="configStream">The open stream containing the <c>nuget.config</c> XML content.</param>
     /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>

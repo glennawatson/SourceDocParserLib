@@ -10,7 +10,7 @@ namespace SourceDocParser.Docfx.Yaml;
 
 /// <summary>
 /// Builds the <c>name</c> / <c>nameWithType</c> / <c>fullName</c>
-/// strings docfx writes on each member item — friendly forms like
+/// strings docfx writes on each member item -- friendly forms like
 /// <c>ReactiveObject()</c> for constructors and
 /// <c>Method(int, string)</c> for methods, instead of raw metadata
 /// names like <c>.ctor</c> or unqualified method names. Hot path
@@ -27,7 +27,7 @@ internal static class DocfxMemberDisplayName
     /// for methods/operators, the bare name for properties, fields, events.
     /// </summary>
     /// <param name="member">Member to render.</param>
-    /// <param name="containingType">Declaring type — supplies the constructor display name.</param>
+    /// <param name="containingType">Declaring type -- supplies the constructor display name.</param>
     /// <returns>Allocated string ready to drop into the YAML scalar position.</returns>
     public static string Unqualified(ApiMember member, ApiType containingType)
     {
@@ -38,7 +38,7 @@ internal static class DocfxMemberDisplayName
     }
 
     /// <summary>
-    /// Returns <c>TypeName.MemberFriendlyName</c> — used for the
+    /// Returns <c>TypeName.MemberFriendlyName</c> -- used for the
     /// <c>nameWithType</c> field. Reuses <see cref="Unqualified"/>
     /// internally then prepends the type-name dot prefix.
     /// </summary>
@@ -49,7 +49,7 @@ internal static class DocfxMemberDisplayName
         MemberDisplayFormatter.Concat(containingType.Name, '.', Unqualified(member, containingType));
 
     /// <summary>
-    /// Returns <c>Namespace.TypeName.MemberFriendlyName</c> — used for the
+    /// Returns <c>Namespace.TypeName.MemberFriendlyName</c> -- used for the
     /// <c>fullName</c> field. Falls back to <see cref="Qualified"/>
     /// when the type has no namespace (global namespace).
     /// </summary>
@@ -60,7 +60,7 @@ internal static class DocfxMemberDisplayName
         MemberDisplayFormatter.Concat(containingType.FullName, '.', Unqualified(member, containingType));
 
     /// <summary>
-    /// Returns the docfx <c>overload:</c> anchor — <c>member.Uid + "*"</c>.
+    /// Returns the docfx <c>overload:</c> anchor -- <c>member.Uid + "*"</c>.
     /// One allocation per call via <see cref="string.Create{TState}"/>.
     /// </summary>
     /// <param name="memberUid">The member's documentation comment ID.</param>
@@ -74,7 +74,7 @@ internal static class DocfxMemberDisplayName
 
     /// <summary>
     /// Tests whether a member kind takes a parameter list when rendered as
-    /// a docfx <c>name</c> — true for constructors, methods, and operators.
+    /// a docfx <c>name</c> -- true for constructors, methods, and operators.
     /// </summary>
     /// <param name="kind">Member kind.</param>
     /// <returns>True when the friendly form ends in <c>(args)</c>.</returns>
@@ -93,7 +93,7 @@ internal static class DocfxMemberDisplayName
     /// member's own name otherwise.
     /// </summary>
     /// <param name="member">Member to label.</param>
-    /// <param name="containingType">Declaring type — supplies the ctor label.</param>
+    /// <param name="containingType">Declaring type -- supplies the ctor label.</param>
     /// <returns>The unqualified label root, before any parameter list.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static string LabelFor(ApiMember member, ApiType containingType) =>
@@ -102,7 +102,7 @@ internal static class DocfxMemberDisplayName
     /// <summary>
     /// Materialises the parameter type display names into a transient
     /// <c>string[]</c> the Common formatter consumes. One allocation
-    /// per call (size = parameter count, typically ≤ 5).
+    /// per call (size = parameter count, typically 5 or fewer).
     /// </summary>
     /// <param name="parameters">Member parameter list.</param>
     /// <returns>The display-name array.</returns>

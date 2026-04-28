@@ -6,9 +6,9 @@ namespace SourceDocParser.Common;
 
 /// <summary>
 /// Two-way map between the C# language keywords for the BCL
-/// primitive types (<c>bool</c>, <c>int</c>, <c>string</c>, …) and
+/// primitive types (<c>bool</c>, <c>int</c>, <c>string</c>, ...) and
 /// their CLR full names (<c>System.Boolean</c>, <c>System.Int32</c>,
-/// <c>System.String</c>, …). Emitters use <see cref="ToKeyword"/>
+/// <c>System.String</c>, ...). Emitters use <see cref="ToKeyword"/>
 /// when rendering reference labels so the output matches the form
 /// docfx and the C# specification produce; the inverse
 /// <see cref="ToClr"/> path lifts a keyword back to the CLR name
@@ -78,7 +78,7 @@ public static class BclTypeAliases
         ToKeywordMap.GetValueOrDefault(bareName, fallback);
 
     /// <summary>
-    /// Inverse of <see cref="ToKeyword"/> — promotes a C# keyword
+    /// Inverse of <see cref="ToKeyword"/> -- promotes a C# keyword
     /// alias to its CLR full name when one applies, otherwise
     /// returns <paramref name="name"/> unchanged. Used when
     /// synthesising a CLR UID from a display token (e.g. spec

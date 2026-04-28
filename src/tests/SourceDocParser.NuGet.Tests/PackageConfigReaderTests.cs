@@ -9,7 +9,7 @@ namespace SourceDocParser.NuGet.Tests;
 
 /// <summary>
 /// Pins <see cref="PackageConfigReader.Read"/> against malformed and
-/// minimal JSON shapes — the regular happy path is exercised by the
+/// minimal JSON shapes -- the regular happy path is exercised by the
 /// integration tests, this file owns the empty-array / wrong-shape /
 /// missing-property branches plus the every-display-name fall-through.
 /// </summary>

@@ -12,7 +12,7 @@ namespace SourceDocParser.NuGet.Tests;
 
 /// <summary>
 /// Pins <see cref="NuGetFeedHttpClient"/> via a fake
-/// <see cref="HttpMessageHandler"/> — every status-code branch,
+/// <see cref="HttpMessageHandler"/> -- every status-code branch,
 /// the credential-encoded Authorization header, and the
 /// owns-vs-borrows disposal contract.
 /// </summary>
@@ -206,7 +206,7 @@ public class NuGetFeedHttpClientTests
         await Assert.That(request.Headers.Authorization?.Parameter).IsEqualTo(expected);
     }
 
-    /// <summary>Test helper — minimal HttpMessageHandler driven by a delegate.</summary>
+    /// <summary>Test helper -- minimal HttpMessageHandler driven by a delegate.</summary>
     private sealed class FakeHandler : HttpMessageHandler
     {
         /// <summary>Per-request response synthesizer.</summary>
@@ -221,7 +221,7 @@ public class NuGetFeedHttpClientTests
             Task.FromResult(_responder(request, cancellationToken));
     }
 
-    /// <summary>Test helper — handler that records when its parent HttpClient is disposed.</summary>
+    /// <summary>Test helper -- handler that records when its parent HttpClient is disposed.</summary>
     private sealed class TrackingHandler : HttpMessageHandler
     {
         /// <summary>Gets a value indicating whether the handler has been disposed.</summary>

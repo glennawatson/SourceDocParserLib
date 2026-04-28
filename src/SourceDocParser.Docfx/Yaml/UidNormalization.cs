@@ -9,7 +9,7 @@ using SourceDocParser.Common;
 namespace SourceDocParser.Docfx.Yaml;
 
 /// <summary>
-/// UID-string toolkit shared across the docfx YAML emitter — strips
+/// UID-string toolkit shared across the docfx YAML emitter -- strips
 /// the Roslyn doc-comment prefix, walks brace-delimited generic
 /// regions, derives the parent namespace from a bare type name, and
 /// synthesises the docfx-style <c>fullName</c> from a UID. Lifted out
@@ -43,7 +43,7 @@ internal static class UidNormalization
             return string.Empty;
         }
 
-        // Constructed generics have the form Foo`1{Bar} — only walk
+        // Constructed generics have the form Foo`1{Bar} -- only walk
         // up to the brace boundary so we don't lop off type-arg dots.
         var braceIdx = bareName.IndexOf('{', StringComparison.Ordinal);
         if (braceIdx >= 0 && braceIdx < lastDot)
@@ -87,9 +87,9 @@ internal static class UidNormalization
     /// <summary>
     /// Synthesises the docfx-style <c>fullName</c> from a bare UID
     /// (no <c>T:</c> prefix). Non-generic UIDs flow through almost
-    /// unchanged — only BCL primitive aliasing is applied. Generic
-    /// UIDs replace the <c>{…}</c> brace region with the docfx
-    /// <c>&lt;…&gt;</c> form, recursively expanding any nested args
+    /// unchanged -- only BCL primitive aliasing is applied. Generic
+    /// UIDs replace the <c>{...}</c> brace region with the docfx
+    /// <c>...</c> form, recursively expanding any nested args
     /// and stripping the <c>`N</c> arity suffix from the base type.
     /// All segment names stay fully namespaced.
     /// </summary>

@@ -7,10 +7,10 @@ using System.Text;
 namespace SourceDocParser.XmlDoc;
 
 /// <summary>
-/// Renders a <c>&lt;list type="table"&gt;</c> XML doc element as a
+/// Renders a <c>&lt;list type="table"></c> XML doc element as a
 /// GFM Markdown table. Lifted out of <see cref="XmlDocToMarkdown"/>
-/// so the table-row state machine reads at problem-domain level —
-/// header detection (<c>&lt;listheader&gt;</c>), default-header
+/// so the table-row state machine reads at problem-domain level --
+/// header detection (<c>listheader</c>), default-header
 /// fallback when items appear first, and per-item term/description
 /// extraction. Tested in isolation against XML fragments without
 /// going through the full markdown converter.
@@ -20,9 +20,9 @@ internal static class MarkdownListTableRenderer
     /// <summary>
     /// Walks <paramref name="scanner"/> from the start of a list element
     /// and emits one Markdown table to <paramref name="sb"/>. Stops at
-    /// the matching list-end element. The first <c>&lt;listheader&gt;</c>
+    /// the matching list-end element. The first <c>listheader</c>
     /// child supplies the header row; if none appears before the first
-    /// <c>&lt;item&gt;</c>, a default <c>Term | Description</c> header
+    /// <c>item</c>, a default <c>Term | Description</c> header
     /// is emitted so the table is well-formed.
     /// </summary>
     /// <param name="scanner">Scanner positioned on the list start tag; advanced past the matching end tag.</param>

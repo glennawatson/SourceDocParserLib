@@ -23,7 +23,7 @@ public sealed class DocResolver : IDocResolver
     /// </summary>
     /// <param name="compilation">Compilation used for cref resolution.</param>
     /// <remarks>
-    /// As of v0.3 the resolver no longer renders Markdown — the
+    /// As of v0.3 the resolver no longer renders Markdown -- the
     /// produced <see cref="ApiDocumentation"/> carries raw XML doc
     /// fragments which the emitter converts via
     /// <see cref="XmlDocToMarkdown"/> at render time. The converter
@@ -251,7 +251,7 @@ public sealed class DocResolver : IDocResolver
 
     /// <summary>
     /// Returns a friendly display name for a symbol's containing
-    /// type, used by the emitter's "Inherited from …" indicator.
+    /// type, used by the emitter's "Inherited from ..." indicator.
     /// Falls back to the symbol's own name for type symbols (where
     /// "containing type" is null).
     /// </summary>

@@ -18,7 +18,7 @@ public interface IDocResolver
 {
     /// <summary>
     /// Returns the resolved documentation for <paramref name="symbol"/>,
-    /// honouring explicit <c>&lt;inheritdoc/&gt;</c> tags and the
+    /// honouring explicit <c>inheritdoc/</c> tags and the
     /// auto-inheritance rule for empty-doc overrides / interface impls.
     /// </summary>
     /// <param name="symbol">Symbol whose documentation to resolve.</param>

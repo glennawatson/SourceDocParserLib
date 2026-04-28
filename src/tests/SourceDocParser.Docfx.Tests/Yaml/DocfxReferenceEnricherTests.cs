@@ -62,7 +62,7 @@ public class DocfxReferenceEnricherTests
     public async Task SpecCsharpComponentsAlwaysCarryIsExternal()
     {
         // Open-generic IFoo`1 IS in the internal set yet docfx still
-        // emits `isExternal: true` on the spec.csharp entry — spec
+        // emits `isExternal: true` on the spec.csharp entry -- spec
         // components are always referenced as a separate page entry.
         var page = RenderPageWithReference(
             new("IFoo<int>", "T:My.IFoo{System.Int32}"),

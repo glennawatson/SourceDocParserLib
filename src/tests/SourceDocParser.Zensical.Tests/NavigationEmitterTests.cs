@@ -10,7 +10,7 @@ namespace SourceDocParser.Zensical.Tests;
 
 /// <summary>
 /// Pins the YAML and TOML output shapes of <see cref="NavigationEmitter"/>
-/// — package grouping, namespace ordering, page paths, fallback when no
+/// -- package grouping, namespace ordering, page paths, fallback when no
 /// routing rule matches, scalar quoting.
 /// </summary>
 public class NavigationEmitterTests

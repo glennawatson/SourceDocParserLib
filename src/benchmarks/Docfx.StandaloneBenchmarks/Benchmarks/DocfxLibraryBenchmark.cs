@@ -10,7 +10,7 @@ using Docfx.Dotnet;
 namespace Docfx.StandaloneBenchmarks.Benchmarks;
 
 /// <summary>
-/// Standalone docfx metadata-extraction benchmark — bypasses docfx's
+/// Standalone docfx metadata-extraction benchmark -- bypasses docfx's
 /// MSBuild project loader and walks raw DLLs directly. The benchmark
 /// restores a synthesised csproj only to populate the NuGet cache,
 /// reads the resolved compile-time DLL paths out of
@@ -24,7 +24,7 @@ namespace Docfx.StandaloneBenchmarks.Benchmarks;
 [MemoryDiagnoser]
 public class DocfxLibraryBenchmark
 {
-    /// <summary>Packages the slim fixture pulls in — matches the SourceDocParser benchmark fixture.</summary>
+    /// <summary>Packages the slim fixture pulls in -- matches the SourceDocParser benchmark fixture.</summary>
     private static readonly (string Id, string Version)[] FixturePackages =
     [
         ("ReactiveUI", "*"),
@@ -42,10 +42,10 @@ public class DocfxLibraryBenchmark
     /// <summary>Resolved docfx config for the current iteration's <see cref="Tfm"/>.</summary>
     private string _docfxConfig = string.Empty;
 
-    /// <summary>Gets the workspace directory — exposed so the dump-mode runner can point users at the emitted YAML for diffing.</summary>
+    /// <summary>Gets the workspace directory -- exposed so the dump-mode runner can point users at the emitted YAML for diffing.</summary>
     public string WorkspaceForInspection => _workspace;
 
-    /// <summary>Gets or sets the TFM under measurement — BDN runs one row per value.</summary>
+    /// <summary>Gets or sets the TFM under measurement -- BDN runs one row per value.</summary>
     [Params("net8.0", "net9.0", "net10.0", "net472")]
     public string Tfm { get; set; } = string.Empty;
 

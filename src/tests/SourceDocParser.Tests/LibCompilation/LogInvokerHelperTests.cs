@@ -119,7 +119,7 @@ public class LogInvokerHelperTests
         await Assert.That(() => LogInvokerHelper.Invoke<int, int, int, int>(NullLogger.Instance, LogLevel.Information, 0, 0, 0, projector: x => x, action: null!)).Throws<ArgumentNullException>();
     }
 
-    /// <summary>Test helper — minimal ILogger whose <c>IsEnabled</c> returns a fixed value.</summary>
+    /// <summary>Test helper -- minimal ILogger whose <c>IsEnabled</c> returns a fixed value.</summary>
     private sealed class TogglingLogger : ILogger
     {
         /// <summary>Configured enabled-flag.</summary>

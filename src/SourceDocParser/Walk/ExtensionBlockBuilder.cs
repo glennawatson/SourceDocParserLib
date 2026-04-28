@@ -10,7 +10,7 @@ namespace SourceDocParser.Walk;
 /// <summary>
 /// Detects the synthesised C# 14 extension marker types nested
 /// under a static container and converts each to an
-/// <see cref="ApiExtensionBlock"/> — receiver parameter (name + type)
+/// <see cref="ApiExtensionBlock"/> -- receiver parameter (name + type)
 /// plus the conceptual members declared inside the block.
 /// The classic <c>[Extension]</c> implementation methods on the
 /// parent container come through <see cref="MemberBuilder.Build"/>

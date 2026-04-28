@@ -9,10 +9,10 @@ using SourceDocParser.Model;
 namespace SourceDocParser.Benchmarks;
 
 /// <summary>
-/// Micro-benchmark for <see cref="TypeMerger.Merge"/> — the dedup pass
+/// Micro-benchmark for <see cref="TypeMerger.Merge"/> -- the dedup pass
 /// that collapses per-TFM catalogs into one canonical view per type
 /// UID. Driven by synthetic catalogs of varying type counts so we
-/// can spot N×log(N) regressions in the sort + bucket-build pipeline.
+/// can spot Nxlog(N) regressions in the sort + bucket-build pipeline.
 /// </summary>
 [MemoryDiagnoser]
 public class TypeMergerBenchmarks
@@ -65,7 +65,7 @@ public class TypeMergerBenchmarks
 
     /// <summary>
     /// Builds a minimal <see cref="ApiType"/> with the supplied UID. All
-    /// other fields are empty defaults — the merger only cares about
+    /// other fields are empty defaults -- the merger only cares about
     /// UID, TFM source, and FullName for ordering.
     /// </summary>
     /// <param name="uid">Unique identifier (also used as Name + FullName).</param>

@@ -11,7 +11,7 @@ namespace SourceDocParser.Zensical.Pages;
 /// <summary>
 /// Filters and renders the attribute list shown above a type or
 /// member signature. The walker emits every attribute Roslyn
-/// surfaces — this layer drops the compiler-emitted markers users
+/// surfaces -- this layer drops the compiler-emitted markers users
 /// don't want to see (NullableContext, IsReadOnly, RefSafetyRules,
 /// etc.) using a namespace-prefix denylist, mirroring the docfx
 /// filter convention. Anything else passes through and gets
@@ -23,7 +23,7 @@ internal static class AttributeFilter
     /// Renders the user-meaningful attributes from <paramref name="attributes"/>
     /// as a single inline-code line (one usage per attribute, separated
     /// by spaces). Returns the empty string when nothing survives the
-    /// filter — the caller can use that to skip the section entirely.
+    /// filter -- the caller can use that to skip the section entirely.
     /// The denylist + allowlist live in <see cref="AttributeFilterRules"/>
     /// so every emitter applies the same rule set.
     /// </summary>

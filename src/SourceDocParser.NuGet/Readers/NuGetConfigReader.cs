@@ -9,7 +9,7 @@ using SourceDocParser.NuGet.Models;
 namespace SourceDocParser.NuGet.Readers;
 
 /// <summary>
-/// Hand-rolled XmlReader scanner for <c>nuget.config</c> files —
+/// Hand-rolled XmlReader scanner for <c>nuget.config</c> files --
 /// extracts only the values we need (today: the
 /// <c>globalPackagesFolder</c> setting). Same shape as
 /// <see cref="NuspecDependencyReader"/>: small composable helpers,
@@ -17,7 +17,7 @@ namespace SourceDocParser.NuGet.Readers;
 /// </summary>
 internal static class NuGetConfigReader
 {
-    /// <summary>The XML element NuGet wraps every per-key setting in (e.g. <c>&lt;add key="…" value="…"/&gt;</c>).</summary>
+    /// <summary>The XML element NuGet wraps every per-key setting in (e.g. <c>add key="..." value="..."/</c>).</summary>
     private const string AddElementName = "add";
 
     /// <summary>The XML element NuGet uses to drop accumulated parent-config values.</summary>
@@ -35,7 +35,7 @@ internal static class NuGetConfigReader
     /// <summary>Setting key for the global packages folder override.</summary>
     private const string GlobalPackagesFolderKey = "globalPackagesFolder";
 
-    /// <summary>Reader settings shared across every parse — async on so we can pump a FileStream that opened with FileOptions.Asynchronous.</summary>
+    /// <summary>Reader settings shared across every parse -- async on so we can pump a FileStream that opened with FileOptions.Asynchronous.</summary>
     private static readonly XmlReaderSettings _readerSettings = new()
     {
         Async = true,
@@ -49,19 +49,19 @@ internal static class NuGetConfigReader
     /// <paramref name="configPath"/>.
     /// </summary>
     /// <param name="configPath">Absolute path to a <c>nuget.config</c>.</param>
-    /// <returns>Tri-state result — Found / Cleared / NotMentioned.</returns>
+    /// <returns>Tri-state result -- Found / Cleared / NotMentioned.</returns>
     public static Task<ConfigSettingResult> ReadGlobalPackagesFolderAsync(string configPath) =>
         ReadGlobalPackagesFolderAsync(configPath, CancellationToken.None);
 
     /// <summary>
     /// Reads the <c>globalPackagesFolder</c> setting from
     /// <paramref name="configPath"/>. Returns <see langword="null"/>
-    /// when the file doesn't carry that key — caller falls back to
+    /// when the file doesn't carry that key -- caller falls back to
     /// the env var / platform default.
     /// </summary>
     /// <param name="configPath">Absolute path to a <c>nuget.config</c>.</param>
     /// <param name="cancellationToken">Token observed across the parse.</param>
-    /// <returns>Tri-state result — Found / Cleared / NotMentioned.</returns>
+    /// <returns>Tri-state result -- Found / Cleared / NotMentioned.</returns>
     public static async Task<ConfigSettingResult> ReadGlobalPackagesFolderAsync(string configPath, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(configPath);
@@ -77,19 +77,19 @@ internal static class NuGetConfigReader
     /// <c>nuget.config</c> stream.
     /// </summary>
     /// <param name="configStream">Open stream positioned at the start of the <c>nuget.config</c> XML.</param>
-    /// <returns>Tri-state result — Found / Cleared / NotMentioned.</returns>
+    /// <returns>Tri-state result -- Found / Cleared / NotMentioned.</returns>
     public static Task<ConfigSettingResult> ReadGlobalPackagesFolderAsync(Stream configStream) =>
         ReadGlobalPackagesFolderAsync(configStream, CancellationToken.None);
 
     /// <summary>
-    /// Stream-based overload — useful for tests that want to feed
+    /// Stream-based overload -- useful for tests that want to feed
     /// canned XML without a tempfile dance. Walks until it finds the
-    /// first <c>&lt;add key="globalPackagesFolder" value="…"/&gt;</c>
-    /// inside a <c>&lt;config&gt;</c> parent and returns the value.
+    /// first <c>add key="globalPackagesFolder" value="..."/</c>
+    /// inside a <c>config</c> parent and returns the value.
     /// </summary>
     /// <param name="configStream">Open stream positioned at the start of the <c>nuget.config</c> XML.</param>
     /// <param name="cancellationToken">Token observed across the parse.</param>
-    /// <returns>Tri-state result — Found / Cleared / NotMentioned.</returns>
+    /// <returns>Tri-state result -- Found / Cleared / NotMentioned.</returns>
     public static async Task<ConfigSettingResult> ReadGlobalPackagesFolderAsync(Stream configStream, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(configStream);
@@ -217,7 +217,7 @@ internal static class NuGetConfigReader
 
     /// <summary>
     /// Returns true when the reader is positioned on a
-    /// <c>&lt;clear/&gt;</c> element. Used by the parse loop to
+    /// <c>clear/</c> element. Used by the parse loop to
     /// reset the within-file accumulator.
     /// </summary>
     /// <param name="reader">Reader positioned on an element.</param>
@@ -229,8 +229,8 @@ internal static class NuGetConfigReader
     }
 
     /// <summary>
-    /// Returns true when the reader is positioned on an <c>&lt;add&gt;</c>
-    /// element. Local-name match is enough — nuget.config carries no
+    /// Returns true when the reader is positioned on an <c>add</c>
+    /// element. Local-name match is enough -- nuget.config carries no
     /// xmlns and the local name uniquely identifies the setting entry.
     /// </summary>
     /// <param name="reader">Reader positioned on an element.</param>

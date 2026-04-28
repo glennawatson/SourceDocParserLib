@@ -91,7 +91,7 @@ public class StreamingTypeMergerTests
 
     /// <summary>
     /// Concurrent <see cref="StreamingTypeMerger.Add"/> from multiple
-    /// workers produces the same merged set as a sequential add — proves
+    /// workers produces the same merged set as a sequential add -- proves
     /// the lock-guarded write path is correct under contention.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>

@@ -12,7 +12,7 @@ namespace SourceDocParser.Tests;
 /// <summary>
 /// Targeted unit tests for the leaf helpers in
 /// <see cref="SymbolWalkerHelpers"/>. Roslyn symbols are mocked via
-/// NSubstitute so each test exercises one decision branch in isolation —
+/// NSubstitute so each test exercises one decision branch in isolation --
 /// no in-memory <c>CSharpCompilation</c> spin-up required.
 /// </summary>
 public class SymbolWalkerHelpersTests

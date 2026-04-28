@@ -10,7 +10,7 @@ namespace SourceDocParser.Docfx.Yaml;
 /// Docfx-flavoured wrapper over <see cref="CatalogIndexes"/>. The
 /// algorithm lives in the core library; this shell only contributes
 /// the System.Object baseline UIDs in docfx's bare-name form (no
-/// <c>M:</c> prefix — docfx's xrefmap resolves them by name).
+/// <c>M:</c> prefix -- docfx's xrefmap resolves them by name).
 /// </summary>
 public sealed class DocfxCatalogIndexes
 {
@@ -40,7 +40,7 @@ public sealed class DocfxCatalogIndexes
         _core = core;
     }
 
-    /// <summary>Gets the empty index bundle — used by callers that don't supply a catalog.</summary>
+    /// <summary>Gets the empty index bundle -- used by callers that don't supply a catalog.</summary>
     public static DocfxCatalogIndexes Empty { get; } = new(CatalogIndexes.Empty);
 
     /// <summary>

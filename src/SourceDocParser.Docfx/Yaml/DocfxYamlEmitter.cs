@@ -13,7 +13,7 @@ namespace SourceDocParser.Docfx.Yaml;
 
 /// <summary>
 /// <see cref="IDocumentationEmitter"/> implementation that renders the
-/// merged catalog as docfx ManagedReference YAML — one <c>.yml</c> file
+/// merged catalog as docfx ManagedReference YAML -- one <c>.yml</c> file
 /// per type, holding the full PageViewModel shape (the type plus its
 /// members in <c>items:</c>, plus referenced types in <c>references:</c>).
 /// Output matches what docfx's own metadata extractor produces, so the
@@ -46,8 +46,11 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     /// <summary>Empty UID set used by the legacy <see cref="Render(ApiType)"/> overload.</summary>
     private static readonly HashSet<string> _emptyUidSet = new(StringComparer.Ordinal);
 
+    /// <summary>Default converter shared by the converter-less overloads.</summary>
+    private static readonly XmlDocToMarkdown _defaultConverter = new(DocfxCrefResolver.Instance);
+
     /// <summary>
-    /// Renders a single docfx ManagedReference page as a YAML string —
+    /// Renders a single docfx ManagedReference page as a YAML string --
     /// header, items list (the type and its members), and references
     /// list pointing at types the page mentions.
     /// </summary>
@@ -58,7 +61,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     /// <summary>
     /// Renders a single docfx ManagedReference page using
     /// <paramref name="internalUids"/> to classify references in the
-    /// <c>references:</c> block — internal types get a local
+    /// <c>references:</c> block -- internal types get a local
     /// <c>href</c>, external (BCL) types route to Microsoft Learn.
     /// </summary>
     /// <param name="type">Type whose page to render.</param>
@@ -78,17 +81,32 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     /// <param name="internalUids">UIDs of every type emitted by the current run.</param>
     /// <param name="indexes">Catalog rollups; pass <see cref="DocfxCatalogIndexes.Empty"/> to skip them.</param>
     /// <returns>The full YAML page text.</returns>
-    public static string Render(ApiType type, HashSet<string> internalUids, DocfxCatalogIndexes indexes)
+    public static string Render(ApiType type, HashSet<string> internalUids, DocfxCatalogIndexes indexes) =>
+        Render(type, internalUids, indexes, _defaultConverter);
+
+    /// <summary>
+    /// Converter overload of <see cref="Render(ApiType, HashSet{string}, DocfxCatalogIndexes)"/>.
+    /// Threads <paramref name="converter"/> into the YAML builders so
+    /// per-symbol XML to Markdown conversion is folded in lazily at write
+    /// time -- no upstream catalog rebuild.
+    /// </summary>
+    /// <param name="type">Type whose page to render.</param>
+    /// <param name="internalUids">UIDs of every type emitted by the current run.</param>
+    /// <param name="indexes">Pre-built catalog rollups; pass <see cref="DocfxCatalogIndexes.Empty"/> to skip them.</param>
+    /// <param name="converter">XML to Markdown converter wired with the docfx cref resolver.</param>
+    /// <returns>The full YAML page text.</returns>
+    public static string Render(ApiType type, HashSet<string> internalUids, DocfxCatalogIndexes indexes, XmlDocToMarkdown converter)
     {
         ArgumentNullException.ThrowIfNull(type);
         ArgumentNullException.ThrowIfNull(internalUids);
         ArgumentNullException.ThrowIfNull(indexes);
+        ArgumentNullException.ThrowIfNull(converter);
 
         return new StringBuilder(InitialPageCapacity)
             .Append(YamlMimeHeader).Append('\n')
             .Append("items:\n")
-            .AppendTypeItem(type, indexes)
-            .AppendMemberItems(type)
+            .AppendTypeItem(type, indexes, converter)
+            .AppendMemberItems(type, converter)
             .AppendPageReferences(CollectReferences(type), internalUids)
             .ToString();
     }
@@ -139,10 +157,12 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
                 Directory.CreateDirectory(directory);
             }
 
-            // Render raw-XML doc fragments to Markdown via the docfx
-            // cref resolver before they get embedded as YAML scalars.
-            var rendered = RenderedTypeFactory.Render(type, converter);
-            await File.WriteAllTextAsync(fullPath, Render(rendered, internalUids, indexes), cancellationToken).ConfigureAwait(false);
+            // Walker output flows through unchanged; the YAML builders
+            // convert each raw XML fragment to Markdown via the supplied
+            // converter at the field write site, so per-symbol docs are
+            // materialised exactly once and only the fields the page
+            // actually emits cost any conversion at all.
+            await File.WriteAllTextAsync(fullPath, Render(type, internalUids, indexes, converter), cancellationToken).ConfigureAwait(false);
             pages++;
         }
 
@@ -164,7 +184,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     }
 
     /// <summary>
-    /// Builds the deduplicated reference list a page needs — base type,
+    /// Builds the deduplicated reference list a page needs -- base type,
     /// declared interfaces, parameter and return types of every member,
     /// plus enum underlying type / delegate signature types / union
     /// case types as appropriate to the derivation.
@@ -231,7 +251,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     /// Builds the set of UIDs the current emit pass will produce a
     /// page for. Used by <see cref="DocfxReferenceEnricher"/> to
     /// classify references as internal (link to local page) vs
-    /// external (BCL → MS Learn / unknown → no href).
+    /// external (BCL -> MS Learn / unknown -> no href).
     /// </summary>
     /// <param name="types">All types about to be rendered.</param>
     /// <returns>The lookup set, keyed on the type's UID.</returns>
@@ -308,7 +328,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
 
     /// <summary>
     /// Routes <paramref name="type"/> through the kind-specific
-    /// reference-collector for its derived type — enums add their
+    /// reference-collector for its derived type -- enums add their
     /// underlying type, delegates add Invoke signature types, unions add
     /// each case type.
     /// </summary>
@@ -370,7 +390,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
 
     /// <summary>
     /// Adds <paramref name="reference"/> only the first time we've seen
-    /// the keying string (UID if present, display name otherwise) —
+    /// the keying string (UID if present, display name otherwise) --
     /// keeps the page-level list distinct without sorting it.
     /// </summary>
     /// <param name="references">Accumulator to append into.</param>

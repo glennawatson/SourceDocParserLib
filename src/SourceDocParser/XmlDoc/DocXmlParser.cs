@@ -9,7 +9,7 @@ namespace SourceDocParser.XmlDoc;
 /// <summary>
 /// Parses one member-level XML doc fragment into a structured
 /// <see cref="RawDocumentation"/>. The returned strings are the
-/// <strong>raw inner XML</strong> of each documentation tag — they
+/// <strong>raw inner XML</strong> of each documentation tag -- they
 /// are <em>not</em> Markdown. Emitters convert each fragment via
 /// <see cref="XmlDocToMarkdown"/> at render time, with their own
 /// <see cref="ICrefResolver"/> deciding how cross-references resolve
@@ -22,7 +22,7 @@ internal static class DocXmlParser
     /// <summary>
     /// Parses one member XML fragment into a
     /// <see cref="RawDocumentation"/>. Driven by
-    /// <see cref="DocXmlScanner"/> — a span-based forward scanner —
+    /// <see cref="DocXmlScanner"/> -- a span-based forward scanner --
     /// instead of <c>XmlReader</c>, so the per-symbol parse no longer
     /// allocates an <c>XmlTextReaderImpl</c> with its multi-KB buffers
     /// and the inner element bodies are surfaced as raw inner-XML
@@ -179,7 +179,7 @@ internal static class DocXmlParser
     {
         var inheritCref = scanner.GetAttribute("cref");
 
-        // <inheritdoc>…</inheritdoc> with content: skip the
+        // <inheritdoc>...</inheritdoc> with content: skip the
         // body rather than processing it (rarely used and not
         // part of any standard).
         scanner.SkipElement();

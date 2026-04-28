@@ -4,7 +4,7 @@
 
 namespace SamplePdb;
 
-/// <summary>Async method — produces a compiler-generated state machine display class.</summary>
+/// <summary>Async method -- produces a compiler-generated state machine display class.</summary>
 public class Asynchronous
 {
     /// <summary>Awaits a no-op task.</summary>

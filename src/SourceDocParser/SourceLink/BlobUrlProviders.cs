@@ -5,7 +5,7 @@
 namespace SourceDocParser.SourceLink;
 
 /// <summary>
-/// Per-host SourceLink raw-URL → blob-URL rewriters. Each provider
+/// Per-host SourceLink raw-URL -> blob-URL rewriters. Each provider
 /// recognises the raw form a single Git host publishes and returns
 /// the corresponding human-friendly blob URL with a line anchor (or
 /// <see langword="null"/> when the raw URL doesn't match its shape so

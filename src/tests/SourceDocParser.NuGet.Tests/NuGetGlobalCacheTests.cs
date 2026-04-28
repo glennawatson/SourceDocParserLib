@@ -8,14 +8,14 @@ namespace SourceDocParser.NuGet.Tests;
 
 /// <summary>
 /// Pins the global-packages-folder resolution helpers in
-/// <see cref="NuGetGlobalCache"/> — replaces the surface we'd
+/// <see cref="NuGetGlobalCache"/> -- replaces the surface we'd
 /// otherwise pull in from NuGet.Configuration / NuGet.Packaging
 /// (and through them Newtonsoft.Json + dual JSON stacks).
 /// </summary>
 public class NuGetGlobalCacheTests
 {
     /// <summary>
-    /// NUGET_PACKAGES env var has top precedence — overrides both
+    /// NUGET_PACKAGES env var has top precedence -- overrides both
     /// any nuget.config setting and the platform default.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -62,7 +62,7 @@ public class NuGetGlobalCacheTests
 
     /// <summary>
     /// With no env var and no config override, falls back to the
-    /// platform default — <c>$HOME/.nuget/packages</c> on Unix,
+    /// platform default -- <c>$HOME/.nuget/packages</c> on Unix,
     /// <c>%USERPROFILE%\.nuget\packages</c> on Windows.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -87,7 +87,7 @@ public class NuGetGlobalCacheTests
     }
 
     /// <summary>
-    /// Per-package install path lowercases both id and version —
+    /// Per-package install path lowercases both id and version --
     /// matches NuGet's canonical layout so the "already extracted"
     /// probe finds the SDK-written marker.
     /// </summary>
@@ -102,7 +102,7 @@ public class NuGetGlobalCacheTests
     }
 
     /// <summary>
-    /// Per-TFM lib path is just <c>&lt;packageDir&gt;/lib/&lt;tfm&gt;/</c>.
+    /// Per-TFM lib path is just <c>{packageDir}/lib/{tfm}/</c>.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -143,7 +143,7 @@ public class NuGetGlobalCacheTests
     }
 
     /// <summary>
-    /// User-scoped nuget.config locations differ per platform —
+    /// User-scoped nuget.config locations differ per platform --
     /// the helper returns the right candidate(s) for the current
     /// OS in precedence order.
     /// </summary>

@@ -18,7 +18,7 @@ public class ZensicalDocumentationEmitterTests
 {
     /// <summary>
     /// A class with three distinct member names produces one type page
-    /// plus three overload-group pages — the baseline contract.
+    /// plus three overload-group pages -- the baseline contract.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -35,7 +35,7 @@ public class ZensicalDocumentationEmitterTests
     }
 
     /// <summary>
-    /// Overloads of the same method name share one overload-group page —
+    /// Overloads of the same method name share one overload-group page --
     /// the bucket-by-name behaviour collapses them.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -54,7 +54,7 @@ public class ZensicalDocumentationEmitterTests
 
     /// <summary>
     /// Enums never emit per-value pages no matter how many values they
-    /// declare — the type page already lists every value inline. The
+    /// declare -- the type page already lists every value inline. The
     /// baseline an icon-font enum would otherwise hit is thousands of
     /// per-value pages, so the contract is "exactly 1 page".
     /// </summary>
@@ -79,7 +79,7 @@ public class ZensicalDocumentationEmitterTests
     }
 
     /// <summary>
-    /// Delegates never emit per-overload pages — the Invoke signature
+    /// Delegates never emit per-overload pages -- the Invoke signature
     /// is the type page itself.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>

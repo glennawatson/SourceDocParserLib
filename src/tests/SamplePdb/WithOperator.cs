@@ -4,7 +4,7 @@
 
 namespace SamplePdb;
 
-/// <summary>Operator overload — exercises the operator-method walker path.</summary>
+/// <summary>Operator overload -- exercises the operator-method walker path.</summary>
 public record WithOperator
 {
     /// <summary>Gets the wrapped value.</summary>

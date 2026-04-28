@@ -8,7 +8,7 @@ using SourceDocParser.LibCompilation;
 namespace SourceDocParser.Tests.LibCompilation;
 
 /// <summary>
-/// Pins the parse-failure fallback of <see cref="XmlDocsLoader"/> —
+/// Pins the parse-failure fallback of <see cref="XmlDocsLoader"/> --
 /// the success and missing-file paths are exercised via the wider
 /// metadata-cache integration tests, but the catch arm only fires
 /// when the .xml entry is unreadable as a file (e.g. it's a

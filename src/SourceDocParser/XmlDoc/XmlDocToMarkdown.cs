@@ -11,7 +11,7 @@ namespace SourceDocParser.XmlDoc;
 /// Converts .NET XML documentation fragments into Markdown.
 /// </summary>
 /// <remarks>
-/// Driven by DocXmlScanner — a span-based forward scanner — instead of
+/// Driven by DocXmlScanner -- a span-based forward scanner -- instead of
 /// XmlReader, so the conversion path no longer allocates an
 /// XmlTextReaderImpl with its multi-KB buffers per call. Handles the
 /// standard inline doc tags: see, seealso, paramref, typeparamref, c,
@@ -27,18 +27,18 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
     /// <summary>
     /// Pooled StringBuilder reused across top-level Convert calls so each
     /// per-symbol render doesn't allocate a fresh one. Convert() calls
-    /// must be sequential within a single converter instance — this
+    /// must be sequential within a single converter instance -- this
     /// instance is not thread-safe across concurrent Convert calls; a
     /// parallel emitter should construct one converter per worker.
     /// </summary>
     private readonly StringBuilder _builder = new(InitialBuilderCapacity);
 
-    /// <summary>Cref resolver threaded into <c>&lt;see&gt;</c> / <c>&lt;seealso&gt;</c> rendering.</summary>
+    /// <summary>Cref resolver threaded into <c>see</c> / <c>seealso</c> rendering.</summary>
     private readonly ICrefResolver _resolver;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="XmlDocToMarkdown"/>
-    /// class with the default cref resolver — the legacy "always
+    /// class with the default cref resolver -- the legacy "always
     /// autoref" form. Use the <see cref="XmlDocToMarkdown(ICrefResolver)"/>
     /// overload to inject a custom resolver (e.g. one that knows the
     /// emitted UID set or routes BCL types to Microsoft Learn).
@@ -52,7 +52,7 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
     /// Initializes a new instance of the <see cref="XmlDocToMarkdown"/>
     /// class with the supplied cref resolver.
     /// </summary>
-    /// <param name="resolver">Resolver invoked when a <c>&lt;see cref="..."/&gt;</c> reference is rendered.</param>
+    /// <param name="resolver">Resolver invoked when a <c>see cref="..."/</c> reference is rendered.</param>
     public XmlDocToMarkdown(ICrefResolver resolver)
     {
         ArgumentNullException.ThrowIfNull(resolver);
@@ -112,8 +112,8 @@ public sealed class XmlDocToMarkdown : IXmlDocToMarkdownConverter
         // Materialise the inner XML once and route through the scanner-
         // based renderer. Callers that already have an XmlReader open
         // (rare since DocResolver moved to the scanner) pay one extra
-        // string allocation; the alternative — keeping a parallel
-        // XmlReader-based renderer — is more code with no real win.
+        // string allocation; the alternative -- keeping a parallel
+        // XmlReader-based renderer -- is more code with no real win.
         return await reader.ReadInnerXmlAsync().ConfigureAwait(false);
     }
 }

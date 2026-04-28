@@ -9,7 +9,7 @@ using SourceDocParser.TestHelpers;
 namespace SourceDocParser.Docfx.Tests.Yaml;
 
 /// <summary>
-/// Pins individual fields on the docfx type item — anything emitted
+/// Pins individual fields on the docfx type item -- anything emitted
 /// directly by <see cref="DocfxYamlBuilderExtensions.AppendTypeItem(System.Text.StringBuilder,SourceDocParser.Model.ApiType)"/>
 /// that doesn't have its own dedicated test fixture lands here.
 /// </summary>
@@ -36,7 +36,7 @@ public class DocfxTypeItemTests
 
         var yaml = DocfxYamlEmitter.Render(type);
 
-        // Type item lays out as `id: Foo` then directly `langs:` —
+        // Type item lays out as `id: Foo` then directly `langs:` --
         // any inserted `parent:` would land between them. Reference
         // entries render their own `parent:` deeper in the file but
         // those don't affect the type item's own header.
@@ -75,7 +75,7 @@ public class DocfxTypeItemTests
         var yaml = DocfxYamlEmitter.Render(type);
 
         // Quoter picks double quotes; either '#ctor' or "#ctor" is valid
-        // YAML — assert the value survived as a quoted scalar rather than
+        // YAML -- assert the value survived as a quoted scalar rather than
         // pinning a specific style.
         await Assert.That(yaml).Contains("id: \"#ctor\"").Or.Contains("id: '#ctor'");
         await Assert.That(yaml).Contains("name: Foo()");
@@ -105,7 +105,7 @@ public class DocfxTypeItemTests
         await Assert.That(zetaIdx).IsGreaterThan(midIdx);
     }
 
-    /// <summary>Member item field sequence matches docfx — overload sits AFTER the syntax block, not above langs.</summary>
+    /// <summary>Member item field sequence matches docfx -- overload sits AFTER the syntax block, not above langs.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task MemberItemFieldsAreInDocfxOrder()

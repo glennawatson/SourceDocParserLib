@@ -7,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using SourceDocParser.Common;
 using SourceDocParser.Model;
+using SourceDocParser.XmlDoc;
 
 namespace SourceDocParser.Docfx.Yaml;
 
@@ -14,7 +15,7 @@ namespace SourceDocParser.Docfx.Yaml;
 /// Fluent <see cref="StringBuilder"/> extensions that compose the docfx
 /// ManagedReference YAML page top-to-bottom. Each helper returns the
 /// same builder so call sites read as a single chained expression.
-/// Class itself is <see langword="internal"/> — the methods are public
+/// Class itself is <see langword="internal"/> -- the methods are public
 /// so other code in this assembly (and the test project via the
 /// internal-class type) can compose pages from individual primitives
 /// when targeted scenarios call for it.
@@ -30,23 +31,26 @@ internal static class DocfxYamlBuilderExtensions
     /// <summary>Shared header for a top-level syntax block.</summary>
     private const string SyntaxBlockHeader = "  syntax:\n";
 
+    /// <summary>Default converter -- shared instance for tests / callers that don't supply one.</summary>
+    private static readonly XmlDocToMarkdown DefaultConverter = new(DefaultCrefResolver.Instance);
+
     /// <summary>
-    /// Writes the type item header — uid / commentId / id / parent /
+    /// Writes the type item header -- uid / commentId / id / parent /
     /// children / langs / name / nameWithType / fullName / type /
-    /// assemblies / namespace / summary / syntax — at indent level 0
+    /// assemblies / namespace / summary / syntax -- at indent level 0
     /// (one item, prefixed with <c>- </c>).
     /// </summary>
     /// <param name="sb">Destination builder.</param>
     /// <param name="type">Type whose item entry to write.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
     public static StringBuilder AppendTypeItem(this StringBuilder sb, ApiType type) =>
-        sb.AppendTypeItem(type, DocfxCatalogIndexes.Empty);
+        sb.AppendTypeItem(type, DocfxCatalogIndexes.Empty, DefaultConverter);
 
     /// <summary>
     /// Catalog-aware overload of <see cref="AppendTypeItem(StringBuilder, ApiType)"/>.
     /// Emits the same type item plus the <c>derivedClasses</c>,
     /// <c>inheritedMembers</c>, <c>extensionMethods</c>, and
-    /// <c>seealso</c> blocks pulled from <paramref name="indexes"/> —
+    /// <c>seealso</c> blocks pulled from <paramref name="indexes"/> --
     /// whichever entries exist for the type. Fields are written in
     /// docfx's display order so the output diffs cleanly against
     /// <c>dotnet docfx metadata</c>.
@@ -55,7 +59,21 @@ internal static class DocfxYamlBuilderExtensions
     /// <param name="type">Type whose item entry to write.</param>
     /// <param name="indexes">Pre-built catalog rollups; supply <see cref="DocfxCatalogIndexes.Empty"/> to skip the rollups.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
-    public static StringBuilder AppendTypeItem(this StringBuilder sb, ApiType type, DocfxCatalogIndexes indexes)
+    public static StringBuilder AppendTypeItem(this StringBuilder sb, ApiType type, DocfxCatalogIndexes indexes) =>
+        sb.AppendTypeItem(type, indexes, DefaultConverter);
+
+    /// <summary>
+    /// Catalog + converter overload of <see cref="AppendTypeItem(StringBuilder, ApiType, DocfxCatalogIndexes)"/>.
+    /// Production paths thread the run's <see cref="XmlDocToMarkdown"/> here so per-symbol
+    /// XML to Markdown conversion happens lazily at the field read instead
+    /// of via an upstream catalog rebuild.
+    /// </summary>
+    /// <param name="sb">Destination builder.</param>
+    /// <param name="type">Type whose item entry to write.</param>
+    /// <param name="indexes">Pre-built catalog rollups; pass <see cref="DocfxCatalogIndexes.Empty"/> to skip them.</param>
+    /// <param name="converter">XML to Markdown converter wired with the docfx cref resolver.</param>
+    /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
+    public static StringBuilder AppendTypeItem(this StringBuilder sb, ApiType type, DocfxCatalogIndexes indexes, XmlDocToMarkdown converter)
     {
         sb.Append("- uid: ").AppendScalar(CommentIdPrefix.Strip(type.Uid)).AppendLine()
             .AppendIfPresent("  commentId: ", DocfxCommentId.ForType(type))
@@ -72,28 +90,41 @@ internal static class DocfxYamlBuilderExtensions
             .AppendLine("  assemblies:")
             .Append("  - ").AppendScalar(type.AssemblyName).AppendLine()
             .AppendNamespace(type.Namespace)
-            .AppendBlockScalar("  summary: ", type.Documentation.Summary)
-            .AppendBlockScalar("  remarks: ", type.Documentation.Remarks)
+            .AppendBlockScalar("  summary: ", converter.Convert(type.Documentation.Summary))
+            .AppendBlockScalar("  remarks: ", converter.Convert(type.Documentation.Remarks))
             .AppendInheritance(type)
             .AppendDerivedClasses(indexes.GetDerived(type.Uid))
             .AppendInheritedMembers(indexes.GetInherited(type.Uid))
             .AppendExtensionMethods(indexes.GetExtensions(type.Uid))
             .AppendExtensionBlocks(type is ApiObjectType obj ? obj.ExtensionBlocks : [])
             .AppendSeealso(type.Documentation.SeeAlso)
-            .AppendKindSpecificSyntax(type)
+            .AppendKindSpecificSyntax(type, converter)
             .AppendAttributes(type.Attributes);
         return sb;
     }
 
     /// <summary>
     /// Writes one item entry per member on the type. Enums and delegates
-    /// have no member items — the type page already carries the value
+    /// have no member items -- the type page already carries the value
     /// list / Invoke signature inline.
     /// </summary>
     /// <param name="sb">Destination builder.</param>
     /// <param name="type">Type whose members to enumerate.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
-    public static StringBuilder AppendMemberItems(this StringBuilder sb, ApiType type)
+    public static StringBuilder AppendMemberItems(this StringBuilder sb, ApiType type) =>
+        sb.AppendMemberItems(type, DefaultConverter);
+
+    /// <summary>
+    /// Converter overload of <see cref="AppendMemberItems(StringBuilder, ApiType)"/>.
+    /// Routes per-member docs through the supplied
+    /// <see cref="XmlDocToMarkdown"/> at write time so the catalog
+    /// stays raw.
+    /// </summary>
+    /// <param name="sb">Destination builder.</param>
+    /// <param name="type">Type whose members to enumerate.</param>
+    /// <param name="converter">XML to Markdown converter.</param>
+    /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
+    public static StringBuilder AppendMemberItems(this StringBuilder sb, ApiType type, XmlDocToMarkdown converter)
     {
         var members = MembersOf(type);
         if (members is null)
@@ -108,7 +139,7 @@ internal static class DocfxYamlBuilderExtensions
                 continue;
             }
 
-            sb.AppendMemberItem(type, members[i]);
+            sb.AppendMemberItem(type, members[i], converter);
         }
 
         return sb;
@@ -142,7 +173,7 @@ internal static class DocfxYamlBuilderExtensions
     }
 
     /// <summary>
-    /// Appends a YAML scalar — wraps the value in double quotes when it
+    /// Appends a YAML scalar -- wraps the value in double quotes when it
     /// could otherwise be misparsed (leading colon, leading dash, leading
     /// whitespace, special tokens like <c>true/false/null</c>, or any
     /// embedded character that needs escaping). Hot path is a single
@@ -163,7 +194,7 @@ internal static class DocfxYamlBuilderExtensions
     }
 
     /// <summary>
-    /// Writes the <c>children:</c> list — UIDs of every documented
+    /// Writes the <c>children:</c> list -- UIDs of every documented
     /// member on the type. Skipped when the type has no members
     /// (enum/delegate or empty class).
     /// </summary>
@@ -268,7 +299,7 @@ internal static class DocfxYamlBuilderExtensions
     /// <summary>
     /// Writes the <c>derivedClasses:</c> block listing immediate
     /// subclasses found during the catalog pre-pass. No-op when the
-    /// type has no derivers — the empty-list path is the singleton
+    /// type has no derivers -- the empty-list path is the singleton
     /// the shared <see cref="Array.Empty{T}"/> singleton, so the early
     /// return is branch-and-bail with no allocation.
     /// </summary>
@@ -293,7 +324,7 @@ internal static class DocfxYamlBuilderExtensions
     }
 
     /// <summary>
-    /// Writes the <c>inheritedMembers:</c> block — uids the catalog
+    /// Writes the <c>inheritedMembers:</c> block -- uids the catalog
     /// index pre-computed (one base level + the System.Object baseline
     /// for class types). No-op when the list is empty.
     /// </summary>
@@ -317,7 +348,7 @@ internal static class DocfxYamlBuilderExtensions
     }
 
     /// <summary>
-    /// Writes the <c>extensionMethods:</c> block — uids of static
+    /// Writes the <c>extensionMethods:</c> block -- uids of static
     /// methods on other types whose first parameter targets this type.
     /// No-op when the list is empty.
     /// </summary>
@@ -341,7 +372,7 @@ internal static class DocfxYamlBuilderExtensions
     }
 
     /// <summary>
-    /// Writes the C# 14 <c>extensionBlocks:</c> field — one entry
+    /// Writes the C# 14 <c>extensionBlocks:</c> field -- one entry
     /// per <see cref="ApiExtensionBlock"/> declared on the type. Each
     /// entry carries the receiver name + type uid plus the conceptual
     /// member uids declared inside the block. No-op when the type
@@ -377,7 +408,7 @@ internal static class DocfxYamlBuilderExtensions
     }
 
     /// <summary>
-    /// Writes the <c>seealso:</c> block — one entry per cref in the
+    /// Writes the <c>seealso:</c> block -- one entry per cref in the
     /// type's documentation. Each entry carries the docfx-canonical
     /// <c>linkType: CRef</c> + <c>commentId</c> + <c>altText</c>
     /// triple. No-op when there are no seealso entries.
@@ -407,15 +438,23 @@ internal static class DocfxYamlBuilderExtensions
     /// <summary>
     /// Dispatches the type-page <c>syntax:</c> block to the right
     /// per-kind helper (enum value table, delegate signature). Object
-    /// and union types have no top-level syntax block — their members
+    /// and union types have no top-level syntax block -- their members
     /// carry it.
     /// </summary>
     /// <param name="sb">Destination builder.</param>
     /// <param name="type">Type to render.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
-    public static StringBuilder AppendKindSpecificSyntax(this StringBuilder sb, ApiType type) => type switch
+    public static StringBuilder AppendKindSpecificSyntax(this StringBuilder sb, ApiType type) =>
+        sb.AppendKindSpecificSyntax(type, DefaultConverter);
+
+    /// <summary>Converter overload that threads <paramref name="converter"/> into kind-specific syntax helpers (e.g. enum value descriptions).</summary>
+    /// <param name="sb">Destination builder.</param>
+    /// <param name="type">Type to render.</param>
+    /// <param name="converter">XML to Markdown converter.</param>
+    /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
+    public static StringBuilder AppendKindSpecificSyntax(this StringBuilder sb, ApiType type, XmlDocToMarkdown converter) => type switch
     {
-        ApiEnumType e => sb.AppendEnumSyntax(e),
+        ApiEnumType e => sb.AppendEnumSyntax(e, converter),
         ApiDelegateType d => sb.AppendDelegateSyntax(d),
         ApiObjectType o => sb.AppendObjectSyntax(o),
         _ => sb,
@@ -423,11 +462,11 @@ internal static class DocfxYamlBuilderExtensions
 
     /// <summary>
     /// Writes the type-level <c>syntax:</c> block for class / struct
-    /// / interface / record / record-struct types — the C# declaration
+    /// / interface / record / record-struct types -- the C# declaration
     /// line synthesised by <see cref="DocfxObjectSignature.Synthesise"/>,
     /// folded through <see cref="AppendSyntaxContent"/> so the
     /// surviving attributes prefix the signature inside a YAML
-    /// <c>&gt;-</c> block.
+    /// <c>>-</c> block.
     /// </summary>
     /// <param name="sb">Destination builder.</param>
     /// <param name="type">Object-shaped type to render.</param>
@@ -437,7 +476,7 @@ internal static class DocfxYamlBuilderExtensions
         .AppendSyntaxContent(type.Attributes, DocfxObjectSignature.Synthesise(type), indent: "    ");
 
     /// <summary>
-    /// Writes the enum value table as a syntax block — each value
+    /// Writes the enum value table as a syntax block -- each value
     /// becomes a parameter-shaped entry with id / defaultValue /
     /// description so docfx's default template renders it the same
     /// as it would for an enum produced by its native walker.
@@ -467,17 +506,52 @@ internal static class DocfxYamlBuilderExtensions
         return sb;
     }
 
+    /// <summary>Converter overload that threads <paramref name="converter"/> into each enum value's description.</summary>
+    /// <param name="sb">Destination builder.</param>
+    /// <param name="type">Enum type to render.</param>
+    /// <param name="converter">XML to Markdown converter for the value descriptions.</param>
+    /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
+    public static StringBuilder AppendEnumSyntax(this StringBuilder sb, ApiEnumType type, XmlDocToMarkdown converter)
+    {
+        if (type.Values is [])
+        {
+            return sb;
+        }
+
+        sb.Append(SyntaxBlockHeader)
+            .AppendSyntaxContent(type.Attributes, $"public enum {type.Name}", indent: "    ")
+            .Append("    return:\n    ").Append(TypeFieldLabel)
+            .AppendScalar(ReferenceScalar(type.UnderlyingType))
+            .AppendLine()
+            .Append("    parameters:\n");
+
+        for (var i = 0; i < type.Values.Length; i++)
+        {
+            sb.AppendEnumValue(type.Values[i], converter);
+        }
+
+        return sb;
+    }
+
     /// <summary>Writes one enum value as an id / defaultValue / description triple.</summary>
     /// <param name="sb">Destination builder.</param>
     /// <param name="value">Enum value to emit.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
-    public static StringBuilder AppendEnumValue(this StringBuilder sb, ApiEnumValue value) => sb
+    public static StringBuilder AppendEnumValue(this StringBuilder sb, ApiEnumValue value) =>
+        sb.AppendEnumValue(value, DefaultConverter);
+
+    /// <summary>Converter overload of <see cref="AppendEnumValue(StringBuilder, ApiEnumValue)"/>.</summary>
+    /// <param name="sb">Destination builder.</param>
+    /// <param name="value">Enum value to emit.</param>
+    /// <param name="converter">XML to Markdown converter for the description.</param>
+    /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
+    public static StringBuilder AppendEnumValue(this StringBuilder sb, ApiEnumValue value, XmlDocToMarkdown converter) => sb
         .Append("    - id: ").AppendScalar(value.Name).AppendLine()
         .Append("      defaultValue: ").AppendScalar(value.Value).AppendLine()
-        .AppendBlockScalar("      description: ", value.Documentation.Summary);
+        .AppendBlockScalar("      description: ", converter.Convert(value.Documentation.Summary));
 
     /// <summary>
-    /// Writes the delegate's Invoke signature as a syntax block —
+    /// Writes the delegate's Invoke signature as a syntax block --
     /// content (the formatted signature), parameters, and return type.
     /// </summary>
     /// <param name="sb">Destination builder.</param>
@@ -491,14 +565,23 @@ internal static class DocfxYamlBuilderExtensions
 
     /// <summary>
     /// Writes one member entry inside the page-level <c>items:</c> list
-    /// — uid / commentId / id / parent / langs / names / type /
+    /// -- uid / commentId / id / parent / langs / names / type /
     /// assemblies / namespace / summary / remarks / syntax.
     /// </summary>
     /// <param name="sb">Destination builder.</param>
     /// <param name="type">Containing type (provides parent UID + names).</param>
     /// <param name="member">Member to render.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
-    public static StringBuilder AppendMemberItem(this StringBuilder sb, ApiType type, ApiMember member)
+    public static StringBuilder AppendMemberItem(this StringBuilder sb, ApiType type, ApiMember member) =>
+        sb.AppendMemberItem(type, member, DefaultConverter);
+
+    /// <summary>Converter overload of <see cref="AppendMemberItem(StringBuilder, ApiType, ApiMember)"/>.</summary>
+    /// <param name="sb">Destination builder.</param>
+    /// <param name="type">Containing type (provides parent UID + names).</param>
+    /// <param name="member">Member to render.</param>
+    /// <param name="converter">XML to Markdown converter.</param>
+    /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
+    public static StringBuilder AppendMemberItem(this StringBuilder sb, ApiType type, ApiMember member, XmlDocToMarkdown converter)
     {
         var unqualified = DocfxMemberDisplayName.Unqualified(member, type);
         var qualified = DocfxMemberDisplayName.Qualified(member, type);
@@ -524,8 +607,8 @@ internal static class DocfxYamlBuilderExtensions
             .AppendLine("  assemblies:")
             .Append("  - ").AppendScalar(type.AssemblyName).AppendLine()
             .AppendNamespace(type.Namespace)
-            .AppendBlockScalar("  summary: ", member.Documentation.Summary)
-            .AppendBlockScalar("  remarks: ", member.Documentation.Remarks)
+            .AppendBlockScalar("  summary: ", converter.Convert(member.Documentation.Summary))
+            .AppendBlockScalar("  remarks: ", converter.Convert(member.Documentation.Remarks))
             .AppendMemberSyntax(member)
             .Append("  overload: ").AppendScalar(DocfxMemberDisplayName.OverloadAnchor(CommentIdPrefix.Strip(member.Uid))).AppendLine()
             .AppendAttributes(member.Attributes);
@@ -533,7 +616,7 @@ internal static class DocfxYamlBuilderExtensions
     }
 
     /// <summary>
-    /// Writes the docfx <c>attributes:</c> block — one entry per
+    /// Writes the docfx <c>attributes:</c> block -- one entry per
     /// surviving attribute, with its UID and constructor arguments.
     /// Filters compiler-emitted markers (NullableContext, IsReadOnly,
     /// RefSafetyRules, etc.) via <see cref="DocfxAttributeFilter"/> so
@@ -569,7 +652,7 @@ internal static class DocfxYamlBuilderExtensions
         sb.Append("  - type: ").AppendScalar(typeRef).AppendLine();
 
         // Docfx renders the bound constructor uid (M: prefix stripped)
-        // alongside the attribute type — gives the YAML enough fidelity
+        // alongside the attribute type -- gives the YAML enough fidelity
         // to differentiate `[Browsable]` from `[Browsable(false)]` at the
         // metadata level without parsing arguments.
         if (attribute.ConstructorUid is [_, ..] ctorUid)
@@ -602,7 +685,7 @@ internal static class DocfxYamlBuilderExtensions
 
     /// <summary>
     /// Appends two scalars joined by <paramref name="separator"/> as a
-    /// single YAML scalar — fast path writes the parts straight to the
+    /// single YAML scalar -- fast path writes the parts straight to the
     /// builder when both halves are quote-safe (the dominant case for
     /// .NET identifier names), and only allocates a joined string when
     /// either part needs escaping. Avoids the per-member
@@ -628,7 +711,7 @@ internal static class DocfxYamlBuilderExtensions
         }
 
         // Either half needing quoting forces the whole composite into
-        // double quotes — we have to materialise the joined string for
+        // double quotes -- we have to materialise the joined string for
         // the escape pass, but build it via string.Create so we don't
         // pay for separator.ToString() on top of the unavoidable result
         // allocation. The composite probe walks both halves in one pass
@@ -651,10 +734,10 @@ internal static class DocfxYamlBuilderExtensions
     }
 
     /// <summary>
-    /// Writes the syntax block for a member item — content + parameters
+    /// Writes the syntax block for a member item -- content + parameters
     /// + return for methods/operators/constructors, content + return for
     /// properties, content for fields/events. The content field uses a
-    /// folded <c>&gt;-</c> block with the member's surviving attributes
+    /// folded <c>>-</c> block with the member's surviving attributes
     /// stacked above the signature line, mirroring docfx's own shape;
     /// when no attributes survive the filter, the original short-scalar
     /// path is taken so the fast path stays branch-free.
@@ -673,8 +756,8 @@ internal static class DocfxYamlBuilderExtensions
     /// <paramref name="attributes"/> survives the
     /// <see cref="DocfxAttributeFilter"/> denylist, the attributes
     /// render as <c>[Name(args)]</c> lines stacked above the signature
-    /// inside a folded <c>&gt;-</c> block. The empty-attribute fast
-    /// path preserves the previous short-scalar behaviour exactly —
+    /// inside a folded <c>>-</c> block. The empty-attribute fast
+    /// path preserves the previous short-scalar behaviour exactly --
     /// no extra allocation, no folded-block setup work.
     /// </summary>
     /// <param name="sb">Destination builder.</param>
@@ -691,7 +774,7 @@ internal static class DocfxYamlBuilderExtensions
         var filtered = DocfxAttributeFilter.Filter(attributes);
         if (filtered is [])
         {
-            // Fast path: no surviving attributes — keep the legacy
+            // Fast path: no surviving attributes -- keep the legacy
             // single-line scalar form so output diffs against the
             // pre-tier-1c baseline are zero on the dominant case.
             return sb.Append(indent).Append("content: ").AppendScalar(signature).AppendLine();
@@ -828,7 +911,7 @@ internal static class DocfxYamlBuilderExtensions
     }
 
     /// <summary>
-    /// Writes a quoted scalar — wraps the value in double quotes and
+    /// Writes a quoted scalar -- wraps the value in double quotes and
     /// escapes embedded characters per the YAML spec.
     /// </summary>
     /// <param name="sb">Destination builder.</param>
@@ -846,7 +929,7 @@ internal static class DocfxYamlBuilderExtensions
     }
 
     /// <summary>
-    /// Writes one character of a quoted scalar — handles the standard
+    /// Writes one character of a quoted scalar -- handles the standard
     /// YAML escape sequences (<c>\n</c> / <c>\r</c> / <c>\t</c> /
     /// <c>\"</c> / <c>\\</c>) plus a hex fallback for control
     /// characters.

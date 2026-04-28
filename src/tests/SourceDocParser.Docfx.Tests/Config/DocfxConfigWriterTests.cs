@@ -73,7 +73,7 @@ public class DocfxConfigWriterTests
         using var scratch = new ScratchDirectory("docfxcw");
 
         // monoandroid is a legacy TFM that TfmResolver explicitly returns
-        // null for — guarantees no refs match regardless of what we put
+        // null for -- guarantees no refs match regardless of what we put
         // under refs/, exercising the "no matching refs" skip branch.
         WriteEmptyDll(scratch.Path, "lib/monoandroid10.0/MyPkg.dll");
         WriteEmptyDll(scratch.Path, "refs/net8.0/System.Runtime.dll");

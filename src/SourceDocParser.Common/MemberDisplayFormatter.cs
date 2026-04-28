@@ -11,12 +11,12 @@ namespace SourceDocParser.Common;
 /// <see cref="string.Create{TState}"/> with a precomputed length so each
 /// rendered name allocates exactly one string and nothing else.
 /// Stays free of the parser model so Common keeps its tight, no-deps
-/// surface — callers pass in the raw label and parameter type display
+/// surface -- callers pass in the raw label and parameter type display
 /// names array.
 /// </summary>
 public static class MemberDisplayFormatter
 {
-    /// <summary>Single comma-space separator — matches both the docfx and Microsoft Learn conventions.</summary>
+    /// <summary>Single comma-space separator -- matches both the docfx and Microsoft Learn conventions.</summary>
     private const string ParameterSeparator = ", ";
 
     /// <summary>Number of characters added by parentheses: '(' and ')'.</summary>

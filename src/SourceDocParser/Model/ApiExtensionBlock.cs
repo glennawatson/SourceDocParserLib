@@ -5,8 +5,8 @@
 namespace SourceDocParser.Model;
 
 /// <summary>
-/// One C# 14 extension declaration declared on a static container —
-/// e.g. <c>extension(string source) { public bool IsEmpty =&gt; ...; }</c>.
+/// One C# 14 extension declaration declared on a static container --
+/// e.g. <c>extension(string source) { public bool IsEmpty => ...; }</c>.
 /// Captures the receiver parameter (its name and type) plus the
 /// conceptual members declared inside the block. The compiler also
 /// emits classic <c>[Extension]</c> static implementation methods

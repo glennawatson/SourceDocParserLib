@@ -8,7 +8,7 @@ namespace SourceDocParser.IntegrationTests;
 
 /// <summary>
 /// End-to-end check on <see cref="SourceLinkValidator"/> using real
-/// public URLs from the ReactiveUI repository on github.com — picks
+/// public URLs from the ReactiveUI repository on github.com -- picks
 /// a known-stable file under <c>src/ReactiveUI/</c> on the
 /// <c>main</c> branch as the live target, plus a deliberately broken
 /// path on the same host so both code paths (success and HTTP 404)
@@ -18,11 +18,11 @@ namespace SourceDocParser.IntegrationTests;
 /// Network-dependent. Belongs in IntegrationTests rather than the
 /// unit suite for the same reason <c>EndToEndPipelineTests</c> does:
 /// CI environments that block outbound HTTP will fail it, and that's
-/// the correct signal — the validator's job is to reach out.
+/// the correct signal -- the validator's job is to reach out.
 /// </remarks>
 public class SourceLinkValidatorTests
 {
-    /// <summary>Real ReactiveUI source on the main branch — stable enough as a smoke probe.</summary>
+    /// <summary>Real ReactiveUI source on the main branch -- stable enough as a smoke probe.</summary>
     private const string KnownLiveUrl =
         "https://raw.githubusercontent.com/reactiveui/ReactiveUI/main/src/ReactiveUI/Observable.cs";
 
@@ -32,7 +32,7 @@ public class SourceLinkValidatorTests
 
     /// <summary>
     /// A list containing only resolvable URLs returns zero broken
-    /// entries — confirms the success path of the rate-limited HEAD
+    /// entries -- confirms the success path of the rate-limited HEAD
     /// pipeline against a real github.com response.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -66,7 +66,7 @@ public class SourceLinkValidatorTests
     }
 
     /// <summary>
-    /// Mixed input — one healthy URL, one missing — surfaces exactly
+    /// Mixed input -- one healthy URL, one missing -- surfaces exactly
     /// one broken entry. Also exercises the per-URL grouping by
     /// passing two entries for the same healthy URL so the dedupe
     /// logic collapses the HEAD calls.
@@ -90,7 +90,7 @@ public class SourceLinkValidatorTests
 
     /// <summary>
     /// Empty input short-circuits to zero. No HTTP traffic, no
-    /// rate-limiter spin-up — pins the early-return path.
+    /// rate-limiter spin-up -- pins the early-return path.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -107,7 +107,7 @@ public class SourceLinkValidatorTests
     /// <summary>
     /// failOnBroken: a broken URL with the flag set throws
     /// <see cref="InvalidOperationException"/> rather than returning
-    /// a count — pins the contract that build pipelines rely on for
+    /// a count -- pins the contract that build pipelines rely on for
     /// hard failure.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>

@@ -5,7 +5,7 @@
 namespace SourceDocParser.Zensical.Pages;
 
 /// <summary>
-/// Helpers for the <c>Dictionary&lt;TKey, List&lt;TVal&gt;&gt;</c>
+/// Helpers for the <c>Dictionary&lt;TKey, List&lt;TVal>></c>
 /// pattern that <see cref="ZensicalCatalogIndexes"/> uses to assemble
 /// each per-UID rollup. The "try-get / create-on-miss / add" sequence
 /// appeared in three near-identical forms before extraction; folding

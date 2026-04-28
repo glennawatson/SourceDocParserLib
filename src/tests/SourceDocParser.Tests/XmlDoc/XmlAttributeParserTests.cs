@@ -10,7 +10,7 @@ namespace SourceDocParser.Tests.XmlDoc;
 /// Direct coverage of <see cref="XmlAttributeParser"/>: parses the
 /// attribute area carved off a start tag by
 /// <see cref="XmlMarkupParser.ReadStartElement"/>. Only double-quoted
-/// values are recognised — mirrors the contract the doc scanner
+/// values are recognised -- mirrors the contract the doc scanner
 /// relies on.
 /// </summary>
 public class XmlAttributeParserTests
@@ -59,7 +59,7 @@ public class XmlAttributeParserTests
         await Assert.That(cref).IsEqualTo("T:Foo");
     }
 
-    /// <summary>Single-quoted values are not recognised — contract is double-quote only.</summary>
+    /// <summary>Single-quoted values are not recognised -- contract is double-quote only.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task GetAttributeIgnoresSingleQuotedValue()

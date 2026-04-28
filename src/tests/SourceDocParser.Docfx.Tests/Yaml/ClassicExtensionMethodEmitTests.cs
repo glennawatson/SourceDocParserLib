@@ -14,7 +14,7 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 /// <see cref="DocfxCatalogIndexes.GetExtensions(string)"/> for the
 /// receiver's UID and the rendered Target.yml page should carry the
 /// matching <c>extensionMethods:</c> field. Stops a regression in the
-/// keying convention (extended-type UID → method UIDs) the index
+/// keying convention (extended-type UID -> method UIDs) the index
 /// build relies on.
 /// </summary>
 public class ClassicExtensionMethodEmitTests

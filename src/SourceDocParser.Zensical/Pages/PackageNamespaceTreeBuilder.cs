@@ -8,12 +8,12 @@ using SourceDocParser.Zensical.Routing;
 namespace SourceDocParser.Zensical.Pages;
 
 /// <summary>
-/// Builds the canonical <em>package → namespace → entries</em> tree
+/// Builds the canonical <em>package -> namespace -> entries</em> tree
 /// shape used by the landing page generator and the navigation
 /// emitter. Both consumers had near-identical bucketing loops; the
 /// generic helper folds them into one place. Entry materialisation
-/// stays caller-side via <paramref name="entryFactory"/> so leaf
-/// records can be file-private to each consumer.
+/// stays caller-side via the per-method <c>entryFactory</c> delegate
+/// so leaf records can be file-private to each consumer.
 /// </summary>
 internal static class PackageNamespaceTreeBuilder
 {
@@ -22,8 +22,8 @@ internal static class PackageNamespaceTreeBuilder
 
     /// <summary>
     /// Buckets <paramref name="types"/> into a sorted
-    /// package → namespace → list-of-entry tree. Types whose assembly
-    /// has no matching <see cref="PackageRoutingRule"/> are skipped —
+    /// package -> namespace -> list-of-entry tree. Types whose assembly
+    /// has no matching <see cref="PackageRoutingRule"/> are skipped --
     /// they wouldn't have type pages either.
     /// </summary>
     /// <typeparam name="TEntry">The leaf entry record type produced by <paramref name="entryFactory"/>.</typeparam>

@@ -6,7 +6,7 @@ namespace SamplePdb;
 
 /// <summary>
 /// <c>[Flags]</c> enum with bitwise members + an explicit
-/// <c>byte</c> underlying type — exercises the walker's enum
+/// <c>byte</c> underlying type -- exercises the walker's enum
 /// underlying-type capture and the <c>[Flags]</c> attribute thread
 /// through.
 /// </summary>
@@ -22,6 +22,6 @@ public enum SampleFlags : byte
     /// <summary>Bit 1.</summary>
     Write = 1 << 1,
 
-    /// <summary>Composite of all defined bits — pins the walker's handling of computed enum values.</summary>
+    /// <summary>Composite of all defined bits -- pins the walker's handling of computed enum values.</summary>
     All = Read | Write,
 }

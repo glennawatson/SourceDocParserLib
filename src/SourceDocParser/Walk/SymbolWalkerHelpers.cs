@@ -12,7 +12,7 @@ namespace SourceDocParser.Walk;
 /// Pure leaf helpers used by <see cref="SymbolWalker"/>. Each method
 /// takes plain Roslyn symbols (and, where needed, the per-walk
 /// <see cref="TypeReferenceCache"/>) and returns an
-/// <see cref="ApiType"/>-shaped value — no context, no walker state, no
+/// <see cref="ApiType"/>-shaped value -- no context, no walker state, no
 /// IO. Lives apart from <see cref="SymbolWalker"/> so the orchestration
 /// (WalkCore / TryBuildType / BuildMembers) is separable from the
 /// per-symbol classification + reference-building code, and so the
@@ -28,7 +28,7 @@ internal static class SymbolWalkerHelpers
     /// <summary>
     /// Maps a Roslyn class/struct-kind type to the corresponding
     /// <see cref="ApiObjectKind"/>. Only meaningful for object-shaped
-    /// types — caller is expected to have already filtered out enums,
+    /// types -- caller is expected to have already filtered out enums,
     /// delegates, and union bases.
     /// </summary>
     /// <param name="type">Type to classify.</param>
@@ -45,7 +45,7 @@ internal static class SymbolWalkerHelpers
 
     /// <summary>
     /// Returns <see langword="true"/> if the type is a closed-hierarchy
-    /// union base — i.e. it implements
+    /// union base -- i.e. it implements
     /// <c>System.Runtime.CompilerServices.IUnion</c>. Roslyn 5.x doesn't
     /// know about C# 15 unions yet so this always returns
     /// <see langword="false"/> in practice today; on future Roslyn the
@@ -154,7 +154,7 @@ internal static class SymbolWalkerHelpers
     /// declared inside the block are also emitted by the compiler as
     /// classic <c>[Extension]</c> static methods on the parent
     /// container, so the marker type itself is metadata-only noise:
-    /// skipping it keeps the walked catalog free of <c>&lt;&gt;E__N</c>
+    /// skipping it keeps the walked catalog free of <c>&lt;>E__N</c>
     /// pages while losing nothing user-visible (the impl methods
     /// already arrive via the parent's member list).
     /// </summary>
@@ -248,7 +248,7 @@ internal static class SymbolWalkerHelpers
     /// Returns the case types of a C# 15+ closed-hierarchy union: every
     /// other type in the same assembly that derives directly from this
     /// one. Returns an empty list for non-unions or until Roslyn surfaces
-    /// the union marker — the caller is responsible for the
+    /// the union marker -- the caller is responsible for the
     /// <see cref="IsUnion"/> check before invoking this.
     /// </summary>
     /// <param name="type">Union base to inspect.</param>
@@ -258,7 +258,7 @@ internal static class SymbolWalkerHelpers
     {
         // Walk every named type in the same assembly looking for direct
         // derivations of this base. Same-assembly is the closure rule
-        // from the closed-hierarchies proposal — case types must live
+        // from the closed-hierarchies proposal -- case types must live
         // alongside the base.
         var assembly = type.ContainingAssembly;
         if (assembly is null)

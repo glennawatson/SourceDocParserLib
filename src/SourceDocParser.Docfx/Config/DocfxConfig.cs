@@ -10,7 +10,7 @@ namespace SourceDocParser.Docfx.Config;
 /// not modelled because the generator produces a complete file from the
 /// template each run.
 /// </summary>
-/// <param name="Metadata">Ordered list of metadata entries — one per lib TFM that has matching reference assemblies.</param>
+/// <param name="Metadata">Ordered list of metadata entries -- one per lib TFM that has matching reference assemblies.</param>
 /// <param name="Build">The build section, copied from the template with the content array patched to include platform-specific outputs.</param>
 public sealed record DocfxConfig(
     DocfxMetadataEntry[] Metadata,

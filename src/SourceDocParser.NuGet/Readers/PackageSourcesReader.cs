@@ -10,12 +10,12 @@ namespace SourceDocParser.NuGet.Readers;
 
 /// <summary>
 /// Hand-rolled XmlReader scanner for the
-/// <c>&lt;packageSources&gt;</c> section of a <c>nuget.config</c>
-/// — same composable shape as
+/// <c>packageSources</c> section of a <c>nuget.config</c>
+/// -- same composable shape as
 /// <see cref="NuGetConfigReader"/> and
 /// <see cref="NuspecDependencyReader"/>. Returns the per-file
-/// view (the ordered list of <c>&lt;add&gt;</c> entries plus
-/// whether a <c>&lt;clear/&gt;</c> wiped the accumulator) so the
+/// view (the ordered list of <c>add</c> entries plus
+/// whether a <c>clear/</c> wiped the accumulator) so the
 /// discovery walk can layer cross-file merge semantics on top.
 /// </summary>
 internal static class PackageSourcesReader
@@ -23,26 +23,26 @@ internal static class PackageSourcesReader
     /// <summary>NuGet's container element for the source list.</summary>
     private const string PackageSourcesElementName = "packageSources";
 
-    /// <summary>Per-source entry inside <c>&lt;packageSources&gt;</c>.</summary>
+    /// <summary>Per-source entry inside <c>packageSources</c>.</summary>
     private const string AddElementName = "add";
 
     /// <summary>Wipes the accumulator within the file (and parent values during cross-file merge).</summary>
     private const string ClearElementName = "clear";
 
-    /// <summary>Attribute on <c>&lt;add&gt;</c> carrying the friendly source name.</summary>
+    /// <summary>Attribute on <c>add</c> carrying the friendly source name.</summary>
     private const string KeyAttributeName = "key";
 
-    /// <summary>Attribute on <c>&lt;add&gt;</c> carrying the source URL.</summary>
+    /// <summary>Attribute on <c>add</c> carrying the source URL.</summary>
     private const string ValueAttributeName = "value";
 
-    /// <summary>Reader settings shared across every parse — async on so we pump a FileStream that opened with FileOptions.Asynchronous.</summary>
+    /// <summary>Reader settings shared across every parse -- async on so we pump a FileStream that opened with FileOptions.Asynchronous.</summary>
     private static readonly XmlReaderSettings _readerSettings = new()
     {
         Async = true, IgnoreComments = true, IgnoreWhitespace = true, DtdProcessing = DtdProcessing.Prohibit,
     };
 
     /// <summary>
-    /// Reads the <c>&lt;packageSources&gt;</c> section from
+    /// Reads the <c>packageSources</c> section from
     /// <paramref name="configPath"/>.
     /// </summary>
     /// <param name="configPath">Absolute path to a <c>nuget.config</c>.</param>
@@ -51,7 +51,7 @@ internal static class PackageSourcesReader
         ReadPackageSourcesAsync(configPath, CancellationToken.None);
 
     /// <summary>
-    /// Reads the <c>&lt;packageSources&gt;</c> section from
+    /// Reads the <c>packageSources</c> section from
     /// <paramref name="configPath"/>. Returns
     /// <see cref="PackageSourceFileResult.ClearedSeen"/> alongside the
     /// post-clear (or post-no-clear) entries so the discovery
@@ -80,7 +80,7 @@ internal static class PackageSourcesReader
     }
 
     /// <summary>
-    /// Reads the <c>&lt;packageSources&gt;</c> section from an open
+    /// Reads the <c>packageSources</c> section from an open
     /// <c>nuget.config</c> stream.
     /// </summary>
     /// <param name="configStream">Open stream positioned at the start of the <c>nuget.config</c> XML.</param>
@@ -89,7 +89,7 @@ internal static class PackageSourcesReader
         ReadPackageSourcesAsync(configStream, CancellationToken.None);
 
     /// <summary>
-    /// Stream-based overload — useful for tests that feed canned
+    /// Stream-based overload -- useful for tests that feed canned
     /// XML without a tempfile dance.
     /// </summary>
     /// <param name="configStream">Open stream positioned at the start of the <c>nuget.config</c> XML.</param>
@@ -105,7 +105,7 @@ internal static class PackageSourcesReader
         // section in document order. <clear/> wipes the accumulator
         // (and signals to the caller that any parent-supplied
         // entries should also be wiped during the cross-file merge).
-        // Within a file, the FIRST <add> for a given key wins —
+        // Within a file, the FIRST <add> for a given key wins --
         // duplicates are silently dropped (NuGet semantics).
         using var reader = XmlReader.Create(configStream, _readerSettings);
         var insideSection = false;

@@ -5,9 +5,9 @@
 namespace SourceDocParser.NuGet.Models;
 
 /// <summary>
-/// One <c>&lt;add&gt;</c> entry from a nuget.config
-/// <c>&lt;packageSources&gt;</c> section. <see cref="Key"/> is the
-/// human-readable name (<c>nuget.org</c>, <c>github</c>, …) and
+/// One <c>add</c> entry from a nuget.config
+/// <c>packageSources</c> section. <see cref="Key"/> is the
+/// human-readable name (<c>nuget.org</c>, <c>github</c>, ...) and
 /// <see cref="Url"/> is the V2/V3 service-index URL the fetcher
 /// hits to discover and download packages.
 /// </summary>

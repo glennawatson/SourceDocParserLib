@@ -7,9 +7,9 @@ namespace SourceDocParser.Docfx.Yaml;
 /// <summary>
 /// Pure YAML-syntax predicates that decide whether a plain scalar must
 /// be quoted to round-trip correctly. Lifted out of
-/// <see cref="DocfxYamlBuilderExtensions"/> so the rules — reserved
+/// <see cref="DocfxYamlBuilderExtensions"/> so the rules -- reserved
 /// indicators, boolean / null tokens, and the context-sensitive
-/// <c>:</c>+space and space+<c>#</c> terminators — read at problem-domain
+/// <c>:</c>+space and space+<c>#</c> terminators -- read at problem-domain
 /// level and can be unit-tested without going through a full page render.
 /// </summary>
 internal static class YamlScalarQuoting
@@ -86,7 +86,7 @@ internal static class YamlScalarQuoting
     /// that would terminate or otherwise disrupt a YAML plain scalar.
     /// <paramref name="prev"/> and <paramref name="next"/> let the
     /// scanner check the context-sensitive <c>:</c>+space and
-    /// space+<c>#</c> rules across composite boundaries — pass <c>'\0'</c>
+    /// space+<c>#</c> rules across composite boundaries -- pass <c>'\0'</c>
     /// when there's no boundary character to consult.
     /// </summary>
     /// <param name="value">Scalar segment to scan.</param>

@@ -9,7 +9,7 @@ namespace SourceDocParser.NuGet.Infrastructure;
 
 /// <summary>
 /// Installs a NuGet package into the SDK-shared global cache
-/// (<c>~/.nuget/packages/&lt;id&gt;/&lt;ver&gt;/</c>) — composes the
+/// (<c>~/.nuget/packages/{id}/{ver}/</c>) -- composes the
 /// nuget.config helpers (sources / disabled / credentials /
 /// fallback folders) so the install honours the same precedence
 /// chain <c>dotnet restore</c> uses, then short-circuits via the
@@ -139,20 +139,20 @@ public sealed class GlobalCacheInstaller : IDisposable
     /// </summary>
     /// <param name="packageId">NuGet package id.</param>
     /// <param name="packageVersion">Normalised version string.</param>
-    /// <returns>The absolute install directory the caller can enumerate <c>lib/&lt;tfm&gt;/</c> under.</returns>
+    /// <returns>The absolute install directory the caller can enumerate <c>lib/{tfm}/</c> under.</returns>
     public ValueTask<string> InstallAsync(string packageId, string packageVersion) =>
         InstallAsync(packageId, packageVersion, CancellationToken.None);
 
     /// <summary>
     /// Returns the install path for <paramref name="packageId"/> /
     /// <paramref name="packageVersion"/> after ensuring the package is
-    /// available — short-circuits when already in the global cache or a
+    /// available -- short-circuits when already in the global cache or a
     /// fallback folder, downloads + extracts otherwise.
     /// </summary>
     /// <param name="packageId">NuGet package id.</param>
     /// <param name="packageVersion">Normalised version string.</param>
     /// <param name="cancellationToken">Token observed across the install.</param>
-    /// <returns>The absolute install directory the caller can enumerate <c>lib/&lt;tfm&gt;/</c> under.</returns>
+    /// <returns>The absolute install directory the caller can enumerate <c>lib/{tfm}/</c> under.</returns>
     public async ValueTask<string> InstallAsync(string packageId, string packageVersion, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(packageId);

@@ -8,7 +8,7 @@ using SourceDocParser.Model;
 namespace SourceDocParser.Tests;
 
 /// <summary>
-/// Tests for <see cref="MetadataExtractor"/> as a pipeline orchestrator —
+/// Tests for <see cref="MetadataExtractor"/> as a pipeline orchestrator --
 /// uses fake <see cref="IAssemblySource"/> and recording
 /// <see cref="IDocumentationEmitter"/> implementations so we never
 /// touch Roslyn or the disk beyond a temp output directory.
@@ -16,7 +16,7 @@ namespace SourceDocParser.Tests;
 public class MetadataExtractorTests
 {
     /// <summary>
-    /// An empty source (no TFM groups) throws InvalidOperationException —
+    /// An empty source (no TFM groups) throws InvalidOperationException --
     /// the parser refuses to "succeed" on a no-op input because it almost
     /// always indicates a misconfigured source.
     /// </summary>

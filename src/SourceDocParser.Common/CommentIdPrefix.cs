@@ -9,7 +9,7 @@ namespace SourceDocParser.Common;
 /// <summary>
 /// Strips the two-character Roslyn documentation-comment prefix
 /// (<c>T:</c>, <c>M:</c>, <c>P:</c>, <c>E:</c>, <c>F:</c>, <c>N:</c>)
-/// from a documentation comment ID. Used by both emitter packages —
+/// from a documentation comment ID. Used by both emitter packages --
 /// docfx for its bare <c>uid</c> field, Zensical for stripped autoref
 /// labels and namespace-prefix attribute filtering.
 /// </summary>
@@ -28,7 +28,7 @@ public static class CommentIdPrefix
     public static string Strip(string commentId) =>
         commentId is [_, Separator, ..] ? commentId[PrefixLength..] : commentId;
 
-    /// <summary>Span-returning variant — avoids the substring allocation when only a read is needed.</summary>
+    /// <summary>Span-returning variant -- avoids the substring allocation when only a read is needed.</summary>
     /// <param name="commentId">The prefixed comment ID.</param>
     /// <returns>A span over the bare name region.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

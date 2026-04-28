@@ -94,6 +94,6 @@ public class LargeAssemblyEmitterPageBoundsTests
         await Assert.That(emittedFiles)
             .IsLessThan(allowed)
             .Because($"emitter produced {emittedFiles} pages from {result.CanonicalTypes} canonical types " +
-                $"(ratio {(double)emittedFiles / result.CanonicalTypes:F1}x); cap is {MaxPagesPerType}× = {allowed}.");
+                $"(ratio {(double)emittedFiles / result.CanonicalTypes:F1}x); cap is {MaxPagesPerType}x = {allowed}.");
     }
 }

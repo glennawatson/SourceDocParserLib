@@ -9,7 +9,7 @@ namespace SourceDocParser.Docfx.Yaml;
 
 /// <summary>
 /// Synthesises the C# declaration line that docfx renders inside
-/// the type-level <c>syntax: content:</c> field — the
+/// the type-level <c>syntax: content:</c> field -- the
 /// <c>public class Foo : Bar, IBaz</c> shape that the walker
 /// doesn't pre-format. The walker exposes structured bits
 /// (<see cref="ApiObjectType.Kind"/>, modifier flags,
@@ -77,7 +77,7 @@ internal static class DocfxObjectSignature
     }
 
     /// <summary>
-    /// Returns the C# keyword for an <see cref="ApiObjectKind"/> —
+    /// Returns the C# keyword for an <see cref="ApiObjectKind"/> --
     /// <c>class</c>, <c>struct</c>, <c>interface</c>, <c>record</c>,
     /// or <c>record struct</c>.
     /// </summary>
@@ -116,7 +116,7 @@ internal static class DocfxObjectSignature
 
     /// <summary>
     /// Returns true when the type's <see cref="ApiType.BaseType"/>
-    /// would just restate the implicit BCL base — <c>System.Object</c>
+    /// would just restate the implicit BCL base -- <c>System.Object</c>
     /// for classes, <c>System.ValueType</c> for structs. The walker
     /// already filters those out (returning null), but the predicate
     /// is here so a future model change that surfaces them doesn't

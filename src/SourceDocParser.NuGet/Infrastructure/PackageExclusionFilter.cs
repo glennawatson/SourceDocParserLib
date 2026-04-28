@@ -55,7 +55,7 @@ internal static class PackageExclusionFilter
     /// <summary>
     /// Returns <see langword="true"/> when the transitive walk should
     /// skip <paramref name="id"/> because it's a native / RID-specific
-    /// runtime package that contributes zero managed types — checked
+    /// runtime package that contributes zero managed types -- checked
     /// in addition to the user's own exclude list.
     /// </summary>
     /// <param name="id">Discovered transitive package ID.</param>

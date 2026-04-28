@@ -15,7 +15,7 @@ internal static class XmlAttributeParser
     /// <summary>The four whitespace characters allowed inside an XML start tag.</summary>
     private static readonly SearchValues<char> WhitespaceChars = SearchValues.Create(" \t\r\n");
 
-    /// <summary>Whitespace plus <c>=</c> — anything that ends an attribute name or precedes the opening quote.</summary>
+    /// <summary>Whitespace plus <c>=</c> -- anything that ends an attribute name or precedes the opening quote.</summary>
     private static readonly SearchValues<char> NameTerminatorChars = SearchValues.Create("= \t\r\n");
 
     /// <summary>
@@ -24,7 +24,7 @@ internal static class XmlAttributeParser
     /// present. Only double-quoted values are supported. The lookup
     /// runs once per attribute on every
     /// <see cref="DocXmlScanner.GetAttribute"/> call, so the parse is
-    /// kept to a single inner method — chaining the per-step helpers
+    /// kept to a single inner method -- chaining the per-step helpers
     /// (whitespace skip, name read, equals skip, quoted value read)
     /// shows up directly in <c>XmlDocToMarkdownBenchmarks</c>.
     /// </summary>
@@ -50,7 +50,7 @@ internal static class XmlAttributeParser
     /// advancing <paramref name="index"/> past it. Uses
     /// <see cref="MemoryExtensions.IndexOfAnyExcept{T}(ReadOnlySpan{T}, ReadOnlySpan{T})"/>
     /// for the whitespace / name / equals scans so the per-attribute
-    /// loops stay vectorised — the per-symbol render calls this on
+    /// loops stay vectorised -- the per-symbol render calls this on
     /// every doc tag and the cumulative cost shows up in
     /// <c>XmlDocToMarkdownBenchmarks</c>.
     /// </summary>

@@ -11,7 +11,7 @@ namespace SourceDocParser.Model;
 /// <see cref="Cases"/> list points at the case types (themselves
 /// emitted as their own <see cref="ApiObjectType"/> records).
 /// Members declared on the union base itself are kept on
-/// <see cref="Members"/> for completeness — typically empty in
+/// <see cref="Members"/> for completeness -- typically empty in
 /// practice but available when the user adds shared methods.
 /// </summary>
 /// <param name="Name">The simple name.</param>

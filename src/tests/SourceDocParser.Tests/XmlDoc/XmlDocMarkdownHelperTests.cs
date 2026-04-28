@@ -19,7 +19,7 @@ namespace SourceDocParser.Tests.XmlDoc;
 /// </summary>
 public class XmlDocMarkdownHelperTests
 {
-    /// <summary>An empty cell is rendered as a single space — keeps GFM table columns aligned.</summary>
+    /// <summary>An empty cell is rendered as a single space -- keeps GFM table columns aligned.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task TableEscapeRendersEmptyAsSingleSpace() =>
@@ -85,7 +85,7 @@ public class XmlDocMarkdownHelperTests
     public async Task ConvertSpanToMarkdownReturnsEmptyForEmptySpan() =>
         await Assert.That(XmlDocMarkdownHelper.ConvertSpanToMarkdown(default)).IsEqualTo(string.Empty);
 
-    /// <summary>Plain text bypasses the scanner — entities are still decoded.</summary>
+    /// <summary>Plain text bypasses the scanner -- entities are still decoded.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ConvertSpanToMarkdownDecodesPlainTextEntities() =>

@@ -4,7 +4,7 @@
 
 namespace SamplePdb;
 
-/// <summary>Outer type containing a nested type — exercises nested-type uid generation.</summary>
+/// <summary>Outer type containing a nested type -- exercises nested-type uid generation.</summary>
 public class Outer
 {
     /// <summary>Returns a fresh nested instance.</summary>

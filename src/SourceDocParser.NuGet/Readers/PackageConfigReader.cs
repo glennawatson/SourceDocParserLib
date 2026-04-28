@@ -15,7 +15,7 @@ namespace SourceDocParser.NuGet.Readers;
 /// </summary>
 internal static class PackageConfigReader
 {
-    /// <summary>Strict parse options — duplicate keys throw rather than silently last-one-wins.</summary>
+    /// <summary>Strict parse options -- duplicate keys throw rather than silently last-one-wins.</summary>
     private static readonly JsonDocumentOptions _strictOptions = new() { AllowDuplicateProperties = false };
 
     /// <summary>

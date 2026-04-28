@@ -59,7 +59,7 @@ public class FallbackPackageFoldersReaderTests
     }
 
     /// <summary>
-    /// Duplicate keys within a file are dropped — first add wins.
+    /// Duplicate keys within a file are dropped -- first add wins.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]

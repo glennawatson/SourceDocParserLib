@@ -27,7 +27,7 @@ public class DocfxCatalogIndexesTests
         await Assert.That(indexes).IsSameReferenceAs(DocfxCatalogIndexes.Empty);
     }
 
-    /// <summary>Misses return the shared empty array — no per-query allocation.</summary>
+    /// <summary>Misses return the shared empty array -- no per-query allocation.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task UnknownUidReturnsEmptyArray()

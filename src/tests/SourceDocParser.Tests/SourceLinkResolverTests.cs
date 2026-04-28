@@ -10,7 +10,7 @@ namespace SourceDocParser.Tests;
 
 /// <summary>
 /// Tests for <see cref="SourceLinkResolver"/> and <see cref="ISourceLinkResolver"/>.
-/// Driven against the test runner's own DLL — we don't assume it ships with
+/// Driven against the test runner's own DLL -- we don't assume it ships with
 /// SourceLink data, so most assertions are about graceful-null behaviour.
 /// </summary>
 public class SourceLinkResolverTests
@@ -20,7 +20,7 @@ public class SourceLinkResolverTests
         Path.Combine(AppContext.BaseDirectory, "SourceDocParser.dll");
 
     /// <summary>
-    /// Constructing against a non-existent file does not throw — the
+    /// Constructing against a non-existent file does not throw -- the
     /// resolver swallows IO errors so a single broken assembly never
     /// aborts a multi-package walk.
     /// </summary>
@@ -65,9 +65,9 @@ public class SourceLinkResolverTests
     }
 
     /// <summary>
-    /// Resolve traverses every accessor branch — set-only property,
+    /// Resolve traverses every accessor branch -- set-only property,
     /// add-only event, remove-only event, field, and the type
-    /// fallback — without throwing.
+    /// fallback -- without throwing.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]

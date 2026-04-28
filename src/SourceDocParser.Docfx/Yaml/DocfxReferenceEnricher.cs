@@ -15,7 +15,7 @@ namespace SourceDocParser.Docfx.Yaml;
 /// fields docfx itself populates: <c>parent</c>, <c>isExternal</c>,
 /// <c>href</c>, and the generic-form <c>spec.csharp</c> token list.
 /// Classification is driven by a set of internal UIDs (types this
-/// emitter wrote pages for) — anything outside that set is treated
+/// emitter wrote pages for) -- anything outside that set is treated
 /// as external; BCL types additionally route to Microsoft Learn.
 /// UID parsing / normalization sits in <see cref="UidNormalization"/>;
 /// this class focuses on YAML emission.
@@ -70,7 +70,7 @@ internal static class DocfxReferenceEnricher
 
         // BCL primitive class types render as their C# keyword
         // alias so the YAML matches docfx's own output (e.g. Object
-        // → object, String → string). Value types come through the
+        // -> object, String -> string). Value types come through the
         // walker already keyword-formatted; only class types need
         // this rewrite.
         var displayLabel = BclTypeAliases.ToKeyword(bareName, displayName);
@@ -113,7 +113,7 @@ internal static class DocfxReferenceEnricher
         }
 
         // Microsoft Learn URLs lowercase the type and rewrite arity
-        // backticks to hyphens — System.Action`1 → system.action-1.
+        // backticks to hyphens -- System.Action`1 -> system.action-1.
         var slug = UidNormalization.StripPrefix(openGenericUid).ToLower(CultureInfo.InvariantCulture).Replace('`', '-');
         return LearnBaseUrl + slug;
     }
@@ -146,7 +146,7 @@ internal static class DocfxReferenceEnricher
     /// </summary>
     /// <param name="sb">Destination builder.</param>
     /// <param name="uid">Full reference UID; its brace region carries fully-qualified names for spec components.</param>
-    /// <param name="displayName">Display form of the generic reference (e.g. <c>IObservable&lt;int&gt;</c>).</param>
+    /// <param name="displayName">Display form of the generic reference (e.g. <c>IObservable&lt;int></c>).</param>
     /// <param name="openGenericUid">Open-generic UID for the base type token.</param>
     /// <param name="internalUids">Set used to classify each token as internal or external.</param>
     private static void AppendSpecCsharp(
@@ -216,7 +216,7 @@ internal static class DocfxReferenceEnricher
             .Append("    name: ").AppendScalar(name).AppendLine();
 
         // spec.csharp components are always referenced as a separate
-        // entry — docfx emits `isExternal: true` regardless of whether
+        // entry -- docfx emits `isExternal: true` regardless of whether
         // the target type is in the current walk. This keeps the spec
         // shape stable across pages and matches the docfx output we
         // diff against.
@@ -238,7 +238,7 @@ internal static class DocfxReferenceEnricher
         sb.Append(indent).AppendLine("isExternal: true");
     }
 
-    /// <summary>Writes <c>href: …</c> at the requested indent when the value is non-empty.</summary>
+    /// <summary>Writes <c>href: ...</c> at the requested indent when the value is non-empty.</summary>
     /// <param name="sb">Destination builder.</param>
     /// <param name="href">Pre-resolved href value.</param>
     /// <param name="indent">Leading indent for the line.</param>
@@ -253,8 +253,8 @@ internal static class DocfxReferenceEnricher
     }
 
     /// <summary>
-    /// Renders one type-arg of a constructed generic — recurses into
-    /// nested generics so <c>Func&lt;IObservable&lt;int&gt;&gt;</c>
+    /// Renders one type-arg of a constructed generic -- recurses into
+    /// nested generics so <c>Func&lt;IObservable&lt;int>></c>
     /// produces a nested spec list rather than a flat string. The
     /// UID brace region carries fully-qualified names so it drives
     /// component UIDs; the display brace region drives the labels.
@@ -273,7 +273,7 @@ internal static class DocfxReferenceEnricher
         {
             // Plain leaf type: emit a single component using the FQN
             // from the UID side and the short label from the display
-            // side. Display may be unqualified — fall back to the
+            // side. Display may be unqualified -- fall back to the
             // promoted UID name when display is empty.
             var leafUid = trimmedUid is [_, ..]
                 ? "T:" + BclTypeAliases.ToClr(trimmedUid)

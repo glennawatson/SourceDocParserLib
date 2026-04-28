@@ -10,7 +10,7 @@ namespace SourceDocParser.Zensical.Pages;
 
 /// <summary>
 /// Builds the friendly heading text used by
-/// <see cref="MemberPageEmitter"/> — the Microsoft Learn convention
+/// <see cref="MemberPageEmitter"/> -- the Microsoft Learn convention
 /// where constructors render as <c>TypeName(args)</c>, methods and
 /// operators include their parameter list, and properties / fields
 /// / events show their bare name. Mirrors the logic in
@@ -21,7 +21,7 @@ namespace SourceDocParser.Zensical.Pages;
 internal static class ZensicalMemberDisplayName
 {
     /// <summary>
-    /// Returns the heading text for the overload group page —
+    /// Returns the heading text for the overload group page --
     /// <c>TypeName(args)</c> for constructors, <c>Type.Method(args)</c>
     /// for methods, <c>Type.Property</c> for properties.
     /// </summary>
@@ -43,7 +43,7 @@ internal static class ZensicalMemberDisplayName
 
     /// <summary>
     /// Tests whether a member kind takes a parameter list when rendered as
-    /// a Markdown heading — true for constructors, methods, and operators.
+    /// a Markdown heading -- true for constructors, methods, and operators.
     /// </summary>
     /// <param name="kind">Member kind.</param>
     /// <returns>True when the friendly heading ends in <c>(args)</c>.</returns>

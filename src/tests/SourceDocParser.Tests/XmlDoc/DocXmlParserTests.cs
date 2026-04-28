@@ -11,8 +11,8 @@ namespace SourceDocParser.Tests.XmlDoc;
 /// Direct coverage of <see cref="DocXmlParser"/>: parses one
 /// member-level XML doc fragment into a
 /// <see cref="SourceDocParser.Model.RawDocumentation"/>. Walks each
-/// top-level handler — common single-value tags, multi-value tags
-/// (param, typeparam, exception, example), seealso, and inheritdoc —
+/// top-level handler -- common single-value tags, multi-value tags
+/// (param, typeparam, exception, example), seealso, and inheritdoc --
 /// plus the IsCommonTag classifier.
 /// </summary>
 public class DocXmlParserTests
@@ -201,7 +201,7 @@ public class DocXmlParserTests
 
     /// <summary>Constructs a <see cref="DocResolveContext"/> backed by an
     /// empty Roslyn compilation, then runs <see cref="DocXmlParser.Parse"/>.
-    /// As of v0.3 the parser captures raw inner XML — the converter is
+    /// As of v0.3 the parser captures raw inner XML -- the converter is
     /// no longer invoked at parse time.</summary>
     /// <param name="memberXml">Raw member XML to parse.</param>
     /// <returns>The parsed raw documentation.</returns>

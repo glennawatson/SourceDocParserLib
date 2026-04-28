@@ -55,7 +55,7 @@ public class ObsoleteAndCompilerGenTests
 
         var pages = await new ZensicalDocumentationEmitter().EmitAsync([legitimate, displayClass], scratch.Path);
 
-        // Only Foo + 1 package landing + 1 namespace landing — the
+        // Only Foo + 1 package landing + 1 namespace landing -- the
         // display class never reaches the page emitter.
         await Assert.That(pages).IsEqualTo(3);
     }

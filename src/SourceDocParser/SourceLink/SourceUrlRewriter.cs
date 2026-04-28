@@ -7,7 +7,7 @@ namespace SourceDocParser.SourceLink;
 /// <summary>
 /// Rewrites raw SourceLink URLs into human-friendly blob URLs by
 /// dispatching through <see cref="BlobUrlProviders"/> in priority
-/// order (GitHub → GitLab → Bitbucket → Azure DevOps → fallback).
+/// order (GitHub -> GitLab -> Bitbucket -> Azure DevOps -> fallback).
 /// Each provider recognises a single host's raw shape; the first
 /// match wins. Unknown hosts get the default <c>#L{line}</c> anchor.
 /// </summary>

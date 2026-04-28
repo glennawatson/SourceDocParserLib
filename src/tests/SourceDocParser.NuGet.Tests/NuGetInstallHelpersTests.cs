@@ -364,7 +364,7 @@ public class NuGetInstallHelpersTests
             installPath,
             CancellationToken.None);
 
-    /// <summary>Test helper — feed client backed by static service-index/nupkg responses + counters.</summary>
+    /// <summary>Test helper -- feed client backed by static service-index/nupkg responses + counters.</summary>
     private sealed class RecordingFeedHttpClient : INuGetFeedHttpClient
     {
         /// <summary>Gets or sets the body returned by service-index reads.</summary>
@@ -399,7 +399,7 @@ public class NuGetInstallHelpersTests
         }
     }
 
-    /// <summary>Test helper — feed client returning queued responses per call.</summary>
+    /// <summary>Test helper -- feed client returning queued responses per call.</summary>
     private sealed class SequencedFakeFeed : INuGetFeedHttpClient
     {
         /// <summary>One responder per expected nupkg call, consumed in order.</summary>

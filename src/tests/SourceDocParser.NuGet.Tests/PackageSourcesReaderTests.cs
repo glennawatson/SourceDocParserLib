@@ -10,7 +10,7 @@ namespace SourceDocParser.NuGet.Tests;
 /// <summary>
 /// Pins <see cref="PackageSourcesReader"/> against fixture
 /// <c>nuget.config</c> files plus inline canned XML for the
-/// edge cases — first-add-wins on duplicate keys, <c>clear</c>
+/// edge cases -- first-add-wins on duplicate keys, <c>clear</c>
 /// resets the within-file accumulator, post-clear adds remain.
 /// </summary>
 public class PackageSourcesReaderTests
@@ -35,7 +35,7 @@ public class PackageSourcesReaderTests
     }
 
     /// <summary>
-    /// A file with <c>&lt;clear/&gt;</c> followed by a single add
+    /// A file with <c>clear/</c> followed by a single add
     /// returns just that add and reports <c>ClearedSeen = true</c>
     /// so the discovery walk stops chaining to parents.
     /// </summary>
@@ -53,8 +53,8 @@ public class PackageSourcesReaderTests
     }
 
     /// <summary>
-    /// Within a file, the FIRST <c>&lt;add&gt;</c> for a given key
-    /// wins — duplicates after it are silently dropped. Mirrors
+    /// Within a file, the FIRST <c>add</c> for a given key
+    /// wins -- duplicates after it are silently dropped. Mirrors
     /// NuGet's <c>GetFirstItemWithAttribute</c> rule.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -107,7 +107,7 @@ public class PackageSourcesReaderTests
 
     /// <summary>
     /// A file without a <c>packageSources</c> section returns an
-    /// empty result with <c>ClearedSeen = false</c> — discovery
+    /// empty result with <c>ClearedSeen = false</c> -- discovery
     /// keeps walking.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>

@@ -7,7 +7,7 @@ namespace SourceDocParser.Docfx.Yaml;
 /// <summary>
 /// <see cref="ICrefResolver"/> implementation tuned for docfx's
 /// ManagedReference YAML output. Renders cref references as docfx's
-/// native <c>&lt;xref:UID&gt;</c> form so docfx's xrefmap step can
+/// native <c>xref:UID</c> form so docfx's xrefmap step can
 /// resolve them at site-build time, falling back to inline code for
 /// the empty-UID and generic-parameter (<c>!:</c>) cases.
 /// </summary>

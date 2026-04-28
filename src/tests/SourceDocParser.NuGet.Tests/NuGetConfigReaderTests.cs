@@ -12,7 +12,7 @@ namespace SourceDocParser.NuGet.Tests;
 /// <c>nuget.config</c> files copied to the test bin output. The
 /// fixtures live under <c>Fixtures/{with-global,without-global}/nuget.config</c>
 /// and exercise both branches of the
-/// <c>globalPackagesFolder</c> probe — present and absent.
+/// <c>globalPackagesFolder</c> probe -- present and absent.
 /// </summary>
 public class NuGetConfigReaderTests
 {
@@ -34,7 +34,7 @@ public class NuGetConfigReaderTests
 
     /// <summary>
     /// A nuget.config without that key returns <see langword="null"/>
-    /// — caller falls back to the next config in the chain or the
+    /// -- caller falls back to the next config in the chain or the
     /// platform default.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -50,8 +50,8 @@ public class NuGetConfigReaderTests
     }
 
     /// <summary>
-    /// Settings outside the <c>&lt;config&gt;</c> container are
-    /// ignored — packageSources also uses <c>add key=… value=…</c>
+    /// Settings outside the <c>config</c> container are
+    /// ignored -- packageSources also uses <c>add key=... value=...</c>
     /// and we don't want to pick up a <c>nuget.org</c> URL by
     /// accident.
     /// </summary>
@@ -98,8 +98,8 @@ public class NuGetConfigReaderTests
     }
 
     /// <summary>
-    /// First <c>&lt;add&gt;</c> wins per NuGet's
-    /// <c>GetFirstItemWithAttribute</c> rule — duplicates inside
+    /// First <c>add</c> wins per NuGet's
+    /// <c>GetFirstItemWithAttribute</c> rule -- duplicates inside
     /// the same file are ignored.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -124,7 +124,7 @@ public class NuGetConfigReaderTests
     }
 
     /// <summary>
-    /// <c>&lt;clear/&gt;</c> wipes earlier in-file accumulator —
+    /// <c>clear/</c> wipes earlier in-file accumulator --
     /// the post-clear add becomes the resolved value.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -150,8 +150,8 @@ public class NuGetConfigReaderTests
     }
 
     /// <summary>
-    /// <c>&lt;clear/&gt;</c> with no following <c>&lt;add&gt;</c>
-    /// produces the <c>Cleared</c> tri-state — the discovery walk
+    /// <c>clear/</c> with no following <c>add</c>
+    /// produces the <c>Cleared</c> tri-state -- the discovery walk
     /// stops on this and falls through to the platform default,
     /// erasing any parent's value.
     /// </summary>

@@ -6,7 +6,7 @@ namespace SourceDocParser.NuGet.Models;
 
 /// <summary>
 /// One per-source credential block from a nuget.config
-/// <c>&lt;packageSourceCredentials&gt;</c> section. We only consume
+/// <c>packageSourceCredentials</c> section. We only consume
 /// the cleartext / env-expanded path (encrypted blobs require
 /// Windows DPAPI which we don't take a dep on); GitHub Packages and
 /// Azure Artifacts both work via PAT-in-env-var.
@@ -14,7 +14,7 @@ namespace SourceDocParser.NuGet.Models;
 /// <param name="SourceKey">Friendly source name (matches <see cref="PackageSource.Key"/>).</param>
 /// <param name="Username">User name to send.</param>
 /// <param name="ClearTextPassword">Already-resolved password (env-var expanded if the config used <c>%VAR%</c>).</param>
-/// <param name="ValidAuthenticationTypes">Comma-separated auth types (e.g. <c>basic</c>) — null when unset.</param>
+/// <param name="ValidAuthenticationTypes">Comma-separated auth types (e.g. <c>basic</c>) -- null when unset.</param>
 public readonly record struct PackageSourceCredential(
     string SourceKey,
     string Username,

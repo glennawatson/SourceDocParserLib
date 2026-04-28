@@ -4,7 +4,7 @@
 
 namespace SamplePdb;
 
-/// <summary>Lambdas — produce <c>&lt;&gt;c</c> display classes the walker should filter out.</summary>
+/// <summary>Lambdas -- produce <c>&lt;>c</c> display classes the walker should filter out.</summary>
 public class Lambdas
 {
     /// <summary>Returns a lambda that adds one.</summary>

@@ -48,7 +48,7 @@ internal static class Program
     /// <summary>
     /// Console entry point.
     /// </summary>
-    /// <param name="args">Command-line args: <c>&lt;trace.nettrace&gt; [topN]</c>.</param>
+    /// <param name="args">Command-line args: <c>&lt;trace.nettrace> [topN]</c>.</param>
     /// <returns>
     /// 0 on success; <see cref="ExitCodeUsageError"/> on usage error;
     /// <see cref="ExitCodeTraceFileNotFound"/> if the trace path is missing;
@@ -149,7 +149,7 @@ internal static class Program
     /// <param name="stats">Aggregated stats whose totals are printed.</param>
     private static void WriteHeader(string tracePath, AggregatedStats stats)
     {
-        Console.WriteLine($"# Allocation Report — {Path.GetFileName(tracePath)}");
+        Console.WriteLine($"# Allocation Report -- {Path.GetFileName(tracePath)}");
         Console.WriteLine();
         Console.WriteLine($"- Total sampled allocation bytes: **{FormatBytes(stats.TotalBytes)}**");
         Console.WriteLine($"- Total sample events: **{stats.TotalSamples:N0}**");
@@ -204,8 +204,9 @@ internal static class Program
 
     /// <summary>
     /// Walks <paramref name="stack"/> top-down (callee-first) and
-    /// formats it as a single line of <c>frame ← caller</c> entries
-    /// truncated to <paramref name="depth"/>.
+    /// formats it as a single line where each frame is separated from
+    /// its caller by a left-arrow joiner, truncated to
+    /// <paramref name="depth"/>.
     /// </summary>
     /// <param name="stack">Stack to render.</param>
     /// <param name="depth">Maximum frame count to include.</param>
@@ -225,7 +226,7 @@ internal static class Program
             current = current.Caller;
         }
 
-        return frames.Count == 0 ? "<no frames>" : string.Join(" ← ", frames);
+        return frames.Count == 0 ? "<no frames>" : string.Join(" <- ", frames);
     }
 
     /// <summary>
@@ -267,7 +268,7 @@ internal static class Program
         /// <summary>Number of samples that landed on this stack.</summary>
         public long Samples;
 
-        /// <summary>The first allocated type seen on this stack — used as a label in the report.</summary>
+        /// <summary>The first allocated type seen on this stack -- used as a label in the report.</summary>
         public string? TopType;
     }
 
@@ -277,7 +278,7 @@ internal static class Program
     /// to re-iterate.
     /// </summary>
     /// <param name="ByType">Per-type allocation accumulators.</param>
-    /// <param name="ByStack">Per-stack allocation accumulators (stack key → stat).</param>
+    /// <param name="ByStack">Per-stack allocation accumulators (stack key -> stat).</param>
     /// <param name="TotalBytes">Sum of every sampled allocation's byte count.</param>
     /// <param name="TotalSamples">Total number of GCAllocationTick samples observed.</param>
     private sealed record AggregatedStats(

@@ -108,7 +108,7 @@ public class ManagedAssemblyExtractorTests
     }
 
     /// <summary>Builds an in-memory ZIP with the supplied entries (each entry written with <see cref="ZipArchiveMode.Create"/>).</summary>
-    /// <param name="entries">Entries to write — full path + raw bytes.</param>
+    /// <param name="entries">Entries to write -- full path + raw bytes.</param>
     /// <returns>Stream positioned at 0 ready to be read.</returns>
     private static MemoryStream BuildArchive(params (string Path, byte[] Bytes)[] entries)
     {

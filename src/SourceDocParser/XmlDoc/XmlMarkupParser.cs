@@ -38,7 +38,7 @@ internal static class XmlMarkupParser
     /// Consumes a markup token starting at the current opening character.
     /// Dispatches on the character immediately after <c>&lt;</c> so the
     /// common-case start element doesn't pay for four upstream
-    /// <c>TryRead</c> probes — a measurable hit on the per-symbol
+    /// <c>TryRead</c> probes -- a measurable hit on the per-symbol
     /// XmlDocToMarkdown bench.
     /// </summary>
     /// <param name="input">The full input span.</param>

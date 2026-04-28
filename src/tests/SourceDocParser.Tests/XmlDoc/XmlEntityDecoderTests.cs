@@ -47,7 +47,7 @@ public class XmlEntityDecoderTests
         await Assert.That(sb.ToString()).IsEqualTo("ab");
     }
 
-    /// <summary>An ampersand without a closing semicolon is appended verbatim — the malformed-entity contract.</summary>
+    /// <summary>An ampersand without a closing semicolon is appended verbatim -- the malformed-entity contract.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task AppendDecodedAppendsMalformedEntityVerbatim()
@@ -67,7 +67,7 @@ public class XmlEntityDecoderTests
         await Assert.That(sb.ToString()).IsEqualTo("ab");
     }
 
-    /// <summary>An empty input produces an empty append — the caller's StringBuilder isn't mutated.</summary>
+    /// <summary>An empty input produces an empty append -- the caller's StringBuilder isn't mutated.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task AppendDecodedNoOpForEmptyInput()
@@ -137,7 +137,7 @@ public class XmlEntityDecoderTests
     [Test]
     public async Task TryParseNumericRefRejectsAboveBmp() => await Assert.That(XmlEntityDecoder.TryParseNumericRef("x10000".AsSpan(), out _)).IsFalse();
 
-    /// <summary>TryParseNumericRef rejects negative values (defensive — int.TryParse accepts a leading minus).</summary>
+    /// <summary>TryParseNumericRef rejects negative values (defensive -- int.TryParse accepts a leading minus).</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task TryParseNumericRefRejectsNegative() => await Assert.That(XmlEntityDecoder.TryParseNumericRef("-5".AsSpan(), out _)).IsFalse();

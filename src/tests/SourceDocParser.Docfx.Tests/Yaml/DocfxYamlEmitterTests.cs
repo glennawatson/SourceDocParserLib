@@ -10,8 +10,8 @@ using YamlDotNet.RepresentationModel;
 namespace SourceDocParser.Docfx.Tests.Yaml;
 
 /// <summary>
-/// Pins the DocfxYamlEmitter contract — header / per-kind item shape /
-/// references list / commentId mapping — by parsing the generated YAML
+/// Pins the DocfxYamlEmitter contract -- header / per-kind item shape /
+/// references list / commentId mapping -- by parsing the generated YAML
 /// back through YamlDotNet's RepresentationModel and asserting on the
 /// resulting node tree. Round-tripping rather than string-matching
 /// keeps the tests robust against whitespace tweaks while still
@@ -53,7 +53,7 @@ public class DocfxYamlEmitterTests
 
     /// <summary>
     /// Every page starts with the docfx YamlMime header and an items
-    /// sequence with at least one entry — the contract every consumer
+    /// sequence with at least one entry -- the contract every consumer
     /// (docfx itself, downstream tooling) relies on for discovery.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -101,7 +101,7 @@ public class DocfxYamlEmitterTests
 
     /// <summary>
     /// Enum pages skip per-value member items but surface the values
-    /// under a syntax → parameters list — the docfx convention that
+    /// under a syntax -> parameters list -- the docfx convention that
     /// lets the default template render them as a value table.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -118,7 +118,7 @@ public class DocfxYamlEmitterTests
         var yaml = DocfxYamlEmitter.Render(type);
         var items = (YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("items")];
 
-        // No per-value member items — a single type item carries the values inline.
+        // No per-value member items -- a single type item carries the values inline.
         await Assert.That(items.Children).Count().IsEqualTo(1);
         var typeItem = (YamlMappingNode)items.Children[0];
         await Assert.That(typeItem[new YamlScalarNode("type")].ToString()).IsEqualTo("Enum");
@@ -133,8 +133,8 @@ public class DocfxYamlEmitterTests
 
     /// <summary>
     /// Delegate pages emit only the type item and surface the Invoke
-    /// signature under syntax → content. No per-overload member items
-    /// — the page itself is the signature.
+    /// signature under syntax -> content. No per-overload member items
+    /// -- the page itself is the signature.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -172,7 +172,7 @@ public class DocfxYamlEmitterTests
         // both in items[].name and items[].uid; whatever escape strategy
         // the emitter picks must survive a round-trip parse. Use a
         // property-kind member so the friendly-name pass doesn't append
-        // parens — this test is about YAML scalar correctness, not name
+        // parens -- this test is about YAML scalar correctness, not name
         // policy.
         var member = NewMember(raw, $"M:Foo.{raw}", ApiMemberKind.Property);
         var type = TestData.ObjectType("Foo") with { Members = [member] };
@@ -252,7 +252,7 @@ public class DocfxYamlEmitterTests
     public async Task QualifiedNameWithSafeIdentifiersStaysUnquoted()
     {
         // Use property kind so the friendly-name pass doesn't append
-        // parens — this test pins the qualified-scalar quoting policy,
+        // parens -- this test pins the qualified-scalar quoting policy,
         // not the method-naming convention.
         var member = NewMember("Run", "P:Foo.Run", ApiMemberKind.Property);
         var type = TestData.ObjectType("Foo") with { Members = [member] };
@@ -281,7 +281,7 @@ public class DocfxYamlEmitterTests
         var yaml = DocfxYamlEmitter.Render(type);
         var memberItem = (YamlMappingNode)((YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("items")]).Children[1];
 
-        // Round-trips back to the original composite — the quoted form
+        // Round-trips back to the original composite -- the quoted form
         // preserves the leading colon docfx readers expect.
         await Assert.That(memberItem[new YamlScalarNode("nameWithType")].ToString()).IsEqualTo("Foo.: leading colon");
     }
@@ -336,7 +336,7 @@ public class DocfxYamlEmitterTests
 
     /// <summary>
     /// Every kind label maps to the exact docfx <c>type:</c> token its
-    /// metadata extractor would produce — the rest of the docfx
+    /// metadata extractor would produce -- the rest of the docfx
     /// pipeline pattern-matches on these strings, so any drift breaks
     /// downstream rendering.
     /// </summary>
@@ -429,7 +429,7 @@ public class DocfxYamlEmitterTests
 
     /// <summary>
     /// Generic types encode arity into their UID/name ('`1', '`2', etc.)
-    /// per docfx convention — verified through round-trip.
+    /// per docfx convention -- verified through round-trip.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -446,7 +446,7 @@ public class DocfxYamlEmitterTests
 
     /// <summary>
     /// Global-namespace types omit the <c>namespace:</c> field entirely
-    /// — emitting an empty value would parse as null and confuse docfx.
+    /// -- emitting an empty value would parse as null and confuse docfx.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -582,7 +582,7 @@ public class DocfxYamlEmitterTests
     }
 
     /// <summary>
-    /// Page is parseable as a single YAML document — guards against
+    /// Page is parseable as a single YAML document -- guards against
     /// stray document separators (<c>---</c>) or accidental multiple
     /// documents in the output stream.
     /// </summary>
@@ -602,7 +602,7 @@ public class DocfxYamlEmitterTests
 
     /// <summary>
     /// Non-ASCII characters in member names round-trip through the
-    /// scalar escape path — UTF-8 emitters and YamlDotNet readers
+    /// scalar escape path -- UTF-8 emitters and YamlDotNet readers
     /// agree on the encoding.
     /// </summary>
     /// <param name="name">Name containing non-ASCII codepoints.</param>
@@ -615,7 +615,7 @@ public class DocfxYamlEmitterTests
     public async Task NonAsciiMemberNamesRoundTrip(string name)
     {
         // Property kind so the friendly-name pass doesn't append parens
-        // — this test pins UTF-8 round-trip via the YAML scalar writer.
+        // -- this test pins UTF-8 round-trip via the YAML scalar writer.
         var member = NewMember(name, $"P:Foo.{name}", ApiMemberKind.Property);
         var type = TestData.ObjectType("Foo") with { Members = [member] };
 
@@ -627,7 +627,7 @@ public class DocfxYamlEmitterTests
 
     /// <summary>
     /// Pages with very large member counts (here 500) stay within the
-    /// docfx schema and parse cleanly — pins behaviour for control-
+    /// docfx schema and parse cleanly -- pins behaviour for control-
     /// heavy WPF / MAUI types whose dependency-property surface scales
     /// to the low hundreds.
     /// </summary>
@@ -653,7 +653,7 @@ public class DocfxYamlEmitterTests
     }
 
     /// <summary>
-    /// PathFor is deterministic — repeated calls with the same input
+    /// PathFor is deterministic -- repeated calls with the same input
     /// produce the same output.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -687,7 +687,7 @@ public class DocfxYamlEmitterTests
     /// <summary>Builds a minimal <see cref="ApiMember"/> with the given name and UID.</summary>
     /// <param name="name">Member name.</param>
     /// <param name="uid">Member UID (Roslyn-style).</param>
-    /// <param name="kind">Member kind — defaults to <see cref="ApiMemberKind.Method"/>.</param>
+    /// <param name="kind">Member kind -- defaults to <see cref="ApiMemberKind.Method"/>.</param>
     /// <returns>The constructed member.</returns>
     private static ApiMember NewMember(string name, string uid, ApiMemberKind kind = ApiMemberKind.Method) => new(
         Name: name,

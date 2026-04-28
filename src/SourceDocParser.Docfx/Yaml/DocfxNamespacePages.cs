@@ -10,7 +10,7 @@ using SourceDocParser.Model;
 namespace SourceDocParser.Docfx.Yaml;
 
 /// <summary>
-/// Composable helpers for emitting docfx namespace pages — one
+/// Composable helpers for emitting docfx namespace pages -- one
 /// <c>Namespace.yml</c> per namespace, listing the types that live
 /// directly in it as <c>children</c>. Docfx emits these alongside
 /// every type page; without them an xrefmap build can't resolve
@@ -98,7 +98,7 @@ internal static class DocfxNamespacePages
     }
 
     /// <summary>
-    /// Renders one namespace page as a YAML string — header, single
+    /// Renders one namespace page as a YAML string -- header, single
     /// items entry with the namespace metadata + children list.
     /// References are emitted by the per-type pages, so the
     /// namespace page intentionally skips its own to keep the file
@@ -135,7 +135,7 @@ internal static class DocfxNamespacePages
     }
 
     /// <summary>One entry per emitted namespace page.</summary>
-    /// <param name="Namespace">Namespace name (never empty — global namespace is skipped).</param>
+    /// <param name="Namespace">Namespace name (never empty -- global namespace is skipped).</param>
     /// <param name="ChildUids">Bare UIDs of the types that live directly in this namespace, sorted ordinal.</param>
     /// <param name="AssemblyName">Assembly the namespace's types come from (first type's assembly).</param>
     public readonly record struct NamespacePage(string Namespace, string[] ChildUids, string AssemblyName);

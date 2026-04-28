@@ -13,7 +13,7 @@ namespace SourceDocParser.Tests.Walk;
 
 /// <summary>
 /// End-to-end coverage of <see cref="SymbolWalker"/> against the
-/// SamplePdb fixture assembly — proves the walker handles a real
+/// SamplePdb fixture assembly -- proves the walker handles a real
 /// portable PE+PDB load (not just the in-memory CSharpCompilation
 /// path the per-builder unit tests use). Each test pins one of the
 /// shapes SamplePdb deliberately carries so a regression in any
@@ -97,7 +97,7 @@ public class SamplePdbWalkerIntegrationTests
         }
     }
 
-    /// <summary>GenericContainer&lt;T&gt; carries its open-generic arity and the Wrap method's own type parameter.</summary>
+    /// <summary>GenericContainer&lt;T> carries its open-generic arity and the Wrap method's own type parameter.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task GenericTypeAndMethodParametersAreCaptured()
@@ -259,8 +259,8 @@ public class SamplePdbWalkerIntegrationTests
     /// <summary>
     /// Attributes with a positional argument plus named arguments
     /// preserve every value in source order (positional first, named
-    /// after) and render every TypedConstant shape — primitive,
-    /// typeof, enum, and array — through the walker's FormatConstant
+    /// after) and render every TypedConstant shape -- primitive,
+    /// typeof, enum, and array -- through the walker's FormatConstant
     /// switch arms.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -282,7 +282,7 @@ public class SamplePdbWalkerIntegrationTests
         await Assert.That(marker).IsNotNull();
         await Assert.That(marker!.Arguments.Length).IsEqualTo(6);
 
-        // Positional first — the constructor's string parameter.
+        // Positional first -- the constructor's string parameter.
         await Assert.That(marker.Arguments[0].Name).IsNull();
         await Assert.That(marker.Arguments[0].Value).IsEqualTo("\"primary\"");
 
@@ -300,7 +300,7 @@ public class SamplePdbWalkerIntegrationTests
         await Assert.That(byName["TargetType"]).IsEqualTo("typeof(SampleShape)");
 
         // Enums render as TypeName.MemberName via the Enum-kind branch
-        // — but TypedConstant carries the underlying integer value,
+        // -- but TypedConstant carries the underlying integer value,
         // so the walker formats with the numeric literal rather than
         // the symbolic member name. Pinned here so any improvement
         // (resolving the symbolic name) lands as a deliberate change.
@@ -462,7 +462,7 @@ public class SamplePdbWalkerIntegrationTests
         throw new InvalidOperationException($"Member '{name}' not on type '{type.FullName}'.");
     }
 
-    /// <summary>SourceLink resolver that returns null for every symbol — keeps the integration test scoped to the walker, not the SourceLink chain.</summary>
+    /// <summary>SourceLink resolver that returns null for every symbol -- keeps the integration test scoped to the walker, not the SourceLink chain.</summary>
     private sealed class NullSourceLinkResolver : ISourceLinkResolver
     {
         /// <inheritdoc />

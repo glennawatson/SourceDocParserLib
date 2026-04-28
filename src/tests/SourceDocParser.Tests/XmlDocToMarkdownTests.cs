@@ -8,13 +8,13 @@ using SourceDocParser.XmlDoc;
 namespace SourceDocParser.Tests;
 
 /// <summary>
-/// Tests for <see cref="XmlDocToMarkdown"/> — focused on the
+/// Tests for <see cref="XmlDocToMarkdown"/> -- focused on the
 /// element-by-element transformations the converter has to nail to
 /// emit clean markdown for downstream renderers.
 /// </summary>
 public class XmlDocToMarkdownTests
 {
-    /// <summary>Shared converter instance — class is stateless.</summary>
+    /// <summary>Shared converter instance -- class is stateless.</summary>
     private readonly XmlDocToMarkdown _converter = new();
 
     /// <summary>
@@ -35,7 +35,7 @@ public class XmlDocToMarkdownTests
     }
 
     /// <summary>
-    /// <c>&lt;c&gt;</c> renders as inline code with backticks.
+    /// <c>c</c> renders as inline code with backticks.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -47,7 +47,7 @@ public class XmlDocToMarkdownTests
     }
 
     /// <summary>
-    /// <c>&lt;see cref="..."/&gt;</c> renders as a Markdown autoref link.
+    /// <c>see cref="..."/</c> renders as a Markdown autoref link.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -56,12 +56,12 @@ public class XmlDocToMarkdownTests
         var result = _converter.Convert("""See <see cref="T:Namespace.MyType"/>.""");
 
         // The output uses the ShortName as the link text and the full
-        // cref as the link target — autorefs format used by Zensical.
+        // cref as the link target -- autorefs format used by Zensical.
         await Assert.That(result).Contains("[MyType][T:Namespace.MyType]");
     }
 
     /// <summary>
-    /// <c>&lt;see langword="..."/&gt;</c> renders the langword as inline code.
+    /// <c>see langword="..."/</c> renders the langword as inline code.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -73,7 +73,7 @@ public class XmlDocToMarkdownTests
     }
 
     /// <summary>
-    /// <c>&lt;paramref name="..."/&gt;</c> renders the param name as inline code.
+    /// <c>paramref name="..."/</c> renders the param name as inline code.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -85,7 +85,7 @@ public class XmlDocToMarkdownTests
     }
 
     /// <summary>
-    /// <c>&lt;code&gt;</c> renders as a fenced csharp code block.
+    /// <c>code</c> renders as a fenced csharp code block.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -99,7 +99,7 @@ public class XmlDocToMarkdownTests
     }
 
     /// <summary>
-    /// <c>&lt;b&gt;</c>/<c>&lt;strong&gt;</c> render as bold; <c>&lt;i&gt;</c>/<c>&lt;em&gt;</c> as italic.
+    /// <c>b</c>/<c>strong</c> render as bold; <c>i</c>/<c>em</c> as italic.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]

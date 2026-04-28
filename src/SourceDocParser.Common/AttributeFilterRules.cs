@@ -10,7 +10,7 @@ namespace SourceDocParser.Common;
 /// rule for <c>System.Runtime.CompilerServices</c>: drop the
 /// compiler-emitted markers (NullableContext, IsReadOnly,
 /// RefSafetyRules, etc.) but keep <c>ExtensionAttribute</c> visible.
-/// Walker emission is faithful — this filter applies at the
+/// Walker emission is faithful -- this filter applies at the
 /// presentation layer so every emitter can opt in to the same rule
 /// set with one call.
 /// </summary>

@@ -8,7 +8,7 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 
 /// <summary>
 /// Pins <see cref="UidNormalization"/>: the UID-string toolkit shared
-/// across the docfx YAML emitter — strip prefix, strip arity backtick,
+/// across the docfx YAML emitter -- strip prefix, strip arity backtick,
 /// derive parent namespace, project to open-generic form, synthesise
 /// the docfx <c>fullName</c>, and walk brace regions for nested type
 /// arguments. Tested in isolation so a regression in any one rule
@@ -50,7 +50,7 @@ public class UidNormalizationTests
     [Test]
     public async Task ParentOfRespectsBraceBoundary() =>
 
-        // Foo.Bar`1{Baz.Qux} — the dot inside the brace region must
+        // Foo.Bar`1{Baz.Qux} -- the dot inside the brace region must
         // not be picked as the namespace boundary.
         await Assert.That(UidNormalization.ParentOf("My.Sub.Foo`1{Baz.Qux}")).IsEqualTo("My.Sub");
 
@@ -92,7 +92,7 @@ public class UidNormalizationTests
     public async Task SynthesiseFullNameAliasesBclPrimitiveToKeyword() =>
         await Assert.That(UidNormalization.SynthesiseFullName("System.Object")).IsEqualTo("object");
 
-    /// <summary>SynthesiseFullName: single-arg generic produces <c>Namespace.Base&lt;Arg&gt;</c> with arity stripped.</summary>
+    /// <summary>SynthesiseFullName: single-arg generic produces <c>Namespace.Base&lt;Arg></c> with arity stripped.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task SynthesiseFullNameExpandsSingleArgGenericToAngles() =>

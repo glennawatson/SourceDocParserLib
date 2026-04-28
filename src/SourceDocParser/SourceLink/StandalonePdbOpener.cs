@@ -41,7 +41,7 @@ internal static class StandalonePdbOpener
         }
 
         // Hold both the stream and the provider in locals until
-        // ownership transfers — to the provider on success of
+        // ownership transfers -- to the provider on success of
         // FromPortablePdbStream, then to the out parameter on success
         // of GetMetadataReader. The finally only disposes whatever
         // ownership we still hold, so a disposed provider never leaks

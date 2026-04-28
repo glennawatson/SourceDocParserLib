@@ -18,7 +18,7 @@ internal static partial class XmlDocsLoader
     /// <summary>
     /// Attempts to load the <c>.xml</c> file paired with
     /// <paramref name="assemblyPath"/>. Returns null when the file
-    /// is missing or fails to parse — callers can still produce a
+    /// is missing or fails to parse -- callers can still produce a
     /// metadata reference, just without docs attached.
     /// </summary>
     /// <param name="assemblyPath">The absolute path to the assembly DLL.</param>

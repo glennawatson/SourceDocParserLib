@@ -122,7 +122,7 @@ public class ZensicalRenderSmokeTests
 
     /// <summary>
     /// Returns the absolute path of <paramref name="toolName"/> as it
-    /// lives inside the venv layout for the current OS — <c>bin/</c>
+    /// lives inside the venv layout for the current OS -- <c>bin/</c>
     /// on Unix, <c>Scripts/</c> on Windows, with a <c>.exe</c> suffix
     /// on Windows.
     /// </summary>

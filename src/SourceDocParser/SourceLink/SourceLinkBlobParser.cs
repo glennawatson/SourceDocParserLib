@@ -10,7 +10,7 @@ namespace SourceDocParser.SourceLink;
 /// Parses the SourceLink JSON blob a portable PDB stores under a
 /// well-known custom-debug-information GUID. Lifted out of
 /// <see cref="SourceLinkReader"/> so the parse + scan can be unit
-/// tested without crafting a PDB — and so the malformed-blob catch
+/// tested without crafting a PDB -- and so the malformed-blob catch
 /// is reachable from a direct test feeding garbage bytes.
 /// </summary>
 internal static class SourceLinkBlobParser
@@ -23,7 +23,7 @@ internal static class SourceLinkBlobParser
 
     /// <summary>
     /// Decodes a raw SourceLink JSON blob into a map. Returns null
-    /// for empty / malformed input rather than throwing — matches
+    /// for empty / malformed input rather than throwing -- matches
     /// the rest of the reader pipeline's degrade-gracefully contract.
     /// </summary>
     /// <param name="bytes">Raw bytes of the SourceLink JSON blob.</param>

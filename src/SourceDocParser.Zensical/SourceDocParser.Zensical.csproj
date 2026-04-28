@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="SourceDocParser.Zensical.Tests" />
+    <InternalsVisibleTo Include="SourceDocParser.Benchmarks" />
   </ItemGroup>
 
 </Project>

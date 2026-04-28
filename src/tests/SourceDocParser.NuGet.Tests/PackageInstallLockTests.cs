@@ -8,7 +8,7 @@ namespace SourceDocParser.NuGet.Tests;
 
 /// <summary>
 /// Pins <see cref="PackageInstallLock"/> against a real
-/// filesystem — concurrent acquisition serialises, the
+/// filesystem -- concurrent acquisition serialises, the
 /// double-checked-lock helper short-circuits when the install
 /// marker shows up while we waited, and the lock file is keyed
 /// by a stable hash of the install path.
@@ -17,7 +17,7 @@ public class PackageInstallLockTests
 {
     /// <summary>
     /// The lock file path is derived from a hash of the install
-    /// path so the same package always lands on the same lock —
+    /// path so the same package always lands on the same lock --
     /// concurrent waiters target the same file.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -31,7 +31,7 @@ public class PackageInstallLockTests
     }
 
     /// <summary>
-    /// Different install paths hash to different lock files —
+    /// Different install paths hash to different lock files --
     /// installs of unrelated packages don't serialise on each
     /// other.
     /// </summary>
@@ -163,7 +163,7 @@ public class PackageInstallLockTests
 
     /// <summary>
     /// FileOptions.DeleteOnClose means the lock file vanishes when
-    /// the holding stream disposes — verify by acquiring, releasing,
+    /// the holding stream disposes -- verify by acquiring, releasing,
     /// and asserting the file is gone.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>

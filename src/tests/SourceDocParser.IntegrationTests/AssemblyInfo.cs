@@ -3,7 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 // Integration tests fetch packages, extract assemblies, walk symbol
-// trees, and emit pages — all heavy disk + network I/O. Run the
+// trees, and emit pages -- all heavy disk + network I/O. Run the
 // whole assembly serially so concurrent tests don't fan out the
 // /tmp scratch usage or fight over the shared global package cache.
 [assembly: NotInParallel]

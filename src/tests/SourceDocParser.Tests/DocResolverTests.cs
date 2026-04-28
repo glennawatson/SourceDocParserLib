@@ -13,14 +13,14 @@ namespace SourceDocParser.Tests;
 /// Tests for <see cref="DocResolver"/> driven against an in-memory
 /// <see cref="CSharpCompilation"/> with XML doc parsing turned on.
 /// Exercises the public seam (<see cref="IDocResolver.Resolve"/>),
-/// the per-instance cache, the explicit <c>&lt;inheritdoc/&gt;</c>
+/// the per-instance cache, the explicit <c>inheritdoc/</c>
 /// path, and the <see cref="IXmlDocToMarkdownConverter"/> injection
 /// point.
 /// </summary>
 public class DocResolverTests
 {
     /// <summary>
-    /// A symbol with a plain <c>&lt;summary&gt;</c> resolves to a
+    /// A symbol with a plain <c>summary</c> resolves to a
     /// non-empty <see cref="ApiDocumentation"/>.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -50,7 +50,7 @@ public class DocResolverTests
     [Test]
     public async Task ResolveReturnsEmptyForUndocumentedSymbol()
     {
-        // Use a plain method on a plain class — types auto-inherit
+        // Use a plain method on a plain class -- types auto-inherit
         // from their base type (which would pull in System.Object's
         // XML docs from the BCL), but a non-override method has no
         // natural source so the resolver legitimately returns Empty.
@@ -70,7 +70,7 @@ public class DocResolverTests
 
     /// <summary>
     /// Resolving the same symbol twice returns the cached instance
-    /// reference — proves the per-resolver memoisation works.
+    /// reference -- proves the per-resolver memoisation works.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -126,7 +126,7 @@ public class DocResolverTests
     }
 
     /// <summary>
-    /// Explicit <c>&lt;inheritdoc/&gt;</c> walks to the base.
+    /// Explicit <c>inheritdoc/</c> walks to the base.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -159,7 +159,7 @@ public class DocResolverTests
 
     /// <summary>
     /// The resolver surfaces the raw inner XML of the source
-    /// <c>&lt;summary&gt;</c> tag — it no longer renders Markdown.
+    /// <c>summary</c> tag -- it no longer renders Markdown.
     /// Emitters perform the conversion at render time via
     /// <see cref="XmlDocToMarkdown"/>.
     /// </summary>
@@ -192,7 +192,7 @@ public class DocResolverTests
     /// <summary>
     /// Builds an in-memory <see cref="CSharpCompilation"/> from
     /// <paramref name="source"/> with XML doc parsing on so symbols
-    /// carry their associated <c>&lt;summary&gt;</c> etc.
+    /// carry their associated <c>summary</c> etc.
     /// </summary>
     /// <param name="source">C# source text to compile.</param>
     /// <returns>The compiled (but not emitted) compilation.</returns>

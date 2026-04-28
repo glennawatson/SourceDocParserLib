@@ -9,12 +9,12 @@ namespace SourceDocParser.Walk;
 
 /// <summary>
 /// Converts a Roslyn <see cref="INamedTypeSymbol"/> into the
-/// appropriate <see cref="ApiType"/> derivation — union, enum,
+/// appropriate <see cref="ApiType"/> derivation -- union, enum,
 /// delegate, or object (class / struct / interface / record /
 /// record struct). Returns <see langword="null"/> when the symbol
 /// can't be classified (error symbols, modules). All shared
-/// extraction work — namespace resolution, base / interface refs,
-/// attributes, members, extension blocks — is delegated to focused
+/// extraction work -- namespace resolution, base / interface refs,
+/// attributes, members, extension blocks -- is delegated to focused
 /// helpers so each can be unit-tested independently.
 /// </summary>
 internal static class TypeBuilder
@@ -53,7 +53,7 @@ internal static class TypeBuilder
         return type.TypeKind switch
         {
             // Closed-hierarchy unions (C# 15+) are class-shaped and have to
-            // be checked before the generic class branch — otherwise we'd
+            // be checked before the generic class branch -- otherwise we'd
             // emit them as a plain class and lose the case list.
             TypeKind.Class when SymbolWalkerHelpers.IsUnion(type) => BuildUnion(input),
             TypeKind.Enum => BuildEnum(input),
@@ -99,7 +99,7 @@ internal static class TypeBuilder
             },
             input);
 
-    /// <summary>Constructs the <see cref="ApiObjectType"/> branch — class / struct / interface / record / record struct.</summary>
+    /// <summary>Constructs the <see cref="ApiObjectType"/> branch -- class / struct / interface / record / record struct.</summary>
     /// <param name="input">Per-type build inputs.</param>
     /// <returns>The constructed object type, or null when no <see cref="ApiObjectKind"/> matches (e.g. error symbols).</returns>
     internal static ApiObjectType? BuildObject(in TypeBuildContext input) =>
@@ -126,7 +126,7 @@ internal static class TypeBuilder
     /// branches.
     /// </summary>
     /// <typeparam name="T">Concrete <see cref="ApiType"/> derivation.</typeparam>
-    /// <param name="target">A starting instance — typically the static <c>Empty</c> with derived fields already overridden.</param>
+    /// <param name="target">A starting instance -- typically the static <c>Empty</c> with derived fields already overridden.</param>
     /// <param name="input">Per-type build inputs.</param>
     /// <returns>The same derivation with base fields filled in.</returns>
     private static T WithBaseFields<T>(T target, in TypeBuildContext input)

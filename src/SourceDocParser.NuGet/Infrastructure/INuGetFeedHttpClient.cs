@@ -7,7 +7,7 @@ using SourceDocParser.NuGet.Models;
 namespace SourceDocParser.NuGet.Infrastructure;
 
 /// <summary>
-/// HTTP surface the <see cref="GlobalCacheInstaller"/> drives — one
+/// HTTP surface the <see cref="GlobalCacheInstaller"/> drives -- one
 /// method per logical NuGet feed operation. Lifted into an interface
 /// so the installer can be unit-tested against a fake without a real
 /// <c>HttpClient</c>; the concrete <see cref="NuGetFeedHttpClient"/>
@@ -18,7 +18,7 @@ internal interface INuGetFeedHttpClient : IDisposable
 {
     /// <summary>
     /// Reads a NuGet v3 service-index document from <paramref name="url"/>.
-    /// Throws when the request fails (no 404 special case — a service
+    /// Throws when the request fails (no 404 special case -- a service
     /// index is expected to exist for any configured source).
     /// </summary>
     /// <param name="url">Service-index URL (the <c>@id</c> of the source).</param>

@@ -6,7 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace SamplePdb;
 
-/// <summary>Generic class with a generic method — exercises type-parameter symbols.</summary>
+/// <summary>Generic class with a generic method -- exercises type-parameter symbols.</summary>
 /// <typeparam name="T">Element type.</typeparam>
 public class GenericContainer<T>
 {

@@ -92,7 +92,7 @@ public class YamlScalarQuotingTests
 
     /// <summary>
     /// Bare colons inside docfx UIDs (and bare hashes inside plain
-    /// scalars) are valid YAML in plain form — only the
+    /// scalars) are valid YAML in plain form -- only the
     /// space-terminated forms break the parser, so the predicate must
     /// stay quiet for embedded-but-not-terminating cases.
     /// </summary>
@@ -127,7 +127,7 @@ public class YamlScalarQuotingTests
 
     /// <summary>
     /// The colon-followed-by-separator case is benign when the
-    /// separator isn't whitespace — a trailing <c>:</c> on the left
+    /// separator isn't whitespace -- a trailing <c>:</c> on the left
     /// half would be a problem if the separator were space, but for
     /// the dotted member-name composites we use it stays unquoted.
     /// </summary>
@@ -140,7 +140,7 @@ public class YamlScalarQuotingTests
     }
 
     /// <summary>
-    /// The hash-preceded-by-separator case mirrors the colon rule —
+    /// The hash-preceded-by-separator case mirrors the colon rule --
     /// a leading <c>#</c> on the right half is dangerous only when the
     /// separator is whitespace.
     /// </summary>
@@ -152,7 +152,7 @@ public class YamlScalarQuotingTests
         await Assert.That(YamlScalarQuoting.CompositeNeedsQuoting("Foo", ' ', "#Bar")).IsTrue();
     }
 
-    /// <summary>Reserved leading indicator detection — pinned per character so a regression in the trigger set fails on its own line.</summary>
+    /// <summary>Reserved leading indicator detection -- pinned per character so a regression in the trigger set fails on its own line.</summary>
     /// <param name="first">Leading character to test.</param>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -252,7 +252,7 @@ public class YamlScalarQuotingTests
         await Assert.That(YamlScalarQuoting.ScanForTerminators("#Foo".AsSpan(), ' ', '\0')).IsTrue();
         await Assert.That(YamlScalarQuoting.ScanForTerminators("#Foo".AsSpan(), '.', '\0')).IsFalse();
 
-        // No preceding char ('\0') treats the hash as benign — the
+        // No preceding char ('\0') treats the hash as benign -- the
         // composite caller is responsible for detecting a hash that
         // would actually start a comment.
         await Assert.That(YamlScalarQuoting.ScanForTerminators("#Foo".AsSpan(), '\0', '\0')).IsFalse();

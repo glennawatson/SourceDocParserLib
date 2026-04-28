@@ -249,7 +249,7 @@ public class NuGetFetcherInternalsTests
 
     /// <summary>
     /// Persisting the primary-id sidecar writes one id per line in the
-    /// fetch order — that's the contract the assembly source's
+    /// fetch order -- that's the contract the assembly source's
     /// reader (<see cref="NuGetAssemblySource.ReadPrimaryIdsSidecar"/>)
     /// is built around.
     /// </summary>

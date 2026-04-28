@@ -55,7 +55,7 @@ public class StandalonePdbOpenerTests
 
     /// <summary>
     /// Extracts the SamplePdb fixture's embedded PDB to a temp file,
-    /// then opens it standalone — pins the success path (read-stream,
+    /// then opens it standalone -- pins the success path (read-stream,
     /// reader, ownership transfer to outs) that the corrupt / missing
     /// tests don't exercise.
     /// </summary>

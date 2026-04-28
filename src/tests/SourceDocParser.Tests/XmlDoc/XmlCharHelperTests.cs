@@ -7,7 +7,7 @@ using SourceDocParser.XmlDoc;
 namespace SourceDocParser.Tests.XmlDoc;
 
 /// <summary>
-/// Pins <see cref="XmlCharHelper.IsWhitespace"/> — the four
+/// Pins <see cref="XmlCharHelper.IsWhitespace"/> -- the four
 /// XML-significant whitespace characters (space, tab, CR, LF) and
 /// nothing else.
 /// </summary>

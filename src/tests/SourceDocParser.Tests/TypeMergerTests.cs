@@ -8,7 +8,7 @@ using SourceDocParser.TestHelpers;
 namespace SourceDocParser.Tests;
 
 /// <summary>
-/// Tests for <see cref="TypeMerger"/> — the dedup pass that collapses
+/// Tests for <see cref="TypeMerger"/> -- the dedup pass that collapses
 /// per-TFM catalogs into one canonical view per type UID.
 /// </summary>
 public class TypeMergerTests

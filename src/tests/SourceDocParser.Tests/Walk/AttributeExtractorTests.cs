@@ -349,7 +349,7 @@ public class AttributeExtractorTests
     {
         // Synthesise an array constant via a usage that takes one. The
         // simplest BCL attribute that takes an array is hard to find,
-        // so we feed a manual values array via Roslyn — drive the
+        // so we feed a manual values array via Roslyn -- drive the
         // FormatArrayConstant arm directly through FormatConstant.
         // ParamArray attribute not standard on classes; use a custom one below.
         var custom = GetTypeSymbol(

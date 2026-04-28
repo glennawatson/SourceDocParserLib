@@ -5,7 +5,7 @@
 namespace SamplePdb;
 
 /// <summary>
-/// Delegate with two parameters and a return value — exercises the
+/// Delegate with two parameters and a return value -- exercises the
 /// walker's <c>TypeKind.Delegate</c> branch and delegate-signature
 /// capture (parameter list, return type).
 /// </summary>

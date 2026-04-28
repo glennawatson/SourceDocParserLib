@@ -16,7 +16,7 @@ namespace SourceDocParser.Tests.XmlDoc;
 /// </summary>
 public class XmlMarkupParserTests
 {
-    /// <summary>A well-formed comment is silent and the cursor advances past <c>--&gt;</c>.</summary>
+    /// <summary>A well-formed comment is silent and the cursor advances past the comment-end marker.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task TryReadCommentConsumesWellFormedComment()
@@ -98,7 +98,7 @@ public class XmlMarkupParserTests
         await Assert.That(ok).IsFalse();
     }
 
-    /// <summary>A processing instruction is silent and advances past <c>?&gt;</c>.</summary>
+    /// <summary>A processing instruction is silent and advances past the PI-end marker.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task TryReadProcessingInstructionSilentlyConsumes()

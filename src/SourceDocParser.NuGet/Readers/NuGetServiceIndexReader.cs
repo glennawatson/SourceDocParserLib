@@ -9,13 +9,13 @@ namespace SourceDocParser.NuGet.Readers;
 
 /// <summary>
 /// Parses a NuGet v3 service-index JSON document and extracts the
-/// flat-container endpoint — the URL the installer hits to
+/// flat-container endpoint -- the URL the installer hits to
 /// download <c>.nupkg</c> files. Same shape as the rest of the
 /// readers (focused, testable, no NuGet.Protocol dep).
 /// </summary>
 internal static class NuGetServiceIndexReader
 {
-    /// <summary>Strict parse options — duplicate keys throw rather than silently last-one-wins.</summary>
+    /// <summary>Strict parse options -- duplicate keys throw rather than silently last-one-wins.</summary>
     private static readonly JsonDocumentOptions _strictDocOptions = new() { AllowDuplicateProperties = false };
 
     /// <summary>Reads the flat-container URL from <paramref name="indexJson"/>.</summary>

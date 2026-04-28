@@ -8,7 +8,7 @@ namespace SourceDocParser.NuGet.Tests;
 
 /// <summary>
 /// Pins <see cref="NuGetConfigDiscovery"/> against fixture
-/// folders that mirror what NuGet sees in the wild — a config
+/// folders that mirror what NuGet sees in the wild -- a config
 /// at the working folder, a config one or more levels up, and
 /// the Windows-style <c>NuGet.Config</c> capitalisation we
 /// also have to honour on case-sensitive filesystems.
@@ -53,7 +53,7 @@ public class NuGetConfigDiscoveryTests
 
     /// <summary>
     /// Windows-style capitalisation (<c>NuGet.Config</c>) is
-    /// honoured even on case-sensitive filesystems — both
+    /// honoured even on case-sensitive filesystems -- both
     /// filename casings are probed at every level.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -69,7 +69,7 @@ public class NuGetConfigDiscoveryTests
 
     /// <summary>
     /// Working folder with no configs anywhere up to root falls
-    /// back through to the platform default — but the env-var
+    /// back through to the platform default -- but the env-var
     /// override (set here) wins over any default.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -100,7 +100,7 @@ public class NuGetConfigDiscoveryTests
 
     /// <summary>
     /// EnumerateConfigPaths visits the working folder first, then
-    /// each ancestor — verifies precedence shape directly so
+    /// each ancestor -- verifies precedence shape directly so
     /// regressions in the walk get a focused failure.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -116,8 +116,8 @@ public class NuGetConfigDiscoveryTests
 
     /// <summary>
     /// ResolvePackageSourcesAsync returns the file's declared
-    /// sources for a config that doesn't <c>&lt;clear/&gt;</c>
-    /// — closer file's adds upsert into the merged set first.
+    /// sources for a config that doesn't <c>clear/</c>
+    /// -- closer file's adds upsert into the merged set first.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -133,7 +133,7 @@ public class NuGetConfigDiscoveryTests
     }
 
     /// <summary>
-    /// A closer file's <c>&lt;clear/&gt;</c> stops the walk —
+    /// A closer file's <c>clear/</c> stops the walk --
     /// less-specific configs are not consulted, so only this
     /// file's post-clear adds remain.
     /// </summary>
@@ -166,7 +166,7 @@ public class NuGetConfigDiscoveryTests
             var sources = await NuGetConfigDiscovery.ResolvePackageSourcesAsync(emptyFolder).ConfigureAwait(false);
 
             // Caller may have user-scoped configs that contribute
-            // sources too — but our well-known nuget.org default is
+            // sources too -- but our well-known nuget.org default is
             // always present at minimum.
             await Assert.That(sources.Length).IsGreaterThan(0);
             await Assert.That(Array.Exists(sources, s => s.Key == "nuget.org" || s.Url.Contains("api.nuget.org", StringComparison.OrdinalIgnoreCase))).IsTrue();

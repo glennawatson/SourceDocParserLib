@@ -11,7 +11,7 @@ namespace SourceDocParser.Docfx.Tests.Config;
 /// <summary>
 /// Tests that the hand-written <see cref="DocfxConfigReader"/> +
 /// <see cref="Docfx.Config.DocfxConfigWriter"/> pair preserves arbitrary docfx
-/// extension data on a round-trip — the test suite for the
+/// extension data on a round-trip -- the test suite for the
 /// JsonExtensionData replacement we built.
 /// </summary>
 public class DocfxConfigRoundTripTests

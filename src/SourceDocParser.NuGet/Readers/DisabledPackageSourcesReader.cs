@@ -8,7 +8,7 @@ using SourceDocParser.NuGet.Infrastructure;
 namespace SourceDocParser.NuGet.Readers;
 
 /// <summary>
-/// Reads <c>&lt;disabledPackageSources&gt;</c> from a nuget.config —
+/// Reads <c>disabledPackageSources</c> from a nuget.config --
 /// returns the source keys whose <c>value</c> attribute is the
 /// string <c>"true"</c>. The fetcher filters these out of the
 /// resolved source list so users behind corp proxies who disable
@@ -47,7 +47,7 @@ internal static class DisabledPackageSourcesReader
 
     /// <summary>Reads the disabled-source keys from the specified <paramref name="configPath"/>.</summary>
     /// <remarks>
-    /// This method opens the <c>nuget.config</c> file for reading and parses the <c>&lt;disabledPackageSources&gt;</c> section.
+    /// This method opens the <c>nuget.config</c> file for reading and parses the <c>disabledPackageSources</c> section.
     /// It returns a set of keys for sources that have been explicitly disabled by setting their value to <c>"true"</c>.
     /// </remarks>
     /// <param name="configPath">The absolute path to a <c>nuget.config</c> file.</param>

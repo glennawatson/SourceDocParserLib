@@ -9,7 +9,7 @@ namespace SourceDocParser.NuGet.Readers;
 
 /// <summary>
 /// Pure helpers for the <c>nuget.config</c>
-/// <c>&lt;packageSourceCredentials&gt;</c> walker — element-type
+/// <c>packageSourceCredentials</c> walker -- element-type
 /// classification, source-name unescaping (the <c>_x0020_</c> space
 /// escape), and <c>%VAR%</c> environment-variable expansion. Lifted
 /// out of <see cref="PackageSourceCredentialsReader"/> so the XML
@@ -27,7 +27,7 @@ internal static partial class PackageSourceCredentialParser
 
     /// <summary>
     /// Detects whether the reader sits on the per-source container or
-    /// one of its inner add entries — drives the credential walk's
+    /// one of its inner add entries -- drives the credential walk's
     /// "open container" vs "process inner add" branch.
     /// </summary>
     /// <param name="reader">Reader positioned on an element.</param>

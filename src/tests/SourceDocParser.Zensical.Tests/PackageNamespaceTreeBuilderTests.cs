@@ -10,8 +10,8 @@ using SourceDocParser.Zensical.Routing;
 namespace SourceDocParser.Zensical.Tests;
 
 /// <summary>
-/// Pins <see cref="PackageNamespaceTreeBuilder.Build{TEntry}"/> — the
-/// shared package → namespace → entry tree builder that backs both
+/// Pins <see cref="PackageNamespaceTreeBuilder.Build{TEntry}"/> -- the
+/// shared package -> namespace -> entry tree builder that backs both
 /// the landing-page generator and the navigation emitter. Covers the
 /// routing-skip path, multi-package / multi-namespace bucketing, the
 /// global-namespace fallback, ordinal sort, and the per-namespace
@@ -124,7 +124,7 @@ public class PackageNamespaceTreeBuilderTests
             TestData.ObjectType("T:N.CC", ApiObjectKind.Class, "Asm") with { Namespace = "N" },
         ];
 
-        // Sort by descending UID length — exercises the comparator hook.
+        // Sort by descending UID length -- exercises the comparator hook.
         var tree = PackageNamespaceTreeBuilder.Build(
             types,
             _pkgRouting,

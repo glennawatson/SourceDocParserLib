@@ -116,9 +116,9 @@ public sealed class NuGetAssemblySource : IAssemblySource
         // (Microsoft.Maui.Controls pulled in via CrissCross.MAUI,
         // Xamarin.Google.* pulled in via Maui, etc.) get fetched and
         // stay in the fallback index so compilation resolves them,
-        // but they're not walked for documentation pages — those
+        // but they're not walked for documentation pages -- those
         // pages are not what the user wanted.
-        // Prefer the fetcher-written sidecar when present — it lists
+        // Prefer the fetcher-written sidecar when present -- it lists
         // every owner-discovered + additionalPackages id that survived
         // user exclusions, so owner-only manifests (no
         // additionalPackages declared) still produce documentation
@@ -187,15 +187,15 @@ public sealed class NuGetAssemblySource : IAssemblySource
     /// <summary>
     /// Builds the set of "primary package" prefixes the assembly
     /// source uses to decide which DLLs to walk vs. leave as
-    /// compile-only refs. Each primary ID is added in two forms —
+    /// compile-only refs. Each primary ID is added in two forms --
     /// the bare ID (matches the umbrella DLL) and the ID + dot
     /// (matches sibling assemblies the umbrella forwards to, e.g.
-    /// <c>Splat → Splat.Core</c>). Returns empty when no IDs are
+    /// <c>Splat -> Splat.Core</c>). Returns empty when no IDs are
     /// supplied; in that case <see cref="CollectPackageDlls"/>
     /// falls back to walking everything.
     /// </summary>
     /// <param name="config">Loaded package config.</param>
-    /// <returns>Distinct primary prefixes laid out as bare-id / id+dot pairs — empty when no <c>additionalPackages</c> are declared.</returns>
+    /// <returns>Distinct primary prefixes laid out as bare-id / id+dot pairs -- empty when no <c>additionalPackages</c> are declared.</returns>
     internal static string[] BuildPrimaryPrefixes(PackageConfig config)
     {
         ArgumentNullException.ThrowIfNull(config);
@@ -216,13 +216,13 @@ public sealed class NuGetAssemblySource : IAssemblySource
     /// <summary>
     /// Same shape as <see cref="BuildPrimaryPrefixes(PackageConfig)"/>
     /// but driven by the explicit id list the fetcher persists to its
-    /// <see cref="PrimaryPackagesFileName"/> sidecar — that list is
+    /// <see cref="PrimaryPackagesFileName"/> sidecar -- that list is
     /// the union of owner-discovered and additionalPackages ids
     /// (after user exclusions and before transitive expansion), which
     /// is the set the user expects documentation pages for.
     /// </summary>
     /// <param name="ids">Primary package identifiers.</param>
-    /// <returns>Distinct primary prefixes laid out as bare-id / id+dot pairs — empty when no usable ids are supplied.</returns>
+    /// <returns>Distinct primary prefixes laid out as bare-id / id+dot pairs -- empty when no usable ids are supplied.</returns>
     internal static string[] BuildPrimaryPrefixesFromIds(string[] ids)
     {
         ArgumentNullException.ThrowIfNull(ids);
@@ -264,7 +264,7 @@ public sealed class NuGetAssemblySource : IAssemblySource
 
     /// <summary>
     /// Reads the fetcher-written <see cref="PrimaryPackagesFileName"/>
-    /// sidecar — one package id per line, blank lines and lines
+    /// sidecar -- one package id per line, blank lines and lines
     /// starting with <c>#</c> ignored so callers can hand-edit if
     /// they need to. Missing-file callers should pre-check existence;
     /// this helper assumes the file is present.
@@ -277,7 +277,7 @@ public sealed class NuGetAssemblySource : IAssemblySource
         var lines = File.ReadAllLines(sidecarPath);
 
         // Two-pass count-then-fill so the result lands in an
-        // exact-sized array — sidecar lines are short so the second
+        // exact-sized array -- sidecar lines are short so the second
         // pass costs nothing meaningful.
         var valid = 0;
         for (var i = 0; i < lines.Length; i++)
@@ -312,7 +312,7 @@ public sealed class NuGetAssemblySource : IAssemblySource
 
     /// <summary>
     /// Returns true when <paramref name="dllNameWithoutExt"/> looks
-    /// like it came from one of the user's primary packages — exact
+    /// like it came from one of the user's primary packages -- exact
     /// match against the bare ID, or starts with <c>id + "."</c>.
     /// When <paramref name="primaryPrefixes"/> is empty the source
     /// hasn't been told what's primary (e.g. owner-discovery only,
@@ -374,7 +374,7 @@ public sealed class NuGetAssemblySource : IAssemblySource
 
     /// <summary>
     /// Returns the package DLLs in <paramref name="libTfmDir"/> the
-    /// walker should visit — excludes co-located reference assemblies
+    /// walker should visit -- excludes co-located reference assemblies
     /// (those are compile-only) and, when <paramref name="primaryPrefixes"/>
     /// has entries, restricts the result to DLLs whose filename
     /// matches one of the user's primary packages. Transitive deps

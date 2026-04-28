@@ -8,7 +8,7 @@ using SourceDocParser.TestHelpers;
 namespace SourceDocParser.Docfx.Tests.Yaml;
 
 /// <summary>
-/// Pins the empty-Uid fallback paths of <see cref="DocfxCommentId"/> —
+/// Pins the empty-Uid fallback paths of <see cref="DocfxCommentId"/> --
 /// the wider emitter tests cover the populated-Uid path, but the
 /// FullName fallback and the all-empty case only fire when the
 /// walker can't synthesize an ID.

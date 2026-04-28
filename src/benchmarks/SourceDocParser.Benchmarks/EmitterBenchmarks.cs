@@ -12,7 +12,7 @@ namespace SourceDocParser.Benchmarks;
 
 /// <summary>
 /// Side-by-side render benchmarks for the two emitters that ship with
-/// the parser — <see cref="ZensicalDocumentationEmitter"/> (mkdocs
+/// the parser -- <see cref="ZensicalDocumentationEmitter"/> (mkdocs
 /// Material Markdown) and <see cref="DocfxYamlEmitter"/> (docfx
 /// ManagedReference YAML). Both walk the exact same canonical type
 /// set so the per-type cost is directly comparable.
@@ -56,7 +56,7 @@ public class EmitterBenchmarks
 
     /// <summary>
     /// Gets or sets the synthesised member count per type. Tracks how
-    /// the emitter scales with the per-type member surface — small (5,
+    /// the emitter scales with the per-type member surface -- small (5,
     /// e.g. a record), wide (30, e.g. a WPF control).
     /// </summary>
     [Params(SmallMemberCount, WideMemberCount)]

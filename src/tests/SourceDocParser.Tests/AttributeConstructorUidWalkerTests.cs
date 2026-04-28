@@ -64,7 +64,7 @@ public class AttributeConstructorUidWalkerTests
             .IsEqualTo("M:System.ComponentModel.BrowsableAttribute.#ctor(System.Boolean)");
     }
 
-    /// <summary>SourceLink resolver that returns null for every symbol — keeps tests free of a real PDB dependency.</summary>
+    /// <summary>SourceLink resolver that returns null for every symbol -- keeps tests free of a real PDB dependency.</summary>
     private sealed class NullSourceLinkResolver : ISourceLinkResolver
     {
         /// <inheritdoc />

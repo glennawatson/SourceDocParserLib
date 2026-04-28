@@ -21,7 +21,7 @@ internal static class UidNormaliser
     /// use in mkdocs-autorefs anchors (<c>[](){#id}</c>) and
     /// reference links (<c>[text][id]</c>). Applies
     /// <see cref="Normalise"/> then translates the arity backtick to
-    /// a hyphen — backticks inside a Markdown reference label are
+    /// a hyphen -- backticks inside a Markdown reference label are
     /// treated as inline-code delimiters by Python-Markdown and break
     /// the lookup, and they're awkward inside attribute-list anchor
     /// IDs too. Both sides of the autoref pair (anchor + reference)
@@ -50,7 +50,7 @@ internal static class UidNormaliser
         }
 
         // The encoding: a top-level <c>{...}</c> immediately follows
-        // the type name. We're only normalising TYPE UIDs here —
+        // the type name. We're only normalising TYPE UIDs here --
         // member UIDs (M:/P:/E:/F:) carry argument lists in
         // parentheses and need their nested generic args left alone.
         if (uid is not [_, ':', ..])
@@ -96,7 +96,7 @@ internal static class UidNormaliser
         }
 
         // Anything trailing the close (e.g. an array suffix) means
-        // this isn't a simple constructed type — leave it alone too.
+        // this isn't a simple constructed type -- leave it alone too.
         if (closeIndex != typeName.Length - 1)
         {
             return typeName;

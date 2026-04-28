@@ -7,7 +7,7 @@ using SourceDocParser.Tfm;
 namespace SourceDocParser.Tests;
 
 /// <summary>
-/// Tests for <see cref="TfmResolver"/> — focuses on the
+/// Tests for <see cref="TfmResolver"/> -- focuses on the
 /// <c>FindBestRefsTfm</c> path that's backed by NuGet.Frameworks'
 /// <c>FrameworkReducer</c>, plus <c>GetPlatformLabel</c>.
 /// </summary>
@@ -30,7 +30,7 @@ public class TfmResolverTests
     /// <summary>
     /// Platform-suffixed lib/ TFM falls back to its base TFM in refs/ via
     /// the proper NuGet compatibility rules (this was buggy under the old
-    /// string-prefix matcher — net10.0-android36.0 would not match net10.0
+    /// string-prefix matcher -- net10.0-android36.0 would not match net10.0
     /// without the dash hack).
     /// </summary>
     /// <returns>A task representing the test execution.</returns>

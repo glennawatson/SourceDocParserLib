@@ -16,7 +16,7 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 /// </summary>
 public class MemberUidProjectionTests
 {
-    /// <summary>CountKept ignores names containing <c>&lt;</c> or <c>&gt;</c>.</summary>
+    /// <summary>CountKept ignores names containing <c>&lt;</c> or <c>></c>.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task CountKeptIgnoresCompilerGeneratedMembers()

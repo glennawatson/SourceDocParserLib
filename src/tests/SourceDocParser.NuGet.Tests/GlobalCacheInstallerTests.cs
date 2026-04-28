@@ -217,7 +217,7 @@ public class GlobalCacheInstallerTests
         return ms.ToArray();
     }
 
-    /// <summary>Test helper — isolated nuget.config + global/fallback folders under a per-test temp directory.</summary>
+    /// <summary>Test helper -- isolated nuget.config + global/fallback folders under a per-test temp directory.</summary>
     private sealed class InstallerFixture : IDisposable
     {
         /// <summary>Root of the fixture; cleaned up on Dispose.</summary>
@@ -302,7 +302,7 @@ public class GlobalCacheInstallerTests
         }
     }
 
-    /// <summary>Test helper — feed client recording calls + returning a configurable nupkg byte payload.</summary>
+    /// <summary>Test helper -- feed client recording calls + returning a configurable nupkg byte payload.</summary>
     private sealed class FakeFeed : INuGetFeedHttpClient
     {
         /// <summary>Gets or sets the bytes returned by nupkg downloads; null forces a 404.</summary>

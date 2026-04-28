@@ -21,9 +21,9 @@ internal static class MetadataSourceLinkHelper
     /// <returns>One entry per documented source URL.</returns>
     public static SourceLinkEntry[] CollectSourceLinks(ApiType[] merged)
     {
-        // Most types contribute 0–1 source URLs (the type-level URL,
+        // Most types contribute 0-1 source URLs (the type-level URL,
         // occasionally a member URL on top), so the type count is the
-        // right capacity hint — leaves room for the dominant case
+        // right capacity hint -- leaves room for the dominant case
         // without front-loading dead capacity on a large catalog.
         var entries = new List<SourceLinkEntry>(merged.Length);
 

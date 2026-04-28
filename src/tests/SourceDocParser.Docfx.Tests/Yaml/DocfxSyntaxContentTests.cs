@@ -11,7 +11,7 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 
 /// <summary>
 /// Pins <see cref="DocfxYamlBuilderExtensions.AppendSyntaxContent"/>
-/// — the folded-block path docfx uses to stack attribute usages
+/// -- the folded-block path docfx uses to stack attribute usages
 /// above a signature inside <c>syntax.content</c>, plus the empty-
 /// attributes fast path that preserves the legacy short-scalar form.
 /// Per-format tests for the inline attribute usage string itself
@@ -19,7 +19,7 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 /// </summary>
 public class DocfxSyntaxContentTests
 {
-    /// <summary>No surviving attributes ⇒ legacy short-scalar form, byte-identical to the pre-tier-1c output.</summary>
+    /// <summary>No surviving attributes => legacy short-scalar form, byte-identical to the pre-tier-1c output.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task EmptyAttributesUsesShortScalarForm()
@@ -31,7 +31,7 @@ public class DocfxSyntaxContentTests
         await Assert.That(sb.ToString()).IsEqualTo("    content: public void Run()\n");
     }
 
-    /// <summary>Compiler-emitted attributes filtered out via <see cref="DocfxAttributeFilter"/> ⇒ fast path still triggers.</summary>
+    /// <summary>Compiler-emitted attributes filtered out via <see cref="DocfxAttributeFilter"/> => fast path still triggers.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task AllFilteredAttributesUsesShortScalarForm()

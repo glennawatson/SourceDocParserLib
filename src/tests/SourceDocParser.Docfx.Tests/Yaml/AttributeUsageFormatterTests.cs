@@ -12,7 +12,7 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 /// <see cref="AttributeUsageFormatter.ComputeLength"/>: the
 /// <c>Name(arg, Named=val)</c> string the docfx syntax-content prefix
 /// carries above each member's signature. Length precompute and the
-/// rendered string must agree to the byte — a mismatch would either
+/// rendered string must agree to the byte -- a mismatch would either
 /// truncate output or leave a NUL tail.
 /// </summary>
 public class AttributeUsageFormatterTests

@@ -34,7 +34,7 @@ public class AttributeExtractorHelperTests
         await Assert.That(AttributeExtractor.StripAttributeSuffix("MyType")).IsEqualTo("MyType");
     }
 
-    /// <summary>The exact string <c>Attribute</c> stays as-is — stripping it would leave an empty name.</summary>
+    /// <summary>The exact string <c>Attribute</c> stays as-is -- stripping it would leave an empty name.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task StripAttributeSuffixKeepsBareAttribute() => await Assert.That(AttributeExtractor.StripAttributeSuffix("Attribute")).IsEqualTo("Attribute");
@@ -124,7 +124,7 @@ public class AttributeExtractorHelperTests
     [Test]
     public async Task ObsoleteAttributeFullNameMatchesBclType() => await Assert.That(AttributeExtractor.ObsoleteAttributeFullName).IsEqualTo(typeof(ObsoleteAttribute).FullName);
 
-    /// <summary>Type with a custom <c>ToString</c> override — drives the FormatPrimitive fallback arm for boxed values that aren't string / char / bool / IFormattable.</summary>
+    /// <summary>Type with a custom <c>ToString</c> override -- drives the FormatPrimitive fallback arm for boxed values that aren't string / char / bool / IFormattable.</summary>
     private sealed class CustomFormattableless
     {
         /// <inheritdoc />

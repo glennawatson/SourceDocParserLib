@@ -9,7 +9,7 @@ namespace SourceDocParser.Model;
 /// have a null <see cref="Name"/>; named arguments carry the
 /// property/field name. <see cref="Value"/> is the formatted source
 /// representation (e.g. <c>"hello"</c>, <c>true</c>, <c>typeof(int)</c>,
-/// <c>SomeEnum.Foo</c>) — already escaped, ready to drop into the
+/// <c>SomeEnum.Foo</c>) -- already escaped, ready to drop into the
 /// rendered attribute usage.
 /// </summary>
 /// <param name="Name">Named-argument label, or null for a positional/constructor argument.</param>

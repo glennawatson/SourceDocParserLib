@@ -10,10 +10,10 @@ namespace SourceDocParser.Zensical.Routing;
 /// <summary>
 /// Thin adapter that turns an <see cref="ApiTypeReference"/> into a
 /// Markdown fragment by delegating to a cref <see cref="ICrefResolver"/>.
-/// Centralising the dispatch here keeps the cross-link routing rules —
-/// "is this UID in our emitted set / a BCL type / unknown?" — in
+/// Centralising the dispatch here keeps the cross-link routing rules --
+/// "is this UID in our emitted set / a BCL type / unknown?" -- in
 /// exactly one place: <see cref="ZensicalCrefResolver"/>. Both type
-/// references in member signatures and <c>&lt;see cref&gt;</c> tags in
+/// references in member signatures and <c>see cref</c> tags in
 /// XML doc comments resolve through the same resolver instance.
 /// </summary>
 internal static class CrossLinkRouter
@@ -21,8 +21,8 @@ internal static class CrossLinkRouter
     /// <summary>
     /// Renders <paramref name="reference"/> as Markdown via the
     /// resolver attached to <paramref name="options"/>. Empty UIDs
-    /// fall back to inline code so display-only references — generic
-    /// constraints, receivers without a bound symbol — never produce a
+    /// fall back to inline code so display-only references -- generic
+    /// constraints, receivers without a bound symbol -- never produce a
     /// broken link.
     /// </summary>
     /// <param name="reference">Type reference to render.</param>

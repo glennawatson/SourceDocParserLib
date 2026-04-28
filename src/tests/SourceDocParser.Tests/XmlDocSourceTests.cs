@@ -7,7 +7,7 @@ using SourceDocParser.XmlDoc;
 namespace SourceDocParser.Tests;
 
 /// <summary>
-/// Tests for <see cref="XmlDocSource"/> — the indexed view over a
+/// Tests for <see cref="XmlDocSource"/> -- the indexed view over a
 /// .NET XML doc file produced by the hand-rolled forward scanner.
 /// </summary>
 public class XmlDocSourceTests

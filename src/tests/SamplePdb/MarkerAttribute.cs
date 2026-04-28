@@ -25,12 +25,12 @@ public sealed class MarkerAttribute(string label) : Attribute
     /// <summary>Gets or sets the named tag.</summary>
     public string Tag { get; set; } = string.Empty;
 
-    /// <summary>Gets or sets a type-valued named argument — exercises the typeof formatting branch.</summary>
+    /// <summary>Gets or sets a type-valued named argument -- exercises the typeof formatting branch.</summary>
     public Type? TargetType { get; set; }
 
-    /// <summary>Gets or sets an enum-valued named argument — exercises the enum formatting branch.</summary>
+    /// <summary>Gets or sets an enum-valued named argument -- exercises the enum formatting branch.</summary>
     public SampleSeverity Severity { get; set; }
 
-    /// <summary>Gets or sets an array-valued named argument — exercises the array formatting branch.</summary>
+    /// <summary>Gets or sets an array-valued named argument -- exercises the array formatting branch.</summary>
     public string[] Tags { get; set; } = [];
 }

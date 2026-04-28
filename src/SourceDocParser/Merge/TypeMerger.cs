@@ -204,7 +204,7 @@ public static class TypeMerger
     }
 
     /// <summary>
-    /// One per-TFM occurrence of a type during the merge pass — paired
+    /// One per-TFM occurrence of a type during the merge pass -- paired
     /// so the bucket dictionary holds a stable, named tuple instead of
     /// an anonymous <c>(Tfm, ApiType)</c>.
     /// </summary>
@@ -215,7 +215,7 @@ public static class TypeMerger
     /// <summary>
     /// Per-UID growable bucket: a class wrapper so the dictionary stores
     /// one heap object per UID instead of needing a parallel
-    /// <c>Dictionary&lt;string, int&gt;</c> to track each bucket's count.
+    /// <c>Dictionary&lt;string, int></c> to track each bucket's count.
     /// </summary>
     internal sealed class Bucket
     {

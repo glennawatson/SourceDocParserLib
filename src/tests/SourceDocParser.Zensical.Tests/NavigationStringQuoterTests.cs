@@ -8,7 +8,7 @@ namespace SourceDocParser.Zensical.Tests;
 
 /// <summary>
 /// Pins the escape branches of <see cref="NavigationStringQuoter"/>
-/// — the bare-scalar fast path is exercised by every existing
+/// -- the bare-scalar fast path is exercised by every existing
 /// nav fixture, but the embedded-quote and embedded-backslash slow
 /// paths only fire on values that don't appear in our sample types.
 /// </summary>

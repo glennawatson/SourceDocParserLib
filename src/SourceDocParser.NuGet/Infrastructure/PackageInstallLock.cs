@@ -8,7 +8,7 @@ using System.Text;
 namespace SourceDocParser.NuGet.Infrastructure;
 
 /// <summary>
-/// Per-package file-system lock for the NuGet global cache —
+/// Per-package file-system lock for the NuGet global cache --
 /// ensures that two concurrent fetchers (or our fetcher running
 /// alongside <c>dotnet restore</c> / Visual Studio) never try to
 /// install the same <c>id</c> + <c>version</c> at once. Mirrors
@@ -36,7 +36,7 @@ internal static class PackageInstallLock
     /// <summary>How long to wait between lock retries.</summary>
     private static readonly TimeSpan _retryDelay = TimeSpan.FromMilliseconds(50L);
 
-    /// <summary>Default cap on lock-acquire wall time — surface a clear error rather than hang the build forever.</summary>
+    /// <summary>Default cap on lock-acquire wall time -- surface a clear error rather than hang the build forever.</summary>
     private static readonly TimeSpan _defaultMaxWait = TimeSpan.FromMinutes(5);
 
     /// <summary>
@@ -75,7 +75,7 @@ internal static class PackageInstallLock
 
     /// <summary>
     /// Acquires the per-package lock by opening a file with
-    /// <see cref="FileShare.None"/> — other processes attempting
+    /// <see cref="FileShare.None"/> -- other processes attempting
     /// the same <c>FileStream</c> open get an <see cref="IOException"/>
     /// and retry. Returns the open stream; caller disposes to
     /// release.
@@ -104,7 +104,7 @@ internal static class PackageInstallLock
     /// Convenience wrapper: acquires the lock, runs
     /// <paramref name="work"/>, releases. The work is invoked
     /// only if <paramref name="alreadyDone"/> returns false after
-    /// the lock is acquired — pin the double-checked-lock
+    /// the lock is acquired -- pin the double-checked-lock
     /// pattern callers need so the install doesn't repeat when
     /// another process completed it while we waited.
     /// </summary>

@@ -15,7 +15,7 @@ namespace SourceDocParser.NuGet.Tests;
 public class DisabledPackageSourcesReaderTests
 {
     /// <summary>
-    /// The fixture marks <c>legacy-feed</c> as disabled — the
+    /// The fixture marks <c>legacy-feed</c> as disabled -- the
     /// reader returns it in the result set.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
@@ -31,7 +31,7 @@ public class DisabledPackageSourcesReaderTests
 
     /// <summary>
     /// Entries whose <c>value</c> isn't the literal <c>true</c>
-    /// don't get reported — disabled is opt-in only.
+    /// don't get reported -- disabled is opt-in only.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]

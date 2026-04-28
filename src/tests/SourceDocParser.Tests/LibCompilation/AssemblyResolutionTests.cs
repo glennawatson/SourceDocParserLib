@@ -9,7 +9,7 @@ using SourceDocParser.TestHelpers;
 namespace SourceDocParser.Tests.LibCompilation;
 
 /// <summary>
-/// Pins <see cref="AssemblyResolution.BuildFallbackIndex"/> — the
+/// Pins <see cref="AssemblyResolution.BuildFallbackIndex"/> -- the
 /// missing-directory skip, the duplicate-name log path, and the
 /// happy-path index shape.
 /// </summary>

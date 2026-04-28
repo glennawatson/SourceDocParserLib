@@ -11,7 +11,7 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 /// Pins <see cref="YamlLiteralBlockFormatter"/>: writes a YAML
 /// literal-block scalar (<c>key |-</c> followed by an indented body)
 /// at the right indent level. Indent is derived from the prefix's
-/// leading-space count plus two — the standard YAML literal-block
+/// leading-space count plus two -- the standard YAML literal-block
 /// continuation indent. Tested in isolation so a regression in the
 /// indent calculation surfaces on its own line.
 /// </summary>

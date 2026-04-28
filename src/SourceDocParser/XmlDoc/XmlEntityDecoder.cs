@@ -13,7 +13,7 @@ namespace SourceDocParser.XmlDoc;
 /// <c>&amp;apos;</c>) plus numeric character references in decimal
 /// (<c>&amp;#42;</c>) or hex (<c>&amp;#x2A;</c>) form. Lifted out of
 /// <see cref="DocXmlScanner"/> so the entity rules read at problem-
-/// domain level and can be unit-tested without a scanner instance —
+/// domain level and can be unit-tested without a scanner instance --
 /// the scanner is a <c>ref struct</c>, so anything that lives on it
 /// is awkward to construct from a test fixture.
 /// </summary>
@@ -81,7 +81,7 @@ internal static class XmlEntityDecoder
     }
 
     /// <summary>
-    /// Parses a numeric character reference body — decimal digits or
+    /// Parses a numeric character reference body -- decimal digits or
     /// the hex form (leading <c>x</c> / <c>X</c> prefix). The leading
     /// hash sign is stripped by the caller. Code points outside the
     /// BMP (above 0xFFFF) are rejected; the scanner never produces

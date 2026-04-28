@@ -5,10 +5,10 @@
 namespace SourceDocParser.NuGet.Models;
 
 /// <summary>
-/// Per-file view of a nuget.config <c>&lt;fallbackPackageFolders&gt;</c>
-/// section — used by the discovery walk to honour list-section
-/// semantics (<c>&lt;clear/&gt;</c> wipes parents).
+/// Per-file view of a nuget.config <c>fallbackPackageFolders</c>
+/// section -- used by the discovery walk to honour list-section
+/// semantics (<c>clear/</c> wipes parents).
 /// </summary>
-/// <param name="ClearedSeen">True when the file invoked <c>&lt;clear/&gt;</c> at least once inside the section.</param>
+/// <param name="ClearedSeen">True when the file invoked <c>clear/</c> at least once inside the section.</param>
 /// <param name="Folders">Ordered, deduplicated folder paths declared in this file (post-clear if any).</param>
 public readonly record struct FallbackFoldersFileResult(bool ClearedSeen, string[] Folders);

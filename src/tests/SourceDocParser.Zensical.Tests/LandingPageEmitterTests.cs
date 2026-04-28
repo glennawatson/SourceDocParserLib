@@ -10,7 +10,7 @@ namespace SourceDocParser.Zensical.Tests;
 
 /// <summary>
 /// Pins <see cref="LandingPageEmitter"/> on the per-package and
-/// per-namespace index page shape — file placement, content
+/// per-namespace index page shape -- file placement, content
 /// fingerprints, and the cross-package isolation that prevents
 /// clashing namespaces from overwriting each other.
 /// </summary>

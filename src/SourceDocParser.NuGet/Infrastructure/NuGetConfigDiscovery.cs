@@ -9,7 +9,7 @@ namespace SourceDocParser.NuGet.Infrastructure;
 
 /// <summary>
 /// Walks the standard NuGet configuration discovery chain from a
-/// caller-supplied working folder — same precedence order the SDK
+/// caller-supplied working folder -- same precedence order the SDK
 /// uses (walk-from-cwd-up first, then user-scoped). Each helper
 /// composes <see cref="NuGetGlobalCache.GetUserNuGetConfigPaths"/>
 /// + <see cref="NuGetConfigReader.ReadGlobalPackagesFolderAsync(string,System.Threading.CancellationToken)"/>
@@ -25,7 +25,7 @@ internal static class NuGetConfigDiscovery
 
     /// <summary>
     /// Yields every <c>nuget.config</c> path NuGet would consult,
-    /// in precedence order — caller's <paramref name="workingFolder"/>,
+    /// in precedence order -- caller's <paramref name="workingFolder"/>,
     /// each ancestor up to the filesystem root, then the user-scoped
     /// locations. First-existing-file wins for any given setting.
     /// Doesn't probe disk beyond <see cref="File.Exists(string)"/>;
@@ -88,7 +88,7 @@ internal static class NuGetConfigDiscovery
     /// Walks the discovery chain rooted at <paramref name="workingFolder"/>
     /// and returns the first <c>globalPackagesFolder</c> value found.
     /// Returns <see langword="null"/> when no config file along the
-    /// chain carries that setting — caller falls back to the
+    /// chain carries that setting -- caller falls back to the
     /// platform default via
     /// <see cref="NuGetGlobalCache.ResolveGlobalPackagesFolder(string?)"/>.
     /// </summary>
@@ -101,10 +101,10 @@ internal static class NuGetConfigDiscovery
 
         // Walk most-specific first (working folder + ancestors, then
         // user-scoped). Matches NuGet's reverse-merge effective order:
-        // - Found in a closer file → that value wins
-        // - <clear/> in a closer file → wipe parents, fall through to
+        // - Found in a closer file -> that value wins
+        // - <clear/> in a closer file -> wipe parents, fall through to
         //   the platform default (return null)
-        // - NotMentioned in a closer file → keep walking
+        // - NotMentioned in a closer file -> keep walking
         foreach (var configPath in EnumerateConfigPaths(workingFolder))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -153,16 +153,16 @@ internal static class NuGetConfigDiscovery
     /// package-source list.
     /// </summary>
     /// <param name="workingFolder">Repository / project root to start the walk from.</param>
-    /// <returns>Ordered, deduplicated package sources — first entry has highest discovery precedence.</returns>
+    /// <returns>Ordered, deduplicated package sources -- first entry has highest discovery precedence.</returns>
     public static Task<PackageSource[]> ResolvePackageSourcesAsync(string workingFolder) =>
         ResolvePackageSourcesAsync(workingFolder, CancellationToken.None);
 
     /// <summary>
     /// Walks the discovery chain rooted at
     /// <paramref name="workingFolder"/> and returns the merged
-    /// list of <c>&lt;packageSources&gt;</c> entries — closer
-    /// files' <c>&lt;clear/&gt;</c> wipes parents, closer files'
-    /// <c>&lt;add&gt;</c> entries take precedence over the same
+    /// list of <c>packageSources</c> entries -- closer
+    /// files' <c>clear/</c> wipes parents, closer files'
+    /// <c>add</c> entries take precedence over the same
     /// key in less-specific files. When no config along the
     /// chain declares any sources, returns the well-known
     /// nuget.org default so the fetcher always has at least one
@@ -170,14 +170,14 @@ internal static class NuGetConfigDiscovery
     /// </summary>
     /// <param name="workingFolder">Repository / project root to start the walk from.</param>
     /// <param name="cancellationToken">Token observed across each parse.</param>
-    /// <returns>Ordered, deduplicated package sources — first entry has highest discovery precedence.</returns>
+    /// <returns>Ordered, deduplicated package sources -- first entry has highest discovery precedence.</returns>
     public static async Task<PackageSource[]> ResolvePackageSourcesAsync(string workingFolder, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(workingFolder);
 
         // Walk most-specific first so closer files' adds upsert
         // first (their value wins via the seenKeys gate). Stop
-        // walking when a closer file invoked <clear/> — its clear
+        // walking when a closer file invoked <clear/> -- its clear
         // erases anything the less-specific configs would have
         // contributed.
         var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -223,7 +223,7 @@ internal static class NuGetConfigDiscovery
     /// <summary>
     /// Walks the chain rooted at <paramref name="workingFolder"/>
     /// and unions every disabled-source key. There's no clear
-    /// semantics for this section — once a config disables a
+    /// semantics for this section -- once a config disables a
     /// source, the union prevents the fetcher from ever using it.
     /// </summary>
     /// <param name="workingFolder">Repository / project root.</param>
@@ -253,7 +253,7 @@ internal static class NuGetConfigDiscovery
         ResolveCredentialsAsync(workingFolder, CancellationToken.None);
 
     /// <summary>
-    /// Walks the chain and merges credential blocks — closer
+    /// Walks the chain and merges credential blocks -- closer
     /// configs' values win on key collision.
     /// </summary>
     /// <param name="workingFolder">Repository / project root.</param>
@@ -287,7 +287,7 @@ internal static class NuGetConfigDiscovery
 
     /// <summary>
     /// Walks the chain and merges fallback-folder paths, honouring
-    /// <c>&lt;clear/&gt;</c> as the section-stop signal so a closer
+    /// <c>clear/</c> as the section-stop signal so a closer
     /// config can scope away parents.
     /// </summary>
     /// <param name="workingFolder">Repository / project root.</param>

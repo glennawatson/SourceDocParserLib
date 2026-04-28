@@ -45,7 +45,7 @@ public class DocfxMemberDisplayNameTests
         await Assert.That(name).IsEqualTo("ReactiveObject(int, string)");
     }
 
-    /// <summary>Properties keep their bare name — no parens.</summary>
+    /// <summary>Properties keep their bare name -- no parens.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task PropertyRendersAsPlainName()

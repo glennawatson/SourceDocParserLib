@@ -7,7 +7,7 @@ using SourceDocParser.Zensical.Pages;
 namespace SourceDocParser.Zensical.Tests;
 
 /// <summary>
-/// Pins <see cref="BucketDictionaryExtensions.AddToBucket"/> — the
+/// Pins <see cref="BucketDictionaryExtensions.AddToBucket"/> -- the
 /// "try-get / create-on-miss / append" helper that the catalog
 /// indexes use to assemble per-UID lookups. The shape is small but
 /// it sits on a hot per-type loop so the contract pins matter:
@@ -57,7 +57,7 @@ public class BucketDictionaryExtensionsTests
         await Assert.That(map["b"]).IsEquivalentTo((int[])[2]);
     }
 
-    /// <summary>Reference values are stored by reference — the helper is a thin shim, no copy semantics.</summary>
+    /// <summary>Reference values are stored by reference -- the helper is a thin shim, no copy semantics.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task AddToBucketStoresReferenceValuesByReference()
@@ -70,7 +70,7 @@ public class BucketDictionaryExtensionsTests
         await Assert.That(map["k"][0]).IsSameReferenceAs(value);
     }
 
-    /// <summary>A null map argument throws — defensive against accidental misuse on a hot caller.</summary>
+    /// <summary>A null map argument throws -- defensive against accidental misuse on a hot caller.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task AddToBucketRejectsNullMap()

@@ -9,7 +9,7 @@ namespace SourceDocParser.Tests;
 /// <summary>
 /// Pins <see cref="SourceUrlRewriter"/>: maps the raw SourceLink URLs
 /// the four major Git hosts publish into human-friendly blob URLs with
-/// a line anchor. Each host has its own rewrite shape — these tests
+/// a line anchor. Each host has its own rewrite shape -- these tests
 /// nail the conversion so a regression in any single host's path
 /// surfaces on its own line.
 /// </summary>

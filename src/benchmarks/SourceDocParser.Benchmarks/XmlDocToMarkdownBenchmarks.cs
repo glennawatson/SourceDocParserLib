@@ -8,7 +8,7 @@ using SourceDocParser.XmlDoc;
 namespace SourceDocParser.Benchmarks;
 
 /// <summary>
-/// Micro-benchmarks for <see cref="XmlDocToMarkdown.Convert(string)"/> — the
+/// Micro-benchmarks for <see cref="XmlDocToMarkdown.Convert(string)"/> -- the
 /// conversion runs once per documented symbol, so it sits on the hot
 /// path for thousands of pages per build.
 /// </summary>
@@ -30,12 +30,12 @@ public class XmlDocToMarkdownBenchmarks
         Notes:
         <list type="bullet">
           <item><description>Caches via the resilience pipeline.</description></item>
-          <item><description>Retries 6× with exponential backoff.</description></item>
+          <item><description>Retries 6x with exponential backoff.</description></item>
           <item><description>Honours the supplied cancellation token.</description></item>
         </list>
         """;
 
-    /// <summary>Converter under test — class is stateless so one instance is reused across iterations.</summary>
+    /// <summary>Converter under test -- class is stateless so one instance is reused across iterations.</summary>
     private readonly XmlDocToMarkdown _converter = new();
 
     /// <summary>Conversion of a plain summary fragment with no markup.</summary>
