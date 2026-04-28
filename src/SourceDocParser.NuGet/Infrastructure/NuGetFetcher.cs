@@ -137,6 +137,15 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         }
 
         LogFetchingPackages(logger, allPackages.Length);
+
+        // Persist the explicit primary id list so NuGetAssemblySource
+        // routes both owner-discovered and additionalPackages ids into
+        // its primary-DLL filter — without this, owner-only manifests
+        // see no primaryPrefixes and skip every documentation page
+        // (the bug that hides reactiveui/reactivemarbles output when
+        // additionalPackages only carries System.Reactive + DynamicData).
+        WritePrimaryPackagesSidecar(apiPath, allPackages);
+
         await FetchGroupAsync(libDir, cacheDir, allPackages, config.TfmPreference, logger, cancellationToken).ConfigureAwait(false);
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -172,6 +181,39 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// <param name="nupkgPath">Absolute path to the cached <c>.nupkg</c>.</param>
     /// <returns>The sidecar path.</returns>
     internal static string NuspecSidecarPath(string nupkgPath) => nupkgPath + ".nuspec";
+
+    /// <summary>
+    /// Persists the post-exclusion primary id list to
+    /// <see cref="NuGetAssemblySource.PrimaryPackagesFileName"/>
+    /// under <paramref name="apiPath"/>. Each id appears on its own
+    /// line in declaration order; the sidecar is rewritten on every
+    /// fetch so a removed owner / additional package drops out of the
+    /// next walk.
+    /// </summary>
+    /// <param name="apiPath">Destination root passed into the fetch.</param>
+    /// <param name="primaryPackages">Primary fetch tuples (id, version, tfm).</param>
+    internal static void WritePrimaryPackagesSidecar(
+        string apiPath,
+        (string Id, string? Version, string? Tfm)[] primaryPackages)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(apiPath);
+        ArgumentNullException.ThrowIfNull(primaryPackages);
+
+        var sidecarPath = Path.Combine(apiPath, NuGetAssemblySource.PrimaryPackagesFileName);
+        if (primaryPackages.Length is 0)
+        {
+            File.WriteAllText(sidecarPath, string.Empty);
+            return;
+        }
+
+        var lines = new string[primaryPackages.Length];
+        for (var i = 0; i < primaryPackages.Length; i++)
+        {
+            lines[i] = primaryPackages[i].Id;
+        }
+
+        File.WriteAllLines(sidecarPath, lines);
+    }
 
     /// <summary>
     /// Returns true when the file at <paramref name="destPath"/> already

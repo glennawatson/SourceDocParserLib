@@ -31,6 +31,17 @@ public static class ApiDocumentationExtensions
         ArgumentNullException.ThrowIfNull(doc);
         ArgumentNullException.ThrowIfNull(converter);
 
+        // Hot path: most members ship with no documentation at all
+        // (compiler-synthesised accessors, internal-but-public helpers,
+        // generic instantiations). Skip the full record rebuild — and
+        // the eight Convert calls inside it — when there is nothing
+        // for the converter to do. This is the single biggest emit-
+        // phase win after the v0.3 walker→emitter doc-rendering shift.
+        if (IsBlank(doc))
+        {
+            return doc;
+        }
+
         return doc with
         {
             Summary = converter.Convert(doc.Summary),
@@ -43,6 +54,27 @@ public static class ApiDocumentationExtensions
             Exceptions = ConvertEntries(doc.Exceptions, converter),
         };
     }
+
+    /// <summary>
+    /// Returns true when <paramref name="doc"/> carries nothing the
+    /// converter could meaningfully render — every text-shaped field
+    /// is empty and every list is zero-length. Identity-checks the
+    /// shared <see cref="ApiDocumentation.Empty"/> first so the very
+    /// common "DocResolver returned the singleton" case avoids the
+    /// per-field probe entirely.
+    /// </summary>
+    /// <param name="doc">Documentation to inspect.</param>
+    /// <returns>True when no field carries content.</returns>
+    private static bool IsBlank(ApiDocumentation doc) =>
+        ReferenceEquals(doc, ApiDocumentation.Empty)
+        || (doc.Summary.Length is 0
+            && doc.Remarks.Length is 0
+            && doc.Returns.Length is 0
+            && doc.Value.Length is 0
+            && doc.Examples.Length is 0
+            && doc.Parameters.Length is 0
+            && doc.TypeParameters.Length is 0
+            && doc.Exceptions.Length is 0);
 
     /// <summary>Converts each item in <paramref name="fragments"/> via <paramref name="converter"/>.</summary>
     /// <param name="fragments">Raw inner-XML fragments.</param>

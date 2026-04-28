@@ -8,7 +8,7 @@ The catalog is **format-neutral**. Emitters decide how to render it — Markdown
 
 | Package | What it does |
 |---|---|
-| `SourceDocParser` | Core walker, merger, source-link resolution. Defines `IAssemblySource`, `IDocumentationEmitter`, `IMetadataExtractor`. |
+| `SourceDocParser` | Core walker, merger, source-link resolution. Defines `IAssemblySource`, `IDocumentationEmitter`, `IMetadataExtractor`, the `ICrefResolver` cross-link seam, and the shared `CatalogIndexes` rollup (derived classes / extension methods / inherited members). |
 | `SourceDocParser.NuGet` | `IAssemblySource` that fetches packages from `nuget.org` by owner / explicit list and exposes the per-TFM `lib/` trees. |
 | `SourceDocParser.Zensical` | `IDocumentationEmitter` that writes Markdown tuned for Zensical / mkdocs Material (admonitions, content tabs, mermaid). |
 | `SourceDocParser.Docfx` | `IDocumentationEmitter` that writes docfx ManagedReference YAML pages (drop-in replacement for `dotnet docfx metadata` output) plus the `docfx.json` config-file shim that lets an existing docfx site drive the parser pipeline. |
@@ -96,6 +96,8 @@ The two pipelines aren't strictly walking identical inputs — docfx loads a syn
 - **Streaming type merger.** The parallel walk feeds `ApiCatalog`s into `StreamingTypeMerger` one at a time and immediately drops its reference, instead of accumulating every catalog in a `ConcurrentBag` until the walk phase finishes.
 - **Capture-free parallel dispatch.** The `Parallel.ForEachAsync` lambda is `static` — every dependency it touches is bundled into a `WalkContext` record attached to each work item, so dispatch never allocates a closure object per assembly.
 - **Pooled `StringBuilder` on the converter.** `XmlDocToMarkdown` is per-walk by construction; reusing a single builder across every `Convert` call eliminates the per-element allocation that would otherwise dominate the renderer.
+- **Emit-time doc rendering with a pluggable cref resolver.** The walker hands the catalog over with `ApiDocumentation` strings carrying *raw XML doc fragments*, not pre-rendered Markdown. Each emitter constructs its own `XmlDocToMarkdown(ICrefResolver)` and folds rendering over the catalog via `RenderedTypeFactory.Render(type, converter)` just before emit, so Zensical (mkdocs-autorefs `[name][uid]` form, with arity backticks translated to hyphens to match its anchors) and docfx (`<xref:UID>` form) produce wire-correct cross-links from the same catalog without the walker baking either format in. `DefaultCrefResolver` provides the fallback for tools that don't ship a custom resolver.
+- **Shared `CatalogIndexes` rollup.** Derived-class lookup, reverse extension-method lookup, and per-type inherited-member uid lists are built once per emit run in a single O(N) sweep and frozen via `FrozenDictionary`. Each emitter passes its own `System.Object` baseline UIDs (docfx wants bare names, Zensical wants `M:`-prefixed commentIds) so the algorithm stays shared while wire format stays per-emitter.
 - **Pre-sized buffers.** Each nupkg zip entry is sized to its known uncompressed length up front so the backing `byte[]` is allocated once at the right size instead of doubling-and-copying on every `Write`. SourceLink URL rewriting fuses the base URL and the line anchor into one interpolated-string handler call so the GitHub / Bitbucket / GitLab / Azure DevOps blob URL is materialised in a single `string`.
 
 ## Repository layout

@@ -11,7 +11,7 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 /// <summary>
 /// End-to-end pin: a classic <c>static void DoIt(this Target self, ...)</c>
 /// extension method on a static host should populate
-/// <see cref="DocfxCatalogIndexes.ExtensionMethods"/> for the
+/// <see cref="DocfxCatalogIndexes.GetExtensions(string)"/> for the
 /// receiver's UID and the rendered Target.yml page should carry the
 /// matching <c>extensionMethods:</c> field. Stops a regression in the
 /// keying convention (extended-type UID → method UIDs) the index

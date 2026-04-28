@@ -31,24 +31,18 @@ public static class RenderedTypeFactory
         ArgumentNullException.ThrowIfNull(type);
         ArgumentNullException.ThrowIfNull(converter);
 
+        var renderedDoc = type.Documentation.RenderWith(converter);
+
+        // Returning the input type unchanged when nothing rendered
+        // saves the per-type record allocation — dominant once the
+        // member-array short-circuit kicks in for compiler-generated
+        // accessors and BCL-shaped inherits.
         return type switch
         {
-            ApiObjectType o => o with
-            {
-                Documentation = o.Documentation.RenderWith(converter),
-                Members = RenderMembers(o.Members, converter),
-            },
-            ApiUnionType u => u with
-            {
-                Documentation = u.Documentation.RenderWith(converter),
-                Members = RenderMembers(u.Members, converter),
-            },
-            ApiEnumType e => e with
-            {
-                Documentation = e.Documentation.RenderWith(converter),
-                Values = RenderValues(e.Values, converter),
-            },
-            _ => type with { Documentation = type.Documentation.RenderWith(converter) },
+            ApiObjectType o => RebuildObject(o, renderedDoc, RenderMembers(o.Members, converter)),
+            ApiUnionType u => RebuildUnion(u, renderedDoc, RenderMembers(u.Members, converter)),
+            ApiEnumType e => RebuildEnum(e, renderedDoc, RenderValues(e.Values, converter)),
+            _ => ReferenceEquals(renderedDoc, type.Documentation) ? type : type with { Documentation = renderedDoc },
         };
     }
 
@@ -64,13 +58,19 @@ public static class RenderedTypeFactory
     {
         ArgumentNullException.ThrowIfNull(member);
         ArgumentNullException.ThrowIfNull(converter);
-        return member with { Documentation = member.Documentation.RenderWith(converter) };
+        var rendered = member.Documentation.RenderWith(converter);
+        return ReferenceEquals(rendered, member.Documentation) ? member : member with { Documentation = rendered };
     }
 
-    /// <summary>Renders every member's docs.</summary>
+    /// <summary>
+    /// Renders every member's docs. Returns the input array unchanged
+    /// when none of the per-member <see cref="ApiDocumentation"/>
+    /// records actually transformed — the common case for types whose
+    /// members are all undocumented (overrides, accessor pairs).
+    /// </summary>
     /// <param name="members">Members to render.</param>
     /// <param name="converter">Converter to run them through.</param>
-    /// <returns>A new array with rendered-doc members.</returns>
+    /// <returns>A new array when at least one member changed, otherwise the input array.</returns>
     private static ApiMember[] RenderMembers(ApiMember[] members, XmlDocToMarkdown converter)
     {
         if (members.Length is 0)
@@ -78,19 +78,35 @@ public static class RenderedTypeFactory
             return members;
         }
 
-        var result = new ApiMember[members.Length];
+        ApiMember[]? result = null;
         for (var i = 0; i < members.Length; i++)
         {
-            result[i] = Render(members[i], converter);
+            var rendered = Render(members[i], converter);
+            if (result is null)
+            {
+                if (ReferenceEquals(rendered, members[i]))
+                {
+                    continue;
+                }
+
+                result = new ApiMember[members.Length];
+                Array.Copy(members, result, i);
+            }
+
+            result[i] = rendered;
         }
 
-        return result;
+        return result ?? members;
     }
 
-    /// <summary>Renders every enum value's docs.</summary>
+    /// <summary>
+    /// Renders every enum value's docs. Same skip-on-no-change shape
+    /// as <see cref="RenderMembers"/> so undocumented enums never
+    /// pay the array allocation.
+    /// </summary>
     /// <param name="values">Values to render.</param>
     /// <param name="converter">Converter to run them through.</param>
-    /// <returns>A new array with rendered-doc values.</returns>
+    /// <returns>A new array when at least one value changed, otherwise the input array.</returns>
     private static ApiEnumValue[] RenderValues(ApiEnumValue[] values, XmlDocToMarkdown converter)
     {
         if (values.Length is 0)
@@ -98,12 +114,56 @@ public static class RenderedTypeFactory
             return values;
         }
 
-        var result = new ApiEnumValue[values.Length];
+        ApiEnumValue[]? result = null;
         for (var i = 0; i < values.Length; i++)
         {
-            result[i] = values[i] with { Documentation = values[i].Documentation.RenderWith(converter) };
+            var renderedDoc = values[i].Documentation.RenderWith(converter);
+            if (result is null)
+            {
+                if (ReferenceEquals(renderedDoc, values[i].Documentation))
+                {
+                    continue;
+                }
+
+                result = new ApiEnumValue[values.Length];
+                Array.Copy(values, result, i);
+            }
+
+            result[i] = ReferenceEquals(renderedDoc, values[i].Documentation)
+                ? values[i]
+                : values[i] with { Documentation = renderedDoc };
         }
 
-        return result;
+        return result ?? values;
     }
+
+    /// <summary>Builds an <see cref="ApiObjectType"/> wrapper, returning the input when nothing changed so the parent type-array short-circuit can kick in.</summary>
+    /// <param name="type">Original type.</param>
+    /// <param name="renderedDoc">Already-rendered documentation.</param>
+    /// <param name="renderedMembers">Already-rendered members (may be reference-equal to the input).</param>
+    /// <returns>A type with rendered fields, or the original on no-op.</returns>
+    private static ApiObjectType RebuildObject(ApiObjectType type, ApiDocumentation renderedDoc, ApiMember[] renderedMembers) =>
+        ReferenceEquals(renderedDoc, type.Documentation) && ReferenceEquals(renderedMembers, type.Members)
+            ? type
+            : type with { Documentation = renderedDoc, Members = renderedMembers };
+
+    /// <summary>Builds an <see cref="ApiUnionType"/> wrapper, returning the input when nothing changed.</summary>
+    /// <param name="type">Original type.</param>
+    /// <param name="renderedDoc">Already-rendered documentation.</param>
+    /// <param name="renderedMembers">Already-rendered members (may be reference-equal to the input).</param>
+    /// <returns>A type with rendered fields, or the original on no-op.</returns>
+    private static ApiUnionType RebuildUnion(ApiUnionType type, ApiDocumentation renderedDoc, ApiMember[] renderedMembers) =>
+        ReferenceEquals(renderedDoc, type.Documentation) && ReferenceEquals(renderedMembers, type.Members)
+            ? type
+            : type with { Documentation = renderedDoc, Members = renderedMembers };
+
+    /// <summary>Builds an <see cref="ApiEnumType"/> wrapper, returning the input when nothing changed.</summary>
+    /// <param name="type">Original type.</param>
+    /// <param name="renderedDoc">Already-rendered documentation.</param>
+    /// <param name="renderedValues">Already-rendered values (may be reference-equal to the input).</param>
+    /// <returns>A type with rendered fields, or the original on no-op.</returns>
+    private static ApiEnumType RebuildEnum(ApiEnumType type, ApiDocumentation renderedDoc, ApiEnumValue[] renderedValues) =>
+        ReferenceEquals(renderedDoc, type.Documentation) && ReferenceEquals(renderedValues, type.Values)
+            ? type
+            : type with { Documentation = renderedDoc, Values = renderedValues };
 }

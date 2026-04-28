@@ -13,11 +13,12 @@ namespace SourceDocParser;
 /// start of an emit run so each render-time lookup is O(1).
 /// </summary>
 /// <remarks>
-/// The inherited-member <paramref name="objectInheritedUids"/> baseline
-/// is supplied per emitter because the wire format differs:
-/// mkdocs-autorefs (Zensical) wants the full <c>M:</c>-prefixed
-/// commentId, docfx's xrefmap wants the bare member name. The
-/// algorithm is the same; only the baseline strings differ.
+/// The inherited-member <c>objectInheritedUids</c> baseline (passed to
+/// <see cref="Build(ApiType[], string[])"/>) is supplied per emitter
+/// because the wire format differs: mkdocs-autorefs (Zensical) wants
+/// the full <c>M:</c>-prefixed commentId, docfx's xrefmap wants the
+/// bare member name. The algorithm is the same; only the baseline
+/// strings differ.
 /// </remarks>
 public sealed class CatalogIndexes
 {

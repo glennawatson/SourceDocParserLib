@@ -19,6 +19,15 @@ namespace SourceDocParser.NuGet.Infrastructure;
 /// </summary>
 public sealed class NuGetAssemblySource : IAssemblySource
 {
+    /// <summary>
+    /// Filename of the per-fetch sidecar listing every package id the
+    /// fetcher promoted to "primary" (owner-discovered + additionalPackages,
+    /// minus exclusions). Lives next to <c>lib/</c> so a stale apiPath
+    /// from an older library version is detected by file absence and
+    /// the source falls back to the manifest's <c>additionalPackages</c>.
+    /// </summary>
+    internal const string PrimaryPackagesFileName = ".primary-packages";
+
     /// <summary>File pattern used to discover assemblies.</summary>
     private const string DllPattern = "*.dll";
 
@@ -109,10 +118,15 @@ public sealed class NuGetAssemblySource : IAssemblySource
         // stay in the fallback index so compilation resolves them,
         // but they're not walked for documentation pages — those
         // pages are not what the user wanted.
+        // Prefer the fetcher-written sidecar when present — it lists
+        // every owner-discovered + additionalPackages id that survived
+        // user exclusions, so owner-only manifests (no
+        // additionalPackages declared) still produce documentation
+        // pages. Fall back to the manifest only when the sidecar is
+        // missing (older fetcher, hand-populated apiPath).
+        var sidecarPath = Path.Combine(_apiPath, PrimaryPackagesFileName);
         var manifestPath = Path.Combine(_rootDirectory, "nuget-packages.json");
-        var primaryPrefixes = File.Exists(manifestPath)
-            ? BuildPrimaryPrefixes(PackageConfigReader.Read(manifestPath))
-            : [];
+        var primaryPrefixes = ResolvePrimaryPrefixes(sidecarPath, manifestPath);
 
         var libTfms = DiscoverTfms(libDir);
         var refsTfms = Directory.Exists(refsDir) ? DiscoverTfms(refsDir) : [];
@@ -145,6 +159,32 @@ public sealed class NuGetAssemblySource : IAssemblySource
     }
 
     /// <summary>
+    /// Resolves the primary-prefix list for the current discovery run.
+    /// Prefers the fetcher-written sidecar so owner-discovered ids
+    /// surface alongside additionalPackages; falls back to the
+    /// manifest's additionalPackages for hand-populated apiPaths or
+    /// older fetchers; returns empty when neither is available so
+    /// <see cref="IsPrimaryDll"/> walks every DLL.
+    /// </summary>
+    /// <param name="sidecarPath">Absolute path to the per-fetch sidecar.</param>
+    /// <param name="manifestPath">Absolute path to <c>nuget-packages.json</c>.</param>
+    /// <returns>Primary prefixes laid out as bare-id / id+dot pairs.</returns>
+    internal static string[] ResolvePrimaryPrefixes(string sidecarPath, string manifestPath)
+    {
+        if (File.Exists(sidecarPath))
+        {
+            return BuildPrimaryPrefixesFromIds(ReadPrimaryIdsSidecar(sidecarPath));
+        }
+
+        if (File.Exists(manifestPath))
+        {
+            return BuildPrimaryPrefixes(PackageConfigReader.Read(manifestPath));
+        }
+
+        return [];
+    }
+
+    /// <summary>
     /// Builds the set of "primary package" prefixes the assembly
     /// source uses to decide which DLLs to walk vs. leave as
     /// compile-only refs. Each primary ID is added in two forms —
@@ -164,20 +204,110 @@ public sealed class NuGetAssemblySource : IAssemblySource
             return [];
         }
 
-        var prefixes = new List<string>(config.AdditionalPackages.Length * 2);
+        var ids = new string[config.AdditionalPackages.Length];
         for (var i = 0; i < config.AdditionalPackages.Length; i++)
         {
-            var id = config.AdditionalPackages[i].Id;
+            ids[i] = config.AdditionalPackages[i].Id;
+        }
+
+        return BuildPrimaryPrefixesFromIds(ids);
+    }
+
+    /// <summary>
+    /// Same shape as <see cref="BuildPrimaryPrefixes(PackageConfig)"/>
+    /// but driven by the explicit id list the fetcher persists to its
+    /// <see cref="PrimaryPackagesFileName"/> sidecar — that list is
+    /// the union of owner-discovered and additionalPackages ids
+    /// (after user exclusions and before transitive expansion), which
+    /// is the set the user expects documentation pages for.
+    /// </summary>
+    /// <param name="ids">Primary package identifiers.</param>
+    /// <returns>Distinct primary prefixes laid out as bare-id / id+dot pairs — empty when no usable ids are supplied.</returns>
+    internal static string[] BuildPrimaryPrefixesFromIds(string[] ids)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        if (ids is [])
+        {
+            return [];
+        }
+
+        var valid = 0;
+        for (var i = 0; i < ids.Length; i++)
+        {
+            if (ids[i] is { Length: > 0 })
+            {
+                valid++;
+            }
+        }
+
+        if (valid is 0)
+        {
+            return [];
+        }
+
+        var prefixes = new string[valid * 2];
+        var write = 0;
+        for (var i = 0; i < ids.Length; i++)
+        {
+            var id = ids[i];
             if (id is null or [])
             {
                 continue;
             }
 
-            prefixes.Add(id);
-            prefixes.Add(id + ".");
+            prefixes[write++] = id;
+            prefixes[write++] = id + ".";
         }
 
-        return [.. prefixes];
+        return prefixes;
+    }
+
+    /// <summary>
+    /// Reads the fetcher-written <see cref="PrimaryPackagesFileName"/>
+    /// sidecar — one package id per line, blank lines and lines
+    /// starting with <c>#</c> ignored so callers can hand-edit if
+    /// they need to. Missing-file callers should pre-check existence;
+    /// this helper assumes the file is present.
+    /// </summary>
+    /// <param name="sidecarPath">Absolute path to the sidecar.</param>
+    /// <returns>The trimmed, non-comment ids in declaration order.</returns>
+    internal static string[] ReadPrimaryIdsSidecar(string sidecarPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sidecarPath);
+        var lines = File.ReadAllLines(sidecarPath);
+
+        // Two-pass count-then-fill so the result lands in an
+        // exact-sized array — sidecar lines are short so the second
+        // pass costs nothing meaningful.
+        var valid = 0;
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var trimmed = lines[i].AsSpan().Trim();
+            if (trimmed.Length is not 0 && trimmed[0] is not '#')
+            {
+                valid++;
+            }
+        }
+
+        if (valid is 0)
+        {
+            return [];
+        }
+
+        var ids = new string[valid];
+        var write = 0;
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i].Trim();
+            if (line.Length is 0 || line[0] is '#')
+            {
+                continue;
+            }
+
+            ids[write++] = line;
+        }
+
+        return ids;
     }
 
     /// <summary>

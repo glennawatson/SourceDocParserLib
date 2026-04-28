@@ -247,6 +247,66 @@ public class NuGetFetcherInternalsTests
         await Assert.That(batch.Length).IsEqualTo(0);
     }
 
+    /// <summary>
+    /// Persisting the primary-id sidecar writes one id per line in the
+    /// fetch order — that's the contract the assembly source's
+    /// reader (<see cref="NuGetAssemblySource.ReadPrimaryIdsSidecar"/>)
+    /// is built around.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task WritePrimaryPackagesSidecarPersistsIdsInOrder()
+    {
+        var apiPath = Path.Combine(Path.GetTempPath(), $"fetcher-sidecar-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(apiPath);
+        try
+        {
+            (string Id, string? Version, string? Tfm)[] packages =
+            [
+                ("ReactiveUI", null, null),
+                ("Splat", "15.0.0", null),
+                ("DynamicData", null, "net10.0"),
+            ];
+
+            NuGetFetcher.WritePrimaryPackagesSidecar(apiPath, packages);
+
+            var sidecar = Path.Combine(apiPath, NuGetAssemblySource.PrimaryPackagesFileName);
+            var ids = NuGetAssemblySource.ReadPrimaryIdsSidecar(sidecar);
+
+            await Assert.That(ids).IsEquivalentTo((string[])["ReactiveUI", "Splat", "DynamicData"]);
+        }
+        finally
+        {
+            Directory.Delete(apiPath, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Empty fetch (manifest with no owners and no additionalPackages)
+    /// still writes the sidecar so a stale sidecar from a previous
+    /// fetch can't leak primary ids back into the next discovery pass.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task WritePrimaryPackagesSidecarTruncatesOnEmptyFetch()
+    {
+        var apiPath = Path.Combine(Path.GetTempPath(), $"fetcher-sidecar-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(apiPath);
+        var sidecar = Path.Combine(apiPath, NuGetAssemblySource.PrimaryPackagesFileName);
+        await File.WriteAllTextAsync(sidecar, "Stale.Package\n");
+        try
+        {
+            NuGetFetcher.WritePrimaryPackagesSidecar(apiPath, []);
+
+            await Assert.That(File.Exists(sidecar)).IsTrue();
+            await Assert.That(NuGetAssemblySource.ReadPrimaryIdsSidecar(sidecar).Length).IsEqualTo(0);
+        }
+        finally
+        {
+            Directory.Delete(apiPath, recursive: true);
+        }
+    }
+
     /// <summary>Builds a <see cref="TransitiveDependencyResolutionRequest"/> with sane defaults.</summary>
     /// <param name="seen">Pre-seeded "already-seen" identifier set, or null for an empty one.</param>
     /// <param name="excludeIds">Exact-match exclude IDs, or null for no exact excludes.</param>

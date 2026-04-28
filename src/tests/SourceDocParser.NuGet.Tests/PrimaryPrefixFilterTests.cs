@@ -141,4 +141,139 @@ public class PrimaryPrefixFilterTests
         await Assert.That(NuGetAssemblySource.IsPrimaryDll("SplatExtra", prefixes)).IsFalse();
         await Assert.That(NuGetAssemblySource.IsPrimaryDll("SplatLike", prefixes)).IsFalse();
     }
+
+    /// <summary>
+    /// The id-list overload (used to consume the fetcher-written
+    /// sidecar) emits the same bare / dotted layout as the
+    /// PackageConfig-driven path so owner-discovered ids reach the
+    /// walker filter unchanged.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task BuildPrimaryPrefixesFromIdsEmitsBareAndDottedPair()
+    {
+        var prefixes = NuGetAssemblySource.BuildPrimaryPrefixesFromIds(["Splat", "ReactiveUI"]);
+
+        await Assert.That(prefixes).IsEquivalentTo((string[])["Splat", "Splat.", "ReactiveUI", "ReactiveUI."]);
+    }
+
+    /// <summary>
+    /// Null / empty entries are skipped — the helper allocates an
+    /// exact-sized array sized off the surviving id count so a
+    /// hand-edited sidecar with stray blank lines doesn't leak nulls
+    /// into the prefix array.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task BuildPrimaryPrefixesFromIdsSkipsBlankEntries()
+    {
+        var prefixes = NuGetAssemblySource.BuildPrimaryPrefixesFromIds([string.Empty, "Splat", null!, "ReactiveUI"]);
+
+        await Assert.That(prefixes).IsEquivalentTo((string[])["Splat", "Splat.", "ReactiveUI", "ReactiveUI."]);
+    }
+
+    /// <summary>
+    /// Empty input returns an empty array (no allocation surprises) so
+    /// the walker fallback to "no filter, walk everything" still
+    /// triggers when the sidecar exists but is empty.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task BuildPrimaryPrefixesFromIdsEmptyForBlankInput()
+    {
+        await Assert.That(NuGetAssemblySource.BuildPrimaryPrefixesFromIds([]).Length).IsEqualTo(0);
+        await Assert.That(NuGetAssemblySource.BuildPrimaryPrefixesFromIds([string.Empty, null!]).Length).IsEqualTo(0);
+    }
+
+    /// <summary>
+    /// The sidecar reader trims whitespace, ignores blank lines and
+    /// <c>#</c>-prefixed comments. Mirrors the format the fetcher
+    /// writes — one id per line, in declaration order.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ReadPrimaryIdsSidecarParsesIdsAndIgnoresCommentsAndBlanks()
+    {
+        var sidecar = Path.Combine(Path.GetTempPath(), $"primary-packages-{Guid.NewGuid():N}.txt");
+        await File.WriteAllTextAsync(sidecar, "# header line\n\nReactiveUI\n  Splat  \n# another comment\nSystem.Reactive\n");
+        try
+        {
+            var ids = NuGetAssemblySource.ReadPrimaryIdsSidecar(sidecar);
+
+            await Assert.That(ids).IsEquivalentTo((string[])["ReactiveUI", "Splat", "System.Reactive"]);
+        }
+        finally
+        {
+            File.Delete(sidecar);
+        }
+    }
+
+    /// <summary>
+    /// <see cref="NuGetAssemblySource.ResolvePrimaryPrefixes"/> prefers
+    /// the sidecar over the manifest — the bug fix's contract. When
+    /// both files exist on disk, the owner-discovered ids in the
+    /// sidecar win over the (smaller) additionalPackages list.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ResolvePrimaryPrefixesPrefersSidecarOverManifest()
+    {
+        var sidecar = Path.Combine(Path.GetTempPath(), $"primary-{Guid.NewGuid():N}.txt");
+        var manifest = Path.Combine(Path.GetTempPath(), $"manifest-{Guid.NewGuid():N}.json");
+        await File.WriteAllTextAsync(sidecar, "ReactiveUI\nSplat\n");
+        await File.WriteAllTextAsync(manifest, "{\"additionalPackages\":[{\"id\":\"DynamicData\"}]}");
+        try
+        {
+            var prefixes = NuGetAssemblySource.ResolvePrimaryPrefixes(sidecar, manifest);
+
+            await Assert.That(prefixes).IsEquivalentTo((string[])["ReactiveUI", "ReactiveUI.", "Splat", "Splat."]);
+        }
+        finally
+        {
+            File.Delete(sidecar);
+            File.Delete(manifest);
+        }
+    }
+
+    /// <summary>
+    /// Falls back to the manifest's additionalPackages when no
+    /// sidecar is present — preserves backwards compatibility with
+    /// hand-populated apiPaths and integration tests that don't go
+    /// through the fetcher.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ResolvePrimaryPrefixesFallsBackToManifestWhenSidecarMissing()
+    {
+        var sidecar = Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.txt");
+        var manifest = Path.Combine(Path.GetTempPath(), $"manifest-{Guid.NewGuid():N}.json");
+        await File.WriteAllTextAsync(manifest, "{\"additionalPackages\":[{\"id\":\"DynamicData\"}]}");
+        try
+        {
+            var prefixes = NuGetAssemblySource.ResolvePrimaryPrefixes(sidecar, manifest);
+
+            await Assert.That(prefixes).IsEquivalentTo((string[])["DynamicData", "DynamicData."]);
+        }
+        finally
+        {
+            File.Delete(manifest);
+        }
+    }
+
+    /// <summary>
+    /// Returns an empty array when neither file exists — caller's
+    /// <see cref="NuGetAssemblySource.IsPrimaryDll"/> reads that as
+    /// "no filter configured, walk everything".
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ResolvePrimaryPrefixesReturnsEmptyWhenBothMissing()
+    {
+        var sidecar = Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.txt");
+        var manifest = Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.json");
+
+        var prefixes = NuGetAssemblySource.ResolvePrimaryPrefixes(sidecar, manifest);
+
+        await Assert.That(prefixes.Length).IsEqualTo(0);
+    }
 }

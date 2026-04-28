@@ -12,7 +12,7 @@ namespace SourceDocParser.Zensical.Tests;
 /// <summary>
 /// End-to-end pin: a classic <c>static void DoIt(this Target self, ...)</c>
 /// extension method on a static host should populate
-/// <see cref="ZensicalCatalogIndexes.ExtensionMethods"/> for the
+/// <see cref="ZensicalCatalogIndexes.GetExtensions(string)"/> for the
 /// receiver's UID and the rendered Target page should carry the
 /// matching <c>## Extension members</c> markdown section.
 /// Mirrors the docfx-side coverage so a regression in either
