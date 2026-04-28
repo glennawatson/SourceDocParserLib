@@ -322,7 +322,7 @@ public class NuGetFetcherInternalsTests
             SeenIds: seen ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase),
             ExcludeIds: excludeIds ?? [],
             ExcludePrefixes: excludePrefixes ?? [],
-            TfmOverrides: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+            TfmOverrides: new(StringComparer.OrdinalIgnoreCase),
             TfmPreference: [],
             Logger: NullLogger.Instance,
             CancellationToken: CancellationToken.None);

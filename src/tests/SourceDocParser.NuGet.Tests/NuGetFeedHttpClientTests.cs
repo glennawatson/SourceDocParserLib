@@ -4,7 +4,6 @@
 
 using System.Net;
 using System.Net.Http.Headers;
-using System.Text;
 using SourceDocParser.NuGet.Infrastructure;
 using SourceDocParser.NuGet.Models;
 
@@ -31,7 +30,7 @@ public class NuGetFeedHttpClientTests
     {
         var handler = new FakeHandler((_, _) =>
         {
-            return new HttpResponseMessage(HttpStatusCode.OK)
+            return new(HttpStatusCode.OK)
             {
                 Content = new StringContent("INDEX-OK"),
             };
@@ -68,7 +67,7 @@ public class NuGetFeedHttpClientTests
         var handler = new FakeHandler((req, _) =>
         {
             sent = req.Headers.Authorization;
-            return new HttpResponseMessage(HttpStatusCode.OK)
+            return new(HttpStatusCode.OK)
             {
                 Content = new StringContent(string.Empty),
             };
@@ -79,7 +78,7 @@ public class NuGetFeedHttpClientTests
 
         await using var stream = await sut.ReadServiceIndexAsync("https://feed/index.json", cred, CancellationToken.None);
 
-        var expected = Convert.ToBase64String(Encoding.UTF8.GetBytes("user:pw"));
+        var expected = Convert.ToBase64String("user:pw"u8);
         await Assert.That(sent?.Scheme).IsEqualTo("Basic");
         await Assert.That(sent?.Parameter).IsEqualTo(expected);
     }
@@ -201,7 +200,7 @@ public class NuGetFeedHttpClientTests
 
         NuGetFeedHttpClient.ApplyCredentials(request, new PackageSourceCredential("nuget.org", "alice", "secret", null));
 
-        var expected = Convert.ToBase64String(Encoding.UTF8.GetBytes("alice:secret"));
+        var expected = Convert.ToBase64String("alice:secret"u8);
         await Assert.That(request.Headers.Authorization?.Scheme).IsEqualTo("Basic");
         await Assert.That(request.Headers.Authorization?.Parameter).IsEqualTo(expected);
     }

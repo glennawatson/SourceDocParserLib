@@ -6,4 +6,4 @@
 // reads, env-var-mutating discovery walks). Run the whole assembly
 // serially so concurrent tests don't fight over /tmp scratch dirs or
 // the NUGET_PACKAGES env var.
-[assembly: TUnit.Core.NotInParallel]
+[assembly: NotInParallel]

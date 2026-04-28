@@ -93,7 +93,7 @@ public static class TypeMerger
     {
         if (!byUid.TryGetValue(uid, out var bucket))
         {
-            bucket = new Bucket(InitialVariantCapacity);
+            bucket = new(InitialVariantCapacity);
             byUid[uid] = bucket;
         }
 

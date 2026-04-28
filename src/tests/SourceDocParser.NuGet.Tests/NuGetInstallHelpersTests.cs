@@ -68,9 +68,9 @@ public class NuGetInstallHelpersTests
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
 
-            await Assert.That(root.GetProperty("version").GetInt32()).IsEqualTo(2);
-            await Assert.That(root.GetProperty("source").GetString()).IsEqualTo(source.Url);
-            await Assert.That(root.GetProperty("contentHash").GetString()).IsNotNull();
+            await Assert.That(root.GetProperty("version"u8).GetInt32()).IsEqualTo(2);
+            await Assert.That(root.GetProperty("source"u8).GetString()).IsEqualTo(source.Url);
+            await Assert.That(root.GetProperty("contentHash"u8).GetString()).IsNotNull();
         }
         finally
         {
@@ -269,7 +269,7 @@ public class NuGetInstallHelpersTests
             await NuGetInstallHelpers.InstallFromSourcesAsync(
                 new(
                     sources,
-                    new Dictionary<string, PackageSourceCredential>(StringComparer.OrdinalIgnoreCase),
+                    new(StringComparer.OrdinalIgnoreCase),
                     failingFeed,
                     NullLogger.Instance,
                     cache,
@@ -306,7 +306,7 @@ public class NuGetInstallHelpersTests
             async Task Act() => await NuGetInstallHelpers.InstallFromSourcesAsync(
                 new(
                     sources,
-                    new Dictionary<string, PackageSourceCredential>(StringComparer.OrdinalIgnoreCase),
+                    new(StringComparer.OrdinalIgnoreCase),
                     feed,
                     NullLogger.Instance,
                     cache,
@@ -355,7 +355,7 @@ public class NuGetInstallHelpersTests
         string installPath) =>
         new(
             [source],
-            new Dictionary<string, PackageSourceCredential>(StringComparer.OrdinalIgnoreCase),
+            new(StringComparer.OrdinalIgnoreCase),
             feed,
             NullLogger.Instance,
             cache,
@@ -414,7 +414,7 @@ public class NuGetInstallHelpersTests
 
         /// <inheritdoc />
         public Task<Stream> ReadServiceIndexAsync(string url, PackageSourceCredential? credential, CancellationToken cancellationToken) =>
-            Task.FromResult<Stream>(new MemoryStream(Encoding.UTF8.GetBytes("""{"version":"3.0.0","resources":[]}""")));
+            Task.FromResult<Stream>(new MemoryStream("""{"version":"3.0.0","resources":[]}"""u8.ToArray(), writable: false));
 
         /// <inheritdoc />
         public Task<Stream?> TryDownloadNupkgAsync(string url, PackageSourceCredential? credential, CancellationToken cancellationToken)

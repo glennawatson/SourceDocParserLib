@@ -2,8 +2,10 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using SourceDocParser.Merge;
+using SourceDocParser.Model;
 using SourceDocParser.SourceLink;
 using SourceDocParser.Walk;
 
@@ -34,10 +36,18 @@ namespace SourceDocParser;
 /// <param name="LoadFailures">
 /// A counter tracking the number of worker failures encountered during the walking process, wrapped in a <see cref="StrongBox{T}"/> for mutable storage.
 /// </param>
+/// <param name="TypesByTfm">
+/// Per-TFM accumulator that records every <see cref="ApiType"/> the
+/// walker produces, keyed on the catalog's TFM. The post-walk
+/// broadcast step reads this to fold a canonical TFM's surface into
+/// each <see cref="AssemblyGroup.BroadcastTfms"/> entry without
+/// re-walking.
+/// </param>
 internal sealed record WalkContext(
     ISymbolWalker SymbolWalker,
     Func<string, ISourceLinkResolver> SourceLinkResolverFactory,
     ILogger Logger,
     StreamingTypeMerger Merger,
     StrongBox<int> CatalogCount,
-    StrongBox<int> LoadFailures);
+    StrongBox<int> LoadFailures,
+    ConcurrentDictionary<string, ConcurrentBag<ApiType[]>> TypesByTfm);

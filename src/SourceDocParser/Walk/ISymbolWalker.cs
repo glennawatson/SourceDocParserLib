@@ -24,5 +24,5 @@ public interface ISymbolWalker
     /// <param name="compilation">Compilation that produced <paramref name="assembly"/>; passed through to the doc resolver for cref lookups.</param>
     /// <param name="sourceLinks">Resolver scoped to the assembly; populates source URLs when SourceLink data is available.</param>
     /// <returns>The generated API catalog.</returns>
-    ApiCatalog Walk(string tfm, IAssemblySymbol assembly, Microsoft.CodeAnalysis.Compilation compilation, ISourceLinkResolver sourceLinks);
+    ApiCatalog Walk(string tfm, IAssemblySymbol assembly, Compilation compilation, ISourceLinkResolver sourceLinks);
 }

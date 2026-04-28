@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging.Abstractions;
 using SourceDocParser.LibCompilation;
@@ -117,6 +118,65 @@ public sealed class MetadataExtractor : IMetadataExtractor
     }
 
     /// <summary>
+    /// Adds a synthetic catalog to the merger for every
+    /// <see cref="AssemblyGroup.BroadcastTfms"/> entry, reusing the
+    /// canonical TFM's walked types so each broadcast TFM contributes
+    /// to <see cref="ApiType.AppliesTo"/> without paying for a Roslyn
+    /// walk of its own.
+    /// </summary>
+    /// <param name="merger">Streaming merger collecting per-TFM catalogs.</param>
+    /// <param name="typesByTfm">Per-TFM type bag populated during the walk phase.</param>
+    /// <param name="groups">All discovered TFM groups; only those with broadcast targets do work here.</param>
+    private static void BroadcastCanonicalTypes(
+        StreamingTypeMerger merger,
+        ConcurrentDictionary<string, ConcurrentBag<ApiType[]>> typesByTfm,
+        List<TfmGroup> groups)
+    {
+        for (var i = 0; i < groups.Count; i++)
+        {
+            var broadcast = groups[i].Group.BroadcastTfms;
+            if (broadcast.Length is 0)
+            {
+                continue;
+            }
+
+            if (!typesByTfm.TryGetValue(groups[i].Group.Tfm, out var bag) || bag.IsEmpty)
+            {
+                continue;
+            }
+
+            var types = FlattenTypeBag(bag);
+            for (var b = 0; b < broadcast.Length; b++)
+            {
+                merger.Add(new(broadcast[b], types));
+            }
+        }
+    }
+
+    /// <summary>Flattens a per-TFM bag of per-assembly type arrays into a single array reused across broadcast catalogs.</summary>
+    /// <param name="bag">Per-assembly type batches accumulated during the walk.</param>
+    /// <returns>The flattened type array.</returns>
+    private static ApiType[] FlattenTypeBag(ConcurrentBag<ApiType[]> bag)
+    {
+        ApiType[][] batches = [.. bag];
+        var total = 0;
+        for (var i = 0; i < batches.Length; i++)
+        {
+            total += batches[i].Length;
+        }
+
+        var flat = new ApiType[total];
+        var dest = 0;
+        for (var i = 0; i < batches.Length; i++)
+        {
+            Array.Copy(batches[i], 0, flat, dest, batches[i].Length);
+            dest += batches[i].Length;
+        }
+
+        return flat;
+    }
+
+    /// <summary>
     /// Internal implementation of the documentation pipeline.
     /// </summary>
     /// <param name="source">The assembly source.</param>
@@ -140,18 +200,22 @@ public sealed class MetadataExtractor : IMetadataExtractor
         var merger = new StreamingTypeMerger();
         var loadFailureBox = new StrongBox<int>();
         var catalogCount = new StrongBox<int>();
+        var typesByTfm = new ConcurrentDictionary<string, ConcurrentBag<ApiType[]>>(StringComparer.Ordinal);
         var context = new WalkContext(
             _symbolWalker,
             _sourceLinkResolverFactory,
             logger,
             merger,
             catalogCount,
-            loadFailureBox);
+            loadFailureBox,
+            typesByTfm);
 
         var workItems = MetadataWalkerHelper.BuildAssemblyWorkItems(groups, context);
         MetadataWalkerHelper.LogWalking(logger, workItems.Count, groups.Count, MaxParallelCompilations);
 
         await MetadataWalkerHelper.WalkAssembliesAsync(workItems, MaxParallelCompilations, cancellationToken).ConfigureAwait(false);
+
+        BroadcastCanonicalTypes(merger, typesByTfm, groups);
 
         var loadFailures = loadFailureBox.Value;
         MetadataWalkerHelper.LogWalkComplete(logger, catalogCount.Value);

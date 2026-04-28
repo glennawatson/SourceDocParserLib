@@ -103,11 +103,11 @@ internal static class XmlMarkupParser
             var end = input[afterOpen..].IndexOf(CommentClose, StringComparison.Ordinal);
             if (end < 0)
             {
-                result = new MarkupResult { NewPos = input.Length, Kind = DocTokenKind.None, Success = false };
+                result = new() { NewPos = input.Length, Kind = DocTokenKind.None, Success = false };
                 return true;
             }
 
-            result = new MarkupResult { NewPos = afterOpen + end + CommentClose.Length, IsSilent = true, Success = true };
+            result = new() { NewPos = afterOpen + end + CommentClose.Length, IsSilent = true, Success = true };
             return true;
         }
 
@@ -130,11 +130,11 @@ internal static class XmlMarkupParser
             var end = input[afterOpen..].IndexOf(CdataClose, StringComparison.Ordinal);
             if (end < 0)
             {
-                result = new MarkupResult { NewPos = input.Length, Kind = DocTokenKind.None, Success = false };
+                result = new() { NewPos = input.Length, Kind = DocTokenKind.None, Success = false };
                 return true;
             }
 
-            result = new MarkupResult
+            result = new()
             {
                 RawText = input[afterOpen..(afterOpen + end)],
                 NewPos = afterOpen + end + CdataClose.Length,
@@ -163,11 +163,11 @@ internal static class XmlMarkupParser
             var end = input[afterOpen..].IndexOf(PiClose, StringComparison.Ordinal);
             if (end < 0)
             {
-                result = new MarkupResult { NewPos = input.Length, Kind = DocTokenKind.None, Success = false };
+                result = new() { NewPos = input.Length, Kind = DocTokenKind.None, Success = false };
                 return true;
             }
 
-            result = new MarkupResult { NewPos = afterOpen + end + PiClose.Length, IsSilent = true, Success = true };
+            result = new() { NewPos = afterOpen + end + PiClose.Length, IsSilent = true, Success = true };
             return true;
         }
 
@@ -190,11 +190,11 @@ internal static class XmlMarkupParser
             var end = input[nameStart..].IndexOf('>');
             if (end < 0)
             {
-                result = new MarkupResult { NewPos = input.Length, Kind = DocTokenKind.None, Success = false };
+                result = new() { NewPos = input.Length, Kind = DocTokenKind.None, Success = false };
                 return true;
             }
 
-            result = new MarkupResult
+            result = new()
             {
                 Name = input[nameStart..(nameStart + end)].Trim(),
                 NewPos = nameStart + end + 1,
@@ -219,7 +219,7 @@ internal static class XmlMarkupParser
         var tagEnd = input[pos..].IndexOf('>');
         if (tagEnd < 0)
         {
-            return new MarkupResult { NewPos = input.Length, Kind = DocTokenKind.None, Success = false };
+            return new() { NewPos = input.Length, Kind = DocTokenKind.None, Success = false };
         }
 
         var tagBody = input[(pos + LtLen)..(pos + tagEnd)];
@@ -236,7 +236,7 @@ internal static class XmlMarkupParser
             nameEnd++;
         }
 
-        return new MarkupResult
+        return new()
         {
             Name = tagBody[..nameEnd],
             AttrArea = tagBody[nameEnd..],

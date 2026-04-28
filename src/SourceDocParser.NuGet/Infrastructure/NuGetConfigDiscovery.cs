@@ -266,7 +266,7 @@ internal static class NuGetConfigDiscovery
         foreach (var configPath in EnumerateConfigPaths(workingFolder))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var fileEntries = await Readers.PackageSourceCredentialsReader.ReadAsync(configPath, cancellationToken).ConfigureAwait(false);
+            var fileEntries = await PackageSourceCredentialsReader.ReadAsync(configPath, cancellationToken).ConfigureAwait(false);
             foreach (var (key, cred) in fileEntries)
             {
                 merged.TryAdd(key, cred);

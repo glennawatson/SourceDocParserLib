@@ -204,10 +204,10 @@ public class DocXmlParserTests
     /// The parser captures raw inner XML; conversion happens at emit time.</summary>
     /// <param name="memberXml">Raw member XML to parse.</param>
     /// <returns>The parsed raw documentation.</returns>
-    private static SourceDocParser.Model.RawDocumentation Parse(string memberXml)
+    private static Model.RawDocumentation Parse(string memberXml)
     {
         var compilation = CSharpCompilation.Create("Probe");
-        var context = new DocResolveContext(compilation, new DocResolveCache());
+        var context = new DocResolveContext(compilation, new());
         return DocXmlParser.Parse(memberXml, context);
     }
 }

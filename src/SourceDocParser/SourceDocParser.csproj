@@ -26,6 +26,8 @@
     <InternalsVisibleTo Include="SourceDocParser.Zensical.Tests" />
     <InternalsVisibleTo Include="SourceDocParser.Docfx" />
     <InternalsVisibleTo Include="SourceDocParser.Docfx.Tests" />
+    <InternalsVisibleTo Include="SourceDocParser.NuGet" />
+    <InternalsVisibleTo Include="SourceDocParser.NuGet.Tests" />
   </ItemGroup>
 
 </Project>

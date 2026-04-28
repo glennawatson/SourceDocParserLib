@@ -132,11 +132,11 @@ public sealed partial class CompilationLoader : ICompilationLoader
         using var primary = new PEFile(assemblyPath);
         var context = new ResolutionContext
         {
-            Resolver = new UniversalAssemblyResolver(assemblyPath, throwOnError: false, primary.DetectTargetFrameworkId()),
+            Resolver = new(assemblyPath, throwOnError: false, primary.DetectTargetFrameworkId()),
             FallbackIndex = fallbackIndex,
-            ResolvedNames = new HashSet<string>(StringComparer.Ordinal),
+            ResolvedNames = new(StringComparer.Ordinal),
             ResolvedPaths = [],
-            Pending = new Stack<PEFile>(),
+            Pending = new(),
             Logger = logger,
             AssemblyName = Path.GetFileName(assemblyPath)
         };

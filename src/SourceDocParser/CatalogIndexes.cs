@@ -133,7 +133,7 @@ public sealed class CatalogIndexes
                 continue;
             }
 
-            AddToBucket(map, baseUid, new ApiTypeReference(type.Name, type.Uid));
+            AddToBucket(map, baseUid, new(type.Name, type.Uid));
         }
 
         return map;

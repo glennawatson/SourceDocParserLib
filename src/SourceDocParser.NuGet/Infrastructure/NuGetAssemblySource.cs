@@ -28,6 +28,12 @@ public sealed class NuGetAssemblySource : IAssemblySource
     /// </summary>
     internal const string PrimaryPackagesFileName = ".primary-packages";
 
+    /// <summary>Initial slot count for a per-canonical broadcast scratch array.</summary>
+    private const int BroadcastSlotInitialCapacity = 4;
+
+    /// <summary>Growth factor applied when a broadcast scratch array fills up.</summary>
+    private const int BroadcastSlotGrowthFactor = 2;
+
     /// <summary>File pattern used to discover assemblies.</summary>
     private const string DllPattern = "*.dll";
 
@@ -111,19 +117,9 @@ public sealed class NuGetAssemblySource : IAssemblySource
             throw new DirectoryNotFoundException($"No {LibDirName}/ directory found at {libDir}");
         }
 
-        // Re-read the manifest the fetcher used so we know which
-        // packages the user explicitly asked for. Transitive deps
-        // (Microsoft.Maui.Controls pulled in via CrissCross.MAUI,
-        // Xamarin.Google.* pulled in via Maui, etc.) get fetched and
-        // stay in the fallback index so compilation resolves them,
-        // but they're not walked for documentation pages -- those
-        // pages are not what the user wanted.
-        // Prefer the fetcher-written sidecar when present -- it lists
-        // every owner-discovered + additionalPackages id that survived
-        // user exclusions, so owner-only manifests (no
-        // additionalPackages declared) still produce documentation
-        // pages. Fall back to the manifest only when the sidecar is
-        // missing (older fetcher, hand-populated apiPath).
+        // Prefer the fetcher-written sidecar when present so
+        // owner-only manifests still produce documentation pages.
+        // Fall back to the manifest only when the sidecar is missing.
         var sidecarPath = Path.Combine(_apiPath, PrimaryPackagesFileName);
         var manifestPath = Path.Combine(_rootDirectory, "nuget-packages.json");
         var primaryPrefixes = ResolvePrimaryPrefixes(sidecarPath, manifestPath);
@@ -132,30 +128,43 @@ public sealed class NuGetAssemblySource : IAssemblySource
         var refsTfms = Directory.Exists(refsDir) ? DiscoverTfms(refsDir) : [];
         var refDllNameCache = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 
-        for (var i = 0; i < libTfms.Count; i++)
+        var probed = ProbeTfms(libTfms, libDir, refsDir, refsTfms, primaryPrefixes, refDllNameCache, cancellationToken);
+        var canonicals = SelectCanonicalsAndBroadcasts(probed);
+
+        for (var i = 0; i < canonicals.Length; i++)
         {
-            var tfm = libTfms[i];
             cancellationToken.ThrowIfCancellationRequested();
-
-            var libTfmDir = Path.Combine(libDir, tfm);
-            var bestRef = TfmResolver.FindBestRefsTfm(tfm, refsTfms);
-
-            var refDllNames = bestRef is not null
-                ? GetOrAddRefDllNames(refDllNameCache, refsDir, bestRef)
-                : new(StringComparer.OrdinalIgnoreCase);
-
-            var packageDlls = CollectPackageDlls(libTfmDir, refDllNames, primaryPrefixes);
-            if (packageDlls.Count is 0)
-            {
-                continue;
-            }
-
-            var fallbackIndex = bestRef is not null
-                ? AssemblyResolution.BuildFallbackIndex([Path.Combine(refsDir, bestRef), libTfmDir], _logger)
-                : AssemblyResolution.BuildFallbackIndex([libTfmDir], _logger);
-
-            yield return new(tfm, [.. packageDlls], fallbackIndex);
+            yield return canonicals[i];
         }
+    }
+
+    /// <summary>
+    /// Selects canonical assemblies and associated broadcast targets from the given list of
+    /// probed target framework monikers (TFMs), creating groupings of assemblies and broadcast relationships.
+    /// </summary>
+    /// <param name="probed">
+    /// An array of probed TFMs, each containing details about assembly paths,
+    /// fallback mappings, unique identifiers, and ranking information.
+    /// </param>
+    /// <returns>
+    /// An array of <see cref="SourceDocParser.Model.AssemblyGroup"/> instances that represent the
+    /// canonical assemblies and their corresponding broadcast TFMs.
+    /// </returns>
+    internal static AssemblyGroup[] SelectCanonicalsAndBroadcasts(ProbedTfm[] probed)
+    {
+        ArgumentNullException.ThrowIfNull(probed);
+        if (probed.Length is 0)
+        {
+            return [];
+        }
+
+        var ranked = RankProbedDescending(probed);
+        var canonicalSlots = new ProbedTfm[probed.Length];
+        var broadcastSlots = new string[probed.Length][];
+        var broadcastCounts = new int[probed.Length];
+        var canonicalCount = AssignCanonicalsAndBroadcasts(ranked, canonicalSlots, broadcastSlots, broadcastCounts);
+
+        return MaterialiseGroups(canonicalSlots, broadcastSlots, broadcastCounts, canonicalCount);
     }
 
     /// <summary>
@@ -250,7 +259,7 @@ public sealed class NuGetAssemblySource : IAssemblySource
         for (var i = 0; i < ids.Length; i++)
         {
             var id = ids[i];
-            if (id is null or [])
+            if (id is not [_, ..])
             {
                 continue;
             }
@@ -298,13 +307,13 @@ public sealed class NuGetAssemblySource : IAssemblySource
         var write = 0;
         for (var i = 0; i < lines.Length; i++)
         {
-            var line = lines[i].Trim();
+            var line = lines[i].AsSpan().Trim();
             if (line.Length is 0 || line[0] is '#')
             {
                 continue;
             }
 
-            ids[write++] = line;
+            ids[write++] = line.ToString();
         }
 
         return ids;
@@ -455,6 +464,135 @@ public sealed class NuGetAssemblySource : IAssemblySource
     }
 
     /// <summary>
+    /// Sorts <paramref name="probed"/> by descending TFM rank with an
+    /// ordinal tiebreaker so the canonical pick is deterministic.
+    /// </summary>
+    /// <param name="probed">Source array (left untouched).</param>
+    /// <returns>A new array holding the sorted entries.</returns>
+    private static ProbedTfm[] RankProbedDescending(ProbedTfm[] probed)
+    {
+        var ranked = new ProbedTfm[probed.Length];
+        Array.Copy(probed, ranked, probed.Length);
+        Array.Sort(ranked, static (a, b) => a.Rank == b.Rank
+            ? string.CompareOrdinal(a.Tfm, b.Tfm)
+            : b.Rank.CompareTo(a.Rank));
+
+        return ranked;
+    }
+
+    /// <summary>
+    /// Walks <paramref name="ranked"/> and assigns each entry as a
+    /// canonical or as a broadcast target for an existing canonical
+    /// whose probed UID set is a superset.
+    /// </summary>
+    /// <param name="ranked">Rank-sorted probe results.</param>
+    /// <param name="canonicalSlots">Pre-sized canonical scratch array; populated in place.</param>
+    /// <param name="broadcastSlots">Pre-sized per-canonical broadcast scratch arrays.</param>
+    /// <param name="broadcastCounts">Per-canonical broadcast counts; updated in place.</param>
+    /// <returns>The number of canonicals identified.</returns>
+    private static int AssignCanonicalsAndBroadcasts(
+        ProbedTfm[] ranked,
+        ProbedTfm[] canonicalSlots,
+        string[][] broadcastSlots,
+        int[] broadcastCounts)
+    {
+        var canonicalCount = 0;
+        for (var i = 0; i < ranked.Length; i++)
+        {
+            var probe = ranked[i];
+            var matched = FindCanonicalSuperset(canonicalSlots, canonicalCount, probe);
+            if (matched < 0)
+            {
+                canonicalSlots[canonicalCount++] = probe;
+                continue;
+            }
+
+            AppendBroadcast(broadcastSlots, broadcastCounts, matched, probe.Tfm);
+        }
+
+        return canonicalCount;
+    }
+
+    /// <summary>Finds the first canonical whose probed UID set is a superset of <paramref name="probe"/>'s.</summary>
+    /// <param name="canonicalSlots">Canonical scratch array.</param>
+    /// <param name="canonicalCount">How many entries in <paramref name="canonicalSlots"/> are populated.</param>
+    /// <param name="probe">Probe whose UID set to test.</param>
+    /// <returns>Index of the matching canonical, or -1 when none match.</returns>
+    private static int FindCanonicalSuperset(ProbedTfm[] canonicalSlots, int canonicalCount, ProbedTfm probe)
+    {
+        for (var c = 0; c < canonicalCount; c++)
+        {
+            if (probe.Uids.IsSubsetOf(canonicalSlots[c].Uids))
+            {
+                return c;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>Appends <paramref name="tfm"/> to canonical <paramref name="canonicalIndex"/>'s broadcast list, growing the scratch array as needed.</summary>
+    /// <param name="broadcastSlots">Per-canonical broadcast scratch arrays.</param>
+    /// <param name="broadcastCounts">Per-canonical broadcast counts.</param>
+    /// <param name="canonicalIndex">Canonical index to append to.</param>
+    /// <param name="tfm">TFM to add as a broadcast target.</param>
+    private static void AppendBroadcast(string[][] broadcastSlots, int[] broadcastCounts, int canonicalIndex, string tfm)
+    {
+        var bcArr = broadcastSlots[canonicalIndex];
+        var bcCount = broadcastCounts[canonicalIndex];
+        if (bcArr is null)
+        {
+            bcArr = new string[BroadcastSlotInitialCapacity];
+            broadcastSlots[canonicalIndex] = bcArr;
+        }
+        else if (bcCount == bcArr.Length)
+        {
+            Array.Resize(ref bcArr, bcArr.Length * BroadcastSlotGrowthFactor);
+            broadcastSlots[canonicalIndex] = bcArr;
+        }
+
+        bcArr[bcCount] = tfm;
+        broadcastCounts[canonicalIndex] = bcCount + 1;
+    }
+
+    /// <summary>Materialises the final <see cref="AssemblyGroup"/> array from the per-canonical scratch state.</summary>
+    /// <param name="canonicalSlots">Populated canonical scratch array.</param>
+    /// <param name="broadcastSlots">Populated per-canonical broadcast scratch arrays.</param>
+    /// <param name="broadcastCounts">Per-canonical broadcast counts.</param>
+    /// <param name="canonicalCount">How many entries in <paramref name="canonicalSlots"/> are populated.</param>
+    /// <returns>One <see cref="AssemblyGroup"/> per canonical.</returns>
+    private static AssemblyGroup[] MaterialiseGroups(
+        ProbedTfm[] canonicalSlots,
+        string[][] broadcastSlots,
+        int[] broadcastCounts,
+        int canonicalCount)
+    {
+        var result = new AssemblyGroup[canonicalCount];
+        for (var i = 0; i < canonicalCount; i++)
+        {
+            var bcCount = broadcastCounts[i];
+            string[] broadcast;
+            if (bcCount is 0)
+            {
+                broadcast = [];
+            }
+            else if (bcCount == broadcastSlots[i].Length)
+            {
+                broadcast = broadcastSlots[i];
+            }
+            else
+            {
+                broadcast = new string[bcCount];
+                Array.Copy(broadcastSlots[i], broadcast, bcCount);
+            }
+
+            result[i] = new(canonicalSlots[i].Tfm, canonicalSlots[i].Dlls, canonicalSlots[i].Fallback, broadcast);
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Cheap "does this directory contain at least one matching file?" check via lazy enumeration.
     /// </summary>
     /// <param name="dir">Directory to check.</param>
@@ -465,4 +603,86 @@ public sealed class NuGetAssemblySource : IAssemblySource
         using var enumerator = Directory.EnumerateFiles(dir, pattern).GetEnumerator();
         return enumerator.MoveNext();
     }
+
+    /// <summary>
+    /// Probes every TFM directory's public API surface via
+    /// <see cref="PublicSurfaceProbe"/>; returns one
+    /// <see cref="ProbedTfm"/> per TFM whose <c>lib/</c> contains at
+    /// least one walkable DLL. Empty groups are dropped here so the
+    /// caller doesn't need to filter again.
+    /// </summary>
+    /// <param name="libTfms">TFM directory names under <c>lib/</c>.</param>
+    /// <param name="libDir">Absolute <c>lib/</c> root.</param>
+    /// <param name="refsDir">Absolute <c>refs/</c> root used for fallback resolution.</param>
+    /// <param name="refsTfms">Sorted list of <c>refs/</c> TFM directory names.</param>
+    /// <param name="primaryPrefixes">Primary id prefix layout from <see cref="ResolvePrimaryPrefixes"/>.</param>
+    /// <param name="refDllNameCache">Per-discovery cache of reference DLL names.</param>
+    /// <param name="cancellationToken">Cancellation token honoured between TFMs.</param>
+    /// <returns>The probed groups in <paramref name="libTfms"/> order.</returns>
+    private ProbedTfm[] ProbeTfms(
+        List<string> libTfms,
+        string libDir,
+        string refsDir,
+        List<string> refsTfms,
+        string[] primaryPrefixes,
+        Dictionary<string, HashSet<string>> refDllNameCache,
+        CancellationToken cancellationToken)
+    {
+        var slots = new ProbedTfm[libTfms.Count];
+        var count = 0;
+        for (var i = 0; i < libTfms.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var tfm = libTfms[i];
+            var libTfmDir = Path.Combine(libDir, tfm);
+            var bestRef = TfmResolver.FindBestRefsTfm(tfm, refsTfms);
+            HashSet<string> refDllNames;
+            Dictionary<string, string> fallbackIndex;
+            if (bestRef is [_, ..] refTfm)
+            {
+                refDllNames = GetOrAddRefDllNames(refDllNameCache, refsDir, refTfm);
+                fallbackIndex = AssemblyResolution.BuildFallbackIndex([Path.Combine(refsDir, refTfm), libTfmDir], _logger);
+            }
+            else
+            {
+                refDllNames = new(StringComparer.OrdinalIgnoreCase);
+                fallbackIndex = AssemblyResolution.BuildFallbackIndex([libTfmDir], _logger);
+            }
+
+            var packageDlls = CollectPackageDlls(libTfmDir, refDllNames, primaryPrefixes);
+            if (packageDlls.Count is 0)
+            {
+                continue;
+            }
+
+            var dlls = packageDlls.ToArray();
+            var uids = PublicSurfaceProbe.ProbePublicTypeUids(dlls);
+            slots[count++] = new(tfm, dlls, fallbackIndex, uids, Tfm.Tfm.Parse(tfm).Rank);
+        }
+
+        if (count == slots.Length)
+        {
+            return slots;
+        }
+
+        var result = new ProbedTfm[count];
+        Array.Copy(slots, result, count);
+        return result;
+    }
+
+    /// <summary>
+    /// Per-TFM probe result paired with the metadata the
+    /// <see cref="AssemblyGroup"/> needs once a canonical pick is made.
+    /// </summary>
+    /// <param name="Tfm">TFM directory name.</param>
+    /// <param name="Dlls">Absolute paths to the package DLLs in this TFM's <c>lib/</c>.</param>
+    /// <param name="Fallback">Resolver fallback index for the compilation.</param>
+    /// <param name="Uids">Public type UIDs probed via <see cref="PublicSurfaceProbe"/>.</param>
+    /// <param name="Rank">TFM rank.</param>
+    internal sealed record ProbedTfm(
+        string Tfm,
+        string[] Dlls,
+        Dictionary<string, string> Fallback,
+        HashSet<string> Uids,
+        int Rank);
 }

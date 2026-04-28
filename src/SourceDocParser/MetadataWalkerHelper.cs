@@ -41,6 +41,7 @@ internal static partial class MetadataWalkerHelper
                 if (LoadAndWalkAssembly(work, ctx.SymbolWalker, ctx.SourceLinkResolverFactory, ctx.Logger) is { } catalog)
                 {
                     ctx.Merger.Add(catalog);
+                    ctx.TypesByTfm.GetOrAdd(catalog.Tfm, static _ => []).Add(catalog.Types);
                     Interlocked.Increment(ref ctx.CatalogCount.Value);
                 }
                 else

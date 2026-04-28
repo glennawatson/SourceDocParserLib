@@ -381,7 +381,7 @@ public class SamplePdbWalkerIntegrationTests
     /// <param name="compilation">The compilation under inspection.</param>
     /// <param name="shortName">The short assembly name.</param>
     /// <returns>The matching assembly symbol.</returns>
-    private static IAssemblySymbol FindAssemblySymbol(Microsoft.CodeAnalysis.Compilation compilation, string shortName)
+    private static IAssemblySymbol FindAssemblySymbol(Compilation compilation, string shortName)
     {
         foreach (var reference in compilation.References)
         {

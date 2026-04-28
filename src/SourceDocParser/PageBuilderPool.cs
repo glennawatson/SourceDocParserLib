@@ -33,7 +33,7 @@ internal static class PageBuilderPool
         _scratch = null;
         if (sb is null)
         {
-            sb = new StringBuilder(hintCapacity);
+            sb = new(hintCapacity);
         }
         else
         {
@@ -44,7 +44,7 @@ internal static class PageBuilderPool
             }
         }
 
-        return new PageBuilderRental(sb);
+        return new(sb);
     }
 
     /// <summary>Returns <paramref name="sb"/> to the cache when nothing else is parked there.</summary>

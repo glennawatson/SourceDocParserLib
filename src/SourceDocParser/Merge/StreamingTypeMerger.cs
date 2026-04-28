@@ -64,7 +64,7 @@ public sealed class StreamingTypeMerger
 
                 if (!_byUid.TryGetValue(uid, out var bucket))
                 {
-                    bucket = new TypeMerger.Bucket(InitialVariantCapacity);
+                    bucket = new(InitialVariantCapacity);
                     _byUid[uid] = bucket;
                 }
 

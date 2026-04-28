@@ -138,7 +138,7 @@ public sealed class ZensicalCrefResolver : ICrefResolver
         }
 
         dest[pos] = ')';
-        return new string(dest);
+        return new(dest);
     }
 
     /// <summary>

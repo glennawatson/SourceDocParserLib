@@ -2,12 +2,10 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.Extensions.Logging.Abstractions;
 using SourceDocParser.LibCompilation;
-using SourceDocParser.Merge;
 using SourceDocParser.Model;
 using SourceDocParser.SourceLink;
 using SourceDocParser.TestHelpers;
@@ -201,9 +199,10 @@ public class MetadataPipelineHelperTests
             SymbolWalker: new NullSymbolWalker(),
             SourceLinkResolverFactory: static _ => new NullSourceLinkResolver(),
             Logger: NullLogger.Instance,
-            Merger: new StreamingTypeMerger(),
-            CatalogCount: new StrongBox<int>(0),
-            LoadFailures: new StrongBox<int>(0));
+            Merger: new(),
+            CatalogCount: new(0),
+            LoadFailures: new(0),
+            TypesByTfm: new(StringComparer.Ordinal));
 
     /// <summary>Symbol walker that always returns an empty catalog.</summary>
     private sealed class NullSymbolWalker : ISymbolWalker
