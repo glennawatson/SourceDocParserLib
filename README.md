@@ -38,6 +38,28 @@ var result = await new MetadataExtractor().RunAsync(
 Console.WriteLine($"Emitted {result.PagesEmitted} pages across {result.CanonicalTypes} types.");
 ```
 
+## Supported target frameworks
+
+The walker resolves NuGet packages against frameworks that the active .NET SDK still understands and that Microsoft is still shipping fixes for:
+
+- **Modern .NET (5.0+)** — `net5.0`, `net6.0`, `net7.0`, `net8.0`, `net9.0`, `net10.0`, plus the `net*-android`, `net*-ios`, `net*-maccatalyst`, `net*-windows` workload variants. See the official [.NET and .NET Core support policy](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core).
+- **netstandard** — `netstandard1.0` through `netstandard2.1`. Sticks around because the BCL targets it, even though [no future netstandard releases are planned](https://learn.microsoft.com/en-us/dotnet/standard/net-standard).
+- **.NET Framework, net462 and newer** — `net462`, `net47`, `net471`, `net472`, `net48`, `net481`. net462 is the floor that supports `netstandard2.0` type forwards and ships ref packs in modern SDKs. See the [.NET Framework support policy](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-framework) for which of those are still in mainstream / extended support.
+
+**Out of scope (legacy, not supported):**
+
+| Family | Examples | Why |
+|---|---|---|
+| Xamarin | `xamarinios*`, `xamarinmac*`, `xamarintvos*`, `xamarinwatchos*` | [Support ended 1 May 2024](https://dotnet.microsoft.com/en-us/platform/support/policy/xamarin); the workloads moved to [.NET MAUI](https://learn.microsoft.com/en-us/dotnet/maui/what-is-maui) under the modern `net*-android` / `net*-ios` / `net*-maccatalyst` / `net*-tvos` TFMs. |
+| Legacy Mono profiles | `MonoAndroid*`, `MonoTouch*` | Predecessors of the Xamarin workloads. Same end-of-support story. |
+| .NET Framework < 4.6.2 | `net20`, `net35`, `net40`, `net45`, `net451`, `net46`, `net461` | Out of [mainstream support](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-framework), and pre-net462 doesn't carry netstandard 2.0 type forwards so the resolver can't reuse modern surface against them. |
+| Silverlight | `sl*` | Microsoft retired Silverlight on [12 October 2021](https://learn.microsoft.com/en-us/lifecycle/products/silverlight-5). |
+| Windows Phone | `wp*`, `wpa*` | [Windows Phone 8.1 end-of-support](https://learn.microsoft.com/en-us/lifecycle/announcements/windows-phone-8-1-end-of-support-announcement) was 11 July 2017; the platform itself was discontinued. |
+| Windows Store / UAP | `win8`, `winrt*`, `uap*` | UWP apps are now expected to migrate to [Windows App SDK / WinUI 3](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/). |
+| Portable Class Libraries | `portable-*` profiles | Replaced by netstandard a decade ago. |
+
+Packages that ship **only** legacy TFMs are skipped at fetch time. The fetcher used to log this at warning level — on real-world walks (ReactiveUI / Avalonia / Splat surfaces) that meant tens of warnings per run for packages like `System.Net.Primitives` or `System.Globalization.Extensions` (whose entire TFM list is `MonoAndroid10, MonoTouch10, net45, xamarinios10, xamarinmac20, ...`). Those skips are now logged at **information** level so genuine TFM mismatches still stay visible. Set your logger filter to `Information` if you want to see the legacy-skip list during a build.
+
 ## Performance
 
 **Benchmark workload.** Numbers below are from the BenchmarkDotNet suite under `src/benchmarks/SourceDocParser.Benchmarks/`, run on a Ryzen 7 5800X / .NET 10. The workload extracts three NuGet packages from `nuget.org` -- pulling each package's `lib/` and `ref/` trees and the matching reference assemblies, walking every public symbol across ~19 target-framework groups, parsing the shipped XML doc files, resolving `<inheritdoc/>` chains, and emitting roughly 600 canonical type pages after cross-TFM merge. The local NuGet cache is warmed once during global setup so per-iteration timings measure the walk + merge + emit pipeline, not the network leg.

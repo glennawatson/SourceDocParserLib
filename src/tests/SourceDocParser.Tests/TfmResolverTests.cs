@@ -371,4 +371,130 @@ public class TfmResolverTests
 
         await Assert.That(result).IsNull();
     }
+
+    /// <summary>
+    /// HasOnlyLegacyTfms: a Xamarin / MonoAndroid / .NET-Framework-pre-5
+    /// only package is classified legacy so the fetcher can drop the
+    /// "no supported TFM" warning to information.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task HasOnlyLegacyTfmsDetectsXamarinAndMonoOnlyPackages()
+    {
+        IReadOnlyList<string> legacy = ["MonoAndroid10", "MonoTouch10", "xamarinios10", "xamarinmac20", "xamarintvos10", "xamarinwatchos10", "net461"];
+
+        var result = TfmResolver.HasOnlyLegacyTfms(legacy);
+
+        await Assert.That(result).IsTrue();
+    }
+
+    /// <summary>
+    /// HasOnlyLegacyTfms: silverlight / windows-phone / portable-* / win8 /
+    /// uap legacy TFMs all classify as legacy.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task HasOnlyLegacyTfmsDetectsSilverlightWindowsPhoneAndPortableOnlyPackages()
+    {
+        IReadOnlyList<string> legacy = ["sl5", "wp8", "wpa81", "win8", "portable-net45+win8+wp8+wpa81", "uap10.0"];
+
+        var result = TfmResolver.HasOnlyLegacyTfms(legacy);
+
+        await Assert.That(result).IsTrue();
+    }
+
+    /// <summary>HasOnlyLegacyTfms: a netstandard variant alone is enough to mark the package as non-legacy.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task HasOnlyLegacyTfmsReturnsFalseWhenAnyNetstandardIsPresent()
+    {
+        IReadOnlyList<string> mixed = ["MonoAndroid10", "xamarinios10", "netstandard2.0"];
+
+        var result = TfmResolver.HasOnlyLegacyTfms(mixed);
+
+        await Assert.That(result).IsFalse();
+    }
+
+    /// <summary>HasOnlyLegacyTfms: any modern .NET (net5+) variant is enough to mark the package as non-legacy.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task HasOnlyLegacyTfmsReturnsFalseWhenAnyModernNetIsPresent()
+    {
+        IReadOnlyList<string> mixed = ["MonoAndroid10", "xamarinios10", "net8.0"];
+
+        var result = TfmResolver.HasOnlyLegacyTfms(mixed);
+
+        await Assert.That(result).IsFalse();
+    }
+
+    /// <summary>HasOnlyLegacyTfms: returns false on an empty list (nothing to classify).</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task HasOnlyLegacyTfmsReturnsFalseForEmptyInput()
+    {
+        IReadOnlyList<string> empty = [];
+
+        var result = TfmResolver.HasOnlyLegacyTfms(empty);
+
+        await Assert.That(result).IsFalse();
+    }
+
+    /// <summary>HasOnlyLegacyTfms: rejects null input via the standard guard.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task HasOnlyLegacyTfmsRejectsNull() =>
+        await Assert.That(() => TfmResolver.HasOnlyLegacyTfms(null!)).Throws<ArgumentNullException>();
+
+    /// <summary>
+    /// HasOnlyLegacyTfms: net462+ counts as supported (it implements
+    /// netstandard 2.0 type forwards). A package shipping only net462
+    /// is therefore NOT legacy.
+    /// </summary>
+    /// <param name="supportedFrameworkTfm">Supported .NET Framework variant under test.</param>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    [Arguments("net462")]
+    [Arguments("net47")]
+    [Arguments("net471")]
+    [Arguments("net472")]
+    [Arguments("net48")]
+    [Arguments("net481")]
+    public async Task HasOnlyLegacyTfmsTreatsNet462AndNewerAsSupported(string supportedFrameworkTfm)
+    {
+        IReadOnlyList<string> tfms = [supportedFrameworkTfm];
+
+        var result = TfmResolver.HasOnlyLegacyTfms(tfms);
+
+        await Assert.That(result).IsFalse();
+    }
+
+    /// <summary>
+    /// HasOnlyLegacyTfms: pre-net462 variants (net20, net35, net40,
+    /// net45, net451, net46, net461) ship without netstandard 2.0
+    /// support and are correctly classified as legacy.
+    /// </summary>
+    /// <param name="legacyFrameworkTfm">Pre-net462 variant under test.</param>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    [Arguments("net20")]
+    [Arguments("net35")]
+    [Arguments("net40")]
+    [Arguments("net45")]
+    [Arguments("net451")]
+    [Arguments("net46")]
+    [Arguments("net461")]
+    public async Task HasOnlyLegacyTfmsTreatsPreNet462AsLegacy(string legacyFrameworkTfm)
+    {
+        IReadOnlyList<string> tfms = [legacyFrameworkTfm];
+
+        var result = TfmResolver.HasOnlyLegacyTfms(tfms);
+
+        await Assert.That(result).IsTrue();
+    }
+
+    /// <summary>IsLegacyDotNetFramework: rejects null input via the standard guard.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task IsLegacyDotNetFrameworkRejectsNull() =>
+        await Assert.That(() => TfmResolver.IsLegacyDotNetFramework(null!)).Throws<ArgumentNullException>();
 }

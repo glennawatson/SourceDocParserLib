@@ -71,6 +71,15 @@ public static class TfmResolver
     private static readonly StringComparer _versionAware = StringComparer.Create(CultureInfo.InvariantCulture, CompareOptions.NumericOrdering);
 
     /// <summary>
+    /// Lowest <see cref="System.Version"/> form of <c>net462</c> that's
+    /// still in scope for modern walks -- net462 is the .NET Framework
+    /// floor that supports netstandard 2.0 type forwards and ships ref
+    /// packs in current SDKs. Anything strictly older is treated as
+    /// legacy by <see cref="IsLegacyOnlyTfm"/>.
+    /// </summary>
+    private static readonly Version SupportedDotNetFrameworkFloor = new(4, 6, 2, 0);
+
+    /// <summary>
     /// Selects every TFM in availableTfms that the resolver would accept.
     /// </summary>
     /// <param name="availableTfms">TFMs present in the package's lib/ directory.</param>
@@ -124,6 +133,39 @@ public static class TfmResolver
         }
 
         return selected;
+    }
+
+    /// <summary>
+    /// Returns true when every entry in <paramref name="availableTfms"/>
+    /// targets a framework that modern .NET consumers can no longer
+    /// run -- Mono / Xamarin / Silverlight / Windows Phone / portable
+    /// profiles / .NET Framework prior to 5. Used by the fetcher to
+    /// downgrade the "no supported TFM" warning on packages that
+    /// genuinely have nothing for a net6+ consumer (e.g. legacy
+    /// <c>System.Net.Primitives</c>, <c>System.Globalization.Extensions</c>);
+    /// without the downgrade these saturate the log on every real-
+    /// world ReactiveUI / Avalonia run.
+    /// </summary>
+    /// <param name="availableTfms">TFM directory names as shipped by the package.</param>
+    /// <returns>True when no TFM is reachable from a modern .NET / netstandard target.</returns>
+    public static bool HasOnlyLegacyTfms(IReadOnlyList<string> availableTfms)
+    {
+        ArgumentNullException.ThrowIfNull(availableTfms);
+
+        if (availableTfms is [])
+        {
+            return false;
+        }
+
+        for (var i = 0; i < availableTfms.Count; i++)
+        {
+            if (!IsLegacyOnlyTfm(availableTfms[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -504,6 +546,59 @@ public static class TfmResolver
         }
 
         return best is not null && byFramework.TryGetValue(best, out var pick) ? pick : null;
+    }
+
+    /// <summary>
+    /// Returns true when <paramref name="tfm"/> targets a framework
+    /// that modern .NET / netstandard consumers cannot reach. Used by
+    /// <see cref="HasOnlyLegacyTfms"/> to detect packages that ship
+    /// only Xamarin / Mono / Silverlight / Windows Phone / pre-net462
+    /// .NET Framework / portable-profile assets.
+    /// </summary>
+    /// <param name="tfm">TFM directory name to classify.</param>
+    /// <returns>True for legacy-only TFMs; false for any supported modern .NET / netstandard / net462+ variant.</returns>
+    internal static bool IsLegacyOnlyTfm(string tfm) => tfm is [_, ..] && NuGetFramework.Parse(tfm) switch
+    {
+        // Unparseable / unknown framework: treat as legacy so we
+        // don't keep warning. The fetcher couldn't have picked
+        // anything from it anyway.
+        { IsUnsupported: true } => true,
+        { Framework: FrameworkConstants.FrameworkIdentifiers.NetStandard } => false,
+        { Framework: FrameworkConstants.FrameworkIdentifiers.NetCoreApp } => false,
+
+        // The "Net" identifier covers BOTH .NET Framework (1.x-4.x)
+        // and modern .NET (5.0+, where the moniker was reused). Modern
+        // .NET is always supported (Major >= 5). On .NET Framework we
+        // mark anything older than 4.6.2 as legacy -- net462 is the
+        // floor that supports netstandard 2.0 and gets first-class
+        // ref packs / type forwards under modern dotnet SDKs.
+        { Framework: FrameworkConstants.FrameworkIdentifiers.Net } parsed => IsLegacyDotNetFramework(parsed.Version),
+
+        // Everything else (Xamarin*, MonoAndroid, MonoTouch,
+        // Silverlight, WindowsPhone*, Windows Store, UAP, portable-*).
+        _ => true,
+    };
+
+    /// <summary>
+    /// Returns true when <paramref name="version"/> represents a .NET
+    /// Framework version older than the supported floor of net462.
+    /// Modern .NET (5.0+) reuses the same identifier and is handled
+    /// by the caller before this is reached.
+    /// </summary>
+    /// <param name="version">Version component of a parsed <c>.NETFramework</c> moniker.</param>
+    /// <returns>True for net4x older than 4.6.2 and any net1x / net2x / net3x.</returns>
+    internal static bool IsLegacyDotNetFramework(Version version)
+    {
+        ArgumentNullException.ThrowIfNull(version);
+
+        // Modern .NET (5.0+) is unconditionally supported.
+        if (version.Major >= ModernNetMajorVersion)
+        {
+            return false;
+        }
+
+        // Pre-net462 (e.g. net20, net35, net40, net45, net451, net46, net461) is legacy.
+        return version < SupportedDotNetFrameworkFloor;
     }
 
     /// <summary>

@@ -1369,6 +1369,31 @@ public sealed partial class NuGetFetcher : INuGetFetcher
             return true;
         }
 
+        // Legacy-only packages (Xamarin / Mono / Silverlight / .NET
+        // Framework < 5) are dead-on-arrival for modern consumers --
+        // logging at warning saturates real-world walks (System.Net.Primitives,
+        // System.Globalization.Extensions, etc. all show up as legacy).
+        // Drop those to information so genuine TFM mismatches stay visible.
+        if (TfmResolver.HasOnlyLegacyTfms(availableTfms))
+        {
+            LogInvokerHelper.Invoke(
+                logger,
+                LogLevel.Information,
+                packageId,
+                availableTfms,
+                static (l, id, tfms) =>
+                {
+                    if (!l.IsEnabled(LogLevel.Information))
+                    {
+                        return;
+                    }
+
+                    var available = string.Join(", ", tfms);
+                    LogLegacyOnlyPackage(l, id, available);
+                });
+            return false;
+        }
+
         LogInvokerHelper.Invoke(
             logger,
             LogLevel.Warning,
@@ -1647,6 +1672,13 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// <param name="available">Comma-separated list of TFMs the package shipped.</param>
     [LoggerMessage(Level = LogLevel.Warning, Message = "  {PackageId}: no supported TFM in package, skipping. Available: {Available}")]
     private static partial void LogNoSupportedTfm(ILogger logger, string packageId, string available);
+
+    /// <summary>Logs a legacy-only package (Xamarin / Mono / Silverlight / .NET Framework &lt; 5) as information rather than warning.</summary>
+    /// <param name="logger">Target logger.</param>
+    /// <param name="packageId">Package identifier.</param>
+    /// <param name="available">Comma-separated list of TFMs the package shipped.</param>
+    [LoggerMessage(Level = LogLevel.Information, Message = "  {PackageId}: legacy-only package (Xamarin / Mono / .NET Framework < 5), skipping. Available: {Available}")]
+    private static partial void LogLegacyOnlyPackage(ILogger logger, string packageId, string available);
 
     /// <summary>Logs which TFM variants the fetcher selected for extraction.</summary>
     /// <param name="logger">Target logger.</param>
