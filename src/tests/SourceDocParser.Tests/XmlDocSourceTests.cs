@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using SourceDocParser.TestHelpers;
 using SourceDocParser.XmlDoc;
 
 namespace SourceDocParser.Tests;
@@ -17,7 +18,7 @@ public class XmlDocSourceTests
     [Test]
     public async Task FromStringHandlesEmptyDoc()
     {
-        var source = XmlDocSource.FromString("<doc><members></members></doc>");
+        var source = XmlDocSourceFactory.FromString("<doc><members></members></doc>");
 
         await Assert.That(source.Count).IsEqualTo(0);
         await Assert.That(source.Get("T:Foo")).IsNull();
@@ -36,7 +37,7 @@ public class XmlDocSourceTests
               </members>
             </doc>
             """;
-        var source = XmlDocSource.FromString(xml);
+        var source = XmlDocSourceFactory.FromString(xml);
 
         await Assert.That(source.Count).IsEqualTo(1);
         var entry = source.Get("T:Foo.Bar");
@@ -56,7 +57,7 @@ public class XmlDocSourceTests
               <member name="M:Foo.A.Run"><summary>Run.</summary></member>
             </members></doc>
             """;
-        var source = XmlDocSource.FromString(xml);
+        var source = XmlDocSourceFactory.FromString(xml);
 
         await Assert.That(source.Count).IsEqualTo(3);
         await Assert.That(source.Get("T:Foo.A")).IsNotNull();
@@ -69,7 +70,7 @@ public class XmlDocSourceTests
     [Test]
     public async Task FromStringHandlesSelfClosingMember()
     {
-        var source = XmlDocSource.FromString("""<doc><members><member name="T:Foo.Empty"/></members></doc>""");
+        var source = XmlDocSourceFactory.FromString("""<doc><members><member name="T:Foo.Empty"/></members></doc>""");
 
         await Assert.That(source.Count).IsEqualTo(1);
         await Assert.That(source.Get("T:Foo.Empty")).IsNotNull();
@@ -80,7 +81,7 @@ public class XmlDocSourceTests
     [Test]
     public async Task FromStringSkipsMembersWithoutName()
     {
-        var source = XmlDocSource.FromString("<doc><members><member><summary>No name.</summary></member></members></doc>");
+        var source = XmlDocSourceFactory.FromString("<doc><members><member><summary>No name.</summary></member></members></doc>");
 
         await Assert.That(source.Count).IsEqualTo(0);
     }
@@ -89,7 +90,7 @@ public class XmlDocSourceTests
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task FromStringValidatesArguments() =>
-        await Assert.That(static () => XmlDocSource.FromString(null!)).Throws<ArgumentNullException>();
+        await Assert.That(static () => XmlDocSourceFactory.FromString(null!)).Throws<ArgumentNullException>();
 
     /// <summary>Load validates its arguments.</summary>
     /// <returns>A task representing the test execution.</returns>

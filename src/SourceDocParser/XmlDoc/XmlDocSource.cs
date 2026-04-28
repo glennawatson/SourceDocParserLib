@@ -84,19 +84,6 @@ public sealed class XmlDocSource : IXmlDocSource
     }
 
     /// <summary>
-    /// Indexes <paramref name="content"/> directly without going
-    /// through disk; used by tests and benchmarks that want to feed
-    /// in synthetic doc text.
-    /// </summary>
-    /// <param name="content">Raw .xml file text.</param>
-    /// <returns>An indexed source over <paramref name="content"/>.</returns>
-    public static XmlDocSource FromString(string content)
-    {
-        ArgumentNullException.ThrowIfNull(content);
-        return new(content, BuildIndex(content));
-    }
-
-    /// <summary>
     /// Attempts to load XML documentation sitting next to the assembly.
     /// </summary>
     /// <param name="assemblyPath">The absolute path to the assembly DLL.</param>

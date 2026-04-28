@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using SourceDocParser.TestHelpers;
 using SourceDocParser.XmlDoc;
 
 namespace SourceDocParser.Tests.XmlDoc;
@@ -20,7 +21,7 @@ public class XmlDocSourceTests
     [Test]
     public async Task BuildIndexCapturesEachMemberElement()
     {
-        var source = XmlDocSource.FromString(
+        var source = XmlDocSourceFactory.FromString(
             """
             <?xml version="1.0"?>
             <doc>
@@ -51,7 +52,7 @@ public class XmlDocSourceTests
     [Test]
     public async Task BuildIndexHandlesSelfClosingMember()
     {
-        var source = XmlDocSource.FromString(
+        var source = XmlDocSourceFactory.FromString(
             """
             <doc>
               <members>
@@ -71,7 +72,7 @@ public class XmlDocSourceTests
     [Test]
     public async Task BuildIndexSkipsMemberWithoutNameAttribute()
     {
-        var source = XmlDocSource.FromString(
+        var source = XmlDocSourceFactory.FromString(
             """
             <doc>
               <members>
@@ -94,7 +95,7 @@ public class XmlDocSourceTests
     [Test]
     public async Task BuildIndexStopsOnMissingCloseTag()
     {
-        var source = XmlDocSource.FromString(
+        var source = XmlDocSourceFactory.FromString(
             """
             <doc>
               <members>
@@ -116,7 +117,7 @@ public class XmlDocSourceTests
     [Test]
     public async Task BuildIndexSkipsMemberWithUnterminatedNameAttribute()
     {
-        var source = XmlDocSource.FromString(
+        var source = XmlDocSourceFactory.FromString(
             """
             <doc><members>
               <member name="bad>oops</member>
@@ -137,7 +138,7 @@ public class XmlDocSourceTests
     [Test]
     public async Task BuildIndexStopsOnTruncatedMemberOpener()
     {
-        var source = XmlDocSource.FromString(
+        var source = XmlDocSourceFactory.FromString(
             "<doc><members><member name=\"T:Closed\"/></members><member name=\"T:Trunc\"");
 
         // The first complete entry indexes; the truncated opener has
@@ -151,7 +152,7 @@ public class XmlDocSourceTests
     [Test]
     public async Task GetReturnsNullForUnknownMemberId()
     {
-        var source = XmlDocSource.FromString(
+        var source = XmlDocSourceFactory.FromString(
             "<doc><members><member name=\"T:Foo\" /></members></doc>");
 
         await Assert.That(source.Get("T:Missing")).IsNull();
@@ -162,7 +163,7 @@ public class XmlDocSourceTests
     [Test]
     public async Task BuildIndexReturnsEmptyForBlankInput()
     {
-        var source = XmlDocSource.FromString(string.Empty);
+        var source = XmlDocSourceFactory.FromString(string.Empty);
 
         await Assert.That(source.Count).IsEqualTo(0);
         await Assert.That(source.Get("T:Anything")).IsNull();
@@ -173,7 +174,7 @@ public class XmlDocSourceTests
     [Test]
     public async Task BuildIndexReturnsEmptyForInputWithoutMemberTags()
     {
-        var source = XmlDocSource.FromString(
+        var source = XmlDocSourceFactory.FromString(
             "<doc><assembly><name>Foo</name></assembly></doc>");
 
         await Assert.That(source.Count).IsEqualTo(0);
@@ -183,7 +184,7 @@ public class XmlDocSourceTests
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task FromStringRejectsNullContent() =>
-        await Assert.That(static () => XmlDocSource.FromString(null!)).Throws<ArgumentNullException>();
+        await Assert.That(static () => XmlDocSourceFactory.FromString(null!)).Throws<ArgumentNullException>();
 
     /// <summary>Load rejects blank or whitespace paths up front (no I/O).</summary>
     /// <returns>A task representing the test execution.</returns>
