@@ -10,5 +10,15 @@ namespace SourceDocParser.Zensical.Navigation;
 /// or a routed override).
 /// </summary>
 /// <param name="Name">Display title for the package.</param>
+/// <param name="Folder">
+/// On-disk folder name (e.g. <c>Fusillade</c>); identical to the routed
+/// <see cref="Name"/> today, exposed separately so a future display-vs-folder
+/// split doesn't break consumers.
+/// </param>
+/// <param name="LandingPagePath">
+/// POSIX-relative path to the package's <c>index.md</c> landing page, or
+/// <see langword="null"/> when no landing page was emitted (e.g. routing
+/// dropped the package).
+/// </param>
 /// <param name="Namespaces">The namespace nodes that live in this package, in display order.</param>
-public readonly record struct NavigationPackage(string Name, NavigationNamespace[] Namespaces);
+public readonly record struct NavigationPackage(string Name, string Folder, string? LandingPagePath, NavigationNamespace[] Namespaces);

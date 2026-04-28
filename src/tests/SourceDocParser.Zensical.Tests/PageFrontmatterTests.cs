@@ -118,6 +118,61 @@ public class PageFrontmatterTests
         await Assert.That(fm).Contains("- obsolete");
     }
 
+    /// <summary>
+    /// The default options keep pages in the search index, so the
+    /// <c>search.exclude</c> block must NOT appear -- pinning this
+    /// guards against an accidental opt-in flip that would silently
+    /// hide every API page from search.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ForTypeOmitsSearchExcludeByDefault()
+    {
+        var type = TestData.ObjectType("Foo");
+
+        var fm = PageFrontmatter.ForType(type, ZensicalEmitterOptions.Default);
+
+        await Assert.That(fm).DoesNotContain("search:");
+        await Assert.That(fm).DoesNotContain("exclude: true");
+    }
+
+    /// <summary>
+    /// When <see cref="ZensicalEmitterOptions.IncludeInSearch"/> is
+    /// <see langword="false"/>, the type-page frontmatter carries the
+    /// Zensical <c>search.exclude: true</c> block so the page is
+    /// dropped from the client-side search index.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ForTypeEmitsSearchExcludeWhenIncludeInSearchIsFalse()
+    {
+        var options = ZensicalEmitterOptions.Default with { IncludeInSearch = false };
+        var type = TestData.ObjectType("Foo");
+
+        var fm = PageFrontmatter.ForType(type, options);
+
+        await Assert.That(fm).Contains("search:");
+        await Assert.That(fm).Contains("  exclude: true");
+    }
+
+    /// <summary>
+    /// Member-page frontmatter respects <see cref="ZensicalEmitterOptions.IncludeInSearch"/>
+    /// the same way type pages do.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ForMemberEmitsSearchExcludeWhenIncludeInSearchIsFalse()
+    {
+        var options = ZensicalEmitterOptions.Default with { IncludeInSearch = false };
+        var type = TestData.ObjectType("Foo");
+        var member = MakeMember(type, ApiMemberKind.Method);
+
+        var fm = PageFrontmatter.ForMember(type, member, [member], options);
+
+        await Assert.That(fm).Contains("search:");
+        await Assert.That(fm).Contains("  exclude: true");
+    }
+
     /// <summary>Each <see cref="ApiMemberKind"/> maps to its expected kind label.</summary>
     /// <param name="kind">The member kind under test.</param>
     /// <param name="expected">The expected label.</param>

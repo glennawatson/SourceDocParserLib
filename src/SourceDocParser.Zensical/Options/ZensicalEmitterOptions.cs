@@ -11,9 +11,20 @@ namespace SourceDocParser.Zensical.Options;
 /// Represents configuration options for the Zensical Emitter, which is responsible
 /// for generating documentation pages based on specific routing and structural rules.
 /// </summary>
+/// <param name="PackageRouting">Per-package folder-routing rules (assembly prefix to folder name).</param>
+/// <param name="MicrosoftLearnBaseUrl">Base URL used to mint Microsoft Learn cross-links for un-walked BCL types.</param>
+/// <param name="IncludeInSearch">
+/// When <see langword="true"/> (the default), emitted pages participate in
+/// Zensical's client-side search index. When <see langword="false"/>, the
+/// frontmatter of every type/member page carries a
+/// <c>search.exclude: true</c> block so the API tree is omitted from the
+/// search index -- useful when API docs are sprawling and would otherwise
+/// drown out the hand-written guides.
+/// </param>
 public sealed record ZensicalEmitterOptions(
     PackageRoutingRule[] PackageRouting,
-    string MicrosoftLearnBaseUrl = ZensicalEmitterOptions.DefaultMicrosoftLearnBaseUrl)
+    string MicrosoftLearnBaseUrl = ZensicalEmitterOptions.DefaultMicrosoftLearnBaseUrl,
+    bool IncludeInSearch = true)
 {
     /// <summary>Canonical Microsoft Learn .NET API root.</summary>
     [SuppressMessage("Critical Code Smell", "S2339:Public constant members should not be used", Justification = "Default value is not secret.")]

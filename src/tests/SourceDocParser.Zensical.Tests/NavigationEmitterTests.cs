@@ -256,4 +256,75 @@ public class NavigationEmitterTests
         await Assert.That(entry.TypeParameters[0]).IsEqualTo("TKey");
         await Assert.That(entry.TypeParameters[1]).IsEqualTo("TValue");
     }
+
+    /// <summary>
+    /// A package that contains a regular namespace surfaces both the
+    /// per-package and per-namespace <c>index.md</c> landing-page paths
+    /// in POSIX form, so consumers can splice them into nav graphs
+    /// without re-deriving the path or stat'ing the filesystem.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task BuildSurfacesPackageAndNamespaceLandingPagePaths()
+    {
+        var builder = new NavigationGraphBuilder(ZensicalEmitterOptions.Default);
+        var type = TestData.ObjectType("Foo", assemblyName: "Splat") with { Namespace = "Splat.Sub" };
+
+        var graph = builder.Build([type]);
+        var package = graph.Packages[0];
+        var ns = package.Namespaces[0];
+
+        await Assert.That(package.Folder).IsEqualTo("Splat");
+        await Assert.That(package.LandingPagePath).IsEqualTo("Splat/index.md");
+        await Assert.That(ns.Folder).IsEqualTo("Splat/Sub");
+        await Assert.That(ns.LandingPagePath).IsEqualTo("Splat/Splat/Sub/index.md");
+    }
+
+    /// <summary>
+    /// The <c>(global)</c> namespace bucket folds to the <c>_global</c>
+    /// on-disk folder so its display name and folder diverge -- pinning
+    /// the mapping prevents a regression where consumers compute
+    /// <c>folder = name.Replace('.', '/')</c> and end up writing to
+    /// <c>(global)/index.md</c>.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task BuildMapsGlobalNamespaceToUnderscoreGlobalFolder()
+    {
+        var builder = new NavigationGraphBuilder(ZensicalEmitterOptions.Default);
+        var type = TestData.ObjectType("Foo", assemblyName: "Splat") with { Namespace = string.Empty };
+
+        var graph = builder.Build([type]);
+        var ns = graph.Packages[0].Namespaces[0];
+
+        await Assert.That(ns.Name).IsEqualTo("(global)");
+        await Assert.That(ns.Folder).IsEqualTo("_global");
+        await Assert.That(ns.LandingPagePath).IsEqualTo("Splat/_global/index.md");
+    }
+
+    /// <summary>
+    /// A routed package whose <c>FolderName</c> differs from the source
+    /// assembly name uses the routed folder for both <see cref="NavigationPackage.Folder"/>
+    /// and the landing-page path -- the assembly name never leaks
+    /// through the nav graph once routing has rewritten it.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task BuildUsesRoutedFolderForLandingPagePathWhenAssemblyNameDiffers()
+    {
+        var options = new ZensicalEmitterOptions([
+            new(FolderName: "ReactiveUI", AssemblyPrefix: "ReactiveUI"),
+        ]);
+        var builder = new NavigationGraphBuilder(options);
+        var type = TestData.ObjectType("Foo", assemblyName: "ReactiveUI.Maui") with { Namespace = "ReactiveUI.Maui" };
+
+        var graph = builder.Build([type]);
+        var package = graph.Packages[0];
+        var ns = package.Namespaces[0];
+
+        await Assert.That(package.Name).IsEqualTo("ReactiveUI");
+        await Assert.That(package.Folder).IsEqualTo("ReactiveUI");
+        await Assert.That(package.LandingPagePath).IsEqualTo("ReactiveUI/index.md");
+        await Assert.That(ns.LandingPagePath).IsEqualTo("ReactiveUI/ReactiveUI/Maui/index.md");
+    }
 }

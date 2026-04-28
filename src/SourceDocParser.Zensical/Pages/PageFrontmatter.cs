@@ -51,7 +51,7 @@ internal static class PageFrontmatter
         var kind = KindLabel(type);
         var ns = type.Namespace is [_, ..] ? type.Namespace : "(global)";
 
-        AppendBlock(sb, kind: kind, ns: ns, assembly: assembly, package: package, isObsolete: type.IsObsolete);
+        AppendBlock(sb, kind: kind, ns: ns, assembly: assembly, package: package, isObsolete: type.IsObsolete, includeInSearch: options.IncludeInSearch);
         AppendUidAnchor(sb, type.Uid);
         AppendMemberUidAnchors(sb, type);
         sb.AppendLine();
@@ -94,7 +94,7 @@ internal static class PageFrontmatter
         var kind = MemberKindLabel(member.Kind);
         var ns = containingType.Namespace is [_, ..] ? containingType.Namespace : "(global)";
 
-        AppendBlock(sb, kind: kind, ns: ns, assembly: assembly, package: package, isObsolete: member.IsObsolete);
+        AppendBlock(sb, kind: kind, ns: ns, assembly: assembly, package: package, isObsolete: member.IsObsolete, includeInSearch: options.IncludeInSearch);
         for (var i = 0; i < overloads.Length; i++)
         {
             AppendUidAnchor(sb, overloads[i].Uid);
@@ -111,7 +111,8 @@ internal static class PageFrontmatter
     /// <param name="assembly">Assembly name.</param>
     /// <param name="package">Package folder name.</param>
     /// <param name="isObsolete">Whether to emit the <c>obsolete</c> tag.</param>
-    private static void AppendBlock(StringBuilder sb, string kind, string ns, string assembly, string package, bool isObsolete)
+    /// <param name="includeInSearch">When <see langword="false"/>, append a <c>search.exclude: true</c> block so Zensical omits this page from its search index.</param>
+    private static void AppendBlock(StringBuilder sb, string kind, string ns, string assembly, string package, bool isObsolete, bool includeInSearch)
     {
         sb.AppendLine("---")
             .AppendLine("tags:")
@@ -127,6 +128,12 @@ internal static class PageFrontmatter
         if (isObsolete)
         {
             sb.AppendLine("  - obsolete");
+        }
+
+        if (!includeInSearch)
+        {
+            sb.AppendLine("search:")
+              .AppendLine("  exclude: true");
         }
 
         sb.AppendLine("---");

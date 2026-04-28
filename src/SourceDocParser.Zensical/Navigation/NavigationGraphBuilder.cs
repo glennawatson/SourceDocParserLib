@@ -29,6 +29,12 @@ public sealed class NavigationGraphBuilder
     /// <summary>The namespace key surfaced for types whose namespace is empty.</summary>
     private const string GlobalNamespaceKey = "(global)";
 
+    /// <summary>The on-disk folder used for the global namespace bucket -- mirrors <see cref="Pages.LandingPageEmitter"/>.</summary>
+    private const string GlobalNamespaceFolder = "_global";
+
+    /// <summary>Filename of the per-package and per-namespace landing page -- mirrors <see cref="Pages.LandingPageEmitter.IndexFileName"/>.</summary>
+    private const string IndexFileName = "index.md";
+
     /// <summary>Routing options -- drive the package-folder grouping.</summary>
     private readonly ZensicalEmitterOptions _options;
 
@@ -115,20 +121,25 @@ public sealed class NavigationGraphBuilder
         var namespaces = new NavigationNamespace[nsKeys.Length];
         for (var n = 0; n < nsKeys.Length; n++)
         {
-            namespaces[n] = MaterialiseNamespace(nsKeys[n], byNs[nsKeys[n]]);
+            namespaces[n] = MaterialiseNamespace(packageName, nsKeys[n], byNs[nsKeys[n]]);
         }
 
-        return new(packageName, namespaces);
+        return new(
+            Name: packageName,
+            Folder: packageName,
+            LandingPagePath: packageName + "/" + IndexFileName,
+            Namespaces: namespaces);
     }
 
     /// <summary>
     /// Sorts the entries of one namespace by title and copies them
     /// into a fixed-size array.
     /// </summary>
+    /// <param name="packageFolder">Owning package folder -- prepended to the namespace landing page path.</param>
     /// <param name="namespaceName">Namespace key (or <see cref="GlobalNamespaceKey"/>).</param>
     /// <param name="bucket">Unsorted entries collected for this namespace.</param>
     /// <returns>The materialised namespace node.</returns>
-    private static NavigationNamespace MaterialiseNamespace(string namespaceName, List<NavigationEntry> bucket)
+    private static NavigationNamespace MaterialiseNamespace(string packageFolder, string namespaceName, List<NavigationEntry> bucket)
     {
         var entries = new NavigationEntry[bucket.Count];
         for (var i = 0; i < bucket.Count; i++)
@@ -137,8 +148,26 @@ public sealed class NavigationGraphBuilder
         }
 
         Array.Sort(entries, EntryByTitleComparer.Instance);
-        return new(namespaceName, entries);
+        var folder = NamespaceFolder(namespaceName);
+        return new(
+            Name: namespaceName,
+            Folder: folder,
+            LandingPagePath: packageFolder + "/" + folder + "/" + IndexFileName,
+            Types: entries);
     }
+
+    /// <summary>
+    /// Maps a namespace display name onto its on-disk folder name in
+    /// POSIX form -- dots become forward slashes, the global bucket
+    /// folds to <see cref="GlobalNamespaceFolder"/>. Mirrors the path
+    /// shape <see cref="Pages.LandingPageEmitter"/> writes to.
+    /// </summary>
+    /// <param name="namespaceName">Namespace key.</param>
+    /// <returns>The POSIX folder name, relative to the package folder.</returns>
+    private static string NamespaceFolder(string namespaceName) =>
+        namespaceName == GlobalNamespaceKey
+            ? GlobalNamespaceFolder
+            : namespaceName.Replace('.', '/');
 
     /// <summary>Normalises a path to forward slashes.</summary>
     /// <param name="path">A path produced by <see cref="Path.Combine(string, string)"/>.</param>
