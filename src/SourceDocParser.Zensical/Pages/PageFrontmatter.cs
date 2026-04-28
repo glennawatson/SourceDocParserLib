@@ -32,18 +32,30 @@ internal static class PageFrontmatter
     /// <returns>The frontmatter block plus the type's UID anchor.</returns>
     public static string ForType(ApiType type, ZensicalEmitterOptions options)
     {
+        var sb = new StringBuilder(capacity: 192);
+        AppendForType(sb, type, options);
+        return sb.ToString();
+    }
+
+    /// <summary>Same content as <see cref="ForType(ApiType, ZensicalEmitterOptions)"/> but appended to the caller's <paramref name="sb"/>.</summary>
+    /// <param name="sb">Destination builder.</param>
+    /// <param name="type">The type whose page is about to render.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
+    public static StringBuilder AppendForType(StringBuilder sb, ApiType type, ZensicalEmitterOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(sb);
         ArgumentNullException.ThrowIfNull(type);
         var assembly = type.AssemblyName;
         var package = PackageRouter.ResolveFolder(assembly, options.PackageRouting) ?? assembly;
         var kind = KindLabel(type);
         var ns = type.Namespace is [_, ..] ? type.Namespace : "(global)";
 
-        var sb = new StringBuilder(capacity: 192);
         AppendBlock(sb, kind: kind, ns: ns, assembly: assembly, package: package, isObsolete: type.IsObsolete);
         AppendUidAnchor(sb, type.Uid);
         AppendMemberUidAnchors(sb, type);
         sb.AppendLine();
-        return sb.ToString();
+        return sb;
     }
 
     /// <summary>
@@ -59,6 +71,21 @@ internal static class PageFrontmatter
     /// <returns>The frontmatter block plus a UID anchor per overload.</returns>
     public static string ForMember(ApiType containingType, ApiMember member, ApiMember[] overloads, ZensicalEmitterOptions options)
     {
+        var sb = new StringBuilder(capacity: 192 + ((overloads?.Length ?? 0) * 32));
+        AppendForMember(sb, containingType, member, overloads!, options);
+        return sb.ToString();
+    }
+
+    /// <summary>Same content as <see cref="ForMember(ApiType, ApiMember, ApiMember[], ZensicalEmitterOptions)"/> but appended to the caller's <paramref name="sb"/>.</summary>
+    /// <param name="sb">Destination builder.</param>
+    /// <param name="containingType">The declaring type.</param>
+    /// <param name="member">The first overload in the group; supplies kind and obsolete state.</param>
+    /// <param name="overloads">All overloads in the group; one anchor per overload UID.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
+    public static StringBuilder AppendForMember(StringBuilder sb, ApiType containingType, ApiMember member, ApiMember[] overloads, ZensicalEmitterOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(sb);
         ArgumentNullException.ThrowIfNull(containingType);
         ArgumentNullException.ThrowIfNull(member);
         ArgumentNullException.ThrowIfNull(overloads);
@@ -67,7 +94,6 @@ internal static class PageFrontmatter
         var kind = MemberKindLabel(member.Kind);
         var ns = containingType.Namespace is [_, ..] ? containingType.Namespace : "(global)";
 
-        var sb = new StringBuilder(capacity: 192 + (overloads.Length * 32));
         AppendBlock(sb, kind: kind, ns: ns, assembly: assembly, package: package, isObsolete: member.IsObsolete);
         for (var i = 0; i < overloads.Length; i++)
         {
@@ -75,7 +101,7 @@ internal static class PageFrontmatter
         }
 
         sb.AppendLine();
-        return sb.ToString();
+        return sb;
     }
 
     /// <summary>Appends the frontmatter YAML for the supplied tag values to <paramref name="sb"/>.</summary>

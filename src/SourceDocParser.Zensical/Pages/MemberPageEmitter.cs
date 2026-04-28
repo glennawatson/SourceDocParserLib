@@ -194,8 +194,8 @@ internal static class MemberPageEmitter
         var typePagePath = TypePageEmitter.PathFor(containingType, options);
         var typeName = ZensicalEmitterHelpers.FormatDisplayTypeName(containingType.Name, containingType.Arity);
 
-        sb.Append(PageFrontmatter.ForMember(containingType, first, overloads, options))
-            .Append($"""
+        PageFrontmatter.AppendForMember(sb, containingType, first, overloads, options);
+        sb.Append($"""
             # {heading} {kindLabel}
 
             !!! info "Defined in"

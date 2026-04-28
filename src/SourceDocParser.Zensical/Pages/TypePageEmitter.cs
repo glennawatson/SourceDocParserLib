@@ -935,11 +935,11 @@ internal static class TypePageEmitter
             : string.Empty;
         var modifiers = JoinModifiers(type);
 
-        var frontmatter = PageFrontmatter.ForType(type, options);
         var deprecation = RenderDeprecationAdmonition(type.IsObsolete, type.ObsoleteMessage);
         var attributesLine = RenderAttributesLine(type.Attributes);
+        PageFrontmatter.AppendForType(sb, type, options);
         sb.Append($"""
-            {frontmatter}# {heading}
+            # {heading}
             {deprecation}{attributesLine}
             !!! info "Defined in"
                 Namespace: `{(type.Namespace is [_, ..] ns ? ns : "(global)")}`
