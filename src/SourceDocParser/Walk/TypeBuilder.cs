@@ -150,6 +150,7 @@ internal static class TypeBuilder
             IsObsolete = input.IsObsolete,
             ObsoleteMessage = input.ObsoleteMessage,
             Attributes = input.Attributes,
+            TypeParameters = SymbolWalkerHelpers.BuildTypeParameters(input.Type),
         };
 
     /// <summary>

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
 using System.Globalization;
 using Microsoft.CodeAnalysis;
 using SourceDocParser.Model;
@@ -397,7 +398,14 @@ internal static class SymbolWalkerHelpers
     /// <returns>The type parameter names.</returns>
     public static string[] BuildTypeParameters(ISymbol member)
     {
-        if (member is not IMethodSymbol { TypeParameters: { Length: > 0 } typeParams })
+        ImmutableArray<ITypeParameterSymbol> typeParams = member switch
+        {
+            IMethodSymbol method => method.TypeParameters,
+            INamedTypeSymbol named => named.TypeParameters,
+            _ => [],
+        };
+
+        if (typeParams.Length is 0)
         {
             return [];
         }

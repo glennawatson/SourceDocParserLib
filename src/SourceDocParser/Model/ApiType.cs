@@ -41,4 +41,16 @@ public abstract record ApiType(
     string[] AppliesTo,
     bool IsObsolete,
     string? ObsoleteMessage,
-    ApiAttribute[] Attributes);
+    ApiAttribute[] Attributes)
+{
+    /// <summary>
+    /// Gets the generic type parameter names declared on the type
+    /// itself (e.g. <c>["TKey", "TValue"]</c> for
+    /// <c>Dictionary&lt;TKey, TValue&gt;</c>). Empty when
+    /// <see cref="Arity"/> is zero. Surfaced as a non-positional
+    /// init property so existing construction sites stay
+    /// non-breaking; the walker populates it via <c>with { TypeParameters = ... }</c>
+    /// after building the base record.
+    /// </summary>
+    public string[] TypeParameters { get; init; } = [];
+}

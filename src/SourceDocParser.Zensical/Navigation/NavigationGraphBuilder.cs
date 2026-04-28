@@ -80,7 +80,10 @@ public sealed class NavigationGraphBuilder
 
             bucket.Add(new NavigationEntry(
                 Title: ZensicalEmitterHelpers.FormatDisplayTypeName(type.Name, type.Arity),
-                Path: ToPosixPath(TypePageEmitter.PathFor(type, options))));
+                Path: ToPosixPath(TypePageEmitter.PathFor(type, options)),
+                Kind: ClassifyKind(type),
+                Arity: type.Arity,
+                TypeParameters: type.TypeParameters));
         }
 
         var packageKeys = new string[byPackage.Count];
@@ -142,6 +145,28 @@ public sealed class NavigationGraphBuilder
     /// <returns>The path with backslashes rewritten as forward slashes.</returns>
     private static string ToPosixPath(string path) =>
         path.IndexOf('\\') < 0 ? path : path.Replace('\\', '/');
+
+    /// <summary>
+    /// Maps an <see cref="ApiType"/> subtype + <see cref="ApiObjectType.Kind"/>
+    /// onto the coarse <see cref="NavigationTypeKind"/> the nav graph
+    /// surfaces. Pattern-matches the closed hierarchy so any new
+    /// subtype added in the future fails fast at compile time when it
+    /// reaches this switch (default arm throws).
+    /// </summary>
+    /// <param name="type">The type entering the nav graph.</param>
+    /// <returns>The coarse nav-kind label.</returns>
+    private static NavigationTypeKind ClassifyKind(ApiType type) => type switch
+    {
+        ApiObjectType { Kind: ApiObjectKind.Class } => NavigationTypeKind.Class,
+        ApiObjectType { Kind: ApiObjectKind.Struct } => NavigationTypeKind.Struct,
+        ApiObjectType { Kind: ApiObjectKind.Interface } => NavigationTypeKind.Interface,
+        ApiObjectType { Kind: ApiObjectKind.Record } => NavigationTypeKind.Record,
+        ApiObjectType { Kind: ApiObjectKind.RecordStruct } => NavigationTypeKind.RecordStruct,
+        ApiEnumType => NavigationTypeKind.Enum,
+        ApiDelegateType => NavigationTypeKind.Delegate,
+        ApiUnionType => NavigationTypeKind.Union,
+        _ => NavigationTypeKind.Class,
+    };
 
     /// <summary>
     /// Ordinal title comparer for <see cref="NavigationEntry"/>.
