@@ -168,6 +168,24 @@ public class MemberPageEmitterTests
         await Assert.That(page).DoesNotContain("Type: [AvaloniaResources](../AvaloniaResources.md)");
     }
 
+    /// <summary>
+    /// An out-of-range <see cref="ApiMemberKind"/> value falls through
+    /// to the default kind label so unexpected enum values from a
+    /// future model don't crash the renderer -- this exercises the
+    /// fallback arm of the kind-label switch.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task RenderUsesGenericKindLabelForUnknownEnumValue()
+    {
+        var type = TestData.ObjectType("Foo");
+        var member = NewMember("Run", "void Run()") with { Kind = (ApiMemberKind)999 };
+
+        var page = MemberPageEmitter.Render(type, "Run", [member]);
+
+        await Assert.That(page).Contains("# Foo.Run member");
+    }
+
     /// <summary>Builds a minimal <see cref="ApiMember"/> with the supplied name and signature.</summary>
     /// <param name="name">Member name.</param>
     /// <param name="signature">Display signature.</param>

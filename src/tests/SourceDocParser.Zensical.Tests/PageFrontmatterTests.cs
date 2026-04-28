@@ -55,6 +55,27 @@ public class PageFrontmatterTests
         await Assert.That(fm).Contains("kind/delegate");
     }
 
+    /// <summary>An enum type emits a hidden mkdocs-autorefs anchor for every declared value's UID.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ForTypeEmitsAnchorPerEnumValueUid()
+    {
+        var baseEnum = TestData.EnumType("T:Foo.Day");
+        var enumType = baseEnum with
+        {
+            Values =
+            [
+                new("Friday", "F:Foo.Day.Friday", "5", ApiDocumentation.Empty, SourceUrl: null),
+                new("Saturday", "F:Foo.Day.Saturday", "6", ApiDocumentation.Empty, SourceUrl: null),
+            ],
+        };
+
+        var fm = PageFrontmatter.ForType(enumType, ZensicalEmitterOptions.Default);
+
+        await Assert.That(fm).Contains("[](){#F:Foo.Day.Friday}");
+        await Assert.That(fm).Contains("[](){#F:Foo.Day.Saturday}");
+    }
+
     /// <summary>The package tag is emitted when routing renames the package.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]

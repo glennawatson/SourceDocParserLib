@@ -112,4 +112,50 @@ public class TypePageEmitterTests
 
         static string Act() => TypePageEmitter.PathFor(null!);
     }
+
+    /// <summary>
+    /// When a member summary exceeds the table-cell length and has no
+    /// space within the word-boundary window (first half of the limit),
+    /// the renderer falls back to a hard cut at the maximum length plus
+    /// an ellipsis. Pins the otherwise-uncovered hard-cut branch in
+    /// <c>OneLineSummary</c>.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task RenderTruncatesLongUnbrokenSummaryWithHardCut()
+    {
+        // A 250-char run with the only space placed past the half-limit
+        // boundary so LastIndexOf(' ', 199) returns a position not greater
+        // than MinimumSummaryWordBoundary (=100).
+        var noEarlySpace = new string('a', 95) + new string('b', 155) + " end";
+        var summaryDoc = ApiDocumentation.Empty with { Summary = noEarlySpace };
+        var member = new ApiMember(
+            Name: "DoThing",
+            Uid: "M:Foo.DoThing",
+            Kind: ApiMemberKind.Method,
+            IsStatic: false,
+            IsExtension: false,
+            IsRequired: false,
+            IsVirtual: false,
+            IsOverride: false,
+            IsAbstract: false,
+            IsSealed: false,
+            Signature: "void DoThing()",
+            Parameters: [],
+            TypeParameters: [],
+            ReturnType: null,
+            ContainingTypeUid: "T:Foo",
+            ContainingTypeName: "Foo",
+            SourceUrl: null,
+            Documentation: summaryDoc,
+            IsObsolete: false,
+            ObsoleteMessage: null,
+            Attributes: []);
+        var type = TestData.ObjectType("Foo") with { Members = [member] };
+
+        var page = TypePageEmitter.Render(type);
+
+        await Assert.That(page).Contains("...");
+        await Assert.That(page).DoesNotContain(noEarlySpace);
+    }
 }

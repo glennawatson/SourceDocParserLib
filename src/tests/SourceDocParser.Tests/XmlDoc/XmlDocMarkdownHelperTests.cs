@@ -159,4 +159,26 @@ public class XmlDocMarkdownHelperTests
         XmlDocMarkdownHelper.CollapseWhitespace(sb);
         await Assert.That(sb.ToString()).IsEqualTo("a b\n\nc");
     }
+
+    /// <summary>EnsureLineStart on an empty buffer is a no-op (covers the early-return branch).</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task EnsureLineStartNoOpOnEmptyBuffer()
+    {
+        var sb = new StringBuilder();
+        XmlDocMarkdownHelper.EnsureLineStart(sb);
+        await Assert.That(sb.Length).IsEqualTo(0);
+    }
+
+    /// <summary>ShortName returns single-character input unchanged -- the kind-prefix strip is skipped when length is below the prefix length.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ShortNameLeavesShortInputAlone() =>
+        await Assert.That(XmlDocMarkdownHelper.ShortName("X".AsSpan()).ToString()).IsEqualTo("X");
+
+    /// <summary>ShortName treats a 2-char input without the ':' separator as a plain name (no prefix strip).</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ShortNameLeavesTwoCharInputWithoutColonAlone() =>
+        await Assert.That(XmlDocMarkdownHelper.ShortName("Tx".AsSpan()).ToString()).IsEqualTo("Tx");
 }

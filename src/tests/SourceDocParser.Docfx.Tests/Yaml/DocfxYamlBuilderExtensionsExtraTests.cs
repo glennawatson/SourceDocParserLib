@@ -4,6 +4,7 @@
 
 using System.Text;
 using SourceDocParser.Docfx.Yaml;
+using SourceDocParser.Model;
 using SourceDocParser.TestHelpers;
 
 namespace SourceDocParser.Docfx.Tests.Yaml;
@@ -82,6 +83,146 @@ public class DocfxYamlBuilderExtensionsExtraTests
         await Assert.That(sb.ToString().Lf()).IsEqualTo("Foo.Bar");
     }
 
+    /// <summary>An empty-string body skips emission entirely.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task AppendBlockScalarSkipsEmptyValue()
+    {
+        var sb = new StringBuilder().AppendBlockScalar("  summary: ", string.Empty);
+
+        await Assert.That(sb.Length).IsEqualTo(0);
+    }
+
+    /// <summary>A multi-line value triggers the literal block (<c>|-</c>) path.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task AppendBlockScalarUsesLiteralBlockForMultiLine()
+    {
+        var sb = new StringBuilder().AppendBlockScalar("  summary: ", "first\nsecond");
+
+        var output = sb.ToString().Lf();
+        await Assert.That(output).Contains("summary: |-");
+        await Assert.That(output).Contains("first");
+        await Assert.That(output).Contains("second");
+    }
+
+    /// <summary>A null or empty value short-circuits without writing the prefix.</summary>
+    /// <param name="value">Value under test (null or empty).</param>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    [Arguments(null)]
+    [Arguments("")]
+    public async Task AppendIfPresentSkipsNullOrEmpty(string? value)
+    {
+        var sb = new StringBuilder().AppendIfPresent("  parent: ", value);
+
+        await Assert.That(sb.Length).IsEqualTo(0);
+    }
+
+    /// <summary>A populated value emits the prefix + scalar + newline.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task AppendIfPresentWritesPrefixedScalar()
+    {
+        var sb = new StringBuilder().AppendIfPresent("  parent: ", "Foo");
+
+        await Assert.That(sb.ToString().Lf()).IsEqualTo("  parent: Foo\n");
+    }
+
+    /// <summary>Control characters below space fall through to the hex-escape branch.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task AppendQuotedCharEscapesLowControlCharAsHex()
+    {
+        const char belChar = '\u0007';
+        var sb = new StringBuilder().AppendQuotedChar(belChar);
+
+        await Assert.That(sb.ToString().Lf()).IsEqualTo("\\x07");
+    }
+
+    /// <summary>The standard YAML escape pairs map to their backslash sequences.</summary>
+    /// <param name="input">Character under test.</param>
+    /// <param name="expected">Expected escape sequence.</param>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    [Arguments('"', "\\\"")]
+    [Arguments('\\', "\\\\")]
+    [Arguments('\n', "\\n")]
+    [Arguments('\r', "\\r")]
+    [Arguments('\t', "\\t")]
+    public async Task AppendQuotedCharEmitsStandardEscapes(char input, string expected)
+    {
+        var sb = new StringBuilder().AppendQuotedChar(input);
+
+        await Assert.That(sb.ToString().Lf()).IsEqualTo(expected);
+    }
+
+    /// <summary>Printable characters pass through verbatim.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task AppendQuotedCharPassesThroughPrintable()
+    {
+        var sb = new StringBuilder().AppendQuotedChar('A');
+
+        await Assert.That(sb.ToString().Lf()).IsEqualTo("A");
+    }
+
+    /// <summary>The static-constructor metadata name <c>.cctor</c> rewrites to <c>#cctor</c>.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task MemberIdForRewritesStaticConstructor()
+    {
+        var member = ConstructorMember(".cctor");
+
+        var actual = DocfxYamlBuilderExtensions.MemberIdFor(member);
+
+        await Assert.That(actual).IsEqualTo("#cctor");
+    }
+
+    /// <summary>The instance-constructor metadata name <c>.ctor</c> rewrites to <c>#ctor</c>.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task MemberIdForRewritesInstanceConstructor()
+    {
+        var member = ConstructorMember(".ctor");
+
+        var actual = DocfxYamlBuilderExtensions.MemberIdFor(member);
+
+        await Assert.That(actual).IsEqualTo("#ctor");
+    }
+
+    /// <summary>Non-constructor members pass their metadata name through unchanged.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task MemberIdForPassesThroughOrdinaryName()
+    {
+        var member = ConstructorMember("DoThing");
+
+        var actual = DocfxYamlBuilderExtensions.MemberIdFor(member);
+
+        await Assert.That(actual).IsEqualTo("DoThing");
+    }
+
+    /// <summary>Strings without an XML-doc comment-id prefix are returned unchanged.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task StripCommentIdPrefixIfPresentReturnsInputWithoutPrefix()
+    {
+        var actual = DocfxYamlBuilderExtensions.StripCommentIdPrefixIfPresent("Foo.Bar");
+
+        await Assert.That(actual).IsEqualTo("Foo.Bar");
+    }
+
+    /// <summary>A comment-id-prefixed string has the two-character prefix stripped.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task StripCommentIdPrefixIfPresentTrimsPrefix()
+    {
+        var actual = DocfxYamlBuilderExtensions.StripCommentIdPrefixIfPresent("T:Foo.Bar");
+
+        await Assert.That(actual).IsEqualTo("Foo.Bar");
+    }
+
     /// <summary>The legacy single-arg <c>AppendTypeItem</c> overload routes through the empty index.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -97,4 +238,30 @@ public class DocfxYamlBuilderExtensionsExtraTests
         await Assert.That(output).Contains("commentId: Foo");
         await Assert.That(output).Contains("type: Class");
     }
+
+    /// <summary>Builds a minimal <see cref="ApiMember"/> whose only relevant field for these tests is <c>Name</c>.</summary>
+    /// <param name="name">Metadata-style name to assign.</param>
+    /// <returns>A constructor-shaped member with default everything else.</returns>
+    private static ApiMember ConstructorMember(string name) => new(
+        Name: name,
+        Uid: $"M:Test.{name}",
+        Kind: ApiMemberKind.Constructor,
+        IsStatic: false,
+        IsExtension: false,
+        IsRequired: false,
+        IsVirtual: false,
+        IsOverride: false,
+        IsAbstract: false,
+        IsSealed: false,
+        Signature: string.Empty,
+        Parameters: [],
+        TypeParameters: [],
+        ReturnType: null,
+        ContainingTypeUid: "T:Test",
+        ContainingTypeName: "Test",
+        SourceUrl: null,
+        Documentation: ApiDocumentation.Empty,
+        IsObsolete: false,
+        ObsoleteMessage: null,
+        Attributes: []);
 }

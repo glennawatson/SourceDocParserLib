@@ -355,4 +355,20 @@ public class TfmResolverTests
     {
         await Assert.That(() => TfmResolver.SelectCompatibleTfms(string.Empty, ["net8.0"])).Throws<ArgumentException>();
     }
+
+    /// <summary>
+    /// FindBestRefsTfm: a non-netstandard lib TFM that the reducer cannot pair
+    /// with any refs entry returns null (covers the non-netstandard branch of
+    /// the reducer's null-result fallback in <c>FindBestRefsTfmSlow</c>).
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task FindBestRefsTfmReturnsNullForLegacyLibAgainstModernRefs()
+    {
+        var refs = new List<string> { "net8.0", "net10.0" };
+
+        var result = TfmResolver.FindBestRefsTfm("monoandroid12.0", refs);
+
+        await Assert.That(result).IsNull();
+    }
 }
