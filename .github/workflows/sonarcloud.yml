@@ -45,7 +45,7 @@ jobs:
           python-version: '3.x'
 
       - name: Cache SonarCloud packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.sonar/cache
           key: ${{ runner.os }}-sonar
@@ -53,7 +53,7 @@ jobs:
 
       - name: Cache SonarScanner
         id: cache-sonar-scanner
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ runner.temp }}/sonar-scanner
           key: ${{ runner.os }}-sonar-scanner
