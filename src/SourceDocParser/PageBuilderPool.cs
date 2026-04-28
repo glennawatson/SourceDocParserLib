@@ -7,9 +7,9 @@ using System.Text;
 namespace SourceDocParser;
 
 /// <summary>
-/// Thread-static cache of <see cref="StringBuilder"/> instances reused
-/// across page composition calls so each emit thread allocates a
-/// builder once and clears it between pages.
+/// Thread-static cache of <see cref="StringBuilder"/> instances. Each
+/// emit thread reuses one builder across page composition calls,
+/// clearing it between pages.
 /// </summary>
 internal static class PageBuilderPool
 {

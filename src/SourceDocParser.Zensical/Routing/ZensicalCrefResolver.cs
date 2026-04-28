@@ -4,7 +4,6 @@
 
 using System.Collections.Frozen;
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using SourceDocParser.Zensical.Options;
 
 namespace SourceDocParser.Zensical.Routing;
@@ -110,6 +109,39 @@ public sealed class ZensicalCrefResolver : ICrefResolver
     }
 
     /// <summary>
+    /// Composes <c>[display](baseUrl + slug)</c> in a single string
+    /// allocation. Slug = bareName lowercased with arity backticks
+    /// replaced by hyphens (Microsoft Learn URL convention -- e.g.
+    /// <c>System.Action`1</c> becomes <c>system.action-1</c>).
+    /// </summary>
+    /// <param name="displayName">Link text.</param>
+    /// <param name="baseUrl">Microsoft Learn URL prefix.</param>
+    /// <param name="bareName">UID without the commentId prefix.</param>
+    /// <returns>The Markdown link.</returns>
+    [SuppressMessage("Minor Code Smell", "S4040:Strings should be normalized to uppercase", Justification = "Microsoft Learn URLs are case-sensitive.")]
+    private static string ComposeLearnLink(ReadOnlySpan<char> displayName, string baseUrl, ReadOnlySpan<char> bareName)
+    {
+        var totalLen = 1 + displayName.Length + 2 + baseUrl.Length + bareName.Length + 1;
+        Span<char> dest = totalLen <= 512 ? stackalloc char[totalLen] : new char[totalLen];
+        var pos = 0;
+        dest[pos++] = '[';
+        displayName.CopyTo(dest[pos..]);
+        pos += displayName.Length;
+        dest[pos++] = ']';
+        dest[pos++] = '(';
+        baseUrl.AsSpan().CopyTo(dest[pos..]);
+        pos += baseUrl.Length;
+        for (var i = 0; i < bareName.Length; i++)
+        {
+            var c = bareName[i];
+            dest[pos++] = c == '`' ? '-' : char.ToLowerInvariant(c);
+        }
+
+        dest[pos] = ')';
+        return new string(dest);
+    }
+
+    /// <summary>
     /// Tries to render <paramref name="canonicalUid"/> as a Microsoft
     /// Learn link. Returns false when the UID doesn't belong to a
     /// recognised BCL namespace; caller falls back to inline code.
@@ -118,7 +150,6 @@ public sealed class ZensicalCrefResolver : ICrefResolver
     /// <param name="displayName">Human-readable name to use as link text.</param>
     /// <param name="link">The rendered Markdown link, when the UID matches.</param>
     /// <returns>True when a Microsoft Learn link was produced.</returns>
-    [SuppressMessage("Minor Code Smell", "S4040:Strings should be normalized to uppercase", Justification = "Microsoft Learn URLs are case-sensitive.")]
     private bool TryFormatAsMicrosoftLearn(
         string canonicalUid,
         ReadOnlySpan<char> displayName,
@@ -131,11 +162,7 @@ public sealed class ZensicalCrefResolver : ICrefResolver
             return false;
         }
 
-        // Microsoft Learn URLs lowercase the type and replace the
-        // arity backtick with a hyphen -- System.Action`1 becomes
-        // system.action-1.
-        var slug = bareName.ToString().ToLower(CultureInfo.InvariantCulture).Replace('`', '-');
-        link = $"[{displayName}]({_microsoftLearnBaseUrl}{slug})";
+        link = ComposeLearnLink(displayName, _microsoftLearnBaseUrl, bareName);
         return true;
     }
 }
