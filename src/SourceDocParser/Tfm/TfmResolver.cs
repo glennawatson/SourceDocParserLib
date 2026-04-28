@@ -127,6 +127,62 @@ public static class TfmResolver
     }
 
     /// <summary>
+    /// Returns every TFM in <paramref name="availableTfms"/> that is
+    /// runtime-compatible with <paramref name="targetTfm"/> per
+    /// NuGet's <see cref="DefaultCompatibilityProvider"/>. This is the
+    /// "what dirs should the assembly resolver fall back to" question
+    /// -- a project targeting <c>net8.0</c> can pull in DLLs that ship
+    /// <c>net6.0</c>, <c>netstandard2.0</c>, etc., even though
+    /// <see cref="SelectAllSupportedTfms"/> won't have extracted them
+    /// to the <c>net8.0/</c> bucket.
+    /// </summary>
+    /// <param name="targetTfm">The consuming TFM (e.g. the lib bucket the walker is currently scanning).</param>
+    /// <param name="availableTfms">All TFM directory names present under <c>lib/</c>.</param>
+    /// <returns>The compatible TFMs, ordered exact-match first, then by descending TFM rank (newer first).</returns>
+    public static List<string> SelectCompatibleTfms(string targetTfm, List<string> availableTfms)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(targetTfm);
+        ArgumentNullException.ThrowIfNull(availableTfms);
+
+        if (availableTfms is [])
+        {
+            return [];
+        }
+
+        var target = NuGetFramework.Parse(targetTfm);
+        if (target.IsUnsupported)
+        {
+            return [];
+        }
+
+        var provider = DefaultCompatibilityProvider.Instance;
+        var compatible = new List<string>(availableTfms.Count);
+        for (var i = 0; i < availableTfms.Count; i++)
+        {
+            var raw = availableTfms[i];
+            var candidate = NuGetFramework.Parse(raw);
+            if (candidate.IsUnsupported)
+            {
+                continue;
+            }
+
+            if (provider.IsCompatible(target, candidate))
+            {
+                compatible.Add(raw);
+            }
+        }
+
+        compatible.Sort(static (a, b) =>
+        {
+            var aRank = Tfm.Parse(a).Rank;
+            var bRank = Tfm.Parse(b).Rank;
+            return bRank.CompareTo(aRank);
+        });
+
+        return compatible;
+    }
+
+    /// <summary>
     /// Selects the best matching TFM from availableTfms.
     /// </summary>
     /// <param name="availableTfms">TFMs present in the package's lib/ directory.</param>

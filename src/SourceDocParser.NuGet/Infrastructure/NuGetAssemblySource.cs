@@ -464,6 +464,67 @@ public sealed class NuGetAssemblySource : IAssemblySource
     }
 
     /// <summary>
+    /// Builds the ordered directory list the fallback assembly index
+    /// scans for the supplied <paramref name="targetTfm"/>. The list is
+    /// (in order) the refs/ dir for the best matching ref TFM (if any),
+    /// then the target TFM's own <c>lib/</c> dir, then every other
+    /// runtime-compatible TFM's <c>lib/</c> dir from highest to lowest
+    /// rank. Compatible-TFM fallbacks pick up transitive dependencies
+    /// (e.g. <c>System.Reactive</c> shipped under <c>netstandard2.0</c>)
+    /// that the consuming assembly references but that
+    /// <see cref="TfmResolver.SelectAllSupportedTfms"/> didn't extract
+    /// into the consumer's TFM bucket -- without this the assembly
+    /// resolver logs <c>Unable to resolve assembly reference</c> warnings
+    /// for every transitively-pulled dep that targets a lower TFM.
+    /// </summary>
+    /// <param name="libDir">Absolute <c>lib/</c> root.</param>
+    /// <param name="libTfms">TFM directory names under <c>lib/</c>.</param>
+    /// <param name="targetTfm">The TFM bucket currently being probed.</param>
+    /// <param name="libTfmDir">Absolute path to <paramref name="targetTfm"/>'s lib dir.</param>
+    /// <param name="refsDir">Absolute <c>refs/</c> root.</param>
+    /// <param name="bestRefTfm">Pre-resolved best matching ref TFM, or empty when no ref pack matches.</param>
+    /// <returns>The directory list in scan order.</returns>
+    internal static List<string> BuildFallbackDirList(
+        string libDir,
+        List<string> libTfms,
+        string targetTfm,
+        string libTfmDir,
+        string refsDir,
+        string? bestRefTfm)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(libDir);
+        ArgumentNullException.ThrowIfNull(libTfms);
+        ArgumentException.ThrowIfNullOrWhiteSpace(targetTfm);
+        ArgumentException.ThrowIfNullOrWhiteSpace(libTfmDir);
+        ArgumentException.ThrowIfNullOrWhiteSpace(refsDir);
+
+        var compatible = TfmResolver.SelectCompatibleTfms(targetTfm, libTfms);
+
+        // refs first (when present), then target lib dir, then every
+        // compatible lib dir except the target itself.
+        var capacity = compatible.Count + (bestRefTfm is [_, ..] ? 1 : 0) + 1;
+        var dirs = new List<string>(capacity);
+        if (bestRefTfm is [_, ..])
+        {
+            dirs.Add(Path.Combine(refsDir, bestRefTfm));
+        }
+
+        dirs.Add(libTfmDir);
+        for (var i = 0; i < compatible.Count; i++)
+        {
+            var tfm = compatible[i];
+            if (string.Equals(tfm, targetTfm, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            dirs.Add(Path.Combine(libDir, tfm));
+        }
+
+        return dirs;
+    }
+
+    /// <summary>
     /// Sorts <paramref name="probed"/> by descending TFM rank with an
     /// ordinal tiebreaker so the canonical pick is deterministic.
     /// </summary>
@@ -638,15 +699,16 @@ public sealed class NuGetAssemblySource : IAssemblySource
             var bestRef = TfmResolver.FindBestRefsTfm(tfm, refsTfms);
             HashSet<string> refDllNames;
             Dictionary<string, string> fallbackIndex;
-            if (bestRef is [_, ..] refTfm)
+            var fallbackDirs = BuildFallbackDirList(libDir, libTfms, tfm, libTfmDir, refsDir, bestRef);
+            if (bestRef is [_, ..])
             {
-                refDllNames = GetOrAddRefDllNames(refDllNameCache, refsDir, refTfm);
-                fallbackIndex = AssemblyResolution.BuildFallbackIndex([Path.Combine(refsDir, refTfm), libTfmDir], _logger);
+                refDllNames = GetOrAddRefDllNames(refDllNameCache, refsDir, bestRef);
+                fallbackIndex = AssemblyResolution.BuildFallbackIndex(fallbackDirs, _logger);
             }
             else
             {
                 refDllNames = new(StringComparer.OrdinalIgnoreCase);
-                fallbackIndex = AssemblyResolution.BuildFallbackIndex([libTfmDir], _logger);
+                fallbackIndex = AssemblyResolution.BuildFallbackIndex(fallbackDirs, _logger);
             }
 
             var packageDlls = CollectPackageDlls(libTfmDir, refDllNames, primaryPrefixes);

@@ -281,4 +281,78 @@ public class TfmResolverTests
         await Assert.That(result.Count).IsEqualTo(1);
         await Assert.That(result[0]).IsEqualTo("net8.0");
     }
+
+    /// <summary>SelectCompatibleTfms: a modern .NET target picks up its own TFM plus every lower-version compatible bucket (incl. netstandard).</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task SelectCompatibleTfmsIncludesLowerVersionsAndNetstandard()
+    {
+        var available = new List<string> { "net8.0", "net6.0", "netstandard2.0", "netstandard2.1", "net48" };
+
+        var result = TfmResolver.SelectCompatibleTfms("net8.0", available);
+
+        await Assert.That(result).Contains("net8.0");
+        await Assert.That(result).Contains("net6.0");
+        await Assert.That(result).Contains("netstandard2.0");
+        await Assert.That(result).Contains("netstandard2.1");
+        await Assert.That(result).DoesNotContain("net48");
+    }
+
+    /// <summary>SelectCompatibleTfms: results are ordered by descending rank so the target's own bucket comes first.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task SelectCompatibleTfmsOrdersHighestRankFirst()
+    {
+        var available = new List<string> { "netstandard2.0", "net6.0", "net8.0" };
+
+        var result = TfmResolver.SelectCompatibleTfms("net8.0", available);
+
+        await Assert.That(result[0]).IsEqualTo("net8.0");
+        await Assert.That(result[1]).IsEqualTo("net6.0");
+        await Assert.That(result[2]).IsEqualTo("netstandard2.0");
+    }
+
+    /// <summary>SelectCompatibleTfms: a netstandard2.0 target excludes net8.0 (modern .NET libs aren't compatible with a netstandard consumer).</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task SelectCompatibleTfmsExcludesHigherTargetFrameworksWhenTargetIsNetstandard()
+    {
+        var available = new List<string> { "netstandard2.0", "netstandard1.6", "net8.0" };
+
+        var result = TfmResolver.SelectCompatibleTfms("netstandard2.0", available);
+
+        await Assert.That(result).Contains("netstandard2.0");
+        await Assert.That(result).Contains("netstandard1.6");
+        await Assert.That(result).DoesNotContain("net8.0");
+    }
+
+    /// <summary>SelectCompatibleTfms: returns empty when nothing in availableTfms is reachable from the target.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task SelectCompatibleTfmsReturnsEmptyWhenNothingMatches()
+    {
+        var available = new List<string> { "net48", "net472" };
+
+        var result = TfmResolver.SelectCompatibleTfms("netstandard2.0", available);
+
+        await Assert.That(result.Count).IsEqualTo(0);
+    }
+
+    /// <summary>SelectCompatibleTfms: short-circuits cheaply on empty input.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task SelectCompatibleTfmsReturnsEmptyForEmptyInput()
+    {
+        var result = TfmResolver.SelectCompatibleTfms("net8.0", []);
+
+        await Assert.That(result.Count).IsEqualTo(0);
+    }
+
+    /// <summary>SelectCompatibleTfms: validates input and rejects null/whitespace target TFM.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task SelectCompatibleTfmsRejectsBlankTarget()
+    {
+        await Assert.That(() => TfmResolver.SelectCompatibleTfms(string.Empty, ["net8.0"])).Throws<ArgumentException>();
+    }
 }
