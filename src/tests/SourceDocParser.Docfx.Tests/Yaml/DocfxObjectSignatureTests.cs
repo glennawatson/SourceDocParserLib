@@ -186,7 +186,7 @@ public class DocfxObjectSignatureTests
             Interfaces = [new("IFoo", "T:My.IFoo")],
         };
 
-        var yaml = DocfxYamlEmitter.Render(type);
+        var yaml = DocfxYamlEmitter.Render(type).Lf();
 
         await Assert.That(yaml).Contains("syntax:");
 

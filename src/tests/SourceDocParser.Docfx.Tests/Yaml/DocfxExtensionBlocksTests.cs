@@ -26,7 +26,7 @@ public class DocfxExtensionBlocksTests
 
         sb.AppendExtensionBlocks([]);
 
-        await Assert.That(sb.ToString()).IsEqualTo(string.Empty);
+        await Assert.That(sb.ToString().Lf()).IsEqualTo(string.Empty);
     }
 
     /// <summary>One block emits a single entry under <c>extensionBlocks:</c> with the receiver triple + member uid list.</summary>
@@ -63,7 +63,7 @@ public class DocfxExtensionBlocksTests
 
         var sb = new StringBuilder();
         sb.AppendExtensionBlocks(blocks);
-        var yaml = sb.ToString();
+        var yaml = sb.ToString().Lf();
 
         await Assert.That(yaml).Contains("extensionBlocks:");
         await Assert.That(yaml).Contains("  - receiverName: source");
@@ -108,7 +108,7 @@ public class DocfxExtensionBlocksTests
             ],
         };
 
-        var yaml = DocfxYamlEmitter.Render(helpers);
+        var yaml = DocfxYamlEmitter.Render(helpers).Lf();
 
         await Assert.That(yaml).Contains("extensionBlocks:");
         await Assert.That(yaml).Contains("  - receiverName: source");

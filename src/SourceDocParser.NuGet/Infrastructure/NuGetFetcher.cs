@@ -140,10 +140,8 @@ public sealed partial class NuGetFetcher : INuGetFetcher
 
         // Persist the explicit primary id list so NuGetAssemblySource
         // routes both owner-discovered and additionalPackages ids into
-        // its primary-DLL filter -- without this, owner-only manifests
-        // see no primaryPrefixes and skip every documentation page
-        // (the bug that hides reactiveui/reactivemarbles output when
-        // additionalPackages only carries System.Reactive + DynamicData).
+        // its primary-DLL filter; without it, owner-only manifests
+        // would skip every page since no primaryPrefixes are seen.
         WritePrimaryPackagesSidecar(apiPath, allPackages);
 
         await FetchGroupAsync(libDir, cacheDir, allPackages, config.TfmPreference, logger, cancellationToken).ConfigureAwait(false);

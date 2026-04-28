@@ -122,7 +122,7 @@ public class DocfxCatalogIndexesTests
         };
         var indexes = DocfxCatalogIndexes.Build([baseType, sub]);
 
-        var yaml = DocfxYamlEmitter.Render(baseType, BuildInternalUids(baseType, sub), indexes);
+        var yaml = DocfxYamlEmitter.Render(baseType, BuildInternalUids(baseType, sub), indexes).Lf();
 
         await Assert.That(yaml).Contains("derivedClasses:");
         await Assert.That(yaml).Contains("- Derived");

@@ -122,7 +122,7 @@ internal static class DocfxNamespacePages
     internal static void BuildPage(StringBuilder sb, in NamespacePage page)
     {
         ArgumentNullException.ThrowIfNull(page.Namespace);
-        sb.Append(DocfxYamlEmitter.YamlMimeHeader).Append('\n')
+        sb.AppendLine(DocfxYamlEmitter.YamlMimeHeader)
             .Append("items:\n")
             .Append("- uid: ").AppendScalar(page.Namespace).AppendLine()
             .Append("  commentId: ").Append(NamespaceCommentIdPrefix).AppendScalar(page.Namespace).AppendLine()

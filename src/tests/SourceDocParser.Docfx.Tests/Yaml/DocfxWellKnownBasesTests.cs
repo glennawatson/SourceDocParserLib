@@ -22,7 +22,7 @@ public class DocfxWellKnownBasesTests
     [Test]
     public async Task ClassEmitsObjectInheritance()
     {
-        var yaml = DocfxYamlEmitter.Render(TestData.ObjectType("Foo"));
+        var yaml = DocfxYamlEmitter.Render(TestData.ObjectType("Foo")).Lf();
 
         await Assert.That(yaml).Contains("inheritance:\n  - System.Object");
     }
@@ -32,7 +32,7 @@ public class DocfxWellKnownBasesTests
     [Test]
     public async Task EnumEmitsEnumInheritance()
     {
-        var yaml = DocfxYamlEmitter.Render(TestData.EnumType("Day"));
+        var yaml = DocfxYamlEmitter.Render(TestData.EnumType("Day")).Lf();
 
         await Assert.That(yaml).Contains("inheritance:\n  - System.Enum");
     }
@@ -42,7 +42,7 @@ public class DocfxWellKnownBasesTests
     [Test]
     public async Task DelegateEmitsMulticastDelegateInheritance()
     {
-        var yaml = DocfxYamlEmitter.Render(TestData.DelegateType("Handler"));
+        var yaml = DocfxYamlEmitter.Render(TestData.DelegateType("Handler")).Lf();
 
         await Assert.That(yaml).Contains("inheritance:\n  - System.MulticastDelegate");
     }
@@ -52,7 +52,7 @@ public class DocfxWellKnownBasesTests
     [Test]
     public async Task SynthesisedBaseAppearsInReferences()
     {
-        var yaml = DocfxYamlEmitter.Render(TestData.ObjectType("Foo"));
+        var yaml = DocfxYamlEmitter.Render(TestData.ObjectType("Foo")).Lf();
 
         await Assert.That(yaml).Contains("- uid: System.Object");
     }
@@ -64,7 +64,7 @@ public class DocfxWellKnownBasesTests
     {
         var iface = TestData.ObjectType("IFoo", ApiObjectKind.Interface);
 
-        var yaml = DocfxYamlEmitter.Render(iface);
+        var yaml = DocfxYamlEmitter.Render(iface).Lf();
 
         await Assert.That(yaml).DoesNotContain("inheritance:");
     }

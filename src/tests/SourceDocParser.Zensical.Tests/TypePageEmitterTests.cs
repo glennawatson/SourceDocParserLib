@@ -74,8 +74,8 @@ public class TypePageEmitterTests
         var withNamespace = TestData.ObjectType("Foo") with { Namespace = "My.Lib" };
         var globalNs = TestData.ObjectType("Bar");
 
-        await Assert.That(TypePageEmitter.PathFor(withNamespace)).IsEqualTo(Path.Combine("Test", "My", "Lib", "Foo.md"));
-        await Assert.That(TypePageEmitter.PathFor(globalNs)).IsEqualTo(Path.Combine("Test", "_global", "Bar.md"));
+        await Assert.That(TypePageEmitter.PathFor(withNamespace)).IsEqualTo("Test/My/Lib/Foo.md");
+        await Assert.That(TypePageEmitter.PathFor(globalNs)).IsEqualTo("Test/_global/Bar.md");
     }
 
     /// <summary>

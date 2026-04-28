@@ -5,6 +5,7 @@
 using System.Text;
 using SourceDocParser.Docfx.Yaml;
 using SourceDocParser.Model;
+using SourceDocParser.TestHelpers;
 
 namespace SourceDocParser.Docfx.Tests.Yaml;
 
@@ -126,6 +127,6 @@ public class DocfxReferenceEnricherTests
     {
         var sb = new StringBuilder();
         DocfxReferenceEnricher.AppendEnrichedReference(sb, reference, internalUids);
-        return sb.ToString();
+        return sb.ToString().Lf();
     }
 }

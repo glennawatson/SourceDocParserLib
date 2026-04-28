@@ -64,9 +64,8 @@ internal static class DocfxYamlBuilderExtensions
 
     /// <summary>
     /// Catalog + converter overload of <see cref="AppendTypeItem(StringBuilder, ApiType, DocfxCatalogIndexes)"/>.
-    /// Production paths thread the run's <see cref="XmlDocToMarkdown"/> here so per-symbol
-    /// XML to Markdown conversion happens lazily at the field read instead
-    /// of via an upstream catalog rebuild.
+    /// Threads the run's <see cref="XmlDocToMarkdown"/> through so each
+    /// raw XML doc fragment is converted at the field read site.
     /// </summary>
     /// <param name="sb">Destination builder.</param>
     /// <param name="type">Type whose item entry to write.</param>

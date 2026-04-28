@@ -94,7 +94,7 @@ internal static class MemberPageEmitter
             TypePageEmitter.FileExtension);
 
         var packageFolder = PackageRouter.ResolveFolder(containingType.AssemblyName, options.PackageRouting);
-        return packageFolder is null ? basePath : Path.Combine(packageFolder, basePath);
+        return packageFolder is null ? basePath : packageFolder + "/" + basePath;
     }
 
     /// <summary>

@@ -45,7 +45,7 @@ public class DocfxAttributeAndCompilerGenTests
             ],
         };
 
-        var yaml = DocfxYamlEmitter.Render(type);
+        var yaml = DocfxYamlEmitter.Render(type).Lf();
 
         await Assert.That(yaml).Contains("attributes:");
         await Assert.That(yaml).Contains("  - type: System.SerializableAttribute");
@@ -72,7 +72,7 @@ public class DocfxAttributeAndCompilerGenTests
             ],
         };
 
-        var yaml = DocfxYamlEmitter.Render(type);
+        var yaml = DocfxYamlEmitter.Render(type).Lf();
 
         await Assert.That(yaml).Contains("    arguments:");
         await Assert.That(yaml).Contains("ItemContainerStyle");

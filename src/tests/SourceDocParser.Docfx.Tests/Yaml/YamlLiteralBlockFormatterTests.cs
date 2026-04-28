@@ -4,6 +4,7 @@
 
 using System.Text;
 using SourceDocParser.Docfx.Yaml;
+using SourceDocParser.TestHelpers;
 
 namespace SourceDocParser.Docfx.Tests.Yaml;
 
@@ -27,7 +28,7 @@ public class YamlLiteralBlockFormatterTests
         YamlLiteralBlockFormatter.Format(sb, "  summary: ", "line one\nline two");
 
         // Key sits at 2 spaces; body lines at 4 spaces (key + 2).
-        await Assert.That(sb.ToString()).IsEqualTo("  summary: |-\n    line one\n    line two\n");
+        await Assert.That(sb.ToString().Lf()).IsEqualTo("  summary: |-\n    line one\n    line two\n");
     }
 
     /// <summary>A zero-indent prefix still adds the two-space body indent.</summary>
@@ -39,7 +40,7 @@ public class YamlLiteralBlockFormatterTests
 
         YamlLiteralBlockFormatter.Format(sb, "summary: ", "alpha\nbeta");
 
-        await Assert.That(sb.ToString()).IsEqualTo("summary: |-\n  alpha\n  beta\n");
+        await Assert.That(sb.ToString().Lf()).IsEqualTo("summary: |-\n  alpha\n  beta\n");
     }
 
     /// <summary>Single-line body still emits one indented body line.</summary>
@@ -52,7 +53,7 @@ public class YamlLiteralBlockFormatterTests
         YamlLiteralBlockFormatter.Format(sb, "    remarks: ", "alone");
 
         // Key sits at 4; body at 6.
-        await Assert.That(sb.ToString()).IsEqualTo("    remarks: |-\n      alone\n");
+        await Assert.That(sb.ToString().Lf()).IsEqualTo("    remarks: |-\n      alone\n");
     }
 
     /// <summary>ComputeIndentLength returns the leading-space count.</summary>

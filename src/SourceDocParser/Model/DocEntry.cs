@@ -9,9 +9,8 @@ namespace SourceDocParser.Model;
 /// Used for parameters, type parameters, and exceptions.
 /// </summary>
 /// <remarks>
-/// As of v0.3 <see cref="Value"/> carries the raw inner XML of the
-/// source documentation tag, not pre-rendered Markdown. Emitters
-/// convert it at render time via
+/// <see cref="Value"/> carries the raw inner XML of the source
+/// documentation tag; emitters convert it at render time via
 /// <see cref="SourceDocParser.XmlDoc.XmlDocToMarkdown"/>.
 /// </remarks>
 /// <param name="Name">The name (parameter / type parameter) or cref (exception) of the entry.</param>

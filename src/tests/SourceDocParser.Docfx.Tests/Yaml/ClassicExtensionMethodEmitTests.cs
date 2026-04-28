@@ -41,7 +41,7 @@ public class ClassicExtensionMethodEmitTests
         var (target, helpers) = BuildClassicExtensionFixture();
         var indexes = DocfxCatalogIndexes.Build([target, helpers]);
 
-        var yaml = DocfxYamlEmitter.Render(target, BuildInternalUids(target, helpers), indexes);
+        var yaml = DocfxYamlEmitter.Render(target, BuildInternalUids(target, helpers), indexes).Lf();
 
         // Docfx convention strips the M: prefix when emitting member
         // UIDs in YAML scalar position (CommentIdPrefix.Strip).

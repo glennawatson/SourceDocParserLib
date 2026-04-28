@@ -124,13 +124,9 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
                 continue;
             }
 
-            // Walker output is consumed raw -- the emit code converts
-            // raw-XML doc fragments to Markdown lazily via a
-            // RenderedDoc facade per symbol, so we don't pay the
-            // type/member with-rebuild cost an eager pre-pass had.
-            // Both the type page and every member-overload page see
-            // the same raw type and share the converter so XML
-            // fragments are converted exactly once each.
+            // The type page and every member-overload page share the
+            // same raw type and converter so each XML fragment is
+            // converted exactly once.
             TypePageEmitter.RenderToFile(type, outputRoot, context);
             pages++;
             pages += EmitMemberPages(type, outputRoot, context);

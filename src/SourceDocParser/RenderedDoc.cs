@@ -10,11 +10,9 @@ namespace SourceDocParser;
 /// <summary>
 /// Lazy facade over a raw <see cref="ApiDocumentation"/> that converts
 /// each text-shaped field via the supplied <see cref="XmlDocToMarkdown"/>
-/// on first access and caches the result. Replaces the v0.3 eager
-/// <c>RenderedTypeFactory</c> pre-pass -- emitters now construct a
-/// <see cref="RenderedDoc"/> per symbol they're about to render and
-/// pay only for the fields they actually consume, with no
-/// <c>with</c>-rebuild cost on the underlying records.
+/// on first access and caches the result. Emitters construct one
+/// per symbol so only the fields a page actually reads pay any
+/// conversion cost.
 /// </summary>
 internal sealed class RenderedDoc
 {

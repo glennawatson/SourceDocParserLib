@@ -22,7 +22,7 @@ public class DocfxTypeItemTests
     {
         var type = TestData.ObjectType("Foo") with { Namespace = "My.Lib" };
 
-        var yaml = DocfxYamlEmitter.Render(type);
+        var yaml = DocfxYamlEmitter.Render(type).Lf();
 
         await Assert.That(yaml).Contains("  parent: My.Lib");
     }
@@ -34,7 +34,7 @@ public class DocfxTypeItemTests
     {
         var type = TestData.ObjectType("Foo");
 
-        var yaml = DocfxYamlEmitter.Render(type);
+        var yaml = DocfxYamlEmitter.Render(type).Lf();
 
         // Type item lays out as `id: Foo` then directly `langs:` --
         // any inserted `parent:` would land between them. Reference
@@ -72,7 +72,7 @@ public class DocfxTypeItemTests
             Attributes: []);
         var type = TestData.ObjectType("Foo") with { Members = [ctor] };
 
-        var yaml = DocfxYamlEmitter.Render(type);
+        var yaml = DocfxYamlEmitter.Render(type).Lf();
 
         // Quoter picks double quotes; either '#ctor' or "#ctor" is valid
         // YAML -- assert the value survived as a quoted scalar rather than
@@ -95,7 +95,7 @@ public class DocfxTypeItemTests
         ];
         var type = TestData.ObjectType("Foo") with { Members = members };
 
-        var yaml = DocfxYamlEmitter.Render(type);
+        var yaml = DocfxYamlEmitter.Render(type).Lf();
         var alphaIdx = yaml.IndexOf("\n  - Foo.Alpha\n", StringComparison.Ordinal);
         var midIdx = yaml.IndexOf("\n  - Foo.Mid\n", StringComparison.Ordinal);
         var zetaIdx = yaml.IndexOf("\n  - Foo.Zeta\n", StringComparison.Ordinal);
@@ -134,7 +134,7 @@ public class DocfxTypeItemTests
             Attributes: []);
         var type = TestData.ObjectType("Foo") with { Members = [ctor] };
 
-        var yaml = DocfxYamlEmitter.Render(type);
+        var yaml = DocfxYamlEmitter.Render(type).Lf();
         var syntaxIdx = yaml.IndexOf("\n  syntax:", StringComparison.Ordinal);
         var overloadIdx = yaml.IndexOf("\n  overload:", StringComparison.Ordinal);
         var langsIdx = yaml.IndexOf("\n  langs:", StringComparison.Ordinal);

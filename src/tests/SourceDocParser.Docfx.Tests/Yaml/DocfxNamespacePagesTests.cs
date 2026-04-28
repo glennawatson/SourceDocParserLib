@@ -96,7 +96,7 @@ public class DocfxNamespacePagesTests
             ChildUids: ["DynamicData.Aggregation.AggregateType", "DynamicData.Aggregation.AggregationEx"],
             AssemblyName: "DynamicData");
 
-        var yaml = DocfxNamespacePages.Render(page);
+        var yaml = DocfxNamespacePages.Render(page).Lf();
 
         var stream = new YamlStream();
         using var reader = new StringReader(yaml);

@@ -8,16 +8,14 @@ namespace SourceDocParser.Model;
 /// Parsed XML documentation for a single symbol.
 /// </summary>
 /// <remarks>
-/// As of v0.3 every text-shaped property on this record carries the
-/// <strong>raw inner XML</strong> of the corresponding documentation
-/// tag, not pre-rendered Markdown. Emitters convert each fragment
-/// at render time via
+/// Every text-shaped property carries the <strong>raw inner XML</strong>
+/// of the corresponding documentation tag. Emitters convert each
+/// fragment at render time via
 /// <see cref="SourceDocParser.XmlDoc.XmlDocToMarkdown"/> with their
 /// own <see cref="ICrefResolver"/> deciding how
-/// <c>see cref="..."/</c> references resolve in the target
-/// output. Capturing raw XML keeps the walker oblivious to the
-/// eventual Markdown shape and lets each emitter pick its own
-/// link-resolution strategy.
+/// <c>see cref="..."/</c> references resolve in the target output.
+/// The walker stays oblivious to the eventual Markdown shape so each
+/// emitter picks its own link-resolution strategy.
 /// </remarks>
 /// <param name="Summary">Raw inner XML of the <c>summary/</c> tag.</param>
 /// <param name="Remarks">Raw inner XML of the <c>remarks/</c> tag.</param>

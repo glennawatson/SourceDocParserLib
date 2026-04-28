@@ -23,11 +23,9 @@ public sealed class DocResolver : IDocResolver
     /// </summary>
     /// <param name="compilation">Compilation used for cref resolution.</param>
     /// <remarks>
-    /// As of v0.3 the resolver no longer renders Markdown -- the
-    /// produced <see cref="ApiDocumentation"/> carries raw XML doc
-    /// fragments which the emitter converts via
-    /// <see cref="XmlDocToMarkdown"/> at render time. The converter
-    /// parameter that previous versions accepted was therefore removed.
+    /// The resolver returns <see cref="ApiDocumentation"/> with raw
+    /// XML doc fragments; emitters convert them via
+    /// <see cref="XmlDocToMarkdown"/> at render time.
     /// </remarks>
     public DocResolver(Compilation compilation)
     {

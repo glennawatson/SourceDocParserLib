@@ -7,13 +7,10 @@ using System.Text;
 namespace SourceDocParser;
 
 /// <summary>
-/// Streams a fully-composed <see cref="StringBuilder"/> straight to disk
-/// using the builder's chunk enumerator -- skips the intermediate
-/// <see cref="StringBuilder.ToString()"/> allocation that
-/// <see cref="File.WriteAllText(string, string)"/> would otherwise pay
-/// per page. For ~600 pages averaging ~30 KB each that's ~18 MB of
-/// transient string churn the GC no longer has to deal with on every
-/// emit run.
+/// Streams a <see cref="StringBuilder"/> to disk using the builder's
+/// chunk enumerator so the page contents flow through a UTF-8
+/// <see cref="StreamWriter"/> without materialising the full
+/// <see cref="StringBuilder.ToString()"/> string.
 /// </summary>
 internal static class PageWriter
 {

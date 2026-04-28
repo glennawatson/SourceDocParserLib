@@ -5,6 +5,7 @@
 using System.Text;
 using SourceDocParser.Docfx.Yaml;
 using SourceDocParser.Model;
+using SourceDocParser.TestHelpers;
 
 namespace SourceDocParser.Docfx.Tests.Yaml;
 
@@ -31,7 +32,7 @@ public class DocfxAttributeCtorTests
 
         sb.AppendAttributeEntry(attribute);
 
-        await Assert.That(sb.ToString()).Contains(
+        await Assert.That(sb.ToString().Lf()).Contains(
             "ctor: System.ComponentModel.BrowsableAttribute.#ctor(System.Boolean)");
     }
 
@@ -49,6 +50,6 @@ public class DocfxAttributeCtorTests
 
         sb.AppendAttributeEntry(attribute);
 
-        await Assert.That(sb.ToString()).DoesNotContain("ctor:");
+        await Assert.That(sb.ToString().Lf()).DoesNotContain("ctor:");
     }
 }

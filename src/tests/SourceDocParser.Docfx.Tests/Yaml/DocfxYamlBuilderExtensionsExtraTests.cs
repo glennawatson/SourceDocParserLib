@@ -22,7 +22,7 @@ public class DocfxYamlBuilderExtensionsExtraTests
     {
         var sb = new StringBuilder().AppendScalar(string.Empty);
 
-        await Assert.That(sb.ToString()).IsEqualTo("''");
+        await Assert.That(sb.ToString().Lf()).IsEqualTo("''");
     }
 
     /// <summary>An empty seealso array writes nothing.</summary>
@@ -44,7 +44,7 @@ public class DocfxYamlBuilderExtensionsExtraTests
 
         sb.AppendSeealso(["T:Foo.Bar", "M:Foo.Baz"]);
 
-        var output = sb.ToString();
+        var output = sb.ToString().Lf();
         await Assert.That(output).Contains("seealso:");
         await Assert.That(output).Contains("    commentId: T:Foo.Bar");
         await Assert.That(output).Contains("    altText: Foo.Bar");
@@ -59,7 +59,7 @@ public class DocfxYamlBuilderExtensionsExtraTests
     {
         var sb = new StringBuilder().AppendQualifiedScalar(string.Empty, '.', "Bar");
 
-        await Assert.That(sb.ToString()).IsEqualTo("Bar");
+        await Assert.That(sb.ToString().Lf()).IsEqualTo("Bar");
     }
 
     /// <summary>An empty right-hand side falls through to a plain left-hand scalar.</summary>
@@ -69,7 +69,7 @@ public class DocfxYamlBuilderExtensionsExtraTests
     {
         var sb = new StringBuilder().AppendQualifiedScalar("Foo", '.', string.Empty);
 
-        await Assert.That(sb.ToString()).IsEqualTo("Foo");
+        await Assert.That(sb.ToString().Lf()).IsEqualTo("Foo");
     }
 
     /// <summary>A safe pair joins with the separator without quoting.</summary>
@@ -79,7 +79,7 @@ public class DocfxYamlBuilderExtensionsExtraTests
     {
         var sb = new StringBuilder().AppendQualifiedScalar("Foo", '.', "Bar");
 
-        await Assert.That(sb.ToString()).IsEqualTo("Foo.Bar");
+        await Assert.That(sb.ToString().Lf()).IsEqualTo("Foo.Bar");
     }
 
     /// <summary>The legacy single-arg <c>AppendTypeItem</c> overload routes through the empty index.</summary>
@@ -92,7 +92,7 @@ public class DocfxYamlBuilderExtensionsExtraTests
 
         sb.AppendTypeItem(type);
 
-        var output = sb.ToString();
+        var output = sb.ToString().Lf();
         await Assert.That(output).Contains("- uid: Foo");
         await Assert.That(output).Contains("commentId: Foo");
         await Assert.That(output).Contains("type: Class");

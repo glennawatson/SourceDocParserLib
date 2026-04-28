@@ -28,7 +28,7 @@ public class DocfxSyntaxContentTests
 
         sb.AppendSyntaxContent([], "public void Run()", indent: "    ");
 
-        await Assert.That(sb.ToString()).IsEqualTo("    content: public void Run()\n");
+        await Assert.That(sb.ToString().Lf()).IsEqualTo("    content: public void Run()\n");
     }
 
     /// <summary>Compiler-emitted attributes filtered out via <see cref="DocfxAttributeFilter"/> => fast path still triggers.</summary>
@@ -44,7 +44,7 @@ public class DocfxSyntaxContentTests
 
         sb.AppendSyntaxContent(attrs, "public void Run()", indent: "    ");
 
-        await Assert.That(sb.ToString()).IsEqualTo("    content: public void Run()\n");
+        await Assert.That(sb.ToString().Lf()).IsEqualTo("    content: public void Run()\n");
     }
 
     /// <summary>Surviving attributes render as folded-block lines above a blank-separated signature.</summary>
@@ -60,7 +60,7 @@ public class DocfxSyntaxContentTests
 
         sb.AppendSyntaxContent(attrs, "public class Foo", indent: "    ");
 
-        await Assert.That(sb.ToString()).IsEqualTo("    content: >-\n    [Serializable]\n    \n    public class Foo\n");
+        await Assert.That(sb.ToString().Lf()).IsEqualTo("    content: >-\n    [Serializable]\n    \n    public class Foo\n");
     }
 
     /// <summary>End-to-end: a member with a surviving attribute renders the folded syntax block in its YAML page.</summary>
@@ -92,7 +92,7 @@ public class DocfxSyntaxContentTests
             Attributes: [new("Obsolete", "T:System.ObsoleteAttribute", string.Empty, [])]);
         var type = TestData.ObjectType("Foo") with { Members = [member] };
 
-        var yaml = DocfxYamlEmitter.Render(type);
+        var yaml = DocfxYamlEmitter.Render(type).Lf();
 
         await Assert.That(yaml).Contains("    content: >-");
         await Assert.That(yaml).Contains("    [Obsolete]");

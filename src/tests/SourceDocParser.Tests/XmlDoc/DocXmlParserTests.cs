@@ -201,8 +201,7 @@ public class DocXmlParserTests
 
     /// <summary>Constructs a <see cref="DocResolveContext"/> backed by an
     /// empty Roslyn compilation, then runs <see cref="DocXmlParser.Parse"/>.
-    /// As of v0.3 the parser captures raw inner XML -- the converter is
-    /// no longer invoked at parse time.</summary>
+    /// The parser captures raw inner XML; conversion happens at emit time.</summary>
     /// <param name="memberXml">Raw member XML to parse.</param>
     /// <returns>The parsed raw documentation.</returns>
     private static SourceDocParser.Model.RawDocumentation Parse(string memberXml)

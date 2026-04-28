@@ -4,6 +4,7 @@
 
 using SourceDocParser.Docfx.Yaml;
 using SourceDocParser.Model;
+using SourceDocParser.TestHelpers;
 
 namespace SourceDocParser.Docfx.Tests.Yaml;
 
@@ -77,7 +78,7 @@ public class AttributeUsageFormatterTests
 
         var attribute = new ApiAttribute("Foo", "T:My.FooAttribute", string.Empty, args);
 
-        var rendered = AttributeUsageFormatter.Render(attribute);
+        var rendered = AttributeUsageFormatter.Render(attribute).Lf();
 
         // Empty-argument fast path returns the bare name; ComputeLength
         // is only consulted on the slow path so we only need to assert

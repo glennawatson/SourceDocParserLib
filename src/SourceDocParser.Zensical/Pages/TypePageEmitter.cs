@@ -150,7 +150,7 @@ internal static class TypePageEmitter
 
         var basePath = ZensicalEmitterHelpers.BuildTypePath(type.Namespace, type.Name, type.Arity, FileExtension);
         var packageFolder = PackageRouter.ResolveFolder(type.AssemblyName, options.PackageRouting);
-        return packageFolder is null ? basePath : Path.Combine(packageFolder, basePath);
+        return packageFolder is null ? basePath : packageFolder + "/" + basePath;
     }
 
     /// <summary>

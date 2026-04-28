@@ -87,8 +87,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     /// <summary>
     /// Converter overload of <see cref="Render(ApiType, HashSet{string}, DocfxCatalogIndexes)"/>.
     /// Threads <paramref name="converter"/> into the YAML builders so
-    /// per-symbol XML to Markdown conversion is folded in lazily at write
-    /// time -- no upstream catalog rebuild.
+    /// each raw XML doc fragment is converted at the field write site.
     /// </summary>
     /// <param name="type">Type whose page to render.</param>
     /// <param name="internalUids">UIDs of every type emitted by the current run.</param>
@@ -404,7 +403,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
         ArgumentNullException.ThrowIfNull(indexes);
         ArgumentNullException.ThrowIfNull(converter);
 
-        sb.Append(YamlMimeHeader).Append('\n')
+        sb.AppendLine(YamlMimeHeader)
             .Append("items:\n")
             .AppendTypeItem(type, indexes, converter)
             .AppendMemberItems(type, converter)
