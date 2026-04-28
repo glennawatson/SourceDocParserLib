@@ -310,6 +310,35 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     }
 
     /// <summary>
+    /// Probes extracted DLLs for synthetic framework references
+    /// (e.g. <c>Microsoft.WinUI</c>) and queues the NuGet packages
+    /// that ship them via <see cref="KnownFrameworkPackageMap"/>.
+    /// Survives the same exclusion filter as nuspec-discovered deps
+    /// so the user's exclude list still wins.
+    /// </summary>
+    /// <param name="request">Shared resolution request state.</param>
+    /// <param name="newIds">Set collecting newly-discovered package IDs, mutated in place.</param>
+    internal static void AddBackfilledSyntheticPackages(
+        in TransitiveDependencyResolutionRequest request,
+        HashSet<string> newIds)
+    {
+        var backfill = SyntheticPackageBackfill.DiscoverFromExtractedAssemblies(request.LibDir, request.SeenIds);
+        for (var i = 0; i < backfill.Count; i++)
+        {
+            var packageId = backfill[i];
+            if (!ShouldIncludeTransitiveDependency(packageId, request))
+            {
+                continue;
+            }
+
+            if (request.SeenIds.Add(packageId))
+            {
+                newIds.Add(packageId);
+            }
+        }
+    }
+
+    /// <summary>
     /// Returns true when the dependency survives exclusion and default-skip filters.
     /// </summary>
     /// <param name="dependencyId">Dependency ID to test.</param>
@@ -502,6 +531,14 @@ public sealed partial class NuGetFetcher : INuGetFetcher
 
                 await AddDependenciesFromSidecarAsync(sidecarPath, request, newIds).ConfigureAwait(false);
             }
+
+            // Synthetic-ref backfill: nuspec deps don't list the NuGet
+            // package that ships projection assemblies like Microsoft.WinUI
+            // (Microsoft.WindowsAppSDK) or Microsoft.Web.WebView2.Core
+            // (Microsoft.Web.WebView2). Probe extracted DLLs for those
+            // refs and queue the corresponding packages via the same
+            // BFS round.
+            AddBackfilledSyntheticPackages(request, newIds);
 
             if (newIds.Count is 0)
             {
