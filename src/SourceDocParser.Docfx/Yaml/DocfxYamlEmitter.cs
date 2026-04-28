@@ -97,18 +97,9 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     /// <returns>The full YAML page text.</returns>
     public static string Render(ApiType type, HashSet<string> internalUids, DocfxCatalogIndexes indexes, XmlDocToMarkdown converter)
     {
-        ArgumentNullException.ThrowIfNull(type);
-        ArgumentNullException.ThrowIfNull(internalUids);
-        ArgumentNullException.ThrowIfNull(indexes);
-        ArgumentNullException.ThrowIfNull(converter);
-
-        return new StringBuilder(InitialPageCapacity)
-            .Append(YamlMimeHeader).Append('\n')
-            .Append("items:\n")
-            .AppendTypeItem(type, indexes, converter)
-            .AppendMemberItems(type, converter)
-            .AppendPageReferences(CollectReferences(type), internalUids)
-            .ToString();
+        using var rental = PageBuilderPool.Rent(InitialPageCapacity);
+        BuildPage(rental.Builder, type, internalUids, indexes, converter);
+        return rental.Builder.ToString();
     }
 
     /// <summary>
@@ -151,18 +142,9 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
             }
 
             var fullPath = Path.Combine(outputRoot, PathFor(type));
-            var directory = Path.GetDirectoryName(fullPath);
-            if (directory is [_, ..])
-            {
-                Directory.CreateDirectory(directory);
-            }
-
-            // Walker output flows through unchanged; the YAML builders
-            // convert each raw XML fragment to Markdown via the supplied
-            // converter at the field write site, so per-symbol docs are
-            // materialised exactly once and only the fields the page
-            // actually emits cost any conversion at all.
-            await File.WriteAllTextAsync(fullPath, Render(type, internalUids, indexes, converter), cancellationToken).ConfigureAwait(false);
+            using var rental = PageBuilderPool.Rent(InitialPageCapacity);
+            BuildPage(rental.Builder, type, internalUids, indexes, converter);
+            await PageWriter.WriteUtf8Async(fullPath, rental.Builder, cancellationToken).ConfigureAwait(false);
             pages++;
         }
 
@@ -176,7 +158,9 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
             cancellationToken.ThrowIfCancellationRequested();
             var page = namespacePages[i];
             var fullPath = Path.Combine(outputRoot, DocfxNamespacePages.PathFor(page.Namespace));
-            await File.WriteAllTextAsync(fullPath, DocfxNamespacePages.Render(page), cancellationToken).ConfigureAwait(false);
+            using var nsRental = PageBuilderPool.Rent(DocfxNamespacePages.InitialPageCapacity);
+            DocfxNamespacePages.BuildPage(nsRental.Builder, in page);
+            await PageWriter.WriteUtf8Async(fullPath, nsRental.Builder, cancellationToken).ConfigureAwait(false);
             pages++;
         }
 
@@ -405,5 +389,25 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
         }
 
         references.Add(reference);
+    }
+
+    /// <summary>Composes a docfx ManagedReference page into <paramref name="sb"/>.</summary>
+    /// <param name="sb">Destination builder; appended to in place.</param>
+    /// <param name="type">Type whose page to render.</param>
+    /// <param name="internalUids">UIDs of every type emitted by the current run.</param>
+    /// <param name="indexes">Pre-built catalog rollups.</param>
+    /// <param name="converter">XML to Markdown converter wired with the docfx cref resolver.</param>
+    private static void BuildPage(StringBuilder sb, ApiType type, HashSet<string> internalUids, DocfxCatalogIndexes indexes, XmlDocToMarkdown converter)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(internalUids);
+        ArgumentNullException.ThrowIfNull(indexes);
+        ArgumentNullException.ThrowIfNull(converter);
+
+        sb.Append(YamlMimeHeader).Append('\n')
+            .Append("items:\n")
+            .AppendTypeItem(type, indexes, converter)
+            .AppendMemberItems(type, converter)
+            .AppendPageReferences(CollectReferences(type), internalUids);
     }
 }

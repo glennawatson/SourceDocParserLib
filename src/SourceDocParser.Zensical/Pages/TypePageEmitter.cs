@@ -904,6 +904,19 @@ internal static class TypePageEmitter
     /// <returns>The rendered Markdown string.</returns>
     private static string Render(ApiType type, XmlDocToMarkdown converter, ZensicalEmitterOptions options, ZensicalCatalogIndexes indexes)
     {
+        using var rental = PageBuilderPool.Rent(InitialPageCapacity);
+        BuildPage(rental.Builder, type, converter, options, indexes);
+        return rental.Builder.ToString();
+    }
+
+    /// <summary>Composes the type page into <paramref name="sb"/>.</summary>
+    /// <param name="sb">Destination builder; appended to in place.</param>
+    /// <param name="type">The type to render.</param>
+    /// <param name="converter">XML to Markdown converter.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    /// <param name="indexes">Pre-built catalog rollups.</param>
+    private static void BuildPage(StringBuilder sb, ApiType type, XmlDocToMarkdown converter, ZensicalEmitterOptions options, ZensicalCatalogIndexes indexes)
+    {
         ArgumentNullException.ThrowIfNull(type);
         ArgumentNullException.ThrowIfNull(converter);
         ArgumentNullException.ThrowIfNull(options);
@@ -925,7 +938,7 @@ internal static class TypePageEmitter
         var frontmatter = PageFrontmatter.ForType(type, options);
         var deprecation = RenderDeprecationAdmonition(type.IsObsolete, type.ObsoleteMessage);
         var attributesLine = RenderAttributesLine(type.Attributes);
-        var sb = new StringBuilder($"""
+        sb.Append($"""
             {frontmatter}# {heading}
             {deprecation}{attributesLine}
             !!! info "Defined in"
@@ -964,8 +977,6 @@ internal static class TypePageEmitter
         AppendExtensionMembers(sb, indexes.GetExtensions(type.Uid), options);
         AppendExtensionBlocks(sb, type is ApiObjectType obj ? obj.ExtensionBlocks : [], options);
         AppendSeeAlso(sb, doc.SeeAlso, options);
-
-        return sb.ToString();
     }
 
     /// <summary>
@@ -982,9 +993,8 @@ internal static class TypePageEmitter
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(indexes);
-        var relativePath = PathFor(type, options);
-        var fullPath = Path.Combine(outputRoot, relativePath);
-        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        File.WriteAllText(fullPath, Render(type, converter, options, indexes));
+        using var rental = PageBuilderPool.Rent(InitialPageCapacity);
+        BuildPage(rental.Builder, type, converter, options, indexes);
+        PageWriter.WriteUtf8(Path.Combine(outputRoot, PathFor(type, options)), rental.Builder);
     }
 }

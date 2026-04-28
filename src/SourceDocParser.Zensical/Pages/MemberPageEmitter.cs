@@ -163,6 +163,26 @@ internal static class MemberPageEmitter
         XmlDocToMarkdown converter,
         ZensicalEmitterOptions options)
     {
+        using var rental = PageBuilderPool.Rent(InitialPageCapacity);
+        BuildPage(rental.Builder, containingType, memberName, overloads, converter, options);
+        return rental.Builder.ToString();
+    }
+
+    /// <summary>Composes the overload-group page into <paramref name="sb"/>.</summary>
+    /// <param name="sb">Destination builder; appended to in place.</param>
+    /// <param name="containingType">The declaring type.</param>
+    /// <param name="memberName">The shared overload-group name.</param>
+    /// <param name="overloads">The overloads to render.</param>
+    /// <param name="converter">XML to Markdown converter.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    private static void BuildPage(
+        StringBuilder sb,
+        ApiType containingType,
+        string memberName,
+        ApiMember[] overloads,
+        XmlDocToMarkdown converter,
+        ZensicalEmitterOptions options)
+    {
         ArgumentNullException.ThrowIfNull(containingType);
         ArgumentException.ThrowIfNullOrWhiteSpace(memberName);
         ArgumentNullException.ThrowIfNull(overloads);
@@ -174,8 +194,7 @@ internal static class MemberPageEmitter
         var typePagePath = TypePageEmitter.PathFor(containingType, options);
         var typeName = ZensicalEmitterHelpers.FormatDisplayTypeName(containingType.Name, containingType.Arity);
 
-        var sb = new StringBuilder(capacity: InitialPageCapacity)
-            .Append(PageFrontmatter.ForMember(containingType, first, overloads, options))
+        sb.Append(PageFrontmatter.ForMember(containingType, first, overloads, options))
             .Append($"""
             # {heading} {kindLabel}
 
@@ -205,7 +224,7 @@ internal static class MemberPageEmitter
         if (overloads is [var single])
         {
             AppendSingleOverload(sb, single, converter, options);
-            return sb.ToString();
+            return;
         }
 
         AppendOverloadList(sb, overloads);
@@ -213,8 +232,6 @@ internal static class MemberPageEmitter
         {
             AppendNumberedOverload(sb, overloads[i], i + 1, converter, options);
         }
-
-        return sb.ToString();
     }
 
     /// <summary>
@@ -238,10 +255,9 @@ internal static class MemberPageEmitter
         ZensicalEmitterOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        var relativePath = PathFor(containingType, memberName, options);
-        var fullPath = Path.Combine(outputRoot, relativePath);
-        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        File.WriteAllText(fullPath, Render(containingType, memberName, overloads, converter, options));
+        using var rental = PageBuilderPool.Rent(InitialPageCapacity);
+        BuildPage(rental.Builder, containingType, memberName, overloads, converter, options);
+        PageWriter.WriteUtf8(Path.Combine(outputRoot, PathFor(containingType, memberName, options)), rental.Builder);
     }
 
     /// <summary>

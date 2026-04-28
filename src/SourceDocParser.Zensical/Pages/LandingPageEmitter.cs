@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics.CodeAnalysis;
-using System.Text;
 using SourceDocParser.Model;
 using SourceDocParser.XmlDoc;
 using SourceDocParser.Zensical.Options;
@@ -101,7 +100,8 @@ internal static class LandingPageEmitter
         string packageFolder,
         SortedDictionary<string, List<TypeEntry>> namespaces)
     {
-        var sb = new StringBuilder(capacity: InitialPageCapacity)
+        using var rental = PageBuilderPool.Rent(InitialPageCapacity);
+        var sb = rental.Builder
             .Append("# ").Append(packageFolder).AppendLine(" package")
             .AppendLine()
             .AppendLine("Namespaces in this package:")
@@ -114,9 +114,7 @@ internal static class LandingPageEmitter
               .Append(ns.Value.Count).AppendLine(" types");
         }
 
-        var fullPath = Path.Combine(outputRoot, packageFolder, IndexFileName);
-        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        File.WriteAllText(fullPath, sb.ToString());
+        PageWriter.WriteUtf8(Path.Combine(outputRoot, packageFolder, IndexFileName), sb);
     }
 
     /// <summary>Writes the per-namespace index listing the namespace's types.</summary>
@@ -130,7 +128,8 @@ internal static class LandingPageEmitter
         string namespaceName,
         List<TypeEntry> entries)
     {
-        var sb = new StringBuilder(capacity: InitialPageCapacity)
+        using var rental = PageBuilderPool.Rent(InitialPageCapacity);
+        var sb = rental.Builder
             .Append("# ").Append(namespaceName).AppendLine(" namespace")
             .AppendLine()
             .Append("Part of the `").Append(packageFolder).AppendLine("` package.")
@@ -146,9 +145,7 @@ internal static class LandingPageEmitter
         }
 
         var folder = NamespaceFolderName(namespaceName);
-        var fullPath = Path.Combine(outputRoot, packageFolder, folder, IndexFileName);
-        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        File.WriteAllText(fullPath, sb.ToString());
+        PageWriter.WriteUtf8(Path.Combine(outputRoot, packageFolder, folder, IndexFileName), sb);
     }
 
     /// <summary>

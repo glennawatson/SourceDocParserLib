@@ -20,6 +20,9 @@ namespace SourceDocParser.Docfx.Yaml;
 /// </summary>
 internal static class DocfxNamespacePages
 {
+    /// <summary>Suggested initial capacity for a namespace page builder.</summary>
+    internal const int InitialPageCapacity = 512;
+
     /// <summary>The docfx <c>type</c> field value for a namespace item.</summary>
     private const string NamespaceTypeLabel = "Namespace";
 
@@ -108,8 +111,17 @@ internal static class DocfxNamespacePages
     /// <returns>The YAML page text.</returns>
     public static string Render(in NamespacePage page)
     {
+        using var rental = PageBuilderPool.Rent(InitialPageCapacity);
+        BuildPage(rental.Builder, in page);
+        return rental.Builder.ToString();
+    }
+
+    /// <summary>Composes the namespace page into <paramref name="sb"/>.</summary>
+    /// <param name="sb">Destination builder; appended to in place.</param>
+    /// <param name="page">Namespace page descriptor.</param>
+    internal static void BuildPage(StringBuilder sb, in NamespacePage page)
+    {
         ArgumentNullException.ThrowIfNull(page.Namespace);
-        var sb = new StringBuilder(512);
         sb.Append(DocfxYamlEmitter.YamlMimeHeader).Append('\n')
             .Append("items:\n")
             .Append("- uid: ").AppendScalar(page.Namespace).AppendLine()
@@ -130,8 +142,6 @@ internal static class DocfxNamespacePages
             .Append("  type: ").AppendLine(NamespaceTypeLabel)
             .AppendLine("  assemblies:")
             .Append("  - ").AppendScalar(page.AssemblyName).AppendLine();
-
-        return sb.ToString();
     }
 
     /// <summary>One entry per emitted namespace page.</summary>
