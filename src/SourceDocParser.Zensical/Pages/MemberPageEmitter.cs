@@ -40,6 +40,9 @@ internal static class MemberPageEmitter
     /// <summary>Markdown level 3 heading prefix.</summary>
     private const string MarkdownH3Prefix = "### ";
 
+    /// <summary>Length of one <c>../</c> path-up segment.</summary>
+    private const int ParentDirectorySegmentLength = 3;
+
     /// <summary>
     /// Renders the Markdown for a set of overloads.
     /// </summary>
@@ -193,13 +196,14 @@ internal static class MemberPageEmitter
         var kindLabel = MemberKindLabel(first.Kind);
         var typePagePath = TypePageEmitter.PathFor(containingType, options);
         var typeName = ZensicalEmitterHelpers.FormatDisplayTypeName(containingType.Name, containingType.Arity);
+        var typeLink = BuildTypeBackLink(memberName, typePagePath);
 
         PageFrontmatter.AppendForMember(sb, containingType, first, overloads, options);
         sb.Append($"""
             # {heading} {kindLabel}
 
             !!! info "Defined in"
-                Type: [{typeName}](../{Path.GetFileName(typePagePath)})
+                Type: [{typeName}]({typeLink})
                 Namespace: `{(containingType.Namespace is [_, ..] ns ? ns : "(global)")}`
                 Assembly: `{containingType.AssemblyName}.dll`
 
@@ -673,6 +677,48 @@ internal static class MemberPageEmitter
     /// <param name="text">The text.</param>
     /// <returns>The escaped text.</returns>
     private static string TableEscape(string text) => ZensicalEmitterHelpers.EscapeTableCell(text);
+
+    /// <summary>
+    /// Builds the relative link from this member page back to its
+    /// containing type's page. Most members sit one folder deep inside
+    /// the type folder so a single <c>../</c> suffices, but member
+    /// names that contain forward slashes (e.g. Avalonia's compiled-
+    /// XAML helpers expose methods named <c>Build_/Themes/Index.axaml</c>)
+    /// produce multi-folder file paths and need an extra <c>../</c>
+    /// per slash.
+    /// </summary>
+    /// <param name="memberName">Raw (un-sanitised) member name -- slashes here become folder boundaries on disk.</param>
+    /// <param name="typePagePath">Routed type-page path; only the filename portion is used.</param>
+    /// <returns>The relative href to the type page.</returns>
+    private static string BuildTypeBackLink(string memberName, string typePagePath)
+    {
+        var sanitised = ZensicalEmitterHelpers.SanitiseForFilename(memberName);
+        var depth = 1;
+        for (var i = 0; i < sanitised.Length; i++)
+        {
+            if (sanitised[i] is '/' or '\\')
+            {
+                depth++;
+            }
+        }
+
+        var filename = Path.GetFileName(typePagePath);
+        return string.Create(
+            (depth * ParentDirectorySegmentLength) + filename.Length,
+            (Depth: depth, Filename: filename),
+            static (dest, state) =>
+            {
+                var written = 0;
+                for (var i = 0; i < state.Depth; i++)
+                {
+                    dest[written++] = '.';
+                    dest[written++] = '.';
+                    dest[written++] = '/';
+                }
+
+                state.Filename.AsSpan().CopyTo(dest[written..]);
+            });
+    }
 
     /// <summary>
     /// Constructs the default per-call <see cref="XmlDocToMarkdown"/> the

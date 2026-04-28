@@ -151,7 +151,7 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
             return true;
         }
 
-        return IsCompilerGenerated(type.Name);
+        return ZensicalEmitterHelpers.IsCompilerGeneratedMemberName(type.Name);
     }
 
     /// <summary>
@@ -195,7 +195,7 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
         for (var i = 0; i < members.Length; i++)
         {
             var m = members[i];
-            if (!IsCompilerGenerated(m.Name) && m.Uid is { Length: > 0 })
+            if (!ZensicalEmitterHelpers.IsCompilerGeneratedMemberName(m.Name) && m.Uid is { Length: > 0 })
             {
                 collected.Add(m.Uid);
             }
@@ -254,7 +254,7 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
             // fields and similar artefacts; the get_/set_/add_/remove_
             // pattern catches accessors which the property/event page
             // already covers.
-            if (IsCompilerGenerated(member.Name))
+            if (ZensicalEmitterHelpers.IsCompilerGeneratedMemberName(member.Name))
             {
                 continue;
             }
@@ -277,17 +277,4 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
 
         return pages;
     }
-
-    /// <summary>
-    /// Tests whether a metadata <paramref name="symbolName"/> is a
-    /// compiler-generated artefact that shouldn't surface as a doc
-    /// page. Mirrors the docfx heuristic: any name containing an
-    /// angle bracket is a mangled identifier (display classes,
-    /// async / iterator state machines, anonymous types, lambda
-    /// closures, backing fields).
-    /// </summary>
-    /// <param name="symbolName">The symbol's metadata name.</param>
-    /// <returns>True when the symbol should be skipped.</returns>
-    private static bool IsCompilerGenerated(string symbolName) =>
-        symbolName.AsSpan().IndexOfAny('<', '>') >= 0;
 }

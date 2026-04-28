@@ -217,6 +217,19 @@ internal static class ZensicalEmitterHelpers
     }
 
     /// <summary>
+    /// Tests whether a metadata member name is a compiler-generated
+    /// artefact that shouldn't surface as a doc page. Mirrors the docfx
+    /// heuristic: any name containing an angle bracket is a mangled
+    /// identifier (display classes, async/iterator state machines,
+    /// anonymous types, lambda closures, backing fields, the
+    /// record <c>&lt;Clone&gt;$</c> method).
+    /// </summary>
+    /// <param name="symbolName">The symbol's metadata name.</param>
+    /// <returns>True when the symbol should be skipped.</returns>
+    public static bool IsCompilerGeneratedMemberName(string symbolName) =>
+        symbolName.AsSpan().IndexOfAny('<', '>') >= 0;
+
+    /// <summary>
     /// Sanitises a string for safe use in a file name.
     /// </summary>
     /// <param name="name">Source text.</param>

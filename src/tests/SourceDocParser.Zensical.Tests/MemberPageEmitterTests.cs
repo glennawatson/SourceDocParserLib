@@ -131,6 +131,43 @@ public class MemberPageEmitterTests
         static string Act() => MemberPageEmitter.PathFor(TestData.ObjectType("Foo"), string.Empty);
     }
 
+    /// <summary>
+    /// Plain members produce a single-level back-link to the
+    /// containing type page.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task RenderEmitsSingleLevelBackLinkForFlatMember()
+    {
+        var type = TestData.ObjectType("Foo");
+        var member = NewMember("Run", "void Run()");
+
+        var page = MemberPageEmitter.Render(type, "Run", [member]);
+
+        await Assert.That(page).Contains("Type: [Foo](../Foo.md)");
+    }
+
+    /// <summary>
+    /// Avalonia compiled-XAML emits members whose names contain
+    /// forward slashes (e.g. <c>Build_/Themes/Index.axaml</c>). The
+    /// sanitised filename keeps those slashes as folder boundaries,
+    /// so the back-link to the containing type must walk up one
+    /// extra <c>../</c> per slash. Hard-coding a single <c>../</c>
+    /// produces broken cross-links that surface as docfx warnings.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task RenderEmitsMultiLevelBackLinkWhenMemberNameHasSlashes()
+    {
+        var type = TestData.ObjectType("AvaloniaResources");
+        var member = NewMember("Build_/Themes/Index.axaml", "void Build_/Themes/Index.axaml()");
+
+        var page = MemberPageEmitter.Render(type, "Build_/Themes/Index.axaml", [member]);
+
+        await Assert.That(page).Contains("Type: [AvaloniaResources](../../../AvaloniaResources.md)");
+        await Assert.That(page).DoesNotContain("Type: [AvaloniaResources](../AvaloniaResources.md)");
+    }
+
     /// <summary>Builds a minimal <see cref="ApiMember"/> with the supplied name and signature.</summary>
     /// <param name="name">Member name.</param>
     /// <param name="signature">Display signature.</param>

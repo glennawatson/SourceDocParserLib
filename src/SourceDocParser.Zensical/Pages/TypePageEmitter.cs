@@ -741,6 +741,17 @@ internal static class TypePageEmitter
         for (var i = 0; i < members.Length; i++)
         {
             var member = members[i];
+
+            // Mirror ZensicalDocumentationEmitter's compiler-generated
+            // filter so the link we emit here matches what's actually
+            // written to disk -- otherwise records' synthesised
+            // <Clone>$ shows up as a Methods row pointing at a missing
+            // file.
+            if (ZensicalEmitterHelpers.IsCompilerGeneratedMemberName(member.Name))
+            {
+                continue;
+            }
+
             if (!byKind.TryGetValue(member.Kind, out var bucket))
             {
                 bucket = [];

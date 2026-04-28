@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using SourceDocParser.Model;
 using SourceDocParser.TestHelpers;
 using SourceDocParser.Zensical.Pages;
 
@@ -79,4 +80,82 @@ public class ObsoleteAndCompilerGenTests
         await Assert.That(page).Contains("**Attributes:** `[Serializable]`");
         await Assert.That(page).DoesNotContain("NullableContext");
     }
+
+    /// <summary>
+    /// Records loaded from metadata expose a synthesised <c>&lt;Clone&gt;$</c>
+    /// method whose <c>IsImplicitlyDeclared</c> bit is lost. The type
+    /// page must not link to a member file for it -- otherwise docfx
+    /// emits "target not found" warnings because the emitter skips
+    /// writing those member pages.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task TypePageOmitsCompilerGeneratedMethodsFromMembersTable()
+    {
+        ApiMember[] members =
+        [
+            BuildMethod("Clone", "Foo Clone()"),
+            BuildMethod("<Clone>$", "Foo <Clone>$()"),
+        ];
+        var type = TestData.ObjectType("Foo") with { Members = members };
+
+        var page = TypePageEmitter.Render(type);
+
+        await Assert.That(page).Contains("](Foo/Clone.md)");
+        await Assert.That(page).DoesNotContain("{Clone}$");
+        await Assert.That(page).DoesNotContain("<Clone>");
+    }
+
+    /// <summary>
+    /// The <see cref="ZensicalDocumentationEmitter"/> output must not
+    /// link a record's <c>&lt;Clone&gt;$</c> from the type page since
+    /// no member file is written for it.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task EmitDoesNotProduceCloneDollarLinkInTypePage()
+    {
+        using var scratch = new TempDirectory();
+        ApiMember[] members =
+        [
+            BuildMethod("Clone", "Foo Clone()"),
+            BuildMethod("<Clone>$", "Foo <Clone>$()"),
+        ];
+        var type = TestData.ObjectType("Foo") with { Members = members, Namespace = "Demo" };
+
+        await new ZensicalDocumentationEmitter().EmitAsync([type], scratch.Path);
+
+        var typePage = await File.ReadAllTextAsync(Path.Combine(scratch.Path, "Test", "Demo", "Foo.md"));
+        var clonePath = Path.Combine(scratch.Path, "Test", "Demo", "Foo", "{Clone}$.md");
+
+        await Assert.That(typePage).DoesNotContain("{Clone}$");
+        await Assert.That(File.Exists(clonePath)).IsFalse();
+    }
+
+    /// <summary>Builds a minimal method-kind <see cref="ApiMember"/>.</summary>
+    /// <param name="name">Member metadata name.</param>
+    /// <param name="signature">Display signature.</param>
+    /// <returns>The constructed member.</returns>
+    private static ApiMember BuildMethod(string name, string signature) => new(
+        Name: name,
+        Uid: $"M:Foo.{name}",
+        Kind: ApiMemberKind.Method,
+        IsStatic: false,
+        IsExtension: false,
+        IsRequired: false,
+        IsVirtual: false,
+        IsOverride: false,
+        IsAbstract: false,
+        IsSealed: false,
+        Signature: signature,
+        Parameters: [],
+        TypeParameters: [],
+        ReturnType: null,
+        ContainingTypeUid: "Foo",
+        ContainingTypeName: "Foo",
+        SourceUrl: null,
+        Documentation: ApiDocumentation.Empty,
+        IsObsolete: false,
+        ObsoleteMessage: null,
+        Attributes: []);
 }
