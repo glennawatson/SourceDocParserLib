@@ -16,18 +16,6 @@ namespace SourceDocParser.LibCompilation;
 /// </summary>
 public sealed partial class CompilationLoader : ICompilationLoader
 {
-    /// <summary>Major version of a stub assembly.</summary>
-    private const int StubMajorVersion = 0;
-
-    /// <summary>Minor version of a stub assembly.</summary>
-    private const int StubMinorVersion = 0;
-
-    /// <summary>Build version of a stub assembly.</summary>
-    private const int StubBuildVersion = 0;
-
-    /// <summary>Revision version of a stub assembly.</summary>
-    private const int StubRevisionVersion = 0;
-
     /// <summary>
     /// Gets a bootstrap syntax tree included in every compilation.
     /// </summary>
@@ -175,15 +163,18 @@ public sealed partial class CompilationLoader : ICompilationLoader
     {
         foreach (var reference in current.AssemblyReferences)
         {
-            if (reference.Version is { Major: StubMajorVersion, Minor: StubMinorVersion, Build: StubBuildVersion, Revision: StubRevisionVersion })
-            {
-                continue;
-            }
-
             var file = context.Resolver.FindAssemblyFile(reference);
             if (file is null && !context.FallbackIndex.TryGetValue(reference.Name, out file))
             {
-                LogUnresolvedReference(context.Logger, reference.ToString(), context.AssemblyName);
+                // Only log when this isn't a known platform/SDK/stub
+                // ref -- those are guaranteed-unresolvable through the
+                // NuGet + ref-pack fallback chain so logging them just
+                // produces noise (thousands of warnings per real run).
+                if (!UnresolvableReferenceFilter.IsKnownUnresolvable(reference))
+                {
+                    LogUnresolvedReference(context.Logger, reference.ToString(), context.AssemblyName);
+                }
+
                 continue;
             }
 

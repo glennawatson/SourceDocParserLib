@@ -483,6 +483,11 @@ public sealed class NuGetAssemblySource : IAssemblySource
     /// <param name="libTfmDir">Absolute path to <paramref name="targetTfm"/>'s lib dir.</param>
     /// <param name="refsDir">Absolute <c>refs/</c> root.</param>
     /// <param name="bestRefTfm">Pre-resolved best matching ref TFM, or empty when no ref pack matches.</param>
+    /// <param name="sdkRefPackDirs">
+    /// Optional pre-discovered SDK ref-pack directories (highest priority first within the SDK tier).
+    /// Pass an empty list to disable SDK fallback. Tests pass synthetic dirs; production passes
+    /// the result of <see cref="RefPackProbe.ProbeRefPackRefDirs"/>.
+    /// </param>
     /// <returns>The directory list in scan order.</returns>
     internal static List<string> BuildFallbackDirList(
         string libDir,
@@ -490,19 +495,25 @@ public sealed class NuGetAssemblySource : IAssemblySource
         string targetTfm,
         string libTfmDir,
         string refsDir,
-        string? bestRefTfm)
+        string? bestRefTfm,
+        IReadOnlyList<string> sdkRefPackDirs)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(libDir);
         ArgumentNullException.ThrowIfNull(libTfms);
         ArgumentException.ThrowIfNullOrWhiteSpace(targetTfm);
         ArgumentException.ThrowIfNullOrWhiteSpace(libTfmDir);
         ArgumentException.ThrowIfNullOrWhiteSpace(refsDir);
+        ArgumentNullException.ThrowIfNull(sdkRefPackDirs);
 
         var compatible = TfmResolver.SelectCompatibleTfms(targetTfm, libTfms);
 
         // refs first (when present), then target lib dir, then every
-        // compatible lib dir except the target itself.
-        var capacity = compatible.Count + (bestRefTfm is [_, ..] ? 1 : 0) + 1;
+        // compatible lib dir except the target itself, then any SDK
+        // ref-pack dirs the locator turned up. SDK packs go last so
+        // a DLL shipped in the consumer's own lib/ always wins on
+        // duplicate names; SDK refs only fill in gaps for synthetic
+        // platform/workload assemblies.
+        var capacity = compatible.Count + (bestRefTfm is [_, ..] ? 1 : 0) + 1 + sdkRefPackDirs.Count;
         var dirs = new List<string>(capacity);
         if (bestRefTfm is [_, ..])
         {
@@ -519,6 +530,11 @@ public sealed class NuGetAssemblySource : IAssemblySource
             }
 
             dirs.Add(Path.Combine(libDir, tfm));
+        }
+
+        for (var i = 0; i < sdkRefPackDirs.Count; i++)
+        {
+            dirs.Add(sdkRefPackDirs[i]);
         }
 
         return dirs;
@@ -689,6 +705,13 @@ public sealed class NuGetAssemblySource : IAssemblySource
         Dictionary<string, HashSet<string>> refDllNameCache,
         CancellationToken cancellationToken)
     {
+        // Probe the locally-installed .NET SDK ref packs once per
+        // discovery -- the on-disk layout doesn't change between
+        // TFM probes, so we share the result across the loop. Per-
+        // TFM filtering happens inside BuildFallbackDirList via
+        // RefPackProbe.ProbeRefPackRefDirs.
+        var packRoots = DotNetSdkLocator.EnumeratePackRoots();
+
         var slots = new ProbedTfm[libTfms.Count];
         var count = 0;
         for (var i = 0; i < libTfms.Count; i++)
@@ -699,7 +722,10 @@ public sealed class NuGetAssemblySource : IAssemblySource
             var bestRef = TfmResolver.FindBestRefsTfm(tfm, refsTfms);
             HashSet<string> refDllNames;
             Dictionary<string, string> fallbackIndex;
-            var fallbackDirs = BuildFallbackDirList(libDir, libTfms, tfm, libTfmDir, refsDir, bestRef);
+            var sdkRefDirs = RefPackProbe.ProbeRefPackRefDirs(
+                packRoots,
+                TfmResolver.SelectCompatibleTfms(tfm, libTfms));
+            var fallbackDirs = BuildFallbackDirList(libDir, libTfms, tfm, libTfmDir, refsDir, bestRef, sdkRefDirs);
             if (bestRef is [_, ..])
             {
                 refDllNames = GetOrAddRefDllNames(refDllNameCache, refsDir, bestRef);
