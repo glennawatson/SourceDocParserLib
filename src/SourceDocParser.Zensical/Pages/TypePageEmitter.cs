@@ -186,7 +186,7 @@ public static class TypePageEmitter
         AppendEnumValues(sb, type);
         AppendDelegateSignature(sb, type);
         AppendDerivedTypes(sb, indexes.GetDerived(type.Uid), options);
-        AppendInheritedMembers(sb, indexes.GetInherited(type.Uid));
+        AppendInheritedMembers(sb, indexes.GetInherited(type.Uid), options);
         AppendExtensionMembers(sb, indexes.GetExtensions(type.Uid), options);
         AppendExtensionBlocks(sb, type is ApiObjectType obj ? obj.ExtensionBlocks : [], options);
         AppendSeeAlso(sb, type.Documentation.SeeAlso, options);
@@ -263,11 +263,15 @@ public static class TypePageEmitter
     /// <summary>
     /// Renders an "Inherited members" collapsible admonition. No-op
     /// when there are no inherited entries — the empty-array path
-    /// allocates nothing.
+    /// allocates nothing. Each row is routed through
+    /// <see cref="CrossLinkRouter"/> so BCL members
+    /// (System.Object.ToString, etc.) become Microsoft Learn links
+    /// instead of broken autorefs.
     /// </summary>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="inherited">Inherited member uids from <see cref="ZensicalCatalogIndexes.GetInherited"/>.</param>
-    internal static void AppendInheritedMembers(StringBuilder sb, string[] inherited)
+    /// <param name="options">Routing + cross-link tunables (carries the run's resolver).</param>
+    internal static void AppendInheritedMembers(StringBuilder sb, string[] inherited, ZensicalEmitterOptions options)
     {
         if (inherited is [])
         {
@@ -279,7 +283,7 @@ public static class TypePageEmitter
         {
             var uid = inherited[i];
             var label = uid is [_, ':', ..] ? uid[CrefPrefixLength..] : uid;
-            sb.Append("    - [`").Append(label).Append("`][").Append(uid).Append("]\n");
+            sb.Append("    - ").AppendLine(CrossLinkRouter.Format(new($"`{label}`", uid), options));
         }
     }
 
@@ -305,8 +309,8 @@ public static class TypePageEmitter
         for (var i = 0; i < extensions.Length; i++)
         {
             var member = extensions[i];
-            var label = $"{member.ContainingTypeName}.{member.Name}";
-            sb.Append("- [`").Append(label).Append("`][").Append(member.Uid).Append("]\n");
+            var label = $"`{member.ContainingTypeName}.{member.Name}`";
+            sb.Append("- ").AppendLine(CrossLinkRouter.Format(new(label, member.Uid), options));
         }
     }
 
@@ -359,7 +363,7 @@ public static class TypePageEmitter
             for (var m = 0; m < block.Members.Length; m++)
             {
                 var member = block.Members[m];
-                sb.Append("- [`").Append(member.Name).Append("`][").Append(member.Uid).Append("]\n");
+                sb.Append("- ").AppendLine(CrossLinkRouter.Format(new($"`{member.Name}`", member.Uid), options));
             }
 
             sb.Append('\n');

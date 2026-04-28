@@ -17,6 +17,22 @@ namespace SourceDocParser.Zensical.Routing;
 internal static class UidNormaliser
 {
     /// <summary>
+    /// Converts <paramref name="uid"/> to its autoref-safe form for
+    /// use in mkdocs-autorefs anchors (<c>[](){#id}</c>) and
+    /// reference links (<c>[text][id]</c>). Applies
+    /// <see cref="Normalise"/> then translates the arity backtick to
+    /// a hyphen — backticks inside a Markdown reference label are
+    /// treated as inline-code delimiters by Python-Markdown and break
+    /// the lookup, and they're awkward inside attribute-list anchor
+    /// IDs too. Both sides of the autoref pair (anchor + reference)
+    /// MUST go through this method so they agree.
+    /// </summary>
+    /// <param name="uid">A commentId-style UID (may contain a generic-arity backtick).</param>
+    /// <returns>The autoref-safe id string.</returns>
+    public static string ToAutorefId(string uid) =>
+        Normalise(uid).Replace('`', '-');
+
+    /// <summary>
     /// Returns the canonical open-generic form of <paramref name="uid"/>.
     /// Strips any <c>{...}</c> generic-instantiation suffix and
     /// replaces it with <c>`N</c> where N is the type-parameter

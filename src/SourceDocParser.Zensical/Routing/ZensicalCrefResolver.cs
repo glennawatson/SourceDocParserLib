@@ -69,11 +69,15 @@ public sealed class ZensicalCrefResolver : ICrefResolver
 
         // In-set wins over BCL prefix detection: types we walk (e.g.
         // System.Reactive.Unit) start with "System." but live on a
-        // page in our own site, not on Microsoft Learn.
+        // page in our own site, not on Microsoft Learn. The autoref
+        // bracket carries the autoref-safe form (backtick → hyphen)
+        // so Python-Markdown's reference-label parser doesn't trip on
+        // arity backticks; the matching anchor on the target page
+        // applies the same transform via PageFrontmatter.
         var canonicalUid = UidNormaliser.Normalise(uid);
         if (_emittedUids.Contains(canonicalUid))
         {
-            return $"[{shortName}][{canonicalUid}]";
+            return $"[{shortName}][{UidNormaliser.ToAutorefId(canonicalUid)}]";
         }
 
         if (TryFormatAsMicrosoftLearn(canonicalUid, shortName, out var learnLink))

@@ -120,7 +120,12 @@ internal static class PageFrontmatter
             return;
         }
 
-        sb.Append("[](){#").Append(uid).AppendLine("}");
+        // The anchor id MUST go through the same autoref-id transform
+        // the resolver applies to its references, otherwise references
+        // carrying arity-backticks (translated to hyphens by the
+        // resolver) won't find the anchor (which would still spell the
+        // backtick literally).
+        sb.Append("[](){#").Append(UidNormaliser.ToAutorefId(uid)).AppendLine("}");
     }
 
     /// <summary>
