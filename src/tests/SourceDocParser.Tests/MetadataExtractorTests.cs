@@ -84,6 +84,56 @@ public class MetadataExtractorTests
     }
 
     /// <summary>
+    /// Direct-mode <see cref="MetadataExtractor.ExtractAsync(IAssemblySource)"/> returns the merged catalog
+    /// without invoking an emitter or touching disk.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ExtractAsyncReturnsMergedCatalogWithoutEmitter()
+    {
+        var groups = new List<AssemblyGroup>
+        {
+            new("net10.0", [], []),
+        };
+        var source = new FakeAssemblySource(groups);
+        var extractor = new MetadataExtractor();
+
+        var result = await extractor.ExtractAsync(source);
+
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result.CanonicalTypes).IsNotNull();
+        await Assert.That(result.SourceLinks).IsNotNull();
+    }
+
+    /// <summary>
+    /// <see cref="MetadataExtractor.ExtractAsync(IAssemblySource)"/> rejects a null source.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ExtractAsyncValidatesArguments()
+    {
+        var extractor = new MetadataExtractor();
+
+        await Assert.That(Task () => extractor.ExtractAsync(null!))
+            .Throws<ArgumentNullException>();
+    }
+
+    /// <summary>
+    /// An empty source (no TFM groups) throws <see cref="InvalidOperationException"/>
+    /// from the direct-mode path too.
+    /// </summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ExtractAsyncThrowsWhenSourceProducesNoGroups()
+    {
+        var source = new FakeAssemblySource([]);
+        var extractor = new MetadataExtractor();
+
+        await Assert.That(Task () => extractor.ExtractAsync(source))
+            .Throws<InvalidOperationException>();
+    }
+
+    /// <summary>
     /// Recording emitter that captures the merged catalog the extractor hands it.
     /// </summary>
     private sealed class RecordingEmitter : IDocumentationEmitter

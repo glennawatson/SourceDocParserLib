@@ -55,4 +55,39 @@ public interface IMetadataExtractor
         IDocumentationEmitter emitter,
         ILogger? logger,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Runs the walk-and-merge phase only and returns the merged
+    /// canonical types directly, without invoking an emitter or
+    /// touching disk. Use when the caller renders pages itself
+    /// (direct-mode integration) instead of round-tripping through
+    /// generated Markdown.
+    /// </summary>
+    /// <param name="source">Provides the per-TFM assemblies to walk.</param>
+    /// <returns>The merged catalog plus load-failure and SourceLink summaries.</returns>
+    Task<DirectExtractionResult> ExtractAsync(IAssemblySource source);
+
+    /// <summary>
+    /// Runs the walk-and-merge phase only and returns the merged
+    /// canonical types directly, without invoking an emitter or
+    /// touching disk.
+    /// </summary>
+    /// <param name="source">Provides the per-TFM assemblies to walk.</param>
+    /// <param name="logger">Optional logger; defaults to a no-op logger.</param>
+    /// <returns>The merged catalog plus load-failure and SourceLink summaries.</returns>
+    Task<DirectExtractionResult> ExtractAsync(IAssemblySource source, ILogger? logger);
+
+    /// <summary>
+    /// Runs the walk-and-merge phase only and returns the merged
+    /// canonical types directly, without invoking an emitter or
+    /// touching disk.
+    /// </summary>
+    /// <param name="source">Provides the per-TFM assemblies to walk.</param>
+    /// <param name="logger">Optional logger; defaults to a no-op logger.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The merged catalog plus load-failure and SourceLink summaries.</returns>
+    Task<DirectExtractionResult> ExtractAsync(
+        IAssemblySource source,
+        ILogger? logger,
+        CancellationToken cancellationToken);
 }

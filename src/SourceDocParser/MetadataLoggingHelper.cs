@@ -26,4 +26,13 @@ internal static partial class MetadataLoggingHelper
     [LoggerMessage(Level = LogLevel.Information,
         Message = "Markdown emission complete: {TypeCount} canonical type(s), {PageCount} total page(s) emitted, {SourceLinkCount} source link(s) collected, {LoadFailures} load failure(s)")]
     public static partial void LogEmitComplete(ILogger logger, int typeCount, int pageCount, int sourceLinkCount, int loadFailures);
+
+    /// <summary>Logs the end of a direct-mode extract — no emitter ran, the merged catalog is being returned to the caller.</summary>
+    /// <param name="logger">Target logger.</param>
+    /// <param name="typeCount">Canonical types in the returned catalog.</param>
+    /// <param name="sourceLinkCount">Source-link entries collected.</param>
+    /// <param name="loadFailures">Assembly load/walk failures.</param>
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Direct-mode extract complete: {TypeCount} canonical type(s) returned, {SourceLinkCount} source link(s) collected, {LoadFailures} load failure(s)")]
+    public static partial void LogDirectExtractComplete(ILogger logger, int typeCount, int sourceLinkCount, int loadFailures);
 }

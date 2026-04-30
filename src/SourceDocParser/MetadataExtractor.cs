@@ -117,6 +117,26 @@ public sealed class MetadataExtractor : IMetadataExtractor
         return RunInternalAsync(source, outputRoot, emitter, logger ?? NullLogger.Instance, cancellationToken);
     }
 
+    /// <inheritdoc />
+    public Task<DirectExtractionResult> ExtractAsync(IAssemblySource source) =>
+        ExtractAsync(source, null, CancellationToken.None);
+
+    /// <inheritdoc />
+    public Task<DirectExtractionResult> ExtractAsync(IAssemblySource source, ILogger? logger) =>
+        ExtractAsync(source, logger, CancellationToken.None);
+
+    /// <inheritdoc />
+    /// <exception cref="ArgumentNullException">When <paramref name="source"/> is null.</exception>
+    /// <exception cref="InvalidOperationException">When the source produced no TFM groups.</exception>
+    public Task<DirectExtractionResult> ExtractAsync(
+        IAssemblySource source,
+        ILogger? logger,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        return ExtractInternalAsync(source, logger ?? NullLogger.Instance, cancellationToken);
+    }
+
     /// <summary>
     /// Adds a synthetic catalog to the merger for every
     /// <see cref="AssemblyGroup.BroadcastTfms"/> entry, reusing the
@@ -194,6 +214,47 @@ public sealed class MetadataExtractor : IMetadataExtractor
     {
         MetadataIoHelper.PrepareOutputDirectory(outputRoot);
 
+        var (merged, loadFailures) = await WalkAndMergeAsync(source, logger, cancellationToken).ConfigureAwait(false);
+
+        MetadataLoggingHelper.LogEmitting(logger, merged.Length, outputRoot, emitter.GetType().Name);
+        var pagesEmitted = await emitter.EmitAsync(merged, outputRoot, cancellationToken).ConfigureAwait(false);
+
+        var sourceLinks = MetadataSourceLinkHelper.CollectSourceLinks(merged);
+        MetadataLoggingHelper.LogEmitComplete(logger, merged.Length, pagesEmitted, sourceLinks.Length, loadFailures);
+
+        return new(
+            CanonicalTypes: merged.Length,
+            PagesEmitted: pagesEmitted,
+            LoadFailures: loadFailures,
+            SourceLinks: sourceLinks);
+    }
+
+    /// <summary>Direct-mode core: walks + merges and returns the merged catalog without writing files.</summary>
+    /// <param name="source">Assembly source.</param>
+    /// <param name="logger">Resolved logger.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The merged catalog plus load-failure and SourceLink summaries.</returns>
+    private async Task<DirectExtractionResult> ExtractInternalAsync(
+        IAssemblySource source,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
+        var (merged, loadFailures) = await WalkAndMergeAsync(source, logger, cancellationToken).ConfigureAwait(false);
+        var sourceLinks = MetadataSourceLinkHelper.CollectSourceLinks(merged);
+        MetadataLoggingHelper.LogDirectExtractComplete(logger, merged.Length, sourceLinks.Length, loadFailures);
+        return new(merged, loadFailures, sourceLinks);
+    }
+
+    /// <summary>Shared walk-and-merge phase used by both emit-mode and direct-mode extraction.</summary>
+    /// <param name="source">Assembly source.</param>
+    /// <param name="logger">Resolved logger.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The merged canonical type array and the load-failure count.</returns>
+    private async Task<(ApiType[] Merged, int LoadFailures)> WalkAndMergeAsync(
+        IAssemblySource source,
+        ILogger logger,
+        CancellationToken cancellationToken)
+    {
         using var loaderRegistry = new LoaderRegistry();
         var groups = await MetadataDiscoveryHelper.DiscoverTfmGroupsAsync(source, _loaderFactory, loaderRegistry, logger, cancellationToken).ConfigureAwait(false);
 
@@ -217,20 +278,7 @@ public sealed class MetadataExtractor : IMetadataExtractor
 
         BroadcastCanonicalTypes(merger, typesByTfm, groups);
 
-        var loadFailures = loadFailureBox.Value;
         MetadataWalkerHelper.LogWalkComplete(logger, catalogCount.Value);
-        var merged = merger.Build();
-
-        MetadataLoggingHelper.LogEmitting(logger, merged.Length, outputRoot, emitter.GetType().Name);
-        var pagesEmitted = await emitter.EmitAsync(merged, outputRoot, cancellationToken).ConfigureAwait(false);
-
-        var sourceLinks = MetadataSourceLinkHelper.CollectSourceLinks(merged);
-        MetadataLoggingHelper.LogEmitComplete(logger, merged.Length, pagesEmitted, sourceLinks.Length, loadFailures);
-
-        return new(
-            CanonicalTypes: merged.Length,
-            PagesEmitted: pagesEmitted,
-            LoadFailures: loadFailures,
-            SourceLinks: sourceLinks);
+        return (merger.Build(), loadFailureBox.Value);
     }
 }
