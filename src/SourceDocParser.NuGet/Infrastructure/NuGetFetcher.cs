@@ -23,12 +23,9 @@ namespace SourceDocParser.NuGet.Infrastructure;
 /// extraction, and handling of related metadata.
 /// </summary>
 [SuppressMessage("Minor Code Smell", "S4040:Strings should be normalized to uppercase", Justification = "NuGet package IDs are case-insensitive")]
-public sealed partial class NuGetFetcher : INuGetFetcher
+public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
 {
-    /// <summary>
-    /// Maximum number of NuGet packages downloaded in parallel. Kept small
-    /// to stay friendly to the NuGet feed and avoid rate-limit responses.
-    /// </summary>
+    /// <summary>Maximum number of NuGet packages downloaded in parallel. Kept small to stay friendly to the NuGet feed and avoid rate-limit responses.</summary>
     private const int MaxParallelDownloads = 3;
 
     /// <summary>
@@ -100,10 +97,10 @@ public sealed partial class NuGetFetcher : INuGetFetcher
 
         if (config.ReferencePackages is [_, ..])
         {
-            await FetchReferencePackagesAsync(config.ReferencePackages, refsDir, cacheDir, logger, cancellationToken).ConfigureAwait(false);
+            await FetchReferencePackagesAsync(_httpClient, config.ReferencePackages, refsDir, cacheDir, logger, cancellationToken).ConfigureAwait(false);
         }
 
-        var discoveredIds = await DiscoverAllPackagesAsync(config, logger, cancellationToken).ConfigureAwait(false);
+        var discoveredIds = await DiscoverAllPackagesAsync(_httpClient, config, logger, cancellationToken).ConfigureAwait(false);
 
         var seenIds = new HashSet<string>(discoveredIds.Count, StringComparer.OrdinalIgnoreCase);
         for (var i = 0; i < discoveredIds.Count; i++)
@@ -144,7 +141,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         // would skip every page since no primaryPrefixes are seen.
         WritePrimaryPackagesSidecar(apiPath, allPackages);
 
-        await FetchGroupAsync(libDir, cacheDir, allPackages, config.TfmPreference, logger, cancellationToken).ConfigureAwait(false);
+        await FetchGroupAsync(_httpClient, libDir, cacheDir, allPackages, config.TfmPreference, logger, cancellationToken).ConfigureAwait(false);
 
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -154,6 +151,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         // the type-forwards in the umbrella assembly.
         await ResolveTransitiveDependenciesAsync(
             new(
+                _httpClient,
                 libDir,
                 cacheDir,
                 seenIds,
@@ -549,6 +547,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
 
             LogFetchingTransitiveDeps(request.Logger, depth + 1, newPackages.Length);
             await FetchGroupAsync(
+                request.HttpClient,
                 request.LibDir,
                 request.CacheDir,
                 newPackages,
@@ -668,6 +667,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// <summary>
     /// Discovers every package owned by any of the configured NuGet owner accounts.
     /// </summary>
+    /// <param name="client">Shared HTTP client for the search-service calls.</param>
     /// <param name="config">The parsed package configuration.</param>
     /// <param name="logger">Logger for endpoint discovery and per-owner counts.</param>
     /// <param name="cancellationToken">Cancellation token honoured between owner queries and per HTTP call.</param>
@@ -675,9 +675,8 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// <remarks>
     /// Consults the NuGet search service for each owner defined in the configuration.
     /// </remarks>
-    private static async Task<List<(string Id, string? Version)>> DiscoverAllPackagesAsync(PackageConfig config, ILogger logger, CancellationToken cancellationToken)
+    private static async Task<List<(string Id, string? Version)>> DiscoverAllPackagesAsync(HttpClient client, PackageConfig config, ILogger logger, CancellationToken cancellationToken)
     {
-        using var client = new HttpClient();
         var retryPolicy = CreateRetryPolicy();
 
         var searchEndpoint = await ResolveSearchEndpointAsync(client, retryPolicy, cancellationToken).ConfigureAwait(false);
@@ -707,6 +706,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// <summary>
     /// Fetches reference-only packages and extracts their reference assemblies.
     /// </summary>
+    /// <param name="client">Shared HTTP client for the fetch.</param>
     /// <param name="packages">Reference packages to fetch.</param>
     /// <param name="refsDir">Output root for extracted reference assemblies.</param>
     /// <param name="cacheDir">Cache directory for the downloaded <c>.nupkg</c> files.</param>
@@ -719,13 +719,13 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// not abort the whole run.
     /// </remarks>
     private static async Task FetchReferencePackagesAsync(
+        HttpClient client,
         ReferencePackage[] packages,
         string refsDir,
         string cacheDir,
         ILogger logger,
         CancellationToken cancellationToken)
     {
-        using var client = new HttpClient();
         var retryPolicy = CreateRetryPolicy();
 
         for (var i = 0; i < packages.Length; i++)
@@ -913,6 +913,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// <summary>
     /// Downloads and extracts every package in <paramref name="packages"/> in parallel.
     /// </summary>
+    /// <param name="client">Shared HTTP client distributed to every parallel <see cref="FetchState"/>.</param>
     /// <param name="libDir">Root of the per-TFM lib output directories.</param>
     /// <param name="cacheDir">Cache directory for downloaded <c>.nupkg</c> files.</param>
     /// <param name="packages">Tuples of package identifier, optional pinned version, and optional TFM override.</param>
@@ -926,6 +927,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher
     /// a single bad package does not abort the whole run.
     /// </remarks>
     private static async Task FetchGroupAsync(
+        HttpClient client,
         string libDir,
         string cacheDir,
         (string Id, string? Version, string? Tfm)[] packages,
@@ -933,7 +935,6 @@ public sealed partial class NuGetFetcher : INuGetFetcher
         ILogger logger,
         CancellationToken cancellationToken)
     {
-        using var client = new HttpClient();
         var retryPolicy = CreateRetryPolicy();
 
         // Parallel.ForEachAsync replaces the prior SemaphoreSlim + Select +

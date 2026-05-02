@@ -7,6 +7,7 @@ namespace SourceDocParser.NuGet.Infrastructure;
 /// <summary>
 /// Bundles the inputs required for one transitive dependency resolution pass.
 /// </summary>
+/// <param name="HttpClient">Shared HTTP client used for every NuGet feed call inside the walk.</param>
 /// <param name="LibDir">Per-TFM lib output root.</param>
 /// <param name="CacheDir">Cache directory containing downloaded packages and nuspec sidecars.</param>
 /// <param name="SeenIds">Already-resolved package identifiers, mutated as new IDs are discovered.</param>
@@ -17,6 +18,7 @@ namespace SourceDocParser.NuGet.Infrastructure;
 /// <param name="Logger">Logger for progress and failure messages.</param>
 /// <param name="CancellationToken">Cancellation token observed across the walk.</param>
 internal readonly record struct TransitiveDependencyResolutionRequest(
+    HttpClient HttpClient,
     string LibDir,
     string CacheDir,
     HashSet<string> SeenIds,

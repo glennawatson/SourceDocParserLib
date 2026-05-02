@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics.CodeAnalysis;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 using SourceDocParser.LibCompilation;
@@ -22,6 +23,10 @@ namespace SourceDocParser.Benchmarks;
 [ShortRunJob]
 [MemoryDiagnoser]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
+[SuppressMessage(
+    "Design",
+    "CA1001:Types that own disposable fields should be disposable",
+    Justification = "BenchmarkDotNet drives lifecycle via [GlobalSetup]/[GlobalCleanup]; _source releases in GlobalCleanup.")]
 public class PipelinePhaseBenchmarks
 {
     /// <summary>Scratch directory the fixture lives in.</summary>
@@ -183,6 +188,8 @@ public class PipelinePhaseBenchmarks
         {
             _preLoadedLoaders[i].Dispose();
         }
+
+        _source.Dispose();
 
         if (!Directory.Exists(_scratchRoot))
         {

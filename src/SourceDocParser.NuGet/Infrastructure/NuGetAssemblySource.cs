@@ -17,7 +17,7 @@ namespace SourceDocParser.NuGet.Infrastructure;
 /// by <c>nuget-packages.json</c> into <c>apiPath/lib</c> + <c>apiPath/refs</c>
 /// and exposes the extracted assemblies, grouped by TFM, to the parser.
 /// </summary>
-public sealed class NuGetAssemblySource : IAssemblySource
+public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
 {
     /// <summary>
     /// Filename of the per-fetch sidecar listing every package id the
@@ -54,6 +54,9 @@ public sealed class NuGetAssemblySource : IAssemblySource
 
     /// <summary>Fetcher that materialises the lib/ + refs/ trees this source then walks.</summary>
     private readonly INuGetFetcher _fetcher;
+
+    /// <summary>True when <see cref="_fetcher"/> was built inside the constructor and must therefore be disposed alongside this source.</summary>
+    private readonly bool _ownsFetcher;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="NuGetAssemblySource"/> class
@@ -93,7 +96,23 @@ public sealed class NuGetAssemblySource : IAssemblySource
         _rootDirectory = rootDirectory;
         _apiPath = apiPath;
         _logger = logger ?? NullLogger.Instance;
+
+        // Caller-supplied fetchers stay caller-owned; the default-built fetcher
+        // is owned by this source so its shared HttpClient releases when the
+        // source is disposed.
         _fetcher = fetcher ?? new NuGetFetcher();
+        _ownsFetcher = fetcher is null;
+    }
+
+    /// <summary>Disposes the owned fetcher (and its shared <see cref="HttpClient"/>) when this instance constructed it.</summary>
+    public void Dispose()
+    {
+        if (!_ownsFetcher)
+        {
+            return;
+        }
+
+        (_fetcher as IDisposable)?.Dispose();
     }
 
     /// <summary>

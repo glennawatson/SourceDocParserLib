@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics.CodeAnalysis;
 using BenchmarkDotNet.Attributes;
 using SourceDocParser.Model;
 using SourceDocParser.NuGet.Infrastructure;
@@ -16,6 +17,10 @@ namespace SourceDocParser.Benchmarks;
 /// </summary>
 [ShortRunJob]
 [MemoryDiagnoser]
+[SuppressMessage(
+    "Design",
+    "CA1001:Types that own disposable fields should be disposable",
+    Justification = "BenchmarkDotNet drives lifecycle via [GlobalSetup]/[GlobalCleanup]; _source releases in GlobalCleanup.")]
 public class MetadataExtractorBenchmarks
 {
     /// <summary>Scratch directory for the fixture's working files (cleaned per-run).</summary>
@@ -84,10 +89,11 @@ public class MetadataExtractorBenchmarks
         GC.Collect();
     }
 
-    /// <summary>Removes the entire scratch directory after the benchmark series completes.</summary>
+    /// <summary>Disposes the assembly source (and its shared <see cref="HttpClient"/>) and removes the scratch directory after the benchmark series completes.</summary>
     [GlobalCleanup]
     public void GlobalCleanup()
     {
+        _source.Dispose();
         if (!Directory.Exists(_scratchRoot))
         {
             return;

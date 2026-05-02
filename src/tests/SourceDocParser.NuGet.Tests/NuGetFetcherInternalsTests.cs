@@ -317,6 +317,7 @@ public class NuGetFetcherInternalsTests
         string[]? excludeIds = null,
         string[]? excludePrefixes = null) =>
         new(
+            HttpClient: new HttpClient(),
             LibDir: "/lib",
             CacheDir: "/cache",
             SeenIds: seen ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase),
