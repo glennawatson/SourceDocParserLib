@@ -8,6 +8,7 @@
     <Authors>Glenn Watson and Contributors</Authors>
     <Owners>glennawatson</Owners>
     <PackageTags>documentation;roslyn;sourcelink;api-docs;dotnet</PackageTags>
+    <PackageIcon>SourceDocParserIcon.png</PackageIcon>
     <RepositoryUrl>https://github.com/glennawatson/SourceDocParserLib</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <Nullable>enable</Nullable>
@@ -60,6 +61,7 @@
   <ItemGroup Condition="'$(IsTestProject)' != 'true'">
     <None Include="$(MSBuildThisFileDirectory)..\LICENSE" Pack="true" PackagePath="LICENSE" />
     <None Include="$(MSBuildThisFileDirectory)..\README.md" Pack="true" PackagePath="\" />
+    <None Include="$(MSBuildThisFileDirectory)..\icons\SourceDocParserIcon.png" Pack="true" PackagePath="\" Visible="false" />
   </ItemGroup>
 
   <PropertyGroup Condition="'$(IsTestProject)' != 'true'">

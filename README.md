@@ -1,50 +1,133 @@
+[![CI Build](https://github.com/glennawatson/SourceDocParserLib/actions/workflows/ci.yml/badge.svg)](https://github.com/glennawatson/SourceDocParserLib/actions/workflows/ci.yml)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=glennawatson_SourceDocParserLib&metric=coverage)](https://sonarcloud.io/summary/new_code?id=glennawatson_SourceDocParserLib)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=glennawatson_SourceDocParserLib&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=glennawatson_SourceDocParserLib)
+[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=glennawatson_SourceDocParserLib&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=glennawatson_SourceDocParserLib)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=glennawatson_SourceDocParserLib&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=glennawatson_SourceDocParserLib)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=glennawatson_SourceDocParserLib&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=glennawatson_SourceDocParserLib)
+[![NuGet](https://img.shields.io/nuget/v/SourceDocParser.svg?logo=nuget&label=SourceDocParser)](https://www.nuget.org/packages/SourceDocParser/)
+[![Downloads](https://img.shields.io/nuget/dt/SourceDocParser.svg?logo=nuget&label=downloads)](https://www.nuget.org/packages/SourceDocParser/)
+[![GitHub stars](https://img.shields.io/github/stars/glennawatson/SourceDocParserLib?style=social)](https://github.com/glennawatson/SourceDocParserLib/stargazers)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-[![CI Build](https://github.com/glennawatson/SourceDocParserLib/actions/workflows/ci.yml/badge.svg)](https://github.com/glennawatson/SourceDocParserLib/actions/workflows/ci.yml) [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=glennawatson_SourceDocParserLib&metric=coverage)](https://sonarcloud.io/summary/new_code?id=glennawatson_SourceDocParserLib) [![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=glennawatson_SourceDocParserLib&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=glennawatson_SourceDocParserLib) [![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=glennawatson_SourceDocParserLib&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=glennawatson_SourceDocParserLib) [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=glennawatson_SourceDocParserLib&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=glennawatson_SourceDocParserLib) [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=glennawatson_SourceDocParserLib&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=glennawatson_SourceDocParserLib)
+<br>
+<a href="https://github.com/glennawatson/SourceDocParserLib">
+  <img width="160" height="160" src="https://raw.githubusercontent.com/glennawatson/SourceDocParserLib/main/icons/SourceDocParserIcon.png" alt="SourceDocParserLib">
+</a>
+<br>
+
 # SourceDocParserLib
 
-Roslyn-based .NET assembly walker that turns compiled `.dll` + `.pdb` + `.xml` triples into a strongly-typed API catalog (types, members, signatures, XML docs, inheritdoc, SourceLink) and hands it to a pluggable emitter for rendering.
+Roslyn-based .NET assembly walker that turns compiled `.dll` + `.pdb` + `.xml`
+triples into a strongly-typed API catalog (types, members, signatures, XML
+docs, `<inheritdoc/>`, SourceLink) and hands it to a pluggable
+`IDocumentationEmitter` for rendering.
 
-The catalog is **format-neutral**. Emitters decide how to render it — Markdown for Zensical / mkdocs Material, or YAML for docfx ManagedReference, with room for other targets.
+The catalog is **format-neutral**. Emitters decide how to render it — Markdown
+for Zensical / mkdocs Material, or YAML for docfx ManagedReference, with room
+for other targets. Pages flow through an `IPageSink` so callers can write to
+disk (`FilePageSink`) or pipe straight into another async pipeline
+(`CallbackPageSink`) without staging files on disk.
+
+Logging flows through `Microsoft.Extensions.Logging.Abstractions`
+source-generated `[LoggerMessage]` partials, so any host (Serilog, Console,
+NLog, …) plugs in without the libraries taking a dependency on a specific
+backend.
+
+---
 
 ## Packages
 
-| Package | What it does |
-|---|---|
-| `SourceDocParser` | Core walker, merger, source-link resolution. Defines `IAssemblySource`, `IDocumentationEmitter`, `IMetadataExtractor`, the `ICrefResolver` cross-link seam, and the shared `CatalogIndexes` rollup (derived classes / extension methods / inherited members). |
-| `SourceDocParser.NuGet` | `IAssemblySource` that fetches packages from `nuget.org` by owner / explicit list and exposes the per-TFM `lib/` trees. |
-| `SourceDocParser.Zensical` | `IDocumentationEmitter` that writes Markdown tuned for Zensical / mkdocs Material (admonitions, content tabs, mermaid). |
-| `SourceDocParser.Docfx` | `IDocumentationEmitter` that writes docfx ManagedReference YAML pages (drop-in replacement for `dotnet docfx metadata` output) plus the `docfx.json` config-file shim that lets an existing docfx site drive the parser pipeline. |
+Each package is shipped to NuGet independently; the badge tracks the current
+published version.
 
-Logging flows through `Microsoft.Extensions.Logging.Abstractions` source-generated `[LoggerMessage]` partials, so any host (Serilog, Console, NLog, …) plugs in without the libraries taking a dependency on a specific backend.
+### Core
+
+| Package | NuGet | What |
+|---|---|---|
+| [`SourceDocParser`][Core] | [![ver][CoreV]][Core] | Walker, merger, source-link resolution. Defines `IAssemblySource`, `IDocumentationEmitter`, `IMetadataExtractor`, the `IPageSink` streaming contract (`FilePageSink` + `CallbackPageSink`), the `ICrefResolver` cross-link seam, and the shared `CatalogIndexes` rollup (derived classes / extension methods / inherited members). |
+| [`SourceDocParser.Common`][Common] | [![ver][CommonV]][Common] | Shared primitives consumed by every other package: pooled `StringBuilder` rentals, span-based path / token helpers, allocation-free identifier formatting. No public API stability guarantee yet — pinned via the same MinVer baseline as the rest. |
+
+### Assembly sources
+
+| Package | NuGet | What |
+|---|---|---|
+| [`SourceDocParser.NuGet`][Pkg] | [![ver][PkgV]][Pkg] | `IAssemblySource` that fetches packages from `nuget.org` by owner / explicit list (`nuget-packages.json`) and exposes the per-TFM `lib/` + `refs/` trees. Shares one tuned `HttpClient` across the fetch; disposes alongside the source. |
+
+### Emitters
+
+| Package | NuGet | Builder | What |
+|---|---|---|---|
+| [`SourceDocParser.Zensical`][Zen] | [![ver][ZenV]][Zen] | `new ZensicalDocumentationEmitter()` | Writes Markdown tuned for Zensical / mkdocs Material — admonitions, content tabs, mermaid, MD-style cross-links via the autoref UID convention. |
+| [`SourceDocParser.Docfx`][Docfx] | [![ver][DocfxV]][Docfx] | `new DocfxYamlEmitter()` | Writes docfx ManagedReference YAML pages (drop-in replacement for `dotnet docfx metadata` output) plus the `docfx.json` config-file shim that lets an existing docfx site drive the parser pipeline. |
+
+---
 
 ## Quick start
 
 ```csharp
+using Microsoft.Extensions.Logging;
+using SourceDocParser;
+using SourceDocParser.NuGet.Infrastructure;
+using SourceDocParser.Zensical;
+
 var loggerFactory = LoggerFactory.Create(b => b.AddConsole());
 
-var source = new NuGetAssemblySource(
+using var source = new NuGetAssemblySource(
     rootDirectory: "/path/to/repo",   // contains nuget-packages.json
     apiPath:       "/path/to/api",    // where lib/ + refs/ get extracted
     logger:        loggerFactory.CreateLogger<NuGetAssemblySource>());
 
 var emitter = new ZensicalDocumentationEmitter();
 
+// File-rooted sink for the legacy on-disk shape …
+var sink = new FilePageSink("/path/to/markdown-output");
+
 var result = await new MetadataExtractor().RunAsync(
     source,
-    outputRoot: "/path/to/markdown-output",
+    sink,
     emitter,
     loggerFactory.CreateLogger<MetadataExtractor>());
 
 Console.WriteLine($"Emitted {result.PagesEmitted} pages across {result.CanonicalTypes} types.");
 ```
 
+### Streaming pages instead of writing to disk
+
+`CallbackPageSink` invokes a `(string relativePath, byte[] utf8Bytes)`
+callback per page — useful when piping the output into another pipeline
+(e.g. an in-memory render queue) without staging anything on disk:
+
+```csharp
+var sink = new CallbackPageSink((relativePath, bytes) =>
+{
+    Console.WriteLine($"{relativePath}: {bytes.Length} bytes");
+});
+
+await new MetadataExtractor().RunAsync(source, sink, emitter, logger);
+```
+
+The bytes are encoded once into a freshly-allocated `byte[]` so the callback
+owns them outright — safe to retain, no array-pool ties.
+
+---
+
 ## Supported target frameworks
 
-The walker resolves NuGet packages against frameworks that the active .NET SDK still understands and that Microsoft is still shipping fixes for:
+The walker resolves NuGet packages against frameworks that the active .NET
+SDK still understands and that Microsoft is still shipping fixes for:
 
-- **Modern .NET (5.0+)** — `net5.0`, `net6.0`, `net7.0`, `net8.0`, `net9.0`, `net10.0`, plus the `net*-android`, `net*-ios`, `net*-maccatalyst`, `net*-windows` workload variants. See the official [.NET and .NET Core support policy](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core).
-- **netstandard** — `netstandard1.0` through `netstandard2.1`. Sticks around because the BCL targets it, even though [no future netstandard releases are planned](https://learn.microsoft.com/en-us/dotnet/standard/net-standard).
-- **.NET Framework, net462 and newer** — `net462`, `net47`, `net471`, `net472`, `net48`, `net481`. net462 is the floor that supports `netstandard2.0` type forwards and ships ref packs in modern SDKs. See the [.NET Framework support policy](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-framework) for which of those are still in mainstream / extended support.
+- **Modern .NET (5.0+)** — `net5.0`, `net6.0`, `net7.0`, `net8.0`, `net9.0`,
+  `net10.0`, plus the `net*-android`, `net*-ios`, `net*-maccatalyst`,
+  `net*-windows` workload variants. See the official
+  [.NET and .NET Core support policy](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core).
+- **netstandard** — `netstandard1.0` through `netstandard2.1`. Sticks around
+  because the BCL targets it, even though
+  [no future netstandard releases are planned](https://learn.microsoft.com/en-us/dotnet/standard/net-standard).
+- **.NET Framework, net462 and newer** — `net462`, `net47`, `net471`,
+  `net472`, `net48`, `net481`. net462 is the floor that supports
+  `netstandard2.0` type forwards and ships ref packs in modern SDKs. See the
+  [.NET Framework support policy](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-framework)
+  for which of those are still in mainstream / extended support.
 
 **Out of scope (legacy, not supported):**
 
@@ -58,11 +141,26 @@ The walker resolves NuGet packages against frameworks that the active .NET SDK s
 | Windows Store / UAP | `win8`, `winrt*`, `uap*` | UWP apps are now expected to migrate to [Windows App SDK / WinUI 3](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/). |
 | Portable Class Libraries | `portable-*` profiles | Replaced by netstandard a decade ago. |
 
-Packages that ship **only** legacy TFMs are skipped at fetch time. The fetcher used to log this at warning level — on real-world walks (ReactiveUI / Avalonia / Splat surfaces) that meant tens of warnings per run for packages like `System.Net.Primitives` or `System.Globalization.Extensions` (whose entire TFM list is `MonoAndroid10, MonoTouch10, net45, xamarinios10, xamarinmac20, ...`). Those skips are now logged at **information** level so genuine TFM mismatches still stay visible. Set your logger filter to `Information` if you want to see the legacy-skip list during a build.
+Packages that ship **only** legacy TFMs are skipped at fetch time. Skips are
+logged at **information** level so they don't drown out genuine warnings on
+real-world walks (ReactiveUI / Avalonia / Splat surfaces typically pull
+several dozen System.* packages whose entire TFM list is legacy-only). Set
+your logger filter to `Information` if you want to see the legacy-skip list
+during a build.
+
+---
 
 ## Performance
 
-**Benchmark workload.** Numbers below are from the BenchmarkDotNet suite under `src/benchmarks/SourceDocParser.Benchmarks/`, run on a Ryzen 7 5800X / .NET 10. The workload extracts three NuGet packages from `nuget.org` -- pulling each package's `lib/` and `ref/` trees and the matching reference assemblies, walking every public symbol across ~19 target-framework groups, parsing the shipped XML doc files, resolving `<inheritdoc/>` chains, and emitting roughly 600 canonical type pages after cross-TFM merge. The local NuGet cache is warmed once during global setup so per-iteration timings measure the walk + merge + emit pipeline, not the network leg.
+**Benchmark workload.** Numbers below are from the BenchmarkDotNet suite
+under `src/benchmarks/SourceDocParser.Benchmarks/`, run on a Ryzen 7 5800X /
+.NET 10. The workload extracts three NuGet packages from `nuget.org`
+— pulling each package's `lib/` and `ref/` trees and the matching reference
+assemblies, walking every public symbol across ~19 target-framework groups,
+parsing the shipped XML doc files, resolving `<inheritdoc/>` chains, and
+emitting roughly 600 canonical type pages after cross-TFM merge. The local
+NuGet cache is warmed once during global setup so per-iteration timings
+measure the walk + merge + emit pipeline, not the network leg.
 
 **End-to-end (`MetadataExtractor.RunAsync`):**
 
@@ -74,71 +172,108 @@ Packages that ship **only** legacy TFMs are skipped at fetch time. The fetcher u
 | Merge (cross-TFM dedup)              |   ~1 ms   |  ~380 KB  |
 | Emit (Zensical Markdown)             |  ~139 ms  |   ~39 MB  |
 
-The walk phase walks one Roslyn compilation per package -- one canonical TFM per equivalence class. Other TFMs whose public-API surface is a subset of the canonical's are folded in via a `MetadataReader` probe that only enumerates type tokens, no symbol tree, no constructed types. The merger then broadcasts the canonical's walked types into each subset TFM so `ApiType.AppliesTo` still records every TFM the type applies to.
+The walk phase walks one Roslyn compilation per package — one canonical TFM
+per equivalence class. Other TFMs whose public-API surface is a subset of
+the canonical's are folded in via a `MetadataReader` probe that only
+enumerates type tokens, no symbol tree, no constructed types. The merger
+then broadcasts the canonical's walked types into each subset TFM so
+`ApiType.AppliesTo` still records every TFM the type applies to.
 
 **Per-call hotspots:**
 
 | Operation                                                                |    Time | Allocated |
 |--------------------------------------------------------------------------|--------:|----------:|
-| `XmlDocToMarkdown.Convert` -- plain summary                              |  ~24 ns |     176 B |
-| `XmlDocToMarkdown.Convert` -- tagged with `<see>` / `<c>` / `<paramref>` | ~916 ns |     456 B |
-| `XmlDocToMarkdown.Convert` -- code block + bullet list                   | ~1.2 µs |     440 B |
-| `TfmResolver.FindBestRefsTfm` -- exact match                             |   ~3 ns |       0 B |
-| `TfmResolver.FindBestRefsTfm` -- platform-suffix strip                   |  ~11 ns |       0 B |
-| `TfmResolver.FindBestRefsTfm` -- netstandard fallback                    | ~496 ns |     1 KB  |
-| `TypeMerger.Merge` -- 600 types x 3 TFMs                                 | ~115 µs |    358 KB |
+| `XmlDocToMarkdown.Convert` — plain summary                               |  ~24 ns |     176 B |
+| `XmlDocToMarkdown.Convert` — tagged with `<see>` / `<c>` / `<paramref>`  | ~916 ns |     456 B |
+| `XmlDocToMarkdown.Convert` — code block + bullet list                    | ~1.2 µs |     440 B |
+| `TfmResolver.FindBestRefsTfm` — exact match                              |   ~3 ns |       0 B |
+| `TfmResolver.FindBestRefsTfm` — platform-suffix strip                    |  ~11 ns |       0 B |
+| `TfmResolver.FindBestRefsTfm` — netstandard fallback                     | ~496 ns |     1 KB  |
+| `TypeMerger.Merge` — 600 types × 3 TFMs                                  | ~115 µs |    358 KB |
 
-**Emitter cost per type page** (no I/O, just markup formatting; baseline = Zensical Markdown):
+**Emitter cost per type page** (no I/O, just markup formatting; baseline =
+Zensical Markdown):
 
-| Workload (types x members/type) | Zensical Markdown   | DocFx YAML            | Time  | Alloc |
+| Workload (types × members/type) | Zensical Markdown   | DocFx YAML            | Time  | Alloc |
 |---------------------------------|--------------------:|----------------------:|------:|------:|
-| 100 x 5                         |   72 µs / 288 KB    |   618 µs / 1,366 KB   |  8.6x |  4.7x |
-| 100 x 30                        |  263 µs / 763 KB    | 5,432 µs / 6,338 KB   | 20.7x |  8.3x |
-| 600 x 5                         |  437 µs / 1,730 KB  | 3,605 µs / 8,198 KB   |  8.3x |  4.7x |
-| 600 x 30                        | 1,505 µs / 4,580 KB | 17,122 µs / 38,025 KB | 11.4x |  8.3x |
+| 100 × 5                         |   72 µs / 288 KB    |   618 µs / 1,366 KB   |  8.6× |  4.7× |
+| 100 × 30                        |  263 µs / 763 KB    | 5,432 µs / 6,338 KB   | 20.7× |  8.3× |
+| 600 × 5                         |  437 µs / 1,730 KB  | 3,605 µs / 8,198 KB   |  8.3× |  4.7× |
+| 600 × 30                        | 1,505 µs / 4,580 KB | 17,122 µs / 38,025 KB | 11.4× |  8.3× |
 
-DocFx YAML is heavier by design -- every member duplicates uid / commentId / parent / name / nameWithType / fullName, and the page-level `references:` list adds another mapping per cross-referenced type. The emitter hand-writes YAML through `StringBuilder` (no YamlDotNet runtime dependency), with a single-allocation fast path for qualified-name composites that round-trip identifiers as plain scalars when escape-safe.
+DocFx YAML is heavier by design — every member duplicates uid / commentId /
+parent / name / nameWithType / fullName, and the page-level `references:`
+list adds another mapping per cross-referenced type. The emitter hand-writes
+YAML through `StringBuilder` (no YamlDotNet runtime dependency), with a
+single-allocation fast path for qualified-name composites that round-trip
+identifiers as plain scalars when escape-safe.
 
 ### How perf and allocations stay low
 
-- **MetadataReader probe + canonical-only Roslyn walk.** The walker only spins up one Roslyn compilation per package -- the canonical TFM picked by descending rank. Other TFMs whose public type set is a subset of the canonical's are detected via a `System.Reflection.Metadata.MetadataReader` probe (no symbol binding, no constructed-type allocation) and folded into `ApiType.AppliesTo` via a synthetic broadcast catalog that reuses the canonical's already-walked types. TFMs whose surface is *not* a subset still get a full Roslyn walk so removed-in-newer-TFM types stay in the catalog.
+- **MetadataReader probe + canonical-only Roslyn walk.** The walker only spins up one Roslyn compilation per package — the canonical TFM picked by descending rank. Other TFMs whose public type set is a subset of the canonical's are detected via a `System.Reflection.Metadata.MetadataReader` probe (no symbol binding, no constructed-type allocation) and folded into `ApiType.AppliesTo` via a synthetic broadcast catalog that reuses the canonical's already-walked types. TFMs whose surface is *not* a subset still get a full Roslyn walk so removed-in-newer-TFM types stay in the catalog.
 - **Custom span-based XML scanner.** A `ref struct DocXmlScanner` walks `///` doc fragments directly over `ReadOnlySpan<char>`, implementing just the XML grammar doc comments use. `XmlReader`'s `XmlTextReaderImpl` allocates multi-KB internal buffers (`NodeData[]`, `NamespaceManager`, char buffers) per construction; the scanner avoids that. Both the per-symbol parser and the Markdown renderer drive it, so per-element XML processing is allocation-free apart from the result string.
 - **Build-once-then-read-many `XmlDocSource`.** Each `.xml` doc file is read once via `File.ReadAllBytes` + `Encoding.UTF8.GetString` and indexed by per-member `(offset, length)` ranges; substrings materialise only when a consumer calls `Get(memberId)`. Safe for concurrent reads from the parallel walker.
 - **Eager per-group loader disposal.** Each TFM group's `CompilationLoader` holds memory-mapped views of every reference DLL. An interlocked counter retires the loader as soon as its last assembly finishes; peak working set scales with the slowest-finishing group, not the total number of groups times their references.
 - **Streaming type merger.** The parallel walk feeds `ApiCatalog`s into `StreamingTypeMerger` one at a time and immediately drops the reference. Catalogs don't accumulate in a `ConcurrentBag` waiting for the walk phase to finish.
+- **Streaming page sink.** `IPageSink` lets the emitter hand each page off as bytes the moment it's rendered — `FilePageSink` flushes through `PageWriter` (chunked UTF-8 via `ArrayPool<byte>` into an unbuffered `FileStream`); `CallbackPageSink` invokes a delegate so callers can pipe into a `Channel`, an HTTP body, or another in-process pipeline without ever staging files on disk.
 - **Capture-free parallel dispatch.** The `Parallel.ForEachAsync` lambda is `static`; every dependency it touches is bundled into a `WalkContext` record attached to each work item, so dispatch never allocates a closure object per assembly.
 - **Lazy `RenderedDoc` facade for emit-time conversion.** Walker output carries raw inner-XML fragments. Each emitter constructs an `XmlDocToMarkdown(ICrefResolver)` and wraps each symbol's documentation in a `RenderedDoc` that converts each text-shaped field on first read, caches the result, and skips fields the page doesn't consume. Zensical and docfx pick their own cref form (`[name][uid]` autoref vs `<xref:uid>` / Microsoft Learn URL) without the walker baking either in.
 - **Thread-static `PageBuilderPool`.** Each emit thread reuses one `StringBuilder` across page composition calls via a `using`-scoped rental; pages clear the builder between uses instead of allocating fresh.
-- **`PageWriter` streams chunks to disk.** The composed `StringBuilder` flushes via `GetChunks()` straight through a UTF-8 encoder + `ArrayPool<byte>` buffer into an unbuffered `FileStream`. The whole-page string and the 64 KB BufferedFileStreamStrategy buffer never need to exist.
 - **Shared `CatalogIndexes` rollup.** Derived-class lookup, reverse extension-method lookup, and per-type inherited-member uid lists are built once per emit run in a single O(N) sweep and frozen via `FrozenDictionary`. Each emitter passes its own `System.Object` baseline UIDs (docfx bare names, Zensical `M:`-prefixed commentIds) so the algorithm stays shared while the wire format stays per-emitter.
 - **Pre-sized buffers and stackalloc paths.** nupkg zip entries size their backing `byte[]` to the known uncompressed length up front. SourceLink URL rewriting and `ZensicalCrefResolver`'s Microsoft Learn link composer build their result strings via `stackalloc` + `new string(span)` so the only heap allocation is the returned string itself.
+
+---
 
 ## Repository layout
 
 ```
 SourceDocParserLib/
+  icons/SourceDocParserIcon.png        package icon (packed into every nupkg)
   src/
-    SourceDocParser/
-    SourceDocParser.NuGet/
-    SourceDocParser.Docfx/
-    SourceDocParser.Zensical/
+    SourceDocParser/                   core walker / merger / sinks
+    SourceDocParser.Common/            shared primitives
+    SourceDocParser.NuGet/             nuget.org IAssemblySource
+    SourceDocParser.Docfx/             docfx YAML emitter
+    SourceDocParser.Zensical/          mkdocs-Material Markdown emitter
+    benchmarks/                        BenchmarkDotNet harness
     tests/
       SourceDocParser.Tests/             unit tests (TUnit)
+      SourceDocParser.NuGet.Tests/
+      SourceDocParser.Zensical.Tests/
+      SourceDocParser.Docfx.Tests/
       SourceDocParser.IntegrationTests/  end-to-end + Zensical render-smoke
-    Directory.Build.props                shared lib config
-    Directory.Packages.props             central package versions
+    Directory.Build.props              shared lib config (MinVer, packing, analyzers)
+    Directory.Packages.props           central package versions
     SourceDocParserLib.slnx
-  Directory.Build.props
-  version.json                           Nerdbank.GitVersioning
   .editorconfig
   stylecop.json
 ```
 
-`dotnet build` from `src/` packs every non-test project into `artifacts/packages/` automatically (`<GeneratePackageOnBuild>true</GeneratePackageOnBuild>`). Consumers in other repos can wire that directory up as a local feed via `nuget.config` until the libraries are published.
+`dotnet build` from `src/` packs every non-test project into
+`artifacts/packages/` automatically (`<GeneratePackageOnBuild>true</GeneratePackageOnBuild>`).
+Consumers in other repos can wire that directory up as a local feed via
+`nuget.config` until the libraries are published.
+
+### Versioning
+
+`MinVer` derives the version from the most recent `v*` git tag. Untagged
+commits build as `{nextMinor}.0.0-alpha.0.{height}+sha` (auto-increment
+minor). Releases run via the `Release` workflow (`workflow_dispatch`) — pick
+`major` / `minor` / `patch`; the workflow computes the next version from the
+latest RTM tag in shell, creates the `v$VERSION` tag, propagates the version
+via `MINVERVERSIONOVERRIDE` so every downstream MSBuild project skips
+MinVer's per-project git walk, then builds / packs / signs / pushes to
+NuGet and creates the GitHub Release.
+
+---
 
 ## Acknowledgements
 
-The metadata extraction pipeline is inspired by — and lifts patterns from — [dotnet/docfx](https://github.com/dotnet/docfx) (MIT licensed). docfx's Roslyn-based assembly walker, inheritdoc resolution, and overall metadata model shaped this library's design. See [`LICENSE`](./LICENSE) for the original docfx attribution.
+The metadata extraction pipeline is inspired by — and lifts patterns from
+— [dotnet/docfx](https://github.com/dotnet/docfx) (MIT licensed). docfx's
+Roslyn-based assembly walker, inheritdoc resolution, and overall metadata
+model shaped this library's design. See [`LICENSE`](./LICENSE) for the
+original docfx attribution.
 
 Built on:
 
@@ -150,3 +285,14 @@ Built on:
 ## License
 
 MIT — see [`LICENSE`](./LICENSE) for the full text and the docfx attribution.
+
+[Core]: https://www.nuget.org/packages/SourceDocParser/
+[CoreV]: https://img.shields.io/nuget/v/SourceDocParser.svg?logo=nuget&label=
+[Common]: https://www.nuget.org/packages/SourceDocParser.Common/
+[CommonV]: https://img.shields.io/nuget/v/SourceDocParser.Common.svg?logo=nuget&label=
+[Pkg]: https://www.nuget.org/packages/SourceDocParser.NuGet/
+[PkgV]: https://img.shields.io/nuget/v/SourceDocParser.NuGet.svg?logo=nuget&label=
+[Zen]: https://www.nuget.org/packages/SourceDocParser.Zensical/
+[ZenV]: https://img.shields.io/nuget/v/SourceDocParser.Zensical.svg?logo=nuget&label=
+[Docfx]: https://www.nuget.org/packages/SourceDocParser.Docfx/
+[DocfxV]: https://img.shields.io/nuget/v/SourceDocParser.Docfx.svg?logo=nuget&label=
