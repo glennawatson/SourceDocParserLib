@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Logging.Abstractions;
 using SourceDocParser.Model;
 
 namespace SourceDocParser.Tests;
@@ -80,6 +81,48 @@ public class MetadataExtractorTests
 
         await Assert.That(emitter.CapturedSink).IsSameReferenceAs(sink);
         await Assert.That(emitter.CapturedTypes).IsNotNull();
+    }
+
+    /// <summary>The three-arg <c>RunAsync</c> overload forwards through to the cancellation-aware shape.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task RunAsyncThreeArgOverloadDelegates()
+    {
+        var groups = new List<AssemblyGroup>
+        {
+            new("net10.0", [], []),
+        };
+        var source = new FakeAssemblySource(groups);
+        var emitter = new RecordingEmitter();
+        using var output = new TempDirectory();
+        var extractor = new MetadataExtractor();
+
+        IPageSink sink = new FilePageSink(output.Path);
+        var result = await extractor.RunAsync(source, sink, emitter);
+
+        await Assert.That(result).IsNotNull();
+        await Assert.That(emitter.CapturedSink).IsSameReferenceAs(sink);
+    }
+
+    /// <summary>The logger-accepting <c>RunAsync</c> overload likewise forwards with no cancellation token.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task RunAsyncFourArgOverloadAcceptsLogger()
+    {
+        var groups = new List<AssemblyGroup>
+        {
+            new("net10.0", [], []),
+        };
+        var source = new FakeAssemblySource(groups);
+        var emitter = new RecordingEmitter();
+        using var output = new TempDirectory();
+        var extractor = new MetadataExtractor();
+
+        IPageSink sink = new FilePageSink(output.Path);
+        var result = await extractor.RunAsync(source, sink, emitter, NullLogger.Instance);
+
+        await Assert.That(result).IsNotNull();
+        await Assert.That(emitter.CapturedSink).IsSameReferenceAs(sink);
     }
 
     /// <summary>
