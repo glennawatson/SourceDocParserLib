@@ -78,7 +78,6 @@ jobs:
         uses: github/codeql-action/init@v4
         with:
           languages: actions
-          build-mode: manual
           queries: security-extended
 
       - name: Perform CodeQL analysis
