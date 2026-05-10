@@ -40,7 +40,7 @@ public class LargeAssemblyEmitterPageBoundsTests
         var emitter = new ZensicalDocumentationEmitter();
         var extractor = new MetadataExtractor();
 
-        var result = await extractor.RunAsync(source, output, emitter);
+        var result = await extractor.RunAsync(source, new FilePageSink(output), emitter);
 
         var emittedFiles = 0;
         foreach (var unused in Directory.EnumerateFiles(output, "*.md", SearchOption.AllDirectories))

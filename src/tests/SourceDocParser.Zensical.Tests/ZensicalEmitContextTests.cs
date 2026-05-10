@@ -20,6 +20,9 @@ public class ZensicalEmitContextTests
     /// <summary>Shared empty <see cref="FrozenSet{T}"/> used for the emit-context constructor tests.</summary>
     private static readonly FrozenSet<string> EmptyEmittedUids = [];
 
+    /// <summary>Discard sink shared across the non-guard tests; never receives writes.</summary>
+    private static readonly IPageSink DiscardSink = new CallbackPageSink(static (_, _) => { });
+
     /// <summary>The constructor wires every dependency through to its matching property.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -30,12 +33,13 @@ public class ZensicalEmitContextTests
         var emittedUids = EmptyEmittedUids;
         var converter = new XmlDocToMarkdown();
 
-        var context = new ZensicalEmitContext(options, indexes, emittedUids, converter);
+        var context = new ZensicalEmitContext(options, indexes, emittedUids, converter, DiscardSink);
 
         await Assert.That(context.Options).IsSameReferenceAs(options);
         await Assert.That(context.Indexes).IsSameReferenceAs(indexes);
         await Assert.That(context.EmittedUids).IsSameReferenceAs(emittedUids);
         await Assert.That(context.Converter).IsSameReferenceAs(converter);
+        await Assert.That(context.Sink).IsSameReferenceAs(DiscardSink);
     }
 
     /// <summary>A null <c>options</c> argument is rejected with <see cref="ArgumentNullException"/>.</summary>
@@ -47,7 +51,8 @@ public class ZensicalEmitContextTests
             null!,
             ZensicalCatalogIndexes.Empty,
             EmptyEmittedUids,
-            new XmlDocToMarkdown()))
+            new XmlDocToMarkdown(),
+            DiscardSink))
             .Throws<ArgumentNullException>();
     }
 
@@ -60,7 +65,8 @@ public class ZensicalEmitContextTests
             ZensicalEmitterOptions.Default,
             null!,
             [],
-            new XmlDocToMarkdown()))
+            new XmlDocToMarkdown(),
+            DiscardSink))
             .Throws<ArgumentNullException>();
     }
 
@@ -73,7 +79,8 @@ public class ZensicalEmitContextTests
             ZensicalEmitterOptions.Default,
             ZensicalCatalogIndexes.Empty,
             null!,
-            new XmlDocToMarkdown()))
+            new XmlDocToMarkdown(),
+            DiscardSink))
             .Throws<ArgumentNullException>();
     }
 
@@ -86,6 +93,21 @@ public class ZensicalEmitContextTests
             ZensicalEmitterOptions.Default,
             ZensicalCatalogIndexes.Empty,
             [],
+            null!,
+            DiscardSink))
+            .Throws<ArgumentNullException>();
+    }
+
+    /// <summary>A null <c>sink</c> argument is rejected with <see cref="ArgumentNullException"/>.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ConstructorThrowsWhenSinkNull()
+    {
+        await Assert.That(() => new ZensicalEmitContext(
+            ZensicalEmitterOptions.Default,
+            ZensicalCatalogIndexes.Empty,
+            [],
+            new XmlDocToMarkdown(),
             null!))
             .Throws<ArgumentNullException>();
     }
@@ -123,5 +145,6 @@ public class ZensicalEmitContextTests
         ZensicalEmitterOptions.Default,
         ZensicalCatalogIndexes.Empty,
         EmptyEmittedUids,
-        new XmlDocToMarkdown());
+        new XmlDocToMarkdown(),
+        DiscardSink);
 }

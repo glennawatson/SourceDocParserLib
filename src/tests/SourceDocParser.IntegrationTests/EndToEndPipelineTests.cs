@@ -38,7 +38,7 @@ public class EndToEndPipelineTests
         var emitter = new ZensicalDocumentationEmitter();
         var extractor = new MetadataExtractor();
 
-        var result = await extractor.RunAsync(source, output, emitter);
+        var result = await extractor.RunAsync(source, new FilePageSink(output), emitter);
 
         await Assert.That(result.CanonicalTypes).IsGreaterThan(0);
         await Assert.That(result.PagesEmitted).IsGreaterThan(0);

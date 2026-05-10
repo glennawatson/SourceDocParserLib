@@ -87,34 +87,33 @@ public sealed class MetadataExtractor : IMetadataExtractor
     /// <inheritdoc />
     public Task<ExtractionResult> RunAsync(
         IAssemblySource source,
-        string outputRoot,
+        IPageSink sink,
         IDocumentationEmitter emitter) =>
-        RunAsync(source, outputRoot, emitter, null, CancellationToken.None);
+        RunAsync(source, sink, emitter, null, CancellationToken.None);
 
     /// <inheritdoc />
     public Task<ExtractionResult> RunAsync(
         IAssemblySource source,
-        string outputRoot,
+        IPageSink sink,
         IDocumentationEmitter emitter,
         ILogger? logger) =>
-        RunAsync(source, outputRoot, emitter, logger, CancellationToken.None);
+        RunAsync(source, sink, emitter, logger, CancellationToken.None);
 
     /// <inheritdoc />
-    /// <exception cref="ArgumentNullException">When <paramref name="source"/> or <paramref name="emitter"/> is null.</exception>
-    /// <exception cref="ArgumentException">When <paramref name="outputRoot"/> is null, empty, or whitespace.</exception>
+    /// <exception cref="ArgumentNullException">When <paramref name="source"/>, <paramref name="sink"/>, or <paramref name="emitter"/> is null.</exception>
     /// <exception cref="InvalidOperationException">When the source produced no TFM groups.</exception>
     public Task<ExtractionResult> RunAsync(
         IAssemblySource source,
-        string outputRoot,
+        IPageSink sink,
         IDocumentationEmitter emitter,
         ILogger? logger,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(source);
-        ArgumentException.ThrowIfNullOrWhiteSpace(outputRoot);
+        ArgumentNullException.ThrowIfNull(sink);
         ArgumentNullException.ThrowIfNull(emitter);
 
-        return RunInternalAsync(source, outputRoot, emitter, logger ?? NullLogger.Instance, cancellationToken);
+        return RunInternalAsync(source, sink, emitter, logger ?? NullLogger.Instance, cancellationToken);
     }
 
     /// <inheritdoc />
@@ -200,24 +199,22 @@ public sealed class MetadataExtractor : IMetadataExtractor
     /// Internal implementation of the documentation pipeline.
     /// </summary>
     /// <param name="source">The assembly source.</param>
-    /// <param name="outputRoot">The output root path.</param>
+    /// <param name="sink">Destination sink the emitter writes pages through.</param>
     /// <param name="emitter">The documentation emitter.</param>
     /// <param name="logger">The logger.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task that represents the asynchronous extraction operation.</returns>
     private async Task<ExtractionResult> RunInternalAsync(
         IAssemblySource source,
-        string outputRoot,
+        IPageSink sink,
         IDocumentationEmitter emitter,
         ILogger logger,
         CancellationToken cancellationToken)
     {
-        MetadataIoHelper.PrepareOutputDirectory(outputRoot);
-
         var (merged, loadFailures) = await WalkAndMergeAsync(source, logger, cancellationToken).ConfigureAwait(false);
 
-        MetadataLoggingHelper.LogEmitting(logger, merged.Length, outputRoot, emitter.GetType().Name);
-        var pagesEmitted = await emitter.EmitAsync(merged, outputRoot, cancellationToken).ConfigureAwait(false);
+        MetadataLoggingHelper.LogEmitting(logger, merged.Length, sink.GetType().Name, emitter.GetType().Name);
+        var pagesEmitted = await emitter.EmitAsync(merged, sink, cancellationToken).ConfigureAwait(false);
 
         var sourceLinks = MetadataSourceLinkHelper.CollectSourceLinks(merged);
         MetadataLoggingHelper.LogEmitComplete(logger, merged.Length, pagesEmitted, sourceLinks.Length, loadFailures);

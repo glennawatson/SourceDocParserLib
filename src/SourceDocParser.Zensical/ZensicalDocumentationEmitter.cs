@@ -39,24 +39,24 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
     }
 
     /// <inheritdoc />
-    public Task<int> EmitAsync(ApiType[] types, string outputRoot) =>
-        EmitAsync(types, outputRoot, CancellationToken.None);
+    public Task<int> EmitAsync(ApiType[] types, IPageSink sink) =>
+        EmitAsync(types, sink, CancellationToken.None);
 
     /// <inheritdoc />
-    public Task<int> EmitAsync(ApiType[] types, string outputRoot, CancellationToken cancellationToken)
+    public Task<int> EmitAsync(ApiType[] types, IPageSink sink, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(types);
-        ArgumentException.ThrowIfNullOrWhiteSpace(outputRoot);
+        ArgumentNullException.ThrowIfNull(sink);
 
         var indexes = ZensicalCatalogIndexes.Build(types);
         var emittedUids = BuildEmittedUidSet(types, _options);
         var resolver = new ZensicalCrefResolver(emittedUids, _options);
         var converter = new XmlDocToMarkdown(resolver);
         var runOptions = _options with { Resolver = resolver };
-        var context = new ZensicalEmitContext(runOptions, indexes, emittedUids, converter);
+        var context = new ZensicalEmitContext(runOptions, indexes, emittedUids, converter, sink);
 
-        var pages = WriteTypeAndMemberPages(types, outputRoot, context, cancellationToken);
-        pages += LandingPageEmitter.EmitAll(types, outputRoot, context);
+        var pages = WriteTypeAndMemberPages(types, context, cancellationToken);
+        pages += LandingPageEmitter.EmitAll(types, context);
         return Task.FromResult(pages);
     }
 
@@ -99,17 +99,15 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
     /// Walks <paramref name="types"/>, applies the routing + compiler-
     /// generated filter, and writes the type and member pages for
     /// each survivor. Split out of
-    /// <see cref="EmitAsync(ApiType[], string, CancellationToken)"/>
+    /// <see cref="EmitAsync(ApiType[], IPageSink, CancellationToken)"/>
     /// so the orchestrator method stays at low cyclomatic complexity.
     /// </summary>
     /// <param name="types">All canonical types about to be considered for emission.</param>
-    /// <param name="outputRoot">The Markdown output root.</param>
-    /// <param name="context">Render context built once for the run.</param>
+    /// <param name="context">Render context built once for the run; carries the destination sink.</param>
     /// <param name="cancellationToken">Cancellation token observed between types.</param>
     /// <returns>The page count for the type and member emit phase.</returns>
     private static int WriteTypeAndMemberPages(
         ApiType[] types,
-        string outputRoot,
         ZensicalEmitContext context,
         CancellationToken cancellationToken)
     {
@@ -127,9 +125,9 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
             // The type page and every member-overload page share the
             // same raw type and converter so each XML fragment is
             // converted exactly once.
-            TypePageEmitter.RenderToFile(type, outputRoot, context);
+            TypePageEmitter.Render(type, context);
             pages++;
-            pages += EmitMemberPages(type, outputRoot, context);
+            pages += EmitMemberPages(type, context);
         }
 
         return pages;
@@ -226,10 +224,9 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
     /// is a tight upper bound on the distinct names.
     /// </summary>
     /// <param name="type">Type whose members to emit pages for.</param>
-    /// <param name="outputRoot">Markdown output root.</param>
-    /// <param name="context">Render context -- supplies routing options + the doc converter.</param>
+    /// <param name="context">Render context -- supplies routing options, the doc converter, and the destination sink.</param>
     /// <returns>Total page count written.</returns>
-    private static int EmitMemberPages(ApiType type, string outputRoot, ZensicalEmitContext context)
+    private static int EmitMemberPages(ApiType type, ZensicalEmitContext context)
     {
         var members = type switch
         {
@@ -271,7 +268,7 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
         var pages = 0;
         foreach (var group in groups)
         {
-            MemberPageEmitter.RenderToFile(type, group.Key, [.. group.Value], outputRoot, context);
+            MemberPageEmitter.Render(type, group.Key, [.. group.Value], context);
             pages++;
         }
 

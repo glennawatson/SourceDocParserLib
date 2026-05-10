@@ -18,25 +18,25 @@ public interface IMetadataExtractor
     /// Runs the extraction pipeline end-to-end using default logging and cancellation settings.
     /// </summary>
     /// <param name="source">Provides the per-TFM assemblies to walk.</param>
-    /// <param name="outputRoot">Destination directory for emitted pages.</param>
+    /// <param name="sink">Destination sink the emitter writes pages through.</param>
     /// <param name="emitter">Format-specific page emitter.</param>
     /// <returns>Summary of what was extracted, emitted, and any failures.</returns>
     Task<ExtractionResult> RunAsync(
         IAssemblySource source,
-        string outputRoot,
+        IPageSink sink,
         IDocumentationEmitter emitter);
 
     /// <summary>
     /// Runs the extraction pipeline end-to-end using the supplied logger.
     /// </summary>
     /// <param name="source">Provides the per-TFM assemblies to walk.</param>
-    /// <param name="outputRoot">Destination directory for emitted pages.</param>
+    /// <param name="sink">Destination sink the emitter writes pages through.</param>
     /// <param name="emitter">Format-specific page emitter.</param>
     /// <param name="logger">Optional logger; defaults to a no-op logger.</param>
     /// <returns>Summary of what was extracted, emitted, and any failures.</returns>
     Task<ExtractionResult> RunAsync(
         IAssemblySource source,
-        string outputRoot,
+        IPageSink sink,
         IDocumentationEmitter emitter,
         ILogger? logger);
 
@@ -44,14 +44,14 @@ public interface IMetadataExtractor
     /// Runs the extraction pipeline end-to-end.
     /// </summary>
     /// <param name="source">Provides the per-TFM assemblies to walk.</param>
-    /// <param name="outputRoot">Destination directory for emitted pages.</param>
+    /// <param name="sink">Destination sink the emitter writes pages through.</param>
     /// <param name="emitter">Format-specific page emitter.</param>
     /// <param name="logger">Optional logger; defaults to a no-op logger.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Summary of what was extracted, emitted, and any failures.</returns>
     Task<ExtractionResult> RunAsync(
         IAssemblySource source,
-        string outputRoot,
+        IPageSink sink,
         IDocumentationEmitter emitter,
         ILogger? logger,
         CancellationToken cancellationToken);

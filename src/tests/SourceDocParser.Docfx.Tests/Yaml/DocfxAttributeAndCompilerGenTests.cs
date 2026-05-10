@@ -24,7 +24,7 @@ public class DocfxAttributeAndCompilerGenTests
         var legitimate = TestData.ObjectType("Foo") with { Namespace = "My" };
         var displayClass = TestData.ObjectType("<>c__DisplayClass0_0") with { Namespace = "My" };
 
-        var pages = await new DocfxYamlEmitter().EmitAsync([legitimate, displayClass], scratch.Path);
+        var pages = await new DocfxYamlEmitter().EmitAsync([legitimate, displayClass], new FilePageSink(scratch.Path));
 
         // Foo.yml + My.yml namespace page = 2 pages; the display class is dropped.
         await Assert.That(pages).IsEqualTo(2);

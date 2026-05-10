@@ -33,40 +33,23 @@ internal static class LandingPageEmitter
     /// Types from assemblies that don't resolve to a package folder
     /// are skipped -- they wouldn't have type pages either.
     /// </summary>
-    /// <param name="types">All types that received a type page.</param>
-    /// <param name="outputRoot">The directory that contains the api/ tree.</param>
-    /// <param name="options">Routing + cross-link tunables.</param>
-    /// <returns>The number of landing pages written.</returns>
-    public static int EmitAll(ApiType[] types, string outputRoot, ZensicalEmitterOptions options) =>
-        EmitAll(types, outputRoot, BuildDefaultConverter(), options);
-
-    /// <summary>
-    /// Production landing-page emit path that consumes raw walker
-    /// output and converts each type's summary on demand via the
-    /// supplied converter -- one Convert call per type-page entry,
-    /// no record allocation.
-    /// </summary>
     /// <param name="types">All types that received a type page -- raw walker output.</param>
-    /// <param name="outputRoot">The directory that contains the api/ tree.</param>
-    /// <param name="converter">XML to Markdown converter wired with the emitter's <see cref="ICrefResolver"/>.</param>
-    /// <param name="options">Routing + cross-link tunables.</param>
+    /// <param name="context">Render context built once per emit run; carries the destination sink.</param>
     /// <returns>The number of landing pages written.</returns>
-    internal static int EmitAll(ApiType[] types, string outputRoot, XmlDocToMarkdown converter, ZensicalEmitterOptions options)
+    internal static int EmitAll(ApiType[] types, ZensicalEmitContext context)
     {
         ArgumentNullException.ThrowIfNull(types);
-        ArgumentException.ThrowIfNullOrWhiteSpace(outputRoot);
-        ArgumentNullException.ThrowIfNull(converter);
-        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(context);
 
-        var tree = BuildTree(types, converter, options);
+        var tree = BuildTree(types, context.Converter, context.Options);
         var written = 0;
         foreach (var package in tree)
         {
-            WritePackageIndex(outputRoot, package.Key, package.Value);
+            WritePackageIndex(context.Sink, package.Key, package.Value);
             written++;
             foreach (var ns in package.Value)
             {
-                WriteNamespaceIndex(outputRoot, package.Key, ns.Key, ns.Value);
+                WriteNamespaceIndex(context.Sink, package.Key, ns.Key, ns.Value);
                 written++;
             }
         }
@@ -74,31 +57,11 @@ internal static class LandingPageEmitter
         return written;
     }
 
-    /// <summary>
-    /// Render-and-write entry point used by
-    /// <see cref="ZensicalDocumentationEmitter"/>. Threads the run's
-    /// converter into the lazy summary materialisation so the landing
-    /// pages share the same per-symbol XML to Markdown rendering pass
-    /// as the type pages without rebuilding catalog records.
-    /// </summary>
-    /// <param name="types">All types that received a type page -- raw walker output.</param>
-    /// <param name="outputRoot">The directory that contains the api/ tree.</param>
-    /// <param name="context">Render context built once per emit run.</param>
-    /// <returns>The number of landing pages written.</returns>
-    internal static int EmitAll(ApiType[] types, string outputRoot, ZensicalEmitContext context)
-    {
-        ArgumentNullException.ThrowIfNull(context);
-        return EmitAll(types, outputRoot, context.Converter, context.Options);
-    }
-
     /// <summary>Writes the per-package index listing the package's namespaces.</summary>
-    /// <param name="outputRoot">The directory that contains the api/ tree.</param>
-    /// <param name="packageFolder">The package folder name.</param>
-    /// <param name="namespaces">The package's namespace buckets.</param>
-    private static void WritePackageIndex(
-        string outputRoot,
-        string packageFolder,
-        SortedDictionary<string, List<TypeEntry>> namespaces)
+    /// <param name="sink">Destination sink.</param>
+    /// <param name="packageFolder">Package folder name.</param>
+    /// <param name="namespaces">Namespace buckets.</param>
+    private static void WritePackageIndex(IPageSink sink, string packageFolder, SortedDictionary<string, List<TypeEntry>> namespaces)
     {
         using var rental = PageBuilderPool.Rent(InitialPageCapacity);
         var sb = rental.Builder
@@ -114,19 +77,15 @@ internal static class LandingPageEmitter
               .Append(ns.Value.Count).AppendLine(" types");
         }
 
-        PageWriter.WriteUtf8(Path.Combine(outputRoot, packageFolder, IndexFileName), sb);
+        sink.WritePage($"{packageFolder}/{IndexFileName}", sb);
     }
 
     /// <summary>Writes the per-namespace index listing the namespace's types.</summary>
-    /// <param name="outputRoot">The directory that contains the api/ tree.</param>
-    /// <param name="packageFolder">The owning package folder name.</param>
-    /// <param name="namespaceName">The display namespace.</param>
+    /// <param name="sink">Destination sink.</param>
+    /// <param name="packageFolder">Owning package folder name.</param>
+    /// <param name="namespaceName">Display namespace.</param>
     /// <param name="entries">Types in this (package, namespace) bucket, pre-sorted.</param>
-    private static void WriteNamespaceIndex(
-        string outputRoot,
-        string packageFolder,
-        string namespaceName,
-        List<TypeEntry> entries)
+    private static void WriteNamespaceIndex(IPageSink sink, string packageFolder, string namespaceName, List<TypeEntry> entries)
     {
         using var rental = PageBuilderPool.Rent(InitialPageCapacity);
         var sb = rental.Builder
@@ -145,7 +104,7 @@ internal static class LandingPageEmitter
         }
 
         var folder = NamespaceFolderName(namespaceName);
-        PageWriter.WriteUtf8(Path.Combine(outputRoot, packageFolder, folder, IndexFileName), sb);
+        sink.WritePage($"{packageFolder}/{folder}/{IndexFileName}", sb);
     }
 
     /// <summary>
@@ -202,14 +161,6 @@ internal static class LandingPageEmitter
     /// <returns>A single-line summary suitable for the listing table.</returns>
     private static string OneLineSummary(string summary)
         => ZensicalEmitterHelpers.FirstParagraphAsSingleLine(summary, escapePipes: true);
-
-    /// <summary>
-    /// Constructs the default per-call <see cref="XmlDocToMarkdown"/> the
-    /// converter-less <c>EmitAll</c> overload uses. Production emit
-    /// paths supply their own resolver-aware converter.
-    /// </summary>
-    /// <returns>A fresh converter; cheap, single-purpose, not cached.</returns>
-    private static XmlDocToMarkdown BuildDefaultConverter() => new(DefaultCrefResolver.Instance);
 
     /// <summary>One row in a namespace landing page.</summary>
     /// <param name="Title">Display name (with generic angles).</param>

@@ -100,51 +100,22 @@ internal static class MemberPageEmitter
         return packageFolder is null ? basePath : packageFolder + "/" + basePath;
     }
 
-    /// <summary>
-    /// Convenience: render and write the page to disk under the
-    /// supplied output root, creating intermediate directories.
-    /// </summary>
-    /// <param name="containingType">Type the overloads are declared on.</param>
+    /// <summary>Sink-routed render entry point used by the streaming emit path.</summary>
+    /// <param name="containingType">Declaring type.</param>
     /// <param name="memberName">Shared overload group name.</param>
-    /// <param name="overloads">The overloads to render.</param>
-    /// <param name="outputRoot">Directory that contains the api/ tree.</param>
-    public static void RenderToFile(ApiType containingType, string memberName, ApiMember[] overloads, string outputRoot) =>
-        RenderToFile(containingType, memberName, overloads, outputRoot, ZensicalEmitterOptions.Default);
-
-    /// <summary>
-    /// Render and write the page under <paramref name="outputRoot"/>,
-    /// honouring per-package routing rules from <paramref name="options"/>.
-    /// </summary>
-    /// <param name="containingType">Type the overloads are declared on.</param>
-    /// <param name="memberName">Shared overload group name.</param>
-    /// <param name="overloads">The overloads to render.</param>
-    /// <param name="outputRoot">Directory that contains the api/ tree.</param>
-    /// <param name="options">Routing + cross-link tunables.</param>
-    public static void RenderToFile(ApiType containingType, string memberName, ApiMember[] overloads, string outputRoot, ZensicalEmitterOptions options) =>
-        RenderToFile(containingType, memberName, overloads, outputRoot, BuildDefaultConverter(), options);
-
-    /// <summary>
-    /// Render-and-write entry point used by
-    /// <see cref="ZensicalDocumentationEmitter"/>. Consumes raw walker
-    /// output; the per-section <see cref="RenderedDoc"/> facade pulls
-    /// each XML fragment through the supplied converter exactly once
-    /// when the section actually reads it.
-    /// </summary>
-    /// <param name="containingType">The declaring type -- raw walker output.</param>
-    /// <param name="memberName">Shared overload group name.</param>
-    /// <param name="overloads">The overloads -- raw walker output.</param>
-    /// <param name="outputRoot">Directory that contains the api/ tree.</param>
-    /// <param name="context">Render context built once per emit run.</param>
-    internal static void RenderToFile(
+    /// <param name="overloads">The overloads.</param>
+    /// <param name="context">Render context built once per emit run; carries the destination sink.</param>
+    internal static void Render(
         ApiType containingType,
         string memberName,
         ApiMember[] overloads,
-        string outputRoot,
         ZensicalEmitContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(overloads);
-        RenderToFile(containingType, memberName, overloads, outputRoot, context.Converter, context.Options);
+        using var rental = PageBuilderPool.Rent(InitialPageCapacity);
+        BuildPage(rental.Builder, containingType, memberName, overloads, context.Converter, context.Options);
+        context.Sink.WritePage(PathFor(containingType, memberName, context.Options), rental.Builder);
     }
 
     /// <summary>
@@ -236,32 +207,6 @@ internal static class MemberPageEmitter
         {
             AppendNumberedOverload(sb, overloads[i], i + 1, converter, options);
         }
-    }
-
-    /// <summary>
-    /// Lower-level render-and-write that takes the converter
-    /// directly. Used internally by the context overload and by the
-    /// converter-less public overload (which builds a default
-    /// converter for tests).
-    /// </summary>
-    /// <param name="containingType">The declaring type.</param>
-    /// <param name="memberName">Shared overload group name.</param>
-    /// <param name="overloads">The overloads.</param>
-    /// <param name="outputRoot">Directory that contains the api/ tree.</param>
-    /// <param name="converter">XML->Markdown converter.</param>
-    /// <param name="options">Routing + cross-link tunables.</param>
-    private static void RenderToFile(
-        ApiType containingType,
-        string memberName,
-        ApiMember[] overloads,
-        string outputRoot,
-        XmlDocToMarkdown converter,
-        ZensicalEmitterOptions options)
-    {
-        ArgumentNullException.ThrowIfNull(options);
-        using var rental = PageBuilderPool.Rent(InitialPageCapacity);
-        BuildPage(rental.Builder, containingType, memberName, overloads, converter, options);
-        PageWriter.WriteUtf8(Path.Combine(outputRoot, PathFor(containingType, memberName, options)), rental.Builder);
     }
 
     /// <summary>

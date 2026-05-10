@@ -7,27 +7,23 @@ using SourceDocParser.Model;
 namespace SourceDocParser;
 
 /// <summary>
-/// Renders the merged <see cref="ApiCatalog"/> into documentation
-/// pages. Each implementation targets one output format.
+/// Renders the merged <see cref="ApiCatalog"/> into documentation pages. Each implementation
+/// targets one output format. Pages are streamed through an <see cref="IPageSink"/> so the
+/// emitter never has to know whether the destination is a directory, an in-memory queue, or
+/// some other consumer.
 /// </summary>
 public interface IDocumentationEmitter
 {
-    /// <summary>
-    /// Writes pages for every type in <paramref name="types"/> into
-    /// <paramref name="outputRoot"/>.
-    /// </summary>
+    /// <summary>Streams pages for every type in <paramref name="types"/> through <paramref name="sink"/>.</summary>
     /// <param name="types">Merged canonical types.</param>
-    /// <param name="outputRoot">Destination directory, already cleaned.</param>
-    /// <returns>Total pages written.</returns>
-    Task<int> EmitAsync(ApiType[] types, string outputRoot);
+    /// <param name="sink">Destination sink.</param>
+    /// <returns>Total pages emitted.</returns>
+    Task<int> EmitAsync(ApiType[] types, IPageSink sink);
 
-    /// <summary>
-    /// Writes pages for every type in <paramref name="types"/> into
-    /// <paramref name="outputRoot"/>.
-    /// </summary>
+    /// <summary>Streams pages for every type in <paramref name="types"/> through <paramref name="sink"/>.</summary>
     /// <param name="types">Merged canonical types.</param>
-    /// <param name="outputRoot">Destination directory, already cleaned.</param>
+    /// <param name="sink">Destination sink.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Total pages written.</returns>
-    Task<int> EmitAsync(ApiType[] types, string outputRoot, CancellationToken cancellationToken);
+    /// <returns>Total pages emitted.</returns>
+    Task<int> EmitAsync(ApiType[] types, IPageSink sink, CancellationToken cancellationToken);
 }

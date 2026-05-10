@@ -74,7 +74,7 @@ public class SourceDocParserDocfxLibraryBenchmark
             _sourcePerTfm[tfm] = source;
 
             var warmupOutput = Path.Combine(tfmRoot, "warmup");
-            await _extractor.RunAsync(source, warmupOutput, _emitter).ConfigureAwait(false);
+            await _extractor.RunAsync(source, new FilePageSink(warmupOutput), _emitter).ConfigureAwait(false);
         }
     }
 
@@ -123,7 +123,7 @@ public class SourceDocParserDocfxLibraryBenchmark
     /// <returns>The extraction result (returned so BDN doesn't elide the call).</returns>
     [Benchmark]
     public Task<ExtractionResult> RunAsync() =>
-        _extractor.RunAsync(_source, _outputRoot, _emitter);
+        _extractor.RunAsync(_source, new FilePageSink(_outputRoot), _emitter);
 
     /// <summary>Builds a single-TFM nuget-packages.json. Drops every other TFM so the walk is scoped to one slice.</summary>
     /// <param name="tfm">Short TFM identifier (net8.0, net472, ...).</param>

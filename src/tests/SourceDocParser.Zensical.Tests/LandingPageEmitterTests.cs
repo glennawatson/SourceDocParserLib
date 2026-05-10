@@ -9,10 +9,10 @@ using SourceDocParser.Zensical.Pages;
 namespace SourceDocParser.Zensical.Tests;
 
 /// <summary>
-/// Pins <see cref="LandingPageEmitter"/> on the per-package and
-/// per-namespace index page shape -- file placement, content
-/// fingerprints, and the cross-package isolation that prevents
-/// clashing namespaces from overwriting each other.
+/// Pins <see cref="LandingPageEmitter"/> on the per-package and per-namespace index page shape.
+/// Drives the emitter end-to-end through <see cref="ZensicalDocumentationEmitter"/> and a
+/// <see cref="FilePageSink"/> so the assertions are written against the on-disk layout the
+/// landing emitter actually produces in production runs.
 /// </summary>
 public class LandingPageEmitterTests
 {
@@ -24,11 +24,10 @@ public class LandingPageEmitterTests
         using var temp = new TempDirectory();
         var foo = TestData.ObjectType("Foo", assemblyName: "Splat") with { Namespace = "Splat" };
 
-        var written = LandingPageEmitter.EmitAll([foo], temp.Path, ZensicalEmitterOptions.Default);
+        await new ZensicalDocumentationEmitter().EmitAsync([foo], new FilePageSink(temp.Path));
         var packageIndex = await File.ReadAllTextAsync(Path.Combine(temp.Path, "Splat", LandingPageEmitter.IndexFileName));
         var namespaceIndex = await File.ReadAllTextAsync(Path.Combine(temp.Path, "Splat", "Splat", LandingPageEmitter.IndexFileName));
 
-        await Assert.That(written).IsEqualTo(2);
         await Assert.That(packageIndex).Contains("# Splat package");
         await Assert.That(packageIndex).Contains("[Splat](Splat/index.md)");
         await Assert.That(namespaceIndex).Contains("# Splat namespace");
@@ -45,7 +44,7 @@ public class LandingPageEmitterTests
         var core = TestData.ObjectType("Reactive", assemblyName: "ReactiveUI") with { Namespace = "ReactiveUI" };
         var wpf = TestData.ObjectType("WpfHelper", assemblyName: "ReactiveUI.Wpf") with { Namespace = "ReactiveUI" };
 
-        LandingPageEmitter.EmitAll([core, wpf], temp.Path, ZensicalEmitterOptions.Default);
+        await new ZensicalDocumentationEmitter().EmitAsync([core, wpf], new FilePageSink(temp.Path));
         var coreIndex = await File.ReadAllTextAsync(Path.Combine(temp.Path, "ReactiveUI", "ReactiveUI", LandingPageEmitter.IndexFileName));
         var wpfIndex = await File.ReadAllTextAsync(Path.Combine(temp.Path, "ReactiveUI.Wpf", "ReactiveUI", LandingPageEmitter.IndexFileName));
 
@@ -67,9 +66,8 @@ public class LandingPageEmitterTests
         var matched = TestData.ObjectType("Foo", assemblyName: "Primary") with { Namespace = "Primary" };
         var skipped = TestData.ObjectType("Bar", assemblyName: "Other") with { Namespace = "Other" };
 
-        var written = LandingPageEmitter.EmitAll([matched, skipped], temp.Path, options);
+        await new ZensicalDocumentationEmitter(options).EmitAsync([matched, skipped], new FilePageSink(temp.Path));
 
-        await Assert.That(written).IsEqualTo(2);
         await Assert.That(Directory.Exists(Path.Combine(temp.Path, "Other"))).IsFalse();
     }
 }

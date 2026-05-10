@@ -299,7 +299,7 @@ public class DocfxYamlEmitterTests
             TestData.DelegateType("Handler"),
         };
 
-        var pages = await new DocfxYamlEmitter().EmitAsync([.. types], scratch.Path);
+        var pages = await new DocfxYamlEmitter().EmitAsync([.. types], new FilePageSink(scratch.Path));
 
         await Assert.That(pages).IsEqualTo(3);
         await Assert.That(File.Exists(Path.Combine(scratch.Path, "Foo.yml"))).IsTrue();

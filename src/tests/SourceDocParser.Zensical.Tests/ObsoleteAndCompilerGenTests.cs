@@ -54,7 +54,7 @@ public class ObsoleteAndCompilerGenTests
         var legitimate = TestData.ObjectType("Foo");
         var displayClass = TestData.ObjectType("<>c__DisplayClass0_0");
 
-        var pages = await new ZensicalDocumentationEmitter().EmitAsync([legitimate, displayClass], scratch.Path);
+        var pages = await new ZensicalDocumentationEmitter().EmitAsync([legitimate, displayClass], new FilePageSink(scratch.Path));
 
         // Only Foo + 1 package landing + 1 namespace landing -- the
         // display class never reaches the page emitter.
@@ -123,7 +123,7 @@ public class ObsoleteAndCompilerGenTests
         ];
         var type = TestData.ObjectType("Foo") with { Members = members, Namespace = "Demo" };
 
-        await new ZensicalDocumentationEmitter().EmitAsync([type], scratch.Path);
+        await new ZensicalDocumentationEmitter().EmitAsync([type], new FilePageSink(scratch.Path));
 
         var typePage = await File.ReadAllTextAsync(Path.Combine(scratch.Path, "Test", "Demo", "Foo.md"));
         var clonePath = Path.Combine(scratch.Path, "Test", "Demo", "Foo", "{Clone}$.md");

@@ -64,37 +64,6 @@ internal static class TypePageEmitter
     private const string MermaidClassDeclarationPrefix = "    class ";
 
     /// <summary>
-    /// Renders and writes the page to disk under the supplied output root.
-    /// </summary>
-    /// <param name="type">The type to render.</param>
-    /// <param name="outputRoot">The directory that contains the api/ tree.</param>
-    public static void RenderToFile(ApiType type, string outputRoot) =>
-        RenderToFile(type, outputRoot, ZensicalEmitterOptions.Default);
-
-    /// <summary>
-    /// Renders and writes the page to disk under <paramref name="outputRoot"/>,
-    /// honouring per-package routing rules from <paramref name="options"/>.
-    /// </summary>
-    /// <param name="type">The type to render.</param>
-    /// <param name="outputRoot">The directory that contains the api/ tree.</param>
-    /// <param name="options">Routing + cross-link tunables.</param>
-    public static void RenderToFile(ApiType type, string outputRoot, ZensicalEmitterOptions options) =>
-        RenderToFile(type, outputRoot, options, ZensicalCatalogIndexes.Empty);
-
-    /// <summary>
-    /// Catalog-aware <see cref="RenderToFile(ApiType, string, ZensicalEmitterOptions)"/>
-    /// -- threads <paramref name="indexes"/> through to the page render
-    /// so the type page picks up the "Derived types", "Inherited
-    /// members", and "Extension members" sections.
-    /// </summary>
-    /// <param name="type">The type to render.</param>
-    /// <param name="outputRoot">The directory that contains the api/ tree.</param>
-    /// <param name="options">Routing + cross-link tunables.</param>
-    /// <param name="indexes">Pre-built catalog rollups.</param>
-    public static void RenderToFile(ApiType type, string outputRoot, ZensicalEmitterOptions options, ZensicalCatalogIndexes indexes) =>
-        RenderToFile(type, outputRoot, BuildDefaultConverter(), options, indexes);
-
-    /// <summary>
     /// Renders the supplied ApiType into a Markdown string with
     /// the legacy default cross-link routing (autoref UID
     /// everywhere, no Microsoft Learn redirects).
@@ -161,13 +130,18 @@ internal static class TypePageEmitter
     /// at most once even if multiple sections (or per-overload pages)
     /// read them.
     /// </summary>
+    /// <summary>
+    /// Sink-routed render entry point used by the streaming emit path.
+    /// </summary>
     /// <param name="type">Type to render -- raw walker output.</param>
-    /// <param name="outputRoot">Markdown output root.</param>
-    /// <param name="context">Render context built once per emit run.</param>
-    internal static void RenderToFile(ApiType type, string outputRoot, ZensicalEmitContext context)
+    /// <param name="context">Render context built once per emit run; carries the destination sink.</param>
+    internal static void Render(ApiType type, ZensicalEmitContext context)
     {
+        ArgumentNullException.ThrowIfNull(type);
         ArgumentNullException.ThrowIfNull(context);
-        RenderToFile(type, outputRoot, context.Converter, context.Options, context.Indexes);
+        using var rental = PageBuilderPool.Rent(InitialPageCapacity);
+        BuildPage(rental.Builder, type, context.Converter, context.Options, context.Indexes);
+        context.Sink.WritePage(PathFor(type, context.Options), rental.Builder);
     }
 
     /// <summary>
@@ -988,24 +962,5 @@ internal static class TypePageEmitter
         AppendExtensionMembers(sb, indexes.GetExtensions(type.Uid), options);
         AppendExtensionBlocks(sb, type is ApiObjectType obj ? obj.ExtensionBlocks : [], options);
         AppendSeeAlso(sb, doc.SeeAlso, options);
-    }
-
-    /// <summary>
-    /// Lower-level render-and-write that takes the converter directly.
-    /// Used by the context overload and by the converter-less public
-    /// overload (which builds a default converter for tests).
-    /// </summary>
-    /// <param name="type">The type to render.</param>
-    /// <param name="outputRoot">Output root.</param>
-    /// <param name="converter">XML->Markdown converter.</param>
-    /// <param name="options">Routing + cross-link tunables.</param>
-    /// <param name="indexes">Pre-built catalog rollups.</param>
-    private static void RenderToFile(ApiType type, string outputRoot, XmlDocToMarkdown converter, ZensicalEmitterOptions options, ZensicalCatalogIndexes indexes)
-    {
-        ArgumentNullException.ThrowIfNull(options);
-        ArgumentNullException.ThrowIfNull(indexes);
-        using var rental = PageBuilderPool.Rent(InitialPageCapacity);
-        BuildPage(rental.Builder, type, converter, options, indexes);
-        PageWriter.WriteUtf8(Path.Combine(outputRoot, PathFor(type, options)), rental.Builder);
     }
 }

@@ -89,7 +89,7 @@ public class PipelinePhaseBenchmarks
 
         // Warm NuGet cache so per-iteration timings exclude the network leg.
         var warmer = new MetadataExtractor();
-        await warmer.RunAsync(_source, Path.Combine(_scratchRoot, "warmup"), _emitter).ConfigureAwait(false);
+        await warmer.RunAsync(_source, new FilePageSink(Path.Combine(_scratchRoot, "warmup")), _emitter).ConfigureAwait(false);
 
         // Capture discovered groups for every phase to reuse.
         _groups = [];
@@ -263,7 +263,7 @@ public class PipelinePhaseBenchmarks
     /// <summary>Hands the pre-merged canonical types to the Zensical emitter.</summary>
     /// <returns>The number of pages emitted.</returns>
     [Benchmark]
-    public Task<int> EmitBench() => _emitter.EmitAsync(_mergedTypes, _outputRoot);
+    public Task<int> EmitBench() => _emitter.EmitAsync(_mergedTypes, new FilePageSink(_outputRoot));
 
     /// <summary>
     /// Loads every assembly without walking.

@@ -43,7 +43,7 @@ public class MetadataExtractorInjectionTests
         var extractor = new MetadataExtractor(walker, LoaderFactory, ResolverFactory);
 
         using var output = new TempDirectory();
-        var result = await extractor.RunAsync(new FakeAssemblySource(groups), output.Path, new RecordingEmitter());
+        var result = await extractor.RunAsync(new FakeAssemblySource(groups), new FilePageSink(output.Path), new RecordingEmitter());
 
         await Assert.That(loaderFactoryCalls).IsEqualTo(1);
         await Assert.That(loader.LoadCalls.Count).IsEqualTo(2);
@@ -84,7 +84,7 @@ public class MetadataExtractorInjectionTests
         var extractor = new MetadataExtractor(walker, LoaderFactory, static _ => new NullSourceLinkResolver());
 
         using var output = new TempDirectory();
-        await extractor.RunAsync(new FakeAssemblySource(groups), output.Path, new RecordingEmitter());
+        await extractor.RunAsync(new FakeAssemblySource(groups), new FilePageSink(output.Path), new RecordingEmitter());
 
         await Assert.That(loaders.Count).IsEqualTo(2);
         await Assert.That(Array.TrueForAll(loaders.ToArray(), static l => l.DisposeCount >= 1)).IsTrue();
@@ -113,7 +113,7 @@ public class MetadataExtractorInjectionTests
         var extractor = new MetadataExtractor(walker, LoaderFactory, static _ => new NullSourceLinkResolver());
 
         using var output = new TempDirectory();
-        var result = await extractor.RunAsync(new FakeAssemblySource(groups), output.Path, new RecordingEmitter());
+        var result = await extractor.RunAsync(new FakeAssemblySource(groups), new FilePageSink(output.Path), new RecordingEmitter());
 
         await Assert.That(result.LoadFailures).IsEqualTo(1);
         await Assert.That(walker.WalkCalls.Count).IsEqualTo(0);
@@ -141,7 +141,7 @@ public class MetadataExtractorInjectionTests
             ResolverFactory);
 
         using var output = new TempDirectory();
-        await extractor.RunAsync(new FakeAssemblySource(groups), output.Path, new RecordingEmitter());
+        await extractor.RunAsync(new FakeAssemblySource(groups), new FilePageSink(output.Path), new RecordingEmitter());
 
         List<string> observedTfms = [.. walker.WalkCalls.Select(static c => c.Tfm).OrderBy(static s => s, StringComparer.Ordinal)];
         await Assert.That(observedTfms).IsEquivalentTo((List<string>)["net10.0", "net9.0"]);
@@ -170,7 +170,7 @@ public class MetadataExtractorInjectionTests
             ResolverFactory);
 
         using var output = new TempDirectory();
-        await extractor.RunAsync(new FakeAssemblySource(groups), output.Path, new RecordingEmitter());
+        await extractor.RunAsync(new FakeAssemblySource(groups), new FilePageSink(output.Path), new RecordingEmitter());
 
         List<string> sorted = [.. observed.OrderBy(static s => s, StringComparer.Ordinal)];
         await Assert.That(sorted).IsEquivalentTo((List<string>)["/fake/A.dll", "/fake/B.dll"]);
@@ -286,11 +286,11 @@ public class MetadataExtractorInjectionTests
     private sealed class RecordingEmitter : IDocumentationEmitter
     {
         /// <inheritdoc />
-        public Task<int> EmitAsync(ApiType[] types, string outputRoot) =>
+        public Task<int> EmitAsync(ApiType[] types, IPageSink sink) =>
             Task.FromResult(types.Length);
 
         /// <inheritdoc />
-        public Task<int> EmitAsync(ApiType[] types, string outputRoot, CancellationToken cancellationToken) =>
+        public Task<int> EmitAsync(ApiType[] types, IPageSink sink, CancellationToken cancellationToken) =>
             Task.FromResult(types.Length);
     }
 

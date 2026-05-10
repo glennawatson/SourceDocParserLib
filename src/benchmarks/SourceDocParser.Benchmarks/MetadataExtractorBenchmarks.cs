@@ -63,7 +63,7 @@ public class MetadataExtractorBenchmarks
 
         // Warm the local cache so [Benchmark] iterations don't re-fetch.
         var warmupOutput = Path.Combine(_scratchRoot, "warmup");
-        await _extractor.RunAsync(_source, warmupOutput, _emitter).ConfigureAwait(false);
+        await _extractor.RunAsync(_source, new FilePageSink(warmupOutput), _emitter).ConfigureAwait(false);
     }
 
     /// <summary>Per-iteration setup. Allocates a fresh output directory so each run starts clean.</summary>
@@ -109,5 +109,5 @@ public class MetadataExtractorBenchmarks
     /// <returns>The extraction summary (returned so BenchmarkDotNet doesn't elide the call).</returns>
     [Benchmark]
     public Task<ExtractionResult> RunAsync() =>
-        _extractor.RunAsync(_source, _outputRoot, _emitter);
+        _extractor.RunAsync(_source, new FilePageSink(_outputRoot), _emitter);
 }

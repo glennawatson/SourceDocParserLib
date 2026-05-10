@@ -29,7 +29,7 @@ public class ZensicalDocumentationEmitterTests
         using var scratch = new ScratchDirectory();
         var type = ObjectTypeWithMembers("DemoClass", "Run", "Stop", "Cancel");
 
-        var pages = await new ZensicalDocumentationEmitter().EmitAsync([type], scratch.Path);
+        var pages = await new ZensicalDocumentationEmitter().EmitAsync([type], new FilePageSink(scratch.Path));
 
         // 1 type page + 3 overload-group pages + 1 package landing + 1 namespace landing.
         await Assert.That(pages).IsEqualTo(6);
@@ -47,7 +47,7 @@ public class ZensicalDocumentationEmitterTests
         using var scratch = new ScratchDirectory();
         var type = ObjectTypeWithMembers("DemoClass", "Run", "Run", "Run");
 
-        var pages = await new ZensicalDocumentationEmitter().EmitAsync([type], scratch.Path);
+        var pages = await new ZensicalDocumentationEmitter().EmitAsync([type], new FilePageSink(scratch.Path));
 
         // 1 type page + 1 overload-group page (all three Run overloads share
         // the same name bucket) + 1 package landing + 1 namespace landing.
@@ -73,7 +73,7 @@ public class ZensicalDocumentationEmitterTests
         }
 
         var type = TestData.EnumType("DemoEnum") with { Values = [.. values] };
-        var pages = await new ZensicalDocumentationEmitter().EmitAsync([type], scratch.Path);
+        var pages = await new ZensicalDocumentationEmitter().EmitAsync([type], new FilePageSink(scratch.Path));
 
         // 1 type page + 1 package landing + 1 namespace landing.
         await Assert.That(pages).IsEqualTo(3);
@@ -91,7 +91,7 @@ public class ZensicalDocumentationEmitterTests
         using var scratch = new ScratchDirectory();
         var type = TestData.DelegateType("DemoHandler");
 
-        var pages = await new ZensicalDocumentationEmitter().EmitAsync([type], scratch.Path);
+        var pages = await new ZensicalDocumentationEmitter().EmitAsync([type], new FilePageSink(scratch.Path));
 
         // 1 type page + 1 package landing + 1 namespace landing.
         await Assert.That(pages).IsEqualTo(3);
@@ -112,13 +112,13 @@ public class ZensicalDocumentationEmitterTests
         var emitter = new ZensicalDocumentationEmitter();
         var type = TestData.ObjectType("DemoClass");
 
-        var pages = await emitter.EmitAsync([type], scratch.Path);
+        var pages = await emitter.EmitAsync([type], new FilePageSink(scratch.Path));
 
         await Assert.That(pages).IsGreaterThan(0);
     }
 
     /// <summary>
-    /// The two-argument <see cref="ZensicalDocumentationEmitter.EmitAsync(ApiType[], string)"/>
+    /// The two-argument <see cref="ZensicalDocumentationEmitter.EmitAsync(ApiType[], IPageSink)"/>
     /// overload forwards to the cancellation-aware overload with
     /// <see cref="CancellationToken.None"/>; exercising it ensures the
     /// thin forwarding shim is covered.
@@ -132,7 +132,7 @@ public class ZensicalDocumentationEmitterTests
         var firstType = TestData.ObjectType("FirstDemo");
         var secondType = TestData.ObjectType("SecondDemo");
 
-        var pages = await emitter.EmitAsync([firstType, secondType], scratch.Path);
+        var pages = await emitter.EmitAsync([firstType, secondType], new FilePageSink(scratch.Path));
 
         // Two distinct types -> at least two type pages emitted; the
         // exact total includes namespace + package landing pages so we
@@ -158,7 +158,7 @@ public class ZensicalDocumentationEmitterTests
     /// <summary>
     /// Passing <see langword="null"/> for <c>types</c> hits the
     /// <see cref="ArgumentNullException.ThrowIfNull(object?, string?)"/>
-    /// guard at the top of <see cref="ZensicalDocumentationEmitter.EmitAsync(ApiType[], string, CancellationToken)"/>.
+    /// guard at the top of <see cref="ZensicalDocumentationEmitter.EmitAsync(ApiType[], IPageSink, CancellationToken)"/>.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -167,35 +167,24 @@ public class ZensicalDocumentationEmitterTests
         using var scratch = new ScratchDirectory();
         var emitter = new ZensicalDocumentationEmitter();
 
-        await Assert.That(() => emitter.EmitAsync(null!, scratch.Path, CancellationToken.None)).Throws<ArgumentNullException>();
+        await Assert.That(() => emitter.EmitAsync(null!, new FilePageSink(scratch.Path), CancellationToken.None)).Throws<ArgumentNullException>();
     }
 
     /// <summary>
-    /// Whitespace and empty <c>outputRoot</c> values trip the
-    /// <see cref="ArgumentException.ThrowIfNullOrWhiteSpace(string?, string?)"/>
-    /// guard.
+    /// Constructing a <see cref="FilePageSink"/> with a blank root trips its argument-validation guard.
     /// </summary>
     /// <param name="outputRoot">Invalid output root candidate.</param>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     [Arguments("")]
     [Arguments("   ")]
-    public async Task EmitAsyncThrowsWhenOutputRootIsBlank(string outputRoot)
-    {
-        var emitter = new ZensicalDocumentationEmitter();
-        var type = TestData.ObjectType("DemoClass");
+    public async Task FilePageSinkThrowsWhenOutputRootIsBlank(string outputRoot) =>
+        await Assert.That(() => new FilePageSink(outputRoot)).Throws<ArgumentException>();
 
-        await Assert.That(() => emitter.EmitAsync([type], outputRoot, CancellationToken.None)).Throws<ArgumentException>();
-    }
-
-    /// <summary>
-    /// A null <c>outputRoot</c> trips the same
-    /// <see cref="ArgumentException.ThrowIfNullOrWhiteSpace(string?, string?)"/>
-    /// guard but as an <see cref="ArgumentNullException"/>.
-    /// </summary>
+    /// <summary>A null sink trips the emitter's argument-null guard.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task EmitAsyncThrowsWhenOutputRootIsNull()
+    public async Task EmitAsyncThrowsWhenSinkIsNull()
     {
         var emitter = new ZensicalDocumentationEmitter();
         var type = TestData.ObjectType("DemoClass");
@@ -218,7 +207,7 @@ public class ZensicalDocumentationEmitterTests
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 
-        await Assert.That(() => emitter.EmitAsync([type], scratch.Path, cts.Token)).Throws<OperationCanceledException>();
+        await Assert.That(() => emitter.EmitAsync([type], new FilePageSink(scratch.Path), cts.Token)).Throws<OperationCanceledException>();
     }
 
     /// <summary>
@@ -241,7 +230,7 @@ public class ZensicalDocumentationEmitterTests
         };
         var outOfScope = TestData.ObjectType("OtherClass", "OutOfScope.Other") with { Namespace = "OutOfScope.Other" };
 
-        await emitter.EmitAsync([inScope, outOfScope], scratch.Path);
+        await emitter.EmitAsync([inScope, outOfScope], new FilePageSink(scratch.Path));
 
         var inScopePage = Directory.EnumerateFiles(scratch.Path, "DemoClass.md", SearchOption.AllDirectories).FirstOrDefault();
         var outOfScopePage = Directory.EnumerateFiles(scratch.Path, "OtherClass.md", SearchOption.AllDirectories).FirstOrDefault();
@@ -262,7 +251,7 @@ public class ZensicalDocumentationEmitterTests
         var emitter = new ZensicalDocumentationEmitter();
         var hidden = TestData.ObjectType("<>c__DisplayClass0_0");
 
-        var pages = await emitter.EmitAsync([hidden], scratch.Path);
+        var pages = await emitter.EmitAsync([hidden], new FilePageSink(scratch.Path));
 
         // No type page, no member page -- only landing pages exist if any.
         await Assert.That(MarkdownFiles(scratch.Path)).IsLessThanOrEqualTo(pages);
@@ -289,7 +278,7 @@ public class ZensicalDocumentationEmitterTests
             "<>c__DisplayClass0_0",
             "<RaiseEvent>b__0");
 
-        await emitter.EmitAsync([type], scratch.Path);
+        await emitter.EmitAsync([type], new FilePageSink(scratch.Path));
 
         // The type page exists, but no member-page directory should
         // contain a per-overload page for any of the synthetic names.
@@ -358,7 +347,7 @@ public class ZensicalDocumentationEmitterTests
             Members: [member],
             Cases: []);
 
-        var pages = await emitter.EmitAsync([union], scratch.Path);
+        var pages = await emitter.EmitAsync([union], new FilePageSink(scratch.Path));
 
         await Assert.That(pages).IsGreaterThanOrEqualTo(2);
     }

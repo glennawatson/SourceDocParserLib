@@ -18,7 +18,7 @@ namespace SourceDocParser.Zensical.Pages;
 /// matching <see cref="ZensicalCrefResolver"/>.
 /// </summary>
 /// <remarks>
-/// Built once in <see cref="ZensicalDocumentationEmitter.EmitAsync(ApiType[], string, System.Threading.CancellationToken)"/>
+/// Built once in <see cref="ZensicalDocumentationEmitter.EmitAsync(ApiType[], IPageSink, System.Threading.CancellationToken)"/>
 /// and passed by reference to every page renderer so cref tags inside
 /// doc strings resolve consistently across types and members.
 /// </remarks>
@@ -29,20 +29,24 @@ internal sealed class ZensicalEmitContext
     /// <param name="indexes">Catalog rollups computed once.</param>
     /// <param name="emittedUids">Set of UIDs (types + members) the emitter produces pages for.</param>
     /// <param name="converter">XML->Markdown converter wired with the cref resolver for this run.</param>
+    /// <param name="sink">Destination sink each page is written through.</param>
     public ZensicalEmitContext(
         ZensicalEmitterOptions options,
         ZensicalCatalogIndexes indexes,
         FrozenSet<string> emittedUids,
-        XmlDocToMarkdown converter)
+        XmlDocToMarkdown converter,
+        IPageSink sink)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(indexes);
         ArgumentNullException.ThrowIfNull(emittedUids);
         ArgumentNullException.ThrowIfNull(converter);
+        ArgumentNullException.ThrowIfNull(sink);
         Options = options;
         Indexes = indexes;
         EmittedUids = emittedUids;
         Converter = converter;
+        Sink = sink;
     }
 
     /// <summary>Gets the routing + cross-link tunables.</summary>
@@ -56,6 +60,9 @@ internal sealed class ZensicalEmitContext
 
     /// <summary>Gets the XML->Markdown converter wired with the cref resolver for this run.</summary>
     public XmlDocToMarkdown Converter { get; }
+
+    /// <summary>Gets the destination sink each rendered page is written through.</summary>
+    public IPageSink Sink { get; }
 
     /// <summary>
     /// Convenience: renders <paramref name="rawXml"/> through the

@@ -16,7 +16,7 @@ namespace SourceDocParser.Model;
 /// site pipeline that wants the structured API model rather than a
 /// pre-rendered Markdown round-trip). The standard
 /// <see cref="ExtractionResult"/> shape (page-count summary) is
-/// still produced by <see cref="IMetadataExtractor.RunAsync(IAssemblySource, string, IDocumentationEmitter)"/>;
+/// still produced by <see cref="IMetadataExtractor.RunAsync(IAssemblySource, IPageSink, IDocumentationEmitter)"/>;
 /// this record is the parallel return for
 /// <see cref="IMetadataExtractor.ExtractAsync(IAssemblySource)"/>.
 /// </remarks>

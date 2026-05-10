@@ -29,14 +29,13 @@ public class MetadataExtractorTests
         using var output = new TempDirectory();
         var extractor = new MetadataExtractor();
 
-        var path = output.Path;
-        await Assert.That(Task () => extractor.RunAsync(source, path, emitter))
+        IPageSink sink = new FilePageSink(output.Path);
+        await Assert.That(Task () => extractor.RunAsync(source, sink, emitter))
             .Throws<InvalidOperationException>();
     }
 
     /// <summary>
-    /// Null source / null emitter throw ArgumentNullException; null
-    /// outputRoot throws ArgumentException (whitespace check).
+    /// Null source / null emitter / null sink throw ArgumentNullException.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -47,13 +46,13 @@ public class MetadataExtractorTests
         using var output = new TempDirectory();
         var extractor = new MetadataExtractor();
 
-        var path = output.Path;
-        await Assert.That(Task () => extractor.RunAsync(null!, path, emitter))
+        IPageSink sink = new FilePageSink(output.Path);
+        await Assert.That(Task () => extractor.RunAsync(null!, sink, emitter))
             .Throws<ArgumentNullException>();
-        await Assert.That(Task () => extractor.RunAsync(source, path, null!))
+        await Assert.That(Task () => extractor.RunAsync(source, sink, null!))
             .Throws<ArgumentNullException>();
-        await Assert.That(Task () => extractor.RunAsync(source, "   ", emitter))
-            .Throws<ArgumentException>();
+        await Assert.That(Task () => extractor.RunAsync(source, (IPageSink)null!, emitter))
+            .Throws<ArgumentNullException>();
     }
 
     /// <summary>
@@ -76,10 +75,10 @@ public class MetadataExtractorTests
         using var output = new TempDirectory();
         var extractor = new MetadataExtractor();
 
-        var path = output.Path;
-        await extractor.RunAsync(source, path, emitter);
+        IPageSink sink = new FilePageSink(output.Path);
+        await extractor.RunAsync(source, sink, emitter);
 
-        await Assert.That(emitter.CapturedOutputRoot).IsEqualTo(path);
+        await Assert.That(emitter.CapturedSink).IsSameReferenceAs(sink);
         await Assert.That(emitter.CapturedTypes).IsNotNull();
     }
 
@@ -141,17 +140,17 @@ public class MetadataExtractorTests
         /// <summary>Gets the catalog captured on the most recent invocation.</summary>
         public ApiType[] CapturedTypes { get; private set; } = [];
 
-        /// <summary>Gets the output root captured on the most recent invocation.</summary>
-        public string CapturedOutputRoot { get; private set; } = string.Empty;
+        /// <summary>Gets the sink captured on the most recent invocation.</summary>
+        public IPageSink? CapturedSink { get; private set; }
 
         /// <inheritdoc />
-        public Task<int> EmitAsync(ApiType[] types, string outputRoot) => EmitAsync(types, outputRoot, CancellationToken.None);
+        public Task<int> EmitAsync(ApiType[] types, IPageSink sink) => EmitAsync(types, sink, CancellationToken.None);
 
         /// <inheritdoc />
-        public Task<int> EmitAsync(ApiType[] types, string outputRoot, CancellationToken cancellationToken)
+        public Task<int> EmitAsync(ApiType[] types, IPageSink sink, CancellationToken cancellationToken)
         {
             CapturedTypes = types;
-            CapturedOutputRoot = outputRoot;
+            CapturedSink = sink;
             return Task.FromResult(types.Length);
         }
     }

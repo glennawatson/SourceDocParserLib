@@ -117,14 +117,14 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     }
 
     /// <inheritdoc />
-    public Task<int> EmitAsync(ApiType[] types, string outputRoot) =>
-        EmitAsync(types, outputRoot, CancellationToken.None);
+    public Task<int> EmitAsync(ApiType[] types, IPageSink sink) =>
+        EmitAsync(types, sink, CancellationToken.None);
 
     /// <inheritdoc />
-    public async Task<int> EmitAsync(ApiType[] types, string outputRoot, CancellationToken cancellationToken)
+    public async Task<int> EmitAsync(ApiType[] types, IPageSink sink, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(types);
-        ArgumentException.ThrowIfNullOrWhiteSpace(outputRoot);
+        ArgumentNullException.ThrowIfNull(sink);
 
         var internalUids = BuildInternalUidSet(types);
         var indexes = DocfxCatalogIndexes.Build(types);
@@ -140,10 +140,9 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
                 continue;
             }
 
-            var fullPath = Path.Combine(outputRoot, PathFor(type));
             using var rental = PageBuilderPool.Rent(InitialPageCapacity);
             BuildPage(rental.Builder, type, internalUids, indexes, converter);
-            await PageWriter.WriteUtf8Async(fullPath, rental.Builder, cancellationToken).ConfigureAwait(false);
+            await sink.WritePageAsync(PathFor(type), rental.Builder, cancellationToken).ConfigureAwait(false);
             pages++;
         }
 
@@ -156,10 +155,9 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
         {
             cancellationToken.ThrowIfCancellationRequested();
             var page = namespacePages[i];
-            var fullPath = Path.Combine(outputRoot, DocfxNamespacePages.PathFor(page.Namespace));
             using var nsRental = PageBuilderPool.Rent(DocfxNamespacePages.InitialPageCapacity);
             DocfxNamespacePages.BuildPage(nsRental.Builder, in page);
-            await PageWriter.WriteUtf8Async(fullPath, nsRental.Builder, cancellationToken).ConfigureAwait(false);
+            await sink.WritePageAsync(DocfxNamespacePages.PathFor(page.Namespace), nsRental.Builder, cancellationToken).ConfigureAwait(false);
             pages++;
         }
 
