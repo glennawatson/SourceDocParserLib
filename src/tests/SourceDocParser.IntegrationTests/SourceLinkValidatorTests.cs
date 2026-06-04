@@ -9,10 +9,10 @@ namespace SourceDocParser.IntegrationTests;
 /// <summary>
 /// End-to-end check on <see cref="SourceLinkValidator"/> using real
 /// public URLs from the ReactiveUI repository on github.com -- picks
-/// a known-stable file under <c>src/ReactiveUI/</c> on the
-/// <c>main</c> branch as the live target, plus a deliberately broken
-/// path on the same host so both code paths (success and HTTP 404)
-/// run end-to-end through the rate-limited pipeline.
+/// a real source file pinned to an immutable release commit as the
+/// live target, plus a deliberately broken path on the same host so
+/// both code paths (success and HTTP 404) run end-to-end through the
+/// rate-limited pipeline.
 /// </summary>
 /// <remarks>
 /// Network-dependent. Belongs in IntegrationTests rather than the
@@ -22,13 +22,19 @@ namespace SourceDocParser.IntegrationTests;
 /// </remarks>
 public class SourceLinkValidatorTests
 {
-    /// <summary>Real ReactiveUI source on the main branch -- stable enough as a smoke probe.</summary>
+    /// <summary>
+    /// Real ReactiveUI source pinned to an immutable release commit (the 23.2.28 tag) rather than a
+    /// moving branch ref. Files get moved/renamed on <c>main</c> over time (e.g. the primitives
+    /// reshuffle relocated ReactiveObject.cs into its own folder), which would silently 404 a
+    /// <c>main</c>-pinned probe and fail this test for reasons unrelated to the validator. A commit
+    /// SHA is content-addressed and never moves, so the success path stays deterministic.
+    /// </summary>
     private const string KnownLiveUrl =
-        "https://raw.githubusercontent.com/reactiveui/ReactiveUI/main/src/ReactiveUI/Observable.cs";
+        "https://raw.githubusercontent.com/reactiveui/ReactiveUI/7c1ab24d9c84ed225c738bdb9f1a2f2586c6a5bc/src/ReactiveUI/ReactiveObject/ReactiveObject.cs";
 
-    /// <summary>Same host, intentionally non-existent path so we exercise the 404 branch.</summary>
+    /// <summary>Same host/commit, intentionally non-existent path so we exercise the 404 branch.</summary>
     private const string KnownMissingUrl =
-        "https://raw.githubusercontent.com/reactiveui/ReactiveUI/main/this-path-does-not-exist-xyz123.cs";
+        "https://raw.githubusercontent.com/reactiveui/ReactiveUI/7c1ab24d9c84ed225c738bdb9f1a2f2586c6a5bc/this-path-does-not-exist-xyz123.cs";
 
     /// <summary>
     /// A list containing only resolvable URLs returns zero broken
