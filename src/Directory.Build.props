@@ -12,7 +12,7 @@
     <RepositoryUrl>https://github.com/glennawatson/SourceDocParserLib</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <Nullable>enable</Nullable>
-    <LangVersion>preview</LangVersion>
+    <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <DebugType>Embedded</DebugType>
