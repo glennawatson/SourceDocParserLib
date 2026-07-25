@@ -25,13 +25,13 @@ jobs:
       MINVERVERSIONOVERRIDE: 0.0.0-ci.0+${{ github.sha }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: |
             8.0.x
@@ -43,7 +43,7 @@ jobs:
       # and pip-installs zensical + pymdown-extensions into it; we just
       # need a system python3 for `python3 -m venv` to succeed.
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.x'
 
