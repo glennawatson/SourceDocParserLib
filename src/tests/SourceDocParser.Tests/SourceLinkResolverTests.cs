@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using SourceDocParser.SourceLink;
@@ -35,9 +36,7 @@ public class SourceLinkResolverTests
         await Assert.That(resolver.Resolve(symbol)).IsNull();
     }
 
-    /// <summary>
-    /// Resolving against a real assembly without SourceLink data returns null.
-    /// </summary>
+    /// <summary>Resolving against a real assembly without SourceLink data returns null.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ResolveReturnsNullWhenNoSourceLink()
@@ -52,9 +51,7 @@ public class SourceLinkResolverTests
         await Assert.That(url is null || url.Length > 0).IsTrue();
     }
 
-    /// <summary>
-    /// Calling Dispose more than once does not throw.
-    /// </summary>
+    /// <summary>Calling Dispose more than once does not throw.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task DisposeIsIdempotent()
@@ -76,10 +73,10 @@ public class SourceLinkResolverTests
         using var resolver = new SourceLinkResolver(TestAssemblyPath);
         var probe = BuildProbeType();
 
-        var setOnly = (IPropertySymbol)probe.GetMembers("Setter").Single();
-        var pair = (IPropertySymbol)probe.GetMembers("Both").Single();
-        var ev = (IEventSymbol)probe.GetMembers("Changed").Single();
-        var field = (IFieldSymbol)probe.GetMembers("F").Single();
+        var setOnly = (IPropertySymbol)(await Assert.That(probe.GetMembers("Setter")).HasSingleItem());
+        var pair = (IPropertySymbol)(await Assert.That(probe.GetMembers("Both")).HasSingleItem());
+        var ev = (IEventSymbol)(await Assert.That(probe.GetMembers("Changed")).HasSingleItem());
+        var field = (IFieldSymbol)(await Assert.That(probe.GetMembers("F")).HasSingleItem());
 
         // Each call exercises a different switch arm in PickMethodForLocation.
         await Assert.That(resolver.Resolve).IsNotNull();
@@ -88,15 +85,12 @@ public class SourceLinkResolverTests
         _ = resolver.Resolve(ev);
         _ = resolver.Resolve(field);
         _ = resolver.Resolve(probe);
-        _ = resolver.Resolve(probe.GetMembers("M").OfType<IMethodSymbol>().First());
+        _ = resolver.Resolve(((IMethodSymbol)(await Assert.That(probe.GetMembers("M")).HasSingleItem(static item => item is IMethodSymbol))));
     }
 
-    /// <summary>
-    /// Builds a simple <see cref="INamedTypeSymbol"/> via an in-memory
-    /// compilation so the resolver has something concrete to attempt
-    /// resolution on.
-    /// </summary>
+    /// <summary>Builds a simple <see cref="INamedTypeSymbol"/> via an in-memory compilation so the resolver has something concrete to attempt resolution on.</summary>
     /// <returns>The built type symbol.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static INamedTypeSymbol BuildClassSymbol() => BuildProbeType();
 
     /// <summary>Builds the in-memory Probe type symbol used by every resolver test.</summary>
@@ -117,9 +111,7 @@ public class SourceLinkResolverTests
             """);
         List<MetadataReference> refs =
         [
-            .. AppDomain.CurrentDomain.GetAssemblies()
-                .Where(static a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-                .Select(static a => MetadataReference.CreateFromFile(a.Location)),
+            .. WalkerTestFixtures.GetRuntimeReferences(),
         ];
         var compilation = CSharpCompilation.Create("Probe", [tree], refs);
         return compilation.GetTypeByMetadataName("Probe")!;

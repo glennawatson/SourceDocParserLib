@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -15,18 +15,24 @@ namespace SourceDocParser.NuGet.Tests;
 /// </summary>
 public class ManagedAssemblyExtractorTests
 {
+    /// <summary>Fixture value for RefNet80FooDll.</summary>
+    private const string RefNet80FooDll = "ref/net8.0/Foo.dll";
+
+    /// <summary>Fixture value for FooDll.</summary>
+    private const string FooDll = "Foo.dll";
+
     /// <summary>Entries under the requested prefix with a .dll extension are kept.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task SelectsRefDllsUnderPrefix()
     {
-        await using var memStream = BuildArchive(("ref/net8.0/Foo.dll", []), ("ref/net8.0/Foo.xml", []));
+        await using var memStream = BuildArchive((RefNet80FooDll, []), ("ref/net8.0/Foo.xml", []));
         await using var archive = new ZipArchive(memStream, ZipArchiveMode.Read);
 
-        var entries = ManagedAssemblyExtractor.SelectAssemblyEntries(archive, "ref/net8.0").ToList();
+        var entries = new List<ZipArchiveEntry>(ManagedAssemblyExtractor.SelectAssemblyEntries(archive, "ref/net8.0"));
 
         await Assert.That(entries.Count).IsEqualTo(1);
-        await Assert.That(entries[0].Name).IsEqualTo("Foo.dll");
+        await Assert.That(entries[0].Name).IsEqualTo(FooDll);
     }
 
     /// <summary>Entries outside the requested prefix are skipped.</summary>
@@ -37,7 +43,7 @@ public class ManagedAssemblyExtractorTests
         await using var memStream = BuildArchive(("lib/net8.0/Bar.dll", []));
         await using var archive = new ZipArchive(memStream, ZipArchiveMode.Read);
 
-        var entries = ManagedAssemblyExtractor.SelectAssemblyEntries(archive, "ref/").ToList();
+        var entries = new List<ZipArchiveEntry>(ManagedAssemblyExtractor.SelectAssemblyEntries(archive, "ref/"));
 
         await Assert.That(entries.Count).IsEqualTo(0);
     }
@@ -47,10 +53,10 @@ public class ManagedAssemblyExtractorTests
     [Test]
     public async Task PrefixWithoutTrailingSlashStillMatches()
     {
-        await using var memStream = BuildArchive(("ref/net8.0/Foo.dll", []));
+        await using var memStream = BuildArchive((RefNet80FooDll, []));
         await using var archive = new ZipArchive(memStream, ZipArchiveMode.Read);
 
-        var entries = ManagedAssemblyExtractor.SelectAssemblyEntries(archive, "ref/net8.0").ToList();
+        var entries = new List<ZipArchiveEntry>(ManagedAssemblyExtractor.SelectAssemblyEntries(archive, "ref/net8.0"));
 
         await Assert.That(entries.Count).IsEqualTo(1);
     }
@@ -60,13 +66,13 @@ public class ManagedAssemblyExtractorTests
     [Test]
     public async Task BackslashPrefixStillMatches()
     {
-        await using var memStream = BuildArchive(("ref/net8.0/Foo.dll", []));
+        await using var memStream = BuildArchive((RefNet80FooDll, []));
         await using var archive = new ZipArchive(memStream, ZipArchiveMode.Read);
 
-        var entries = ManagedAssemblyExtractor.SelectAssemblyEntries(archive, @"ref\net8.0").ToList();
+        var entries = new List<ZipArchiveEntry>(ManagedAssemblyExtractor.SelectAssemblyEntries(archive, @"ref\net8.0"));
 
         await Assert.That(entries.Count).IsEqualTo(1);
-        await Assert.That(entries[0].Name).IsEqualTo("Foo.dll");
+        await Assert.That(entries[0].Name).IsEqualTo(FooDll);
     }
 
     /// <summary>Directory entries (<c>Name</c> is empty) are skipped.</summary>
@@ -74,13 +80,13 @@ public class ManagedAssemblyExtractorTests
     [Test]
     public async Task SkipsDirectoryEntries()
     {
-        await using var memStream = BuildArchive(("ref/net8.0/", []), ("ref/net8.0/Foo.dll", []));
+        await using var memStream = BuildArchive(("ref/net8.0/", []), (RefNet80FooDll, []));
         await using var archive = new ZipArchive(memStream, ZipArchiveMode.Read);
 
-        var entries = ManagedAssemblyExtractor.SelectAssemblyEntries(archive, "ref/net8.0/").ToList();
+        var entries = new List<ZipArchiveEntry>(ManagedAssemblyExtractor.SelectAssemblyEntries(archive, "ref/net8.0/"));
 
         await Assert.That(entries.Count).IsEqualTo(1);
-        await Assert.That(entries[0].Name).IsEqualTo("Foo.dll");
+        await Assert.That(entries[0].Name).IsEqualTo(FooDll);
     }
 
     /// <summary>Non-stream PE candidate that's empty bytes is rejected as not-managed (PEReader throws and returns false).</summary>
@@ -98,12 +104,12 @@ public class ManagedAssemblyExtractorTests
     [Test]
     public async Task SelectAssemblyEntriesValidatesArguments()
     {
-        await Assert.That(() => ManagedAssemblyExtractor.SelectAssemblyEntries(null!, "ref/").ToList())
+        await Assert.That(static () => new List<ZipArchiveEntry>(ManagedAssemblyExtractor.SelectAssemblyEntries(null!, "ref/")))
             .Throws<ArgumentNullException>();
 
         await using var memStream = BuildArchive();
         await using var archive = new ZipArchive(memStream, ZipArchiveMode.Read);
-        await Assert.That(() => ManagedAssemblyExtractor.SelectAssemblyEntries(archive, string.Empty).ToList())
+        await Assert.That(() => new List<ZipArchiveEntry>(ManagedAssemblyExtractor.SelectAssemblyEntries(archive, string.Empty)))
             .Throws<ArgumentException>();
     }
 

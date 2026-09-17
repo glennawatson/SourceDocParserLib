@@ -1,8 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Text;
 using SourceDocParser.Common;
 using SourceDocParser.Docfx.Common;
@@ -28,14 +28,6 @@ namespace SourceDocParser.Docfx.Yaml;
 /// </remarks>
 public sealed class DocfxYamlEmitter : IDocumentationEmitter
 {
-    /// <summary>Docfx's YamlMime header for ManagedReference pages.</summary>
-    [SuppressMessage("Critical Code Smell", "S2339:Public constant members should not be used", Justification = "Default value is not secret.")]
-    public const string YamlMimeHeader = "### YamlMime:ManagedReference";
-
-    /// <summary>File extension docfx expects for ManagedReference pages.</summary>
-    [SuppressMessage("Critical Code Smell", "S2339:Public constant members should not be used", Justification = "Default value is not secret.")]
-    public const string FileExtension = ".yml";
-
     /// <summary>
     /// Initial StringBuilder capacity per page. ~4 KB matches a typical
     /// type page once members are folded in and saves the first couple
@@ -43,11 +35,23 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     /// </summary>
     private const int InitialPageCapacity = 4096;
 
+    /// <summary>Capacity reserved for base and member references on a type.</summary>
+    private const int InitialReferenceCapacity = 8;
+
+    /// <summary>Capacity reserved for each interface and its related types.</summary>
+    private const int ReferencesPerInterface = 2;
+
     /// <summary>Empty UID set used by the legacy <see cref="Render(ApiType)"/> overload.</summary>
-    private static readonly HashSet<string> _emptyUidSet = new(StringComparer.Ordinal);
+    private static readonly HashSet<string> _emptyUidSet = [with(StringComparer.Ordinal)];
 
     /// <summary>Default converter shared by the converter-less overloads.</summary>
     private static readonly XmlDocToMarkdown _defaultConverter = new(DocfxCrefResolver.Instance);
+
+    /// <summary>Gets docfx's YamlMime header for ManagedReference pages.</summary>
+    public static string YamlMimeHeader { get; } = "### YamlMime:ManagedReference";
+
+    /// <summary>Gets the file extension docfx expects for ManagedReference pages.</summary>
+    public static string FileExtension { get; } = ".yml";
 
     /// <summary>
     /// Renders a single docfx ManagedReference page as a YAML string --
@@ -56,6 +60,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     /// </summary>
     /// <param name="type">Type whose page to render.</param>
     /// <returns>The full YAML page text.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string Render(ApiType type) => Render(type, _emptyUidSet, DocfxCatalogIndexes.Empty);
 
     /// <summary>
@@ -67,6 +72,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     /// <param name="type">Type whose page to render.</param>
     /// <param name="internalUids">UIDs of every type emitted by the current run.</param>
     /// <returns>The full YAML page text.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string Render(ApiType type, HashSet<string> internalUids) =>
         Render(type, internalUids, DocfxCatalogIndexes.Empty);
 
@@ -81,6 +87,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     /// <param name="internalUids">UIDs of every type emitted by the current run.</param>
     /// <param name="indexes">Catalog rollups; pass <see cref="DocfxCatalogIndexes.Empty"/> to skip them.</param>
     /// <returns>The full YAML page text.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string Render(ApiType type, HashSet<string> internalUids, DocfxCatalogIndexes indexes) =>
         Render(type, internalUids, indexes, _defaultConverter);
 
@@ -117,6 +124,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     }
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Task<int> EmitAsync(ApiType[] types, IPageSink sink) =>
         EmitAsync(types, sink, CancellationToken.None);
 
@@ -155,9 +163,9 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
         {
             cancellationToken.ThrowIfCancellationRequested();
             var page = namespacePages[i];
-            using var nsRental = PageBuilderPool.Rent(DocfxNamespacePages.InitialPageCapacity);
-            DocfxNamespacePages.BuildPage(nsRental.Builder, in page);
-            await sink.WritePageAsync(DocfxNamespacePages.PathFor(page.Namespace), nsRental.Builder, cancellationToken).ConfigureAwait(false);
+            using var namespaceRental = PageBuilderPool.Rent(DocfxNamespacePages.InitialPageCapacity);
+            DocfxNamespacePages.BuildPage(namespaceRental.Builder, in page);
+            await sink.WritePageAsync(DocfxNamespacePages.PathFor(page.Namespace), namespaceRental.Builder, cancellationToken).ConfigureAwait(false);
             pages++;
         }
 
@@ -174,8 +182,8 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     /// <returns>Distinct references in declaration order.</returns>
     internal static ApiTypeReference[] CollectReferences(ApiType type)
     {
-        List<ApiTypeReference> references = new(capacity: 8 + (type.Interfaces.Length * 2));
-        HashSet<string> seen = new(StringComparer.Ordinal);
+        List<ApiTypeReference> references = [with(capacity: InitialReferenceCapacity + (type.Interfaces.Length * ReferencesPerInterface))];
+        HashSet<string> seen = [with(StringComparer.Ordinal)];
 
         if (type.BaseType is { } baseRef)
         {
@@ -184,7 +192,6 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
         else if (DocfxWellKnownBases.For(type) is { } implicitBase)
         {
             // Walker filters System.Object / ValueType / Enum /
-            // MulticastDelegate from BaseType to keep the model lean;
             // docfx itself emits them as references and as the
             // inheritance: line, so synthesise here.
             AddReference(references, seen, implicitBase);
@@ -238,7 +245,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
     /// <returns>The lookup set, keyed on the type's UID.</returns>
     internal static HashSet<string> BuildInternalUidSet(ApiType[] types)
     {
-        var set = new HashSet<string>(types.Length, StringComparer.Ordinal);
+        HashSet<string> set = [with(types.Length, StringComparer.Ordinal)];
         for (var i = 0; i < types.Length; i++)
         {
             var type = types[i];
@@ -249,35 +256,28 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
 
             if (type.Uid is [_, ..] uid)
             {
-                set.Add(uid);
+                _ = set.Add(uid);
             }
         }
 
         return set;
     }
 
-    /// <summary>
-    /// Returns the docfx <c>type</c> field value for a member kind.
-    /// Mirrors the strings docfx's own metadata extractor produces.
-    /// </summary>
+    /// <summary>Returns the docfx <c>type</c> field value for a member kind. Mirrors the strings docfx's own metadata extractor produces.</summary>
     /// <param name="kind">Member kind.</param>
     /// <returns>The docfx-style member-type label.</returns>
     internal static string MemberTypeForKind(ApiMemberKind kind) => kind switch
     {
         ApiMemberKind.Constructor => "Constructor",
         ApiMemberKind.Property => "Property",
-        ApiMemberKind.Field => "Field",
+        ApiMemberKind.Field or ApiMemberKind.EnumValue => "Field",
         ApiMemberKind.Method => "Method",
         ApiMemberKind.Operator => "Operator",
         ApiMemberKind.Event => "Event",
-        ApiMemberKind.EnumValue => "Field",
         _ => "Member",
     };
 
-    /// <summary>
-    /// Returns the member list a type carries, or <see langword="null"/>
-    /// for kinds without a flat member surface (enums and delegates).
-    /// </summary>
+    /// <summary>Returns the member list a type carries, or <see langword="null"/> for kinds without a flat member surface (enums and delegates).</summary>
     /// <param name="type">Type to inspect.</param>
     /// <returns>The member list, or <see langword="null"/>.</returns>
     private static ApiMember[]? MembersOf(ApiType type) => type switch
@@ -287,10 +287,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
         _ => null,
     };
 
-    /// <summary>
-    /// Adds the return type and every parameter type of <paramref name="member"/>
-    /// to the page-level reference list.
-    /// </summary>
+    /// <summary>Adds the return type and every parameter type of <paramref name="member"/> to the page-level reference list.</summary>
     /// <param name="member">Member whose referenced types to collect.</param>
     /// <param name="references">Accumulator to append into.</param>
     /// <param name="seen">Dedup set keyed on UID / display name.</param>
@@ -401,7 +398,7 @@ public sealed class DocfxYamlEmitter : IDocumentationEmitter
         ArgumentNullException.ThrowIfNull(indexes);
         ArgumentNullException.ThrowIfNull(converter);
 
-        sb.AppendLine(YamlMimeHeader)
+        _ = sb.AppendLine(YamlMimeHeader)
             .Append("items:\n")
             .AppendTypeItem(type, indexes, converter)
             .AppendMemberItems(type, converter)

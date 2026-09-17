@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,4 +16,5 @@ namespace SourceDocParser.Model;
 /// <param name="Uid">The attribute type's documentation comment ID.</param>
 /// <param name="ConstructorUid">The bound constructor's documentation comment ID; empty when unresolved.</param>
 /// <param name="Arguments">The constructor and named arguments, in source order.</param>
+[System.Diagnostics.DebuggerDisplay("ApiAttribute: {ToString(),nq}")]
 public sealed record ApiAttribute(string DisplayName, string Uid, string ConstructorUid, ApiAttributeArgument[] Arguments);

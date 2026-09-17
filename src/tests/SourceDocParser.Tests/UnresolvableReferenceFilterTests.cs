@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -46,7 +46,7 @@ public class UnresolvableReferenceFilterTests
     public async Task IsStubVersionRejectsNull() =>
         await Assert.That(UnresolvableReferenceFilter.IsStubVersion(null)).IsFalse();
 
-    /// <summary>Exact-match platform refs are filtered.</summary>
+    /// <summary>Known platform assemblies and prefix families are filtered.</summary>
     /// <param name="name">Assembly name to test.</param>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -70,13 +70,6 @@ public class UnresolvableReferenceFilterTests
     [Arguments("Uno.UI.Toolkit")]
     [Arguments("_Microsoft.Android.Resource.Designer")]
     [Arguments("Windows.Foundation.UniversalApiContract")]
-    public async Task IsKnownUnresolvableNameFiltersExactMatchSet(string name) =>
-        await Assert.That(UnresolvableReferenceFilter.IsKnownUnresolvableName(name)).IsTrue();
-
-    /// <summary>Prefix-match families are filtered.</summary>
-    /// <param name="name">Assembly name to test.</param>
-    /// <returns>A task representing the test execution.</returns>
-    [Test]
     [Arguments("Microsoft.Android.Sdk.Loader")]
     [Arguments("_Microsoft.Android.Foo.Bar")]
     [Arguments("Xamarin.Google.Guava.ListenableFuture")]
@@ -85,7 +78,7 @@ public class UnresolvableReferenceFilterTests
     [Arguments("Microsoft.AspNetCore.Components.Web")]
     [Arguments("Microsoft.Maui.Controls")]
     [Arguments("Microsoft.Maui.Essentials")]
-    public async Task IsKnownUnresolvableNameFiltersPrefixFamilies(string name) =>
+    public async Task IsKnownUnresolvableNameFiltersPlatformAssemblies(string name) =>
         await Assert.That(UnresolvableReferenceFilter.IsKnownUnresolvableName(name)).IsTrue();
 
     /// <summary>
@@ -115,5 +108,5 @@ public class UnresolvableReferenceFilterTests
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task IsKnownUnresolvableNameRejectsEmpty() =>
-        await Assert.That(() => UnresolvableReferenceFilter.IsKnownUnresolvableName(string.Empty)).Throws<ArgumentException>();
+        await Assert.That(static () => UnresolvableReferenceFilter.IsKnownUnresolvableName(string.Empty)).Throws<ArgumentException>();
 }

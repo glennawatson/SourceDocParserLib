@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -15,21 +15,21 @@ namespace SourceDocParser.Zensical.Tests;
 /// </summary>
 public class MemberPageEmitterTests
 {
-    /// <summary>
-    /// A single-overload bucket renders as a member page with the
-    /// member name in the heading and the signature inline.
-    /// </summary>
+    /// <summary>Fixture value for RunSignature.</summary>
+    private const string RunSignature = "void Run()";
+
+    /// <summary>A single-overload bucket renders as a member page with the member name in the heading and the signature inline.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task RenderEmitsHeadingAndSignatureForSingleOverload()
     {
         var type = TestData.ObjectType("Foo");
-        var member = NewMember("Run", "void Run()");
+        var member = NewMember("Run", RunSignature);
 
         var page = MemberPageEmitter.Render(type, "Run", [member]);
 
         await Assert.That(page).Contains("Foo.Run");
-        await Assert.That(page).Contains("void Run()");
+        await Assert.That(page).Contains(RunSignature);
     }
 
     /// <summary>
@@ -44,14 +44,14 @@ public class MemberPageEmitterTests
         var type = TestData.ObjectType("Foo");
         ApiMember[] overloads =
         [
-            NewMember("Run", "void Run()"),
+            NewMember("Run", RunSignature),
             NewMember("Run", "void Run(int count)"),
             NewMember("Run", "void Run(int count, string label)"),
         ];
 
         var page = MemberPageEmitter.Render(type, "Run", overloads);
 
-        await Assert.That(page).Contains("void Run()");
+        await Assert.That(page).Contains(RunSignature);
         await Assert.That(page).Contains("void Run(int count)");
         await Assert.That(page).Contains("void Run(int count, string label)");
     }
@@ -72,10 +72,7 @@ public class MemberPageEmitterTests
         await Assert.That(path).IsEqualTo("Test/My/Lib/Foo/Run.md");
     }
 
-    /// <summary>
-    /// Generic types use curly braces in the type folder name so the
-    /// path stays cross-platform safe.
-    /// </summary>
+    /// <summary>Generic types use curly braces in the type folder name so the path stays cross-platform safe.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task PathForUsesCurlyBracesForGenericTypeFolder()
@@ -87,9 +84,7 @@ public class MemberPageEmitterTests
         await Assert.That(path).EndsWith("List{T}/Add.md");
     }
 
-    /// <summary>
-    /// Member file stems replace the small set of path-hostile characters.
-    /// </summary>
+    /// <summary>Member file stems replace the small set of path-hostile characters.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task PathForSanitisesMemberStem()
@@ -108,7 +103,7 @@ public class MemberPageEmitterTests
     {
         await Assert.That(Act).Throws<ArgumentNullException>();
 
-        static string Act() => MemberPageEmitter.Render(null!, "Run", [NewMember("Run", "void Run()")]);
+        static string Act() => MemberPageEmitter.Render(null!, "Run", [NewMember("Run", RunSignature)]);
     }
 
     /// <summary>Render rejects null overload list with the standard guard.</summary>
@@ -131,16 +126,13 @@ public class MemberPageEmitterTests
         static string Act() => MemberPageEmitter.PathFor(TestData.ObjectType("Foo"), string.Empty);
     }
 
-    /// <summary>
-    /// Plain members produce a single-level back-link to the
-    /// containing type page.
-    /// </summary>
+    /// <summary>Plain members produce a single-level back-link to the containing type page.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task RenderEmitsSingleLevelBackLinkForFlatMember()
     {
         var type = TestData.ObjectType("Foo");
-        var member = NewMember("Run", "void Run()");
+        var member = NewMember("Run", RunSignature);
 
         var page = MemberPageEmitter.Render(type, "Run", [member]);
 
@@ -178,8 +170,9 @@ public class MemberPageEmitterTests
     [Test]
     public async Task RenderUsesGenericKindLabelForUnknownEnumValue()
     {
+        const ApiMemberKind UnknownKind = (ApiMemberKind)999;
         var type = TestData.ObjectType("Foo");
-        var member = NewMember("Run", "void Run()") with { Kind = (ApiMemberKind)999 };
+        var member = NewMember("Run", RunSignature) with { Kind = UnknownKind };
 
         var page = MemberPageEmitter.Render(type, "Run", [member]);
 

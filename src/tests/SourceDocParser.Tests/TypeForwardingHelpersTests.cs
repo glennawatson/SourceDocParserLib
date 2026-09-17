@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using SourceDocParser.SourceLink;
@@ -17,6 +18,12 @@ namespace SourceDocParser.Tests;
 /// </summary>
 public class TypeForwardingHelpersTests
 {
+    /// <summary>Fixture value for PublicForwarded.</summary>
+    private const string PublicForwarded = "PublicForwarded";
+
+    /// <summary>Expected fixture value used by GetForwardedTypesReturnsEveryTypeForwardedTo.</summary>
+    private const int GetForwardedTypesReturnsEveryTypeForwardedToExpectedValue = 2;
+
     /// <summary>
     /// Walks the umbrella's forwards via the public helper. With the
     /// target assembly referenced, every forwarded entry resolves to
@@ -29,16 +36,18 @@ public class TypeForwardingHelpersTests
         var (umbrella, _) = BuildUmbrellaWithTarget();
         var forwarded = TypeForwardingHelpers.GetForwardedTypes(umbrella);
 
-        await Assert.That(forwarded.Length).IsEqualTo(2);
-        var names = forwarded.Select(static t => t.MetadataName).ToArray();
-        await Assert.That(names).Contains("PublicForwarded");
+        await Assert.That(forwarded.Length).IsEqualTo(GetForwardedTypesReturnsEveryTypeForwardedToExpectedValue);
+        var names = new string[forwarded.Length];
+        for (var i = 0; i < forwarded.Length; i++)
+        {
+            names[i] = forwarded[i].MetadataName;
+        }
+
+        await Assert.That(names).Contains(PublicForwarded);
         await Assert.That(names).Contains("OtherForwarded");
     }
 
-    /// <summary>
-    /// Resolvability: a forwarded target whose defining assembly is
-    /// in the references list resolves to a non-error symbol.
-    /// </summary>
+    /// <summary>Resolvability: a forwarded target whose defining assembly is in the references list resolves to a non-error symbol.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task IsResolvableReturnsTrueWhenTargetAssemblyLoaded()
@@ -90,10 +99,7 @@ public class TypeForwardingHelpersTests
         await Assert.That(TypeForwardingHelpers.IsAlreadyCollected(forwarded[1], seen)).IsFalse();
     }
 
-    /// <summary>
-    /// SeedPending pushes every forwarded type onto the supplied
-    /// stack -- and only those -- without allocating its own.
-    /// </summary>
+    /// <summary>SeedPending pushes every forwarded type onto the supplied stack -- and only those -- without allocating its own.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task SeedPendingPushesForwardedRoots()
@@ -102,8 +108,8 @@ public class TypeForwardingHelpersTests
         var pending = new Stack<INamedTypeSymbol>();
         var pushed = TypeForwardingHelpers.SeedPending(umbrella, pending);
 
-        await Assert.That(pushed).IsEqualTo(2);
-        await Assert.That(pending.Count).IsEqualTo(2);
+        await Assert.That(pushed).IsEqualTo(GetForwardedTypesReturnsEveryTypeForwardedToExpectedValue);
+        await Assert.That(pending.Count).IsEqualTo(GetForwardedTypesReturnsEveryTypeForwardedToExpectedValue);
     }
 
     /// <summary>
@@ -117,7 +123,7 @@ public class TypeForwardingHelpersTests
     {
         var (umbrella, _) = BuildUmbrellaWithTarget();
         var forwarded = TypeForwardingHelpers.GetForwardedTypes(umbrella);
-        var parent = forwarded.First(static t => t.MetadataName == "PublicForwarded");
+        var parent = (await Assert.That(forwarded).HasSingleItem(static t => t.MetadataName == PublicForwarded));
         var pending = new Stack<INamedTypeSymbol>();
         var pushed = TypeForwardingHelpers.PushNested(parent, pending);
 
@@ -141,7 +147,7 @@ public class TypeForwardingHelpersTests
 
         var catalog = walker.Walk("net10.0", umbrella, umbrellaCompilation, resolver);
 
-        var forwardedType = Array.Find(catalog.Types, static t => t.Name == "PublicForwarded");
+        var forwardedType = Array.Find(catalog.Types, static t => t.Name == PublicForwarded);
         await Assert.That(forwardedType).IsNotNull();
         await Assert.That(forwardedType!.AssemblyName).IsEqualTo("Umbrella");
     }
@@ -154,6 +160,7 @@ public class TypeForwardingHelpersTests
     /// walker.
     /// </summary>
     /// <returns>The umbrella's assembly symbol and the compilation that produced it.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when <c>!emit.Success</c>.</exception>
     private static (IAssemblySymbol UmbrellaAssembly, CSharpCompilation UmbrellaCompilation) BuildUmbrellaWithTarget()
     {
         const string targetSource = """
@@ -178,7 +185,7 @@ public class TypeForwardingHelpersTests
         var emit = target.Emit(stream);
         if (!emit.Success)
         {
-            throw new InvalidOperationException("Target compile failed: " + string.Join('\n', emit.Diagnostics));
+            throw new InvalidOperationException($"Target compile failed: {string.Join('\n', emit.Diagnostics)}");
         }
 
         stream.Position = 0;
@@ -207,6 +214,7 @@ public class TypeForwardingHelpersTests
     /// resolves them to error symbols.
     /// </summary>
     /// <returns>The umbrella's assembly symbol whose forwards point at an unloaded assembly.</returns>
+    /// <exception cref="InvalidOperationException">The umbrella assembly cannot be resolved.</exception>
     private static IAssemblySymbol BuildUmbrellaWithoutTargetAssembly()
     {
         // Need to actually have a target metadata reference at compile
@@ -220,7 +228,7 @@ public class TypeForwardingHelpersTests
             new(OutputKind.DynamicallyLinkedLibrary));
 
         using var stream = new MemoryStream();
-        target.Emit(stream);
+        _ = target.Emit(stream);
         stream.Position = 0;
         var targetReference = MetadataReference.CreateFromStream(stream);
 
@@ -238,7 +246,7 @@ public class TypeForwardingHelpersTests
             new(OutputKind.DynamicallyLinkedLibrary));
 
         using var umbrellaStream = new MemoryStream();
-        umbrellaCompiled.Emit(umbrellaStream);
+        _ = umbrellaCompiled.Emit(umbrellaStream);
         umbrellaStream.Position = 0;
         var umbrellaReference = MetadataReference.CreateFromStream(umbrellaStream);
 
@@ -260,15 +268,14 @@ public class TypeForwardingHelpersTests
     /// <returns>The list of BCL metadata references for in-memory compilations.</returns>
     private static List<MetadataReference> BclReferences() =>
     [
-        .. AppDomain.CurrentDomain.GetAssemblies()
-            .Where(static a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-            .Select(static a => MetadataReference.CreateFromFile(a.Location)),
+        .. WalkerTestFixtures.GetRuntimeReferences(),
     ];
 
     /// <summary>No-op source link resolver -- the walker never calls into it for this test fixture.</summary>
     private sealed class NullSourceLinkResolver : ISourceLinkResolver
     {
         /// <inheritdoc />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public string? Resolve(ISymbol symbol) => null;
 
         /// <inheritdoc />

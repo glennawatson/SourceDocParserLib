@@ -1,12 +1,10 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 namespace SourceDocParser.Model;
 
-/// <summary>
-/// A documented type. Identity / hierarchy / docs / source-link state lives on this base.
-/// </summary>
+/// <summary>A documented type. Identity / hierarchy / docs / source-link state lives on this base.</summary>
 /// <param name="Name">The simple name.</param>
 /// <param name="FullName">The namespace-qualified name.</param>
 /// <param name="Uid">The documentation member ID.</param>
@@ -24,6 +22,7 @@ namespace SourceDocParser.Model;
 /// <param name="IsObsolete">Whether the type is obsolete.</param>
 /// <param name="ObsoleteMessage">Obsolete message.</param>
 /// <param name="Attributes">Attributes applied to the type.</param>
+[System.Diagnostics.DebuggerDisplay("ApiType: {TypeParameters}")]
 public abstract record ApiType(
     string Name,
     string FullName,

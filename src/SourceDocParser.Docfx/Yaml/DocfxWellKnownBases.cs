@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -21,16 +21,16 @@ namespace SourceDocParser.Docfx.Yaml;
 internal static class DocfxWellKnownBases
 {
     /// <summary>Reusable <see cref="object"/> reference -- every class type's implicit base.</summary>
-    private static readonly ApiTypeReference _objectRef = new("Object", "T:System.Object");
+    private static readonly ApiTypeReference _objectRef = new(nameof(Object), "T:System.Object");
 
     /// <summary>Reusable <see cref="ValueType"/> reference -- every struct's implicit base.</summary>
-    private static readonly ApiTypeReference _valueTypeRef = new("ValueType", "T:System.ValueType");
+    private static readonly ApiTypeReference _valueTypeRef = new(nameof(ValueType), "T:System.ValueType");
 
     /// <summary>Reusable <see cref="Enum"/> reference -- every enum's implicit base.</summary>
-    private static readonly ApiTypeReference _enumRef = new("Enum", "T:System.Enum");
+    private static readonly ApiTypeReference _enumRef = new(nameof(Enum), "T:System.Enum");
 
     /// <summary>Reusable <see cref="MulticastDelegate"/> reference -- every delegate's implicit base.</summary>
-    private static readonly ApiTypeReference _multicastDelegateRef = new("MulticastDelegate", "T:System.MulticastDelegate");
+    private static readonly ApiTypeReference _multicastDelegateRef = new(nameof(MulticastDelegate), "T:System.MulticastDelegate");
 
     /// <summary>
     /// Returns the implicit BCL base for <paramref name="type"/>, or
@@ -40,7 +40,7 @@ internal static class DocfxWellKnownBases
     /// </summary>
     /// <param name="type">Type whose implicit base to look up.</param>
     /// <returns>The shared base reference, or <see langword="null"/>.</returns>
-    public static ApiTypeReference? For(ApiType type) => type switch
+    internal static ApiTypeReference? For(ApiType type) => type switch
     {
         ApiObjectType { Kind: ApiObjectKind.Class or ApiObjectKind.Record } => _objectRef,
         ApiObjectType { Kind: ApiObjectKind.Struct or ApiObjectKind.RecordStruct } => _valueTypeRef,

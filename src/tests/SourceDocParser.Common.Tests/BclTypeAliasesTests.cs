@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -12,6 +12,9 @@ namespace SourceDocParser.Common.Tests;
 /// </summary>
 public class BclTypeAliasesTests
 {
+    /// <summary>Non-primitive display name passed through by the alias mapping.</summary>
+    private const string CustomTypeName = "ReactiveObject";
+
     /// <summary>Every BCL primitive lowers to its C# keyword form.</summary>
     /// <param name="bareName">CLR full name.</param>
     /// <param name="expected">The expected keyword.</param>
@@ -45,9 +48,9 @@ public class BclTypeAliasesTests
     [Test]
     public async Task ToKeywordReturnsFallbackForUnknown()
     {
-        var result = BclTypeAliases.ToKeyword("ReactiveUI.ReactiveObject", fallback: "ReactiveObject");
+        var result = BclTypeAliases.ToKeyword("ReactiveUI.ReactiveObject", fallback: CustomTypeName);
 
-        await Assert.That(result).IsEqualTo("ReactiveObject");
+        await Assert.That(result).IsEqualTo(CustomTypeName);
     }
 
     /// <summary>Every C# keyword promotes back to the matching CLR full name.</summary>
@@ -83,8 +86,8 @@ public class BclTypeAliasesTests
     [Test]
     public async Task ToClrPassesThroughUnknown()
     {
-        var result = BclTypeAliases.ToClr("ReactiveObject");
+        var result = BclTypeAliases.ToClr(CustomTypeName);
 
-        await Assert.That(result).IsEqualTo("ReactiveObject");
+        await Assert.That(result).IsEqualTo(CustomTypeName);
     }
 }

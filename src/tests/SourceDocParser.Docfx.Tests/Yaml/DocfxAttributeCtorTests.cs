@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -30,7 +30,7 @@ public class DocfxAttributeCtorTests
             "M:System.ComponentModel.BrowsableAttribute.#ctor(System.Boolean)",
             [new(Name: null, Value: "false")]);
 
-        sb.AppendAttributeEntry(attribute);
+        _ = sb.AppendAttributeEntry(attribute);
 
         await Assert.That(sb.ToString().Lf()).Contains(
             "ctor: System.ComponentModel.BrowsableAttribute.#ctor(System.Boolean)");
@@ -48,7 +48,7 @@ public class DocfxAttributeCtorTests
             string.Empty,
             []);
 
-        sb.AppendAttributeEntry(attribute);
+        _ = sb.AppendAttributeEntry(attribute);
 
         await Assert.That(sb.ToString().Lf()).DoesNotContain("ctor:");
     }

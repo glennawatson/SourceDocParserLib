@@ -1,8 +1,9 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Microsoft.Diagnostics.Tracing.Etlx;
 
@@ -45,16 +46,14 @@ internal static class Program
     /// <summary>Multiplier for percentage calculations.</summary>
     private const double PercentMultiplier = 100.0;
 
-    /// <summary>
-    /// Console entry point.
-    /// </summary>
+    /// <summary>Console entry point.</summary>
     /// <param name="args">Command-line args: <c>&lt;trace.nettrace> [topN]</c>.</param>
     /// <returns>
     /// 0 on success; <see cref="ExitCodeUsageError"/> on usage error;
     /// <see cref="ExitCodeTraceFileNotFound"/> if the trace path is missing;
     /// <see cref="ExitCodeNoAllocationSamples"/> if no allocation samples were found.
     /// </returns>
-    public static int Main(string[] args)
+    internal static int Main(string[] args)
     {
         if (args.Length == 0)
         {
@@ -75,21 +74,18 @@ internal static class Program
         if (stats.TotalSamples == 0)
         {
             Console.Error.WriteLine(
-                "trace contained no GC allocation tick events. Make sure the benchmark was instrumented with " +
-                "[EventPipeProfiler(EventPipeProfile.GcVerbose)].");
+                "trace contained no GC allocation tick events. Make sure the benchmark was instrumented with "
+                + "[EventPipeProfiler(EventPipeProfile.GcVerbose)].");
             return ExitCodeNoAllocationSamples;
         }
 
-        WriteHeader(tracePath, stats);
-        WriteTypeTable(stats, topN);
-        WriteStackTable(stats, topN);
+        WriteHeader(Console.Out, tracePath, stats);
+        WriteTypeTable(Console.Out, stats, topN);
+        WriteStackTable(Console.Out, stats, topN);
         return 0;
     }
 
-    /// <summary>
-    /// Walks the trace, aggregating every <c>GCAllocationTick</c> by
-    /// type name and by managed call-stack key.
-    /// </summary>
+    /// <summary>Walks the trace, aggregating every <c>GCAllocationTick</c> by type name and by managed call-stack key.</summary>
     /// <param name="tracePath">Absolute path to the <c>.nettrace</c> file.</param>
     /// <returns>The aggregated stats.</returns>
     private static AggregatedStats AggregateAllocations(string tracePath)
@@ -129,7 +125,7 @@ internal static class Program
                 stackStat.TopType ??= typeName;
             };
 
-            source.Process();
+            _ = source.Process();
         }
         finally
         {
@@ -145,49 +141,62 @@ internal static class Program
     }
 
     /// <summary>Prints the markdown header + summary line.</summary>
+    /// <param name="output">Destination for the markdown report.</param>
     /// <param name="tracePath">Trace file name surfaced in the title.</param>
     /// <param name="stats">Aggregated stats whose totals are printed.</param>
-    private static void WriteHeader(string tracePath, AggregatedStats stats)
+    private static void WriteHeader(TextWriter output, string tracePath, AggregatedStats stats)
     {
-        Console.WriteLine($"# Allocation Report -- {Path.GetFileName(tracePath)}");
-        Console.WriteLine();
-        Console.WriteLine($"- Total sampled allocation bytes: **{FormatBytes(stats.TotalBytes)}**");
-        Console.WriteLine($"- Total sample events: **{stats.TotalSamples:N0}**");
-        Console.WriteLine("- GCAllocationTick samples one allocation per ~100 KB allocated; absolute bytes are an estimate, *relative* ranking is accurate.");
-        Console.WriteLine();
+        output.WriteLine($"# Allocation Report -- {Path.GetFileName(tracePath)}");
+        output.WriteLine();
+        output.WriteLine($"- Total sampled allocation bytes: **{FormatBytes(stats.TotalBytes)}**");
+        output.WriteLine($"- Total sample events: **{stats.TotalSamples:N0}**");
+        output.WriteLine("- GCAllocationTick samples one allocation per ~100 KB allocated; absolute bytes are an estimate, *relative* ranking is accurate.");
+        output.WriteLine();
     }
 
     /// <summary>Prints the top-N types-by-bytes table.</summary>
+    /// <param name="output">Destination for the markdown report.</param>
     /// <param name="stats">Aggregated stats to render.</param>
     /// <param name="topN">Maximum rows to emit.</param>
-    private static void WriteTypeTable(AggregatedStats stats, int topN)
+    private static void WriteTypeTable(TextWriter output, AggregatedStats stats, int topN)
     {
-        Console.WriteLine($"## Top {topN} types by sampled bytes");
-        Console.WriteLine();
-        Console.WriteLine("| Type | Sampled bytes | % | Samples |");
-        Console.WriteLine("|---|---:|---:|---:|");
-        foreach (var (type, stat) in stats.ByType.OrderByDescending(static kvp => kvp.Value.Bytes).Take(topN))
+        output.WriteLine($"## Top {topN} types by sampled bytes");
+        output.WriteLine();
+        output.WriteLine("| Type | Sampled bytes | % | Samples |");
+        output.WriteLine("|---|---:|---:|---:|");
+        var entries = new KeyValuePair<string, AllocStat>[stats.ByType.Count];
+        ((ICollection<KeyValuePair<string, AllocStat>>)stats.ByType).CopyTo(entries, 0);
+        Array.Sort(entries, AllocStatComparer.Instance);
+        var count = Math.Min(topN, entries.Length);
+        for (var i = 0; i < count; i++)
         {
-            var pct = stats.TotalBytes == 0 ? 0d : stat.Bytes * PercentMultiplier / stats.TotalBytes;
-            Console.WriteLine($"| `{Escape(type)}` | {FormatBytes(stat.Bytes)} | {pct:F1}% | {stat.Samples:N0} |");
+            var (type, stat) = entries[i];
+            var pct = stats.TotalBytes == 0 ? 0D : stat.Bytes * PercentMultiplier / stats.TotalBytes;
+            output.WriteLine($"| `{Escape(type)}` | {FormatBytes(stat.Bytes)} | {pct:F1}% | {stat.Samples:N0} |");
         }
 
-        Console.WriteLine();
+        output.WriteLine();
     }
 
     /// <summary>Prints the top-N stack-by-bytes table.</summary>
+    /// <param name="output">Destination for the markdown report.</param>
     /// <param name="stats">Aggregated stats to render.</param>
     /// <param name="topN">Maximum rows to emit.</param>
-    private static void WriteStackTable(AggregatedStats stats, int topN)
+    private static void WriteStackTable(TextWriter output, AggregatedStats stats, int topN)
     {
-        Console.WriteLine($"## Top {topN} call stacks by sampled bytes (depth {StackDepth})");
-        Console.WriteLine();
-        Console.WriteLine("| Top type | Sampled bytes | % | Samples | Stack |");
-        Console.WriteLine("|---|---:|---:|---:|---|");
-        foreach (var (stack, stat) in stats.ByStack.OrderByDescending(static kvp => kvp.Value.Bytes).Take(topN))
+        output.WriteLine($"## Top {topN} call stacks by sampled bytes (depth {StackDepth})");
+        output.WriteLine();
+        output.WriteLine("| Top type | Sampled bytes | % | Samples | Stack |");
+        output.WriteLine("|---|---:|---:|---:|---|");
+        var entries = new KeyValuePair<string, StackStat>[stats.ByStack.Count];
+        ((ICollection<KeyValuePair<string, StackStat>>)stats.ByStack).CopyTo(entries, 0);
+        Array.Sort(entries, StackStatComparer.Instance);
+        var count = Math.Min(topN, entries.Length);
+        for (var i = 0; i < count; i++)
         {
-            var pct = stats.TotalBytes == 0 ? 0d : stat.Bytes * PercentMultiplier / stats.TotalBytes;
-            Console.WriteLine($"| `{Escape(stat.TopType ?? "<n/a>")}` | {FormatBytes(stat.Bytes)} | {pct:F1}% | {stat.Samples:N0} | {Escape(stack)} |");
+            var (stack, stat) = entries[i];
+            var pct = stats.TotalBytes == 0 ? 0D : stat.Bytes * PercentMultiplier / stats.TotalBytes;
+            output.WriteLine($"| `{Escape(stat.TopType ?? "<n/a>")}` | {FormatBytes(stat.Bytes)} | {pct:F1}% | {stat.Samples:N0} | {Escape(stack)} |");
         }
     }
 
@@ -229,9 +238,7 @@ internal static class Program
         return frames.Count == 0 ? "<no frames>" : string.Join(" <- ", frames);
     }
 
-    /// <summary>
-    /// Drops the parameter list from a frame name so the table stays scannable.
-    /// </summary>
+    /// <summary>Drops the parameter list from a frame name so the table stays scannable.</summary>
     /// <param name="fullName">Method name of the form <c>Type.Method(Params)</c>.</param>
     /// <returns>The shortened frame name.</returns>
     private static string ShortenFrame(string fullName)
@@ -240,11 +247,10 @@ internal static class Program
         return paren > 0 ? fullName[..paren] : fullName;
     }
 
-    /// <summary>
-    /// Escapes a value so it's safe to drop into a markdown table cell.
-    /// </summary>
+    /// <summary>Escapes a value so it's safe to drop into a markdown table cell.</summary>
     /// <param name="value">Raw text.</param>
     /// <returns>Escaped text.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string Escape(string value) => value
         .Replace("|", "\\|", StringComparison.Ordinal)
         .Replace("\n", " ", StringComparison.Ordinal);
@@ -252,24 +258,52 @@ internal static class Program
     /// <summary>Per-type allocation accumulator (mutable struct held in dictionary).</summary>
     private record struct AllocStat
     {
-        /// <summary>Total sampled bytes attributed to this type.</summary>
-        public long Bytes;
+        /// <summary>Gets or sets total sampled bytes attributed to this type.</summary>
+        public long Bytes { get; set; }
 
-        /// <summary>Number of GCAllocationTick samples that named this type.</summary>
-        public long Samples;
+        /// <summary>Gets or sets the number of GCAllocationTick samples that named this type.</summary>
+        public long Samples { get; set; }
     }
 
     /// <summary>Per-stack allocation accumulator (mutable struct held in dictionary).</summary>
     private record struct StackStat
     {
-        /// <summary>Total sampled bytes attributed to this stack.</summary>
-        public long Bytes;
+        /// <summary>Gets or sets total sampled bytes attributed to this stack.</summary>
+        public long Bytes { get; set; }
 
-        /// <summary>Number of samples that landed on this stack.</summary>
-        public long Samples;
+        /// <summary>Gets or sets the number of samples that landed on this stack.</summary>
+        public long Samples { get; set; }
 
-        /// <summary>The first allocated type seen on this stack -- used as a label in the report.</summary>
-        public string? TopType;
+        /// <summary>Gets or sets the first allocated type seen on this stack, used as a label in the report.</summary>
+        public string? TopType { get; set; }
+    }
+
+    /// <summary>Orders type allocations by sampled bytes, then type name.</summary>
+    private sealed class AllocStatComparer : IComparer<KeyValuePair<string, AllocStat>>
+    {
+        /// <summary>Gets the shared comparer.</summary>
+        public static AllocStatComparer Instance { get; } = new();
+
+        /// <inheritdoc/>
+        public int Compare(KeyValuePair<string, AllocStat> x, KeyValuePair<string, AllocStat> y)
+        {
+            var bytes = y.Value.Bytes.CompareTo(x.Value.Bytes);
+            return bytes is 0 ? StringComparer.Ordinal.Compare(x.Key, y.Key) : bytes;
+        }
+    }
+
+    /// <summary>Orders stack allocations by sampled bytes, then stack name.</summary>
+    private sealed class StackStatComparer : IComparer<KeyValuePair<string, StackStat>>
+    {
+        /// <summary>Gets the shared comparer.</summary>
+        public static StackStatComparer Instance { get; } = new();
+
+        /// <inheritdoc/>
+        public int Compare(KeyValuePair<string, StackStat> x, KeyValuePair<string, StackStat> y)
+        {
+            var bytes = y.Value.Bytes.CompareTo(x.Value.Bytes);
+            return bytes is 0 ? StringComparer.Ordinal.Compare(x.Key, y.Key) : bytes;
+        }
     }
 
     /// <summary>

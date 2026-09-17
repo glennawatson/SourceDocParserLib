@@ -1,8 +1,9 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Frozen;
+using System.Runtime.InteropServices;
 using SourceDocParser.Model;
 
 namespace SourceDocParser;
@@ -20,8 +21,12 @@ namespace SourceDocParser;
 /// bare member name. The algorithm is the same; only the baseline
 /// strings differ.
 /// </remarks>
+[System.Diagnostics.DebuggerDisplay("CatalogIndexes: {DerivedClasses}")]
 public sealed class CatalogIndexes
 {
+    /// <summary>Initial space for inherited members beyond the universal base members.</summary>
+    private const int InheritedMemberCapacity = 8;
+
     /// <summary>Initializes a new instance of the <see cref="CatalogIndexes"/> class from pre-built frozen lookups.</summary>
     /// <param name="derivedClasses">Reverse base-type lookup.</param>
     /// <param name="extensionMethods">Reverse first-parameter-type lookup over extension methods.</param>
@@ -139,9 +144,9 @@ public sealed class CatalogIndexes
         return map;
     }
 
-    /// <summary>
-    /// Single-pass build of the reverse extension-method lookup.
-    /// </summary>
+    /// <summary>Single-pass build of the reverse extension-method lookup.</summary>
+    /// <param name="types">All types being emitted.</param>
+    /// <returns>Mutable dictionary; converted to frozen form by the caller.</returns>
     /// <remarks>
     /// Best-effort: only extension methods whose first parameter has
     /// a concrete type uid are indexed. Generic-receiver extensions
@@ -150,8 +155,6 @@ public sealed class CatalogIndexes
     /// satisfying the constraint, but emitters here follow the same
     /// best-effort policy so the outputs stay aligned.
     /// </remarks>
-    /// <param name="types">All types being emitted.</param>
-    /// <returns>Mutable dictionary; converted to frozen form by the caller.</returns>
     internal static Dictionary<string, List<ApiMember>> BuildExtensionsRaw(ApiType[] types)
     {
         var map = new Dictionary<string, List<ApiMember>>(StringComparer.Ordinal);
@@ -211,7 +214,7 @@ public sealed class CatalogIndexes
                 continue;
             }
 
-            var inherited = new List<string>(objectInheritedUids.Length + 8);
+            var inherited = new List<string>(objectInheritedUids.Length + InheritedMemberCapacity);
 
             if (cls.BaseType is { Uid: [_, ..] baseUid }
                 && typesByUid.TryGetValue(baseUid, out var baseType))
@@ -275,11 +278,8 @@ public sealed class CatalogIndexes
     /// <param name="value">Element to append.</param>
     private static void AddToBucket<TVal>(Dictionary<string, List<TVal>> map, string key, TVal value)
     {
-        if (!map.TryGetValue(key, out var bucket))
-        {
-            bucket = [];
-            map[key] = bucket;
-        }
+        ref var bucket = ref CollectionsMarshal.GetValueRefOrAddDefault(map, key, out _);
+        bucket ??= [];
 
         bucket.Add(value);
     }

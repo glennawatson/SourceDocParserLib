@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -17,6 +17,12 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 /// </summary>
 public class DocfxCatalogIndexesTests
 {
+    /// <summary>Documentation identifier absent from the fixture catalog.</summary>
+    private const string MissingTypeUid = "T:Missing";
+
+    /// <summary>Name of the derived type fixture.</summary>
+    private const string DerivedTypeName = "Derived";
+
     /// <summary>Empty input returns the shared <see cref="DocfxCatalogIndexes.Empty"/> singleton.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -34,9 +40,9 @@ public class DocfxCatalogIndexesTests
     {
         var indexes = DocfxCatalogIndexes.Empty;
 
-        await Assert.That(indexes.GetDerived("T:Missing")).IsEmpty();
-        await Assert.That(indexes.GetExtensions("T:Missing")).IsEmpty();
-        await Assert.That(indexes.GetInherited("T:Missing")).IsEmpty();
+        await Assert.That(indexes.GetDerived(MissingTypeUid)).IsEmpty();
+        await Assert.That(indexes.GetExtensions(MissingTypeUid)).IsEmpty();
+        await Assert.That(indexes.GetInherited(MissingTypeUid)).IsEmpty();
     }
 
     /// <summary>Derived index buckets each subclass under its base type uid.</summary>
@@ -45,7 +51,7 @@ public class DocfxCatalogIndexesTests
     public async Task DerivedIndexBucketsByBaseUid()
     {
         var baseType = TestData.ObjectType("Base");
-        var sub = TestData.ObjectType("Derived") with
+        var sub = TestData.ObjectType(DerivedTypeName) with
         {
             BaseType = new("Base", "Base"),
         };
@@ -54,7 +60,7 @@ public class DocfxCatalogIndexesTests
         var derived = indexes.GetDerived("Base");
 
         await Assert.That(derived.Length).IsEqualTo(1);
-        await Assert.That(derived[0].Uid).IsEqualTo("Derived");
+        await Assert.That(derived[0].Uid).IsEqualTo(DerivedTypeName);
     }
 
     /// <summary>Extension-method index buckets each method under the extended type's uid.</summary>
@@ -99,13 +105,13 @@ public class DocfxCatalogIndexesTests
     {
         var baseMember = NewMember("BaseRun", "M:Base.BaseRun");
         var baseType = TestData.ObjectType("Base") with { Members = [baseMember] };
-        var sub = TestData.ObjectType("Derived") with
+        var sub = TestData.ObjectType(DerivedTypeName) with
         {
             BaseType = new("Base", "Base"),
         };
 
         var indexes = DocfxCatalogIndexes.Build([baseType, sub]);
-        var inherited = indexes.GetInherited("Derived");
+        var inherited = indexes.GetInherited(DerivedTypeName);
 
         await Assert.That(inherited).Contains("M:Base.BaseRun");
     }
@@ -116,7 +122,7 @@ public class DocfxCatalogIndexesTests
     public async Task TypePageEmitsBlocksWhenIndexesPopulated()
     {
         var baseType = TestData.ObjectType("Base");
-        var sub = TestData.ObjectType("Derived") with
+        var sub = TestData.ObjectType(DerivedTypeName) with
         {
             BaseType = new("Base", "Base"),
         };
@@ -134,10 +140,10 @@ public class DocfxCatalogIndexesTests
     /// <returns>The classifier set.</returns>
     private static HashSet<string> BuildInternalUids(params ApiType[] types)
     {
-        var set = new HashSet<string>(types.Length, StringComparer.Ordinal);
+        HashSet<string> set = [with(types.Length, StringComparer.Ordinal)];
         for (var i = 0; i < types.Length; i++)
         {
-            set.Add(types[i].Uid);
+            _ = set.Add(types[i].Uid);
         }
 
         return set;

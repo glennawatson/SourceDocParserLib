@@ -1,8 +1,9 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 using System.IO.Compression;
+using System.Runtime.CompilerServices;
 using System.Xml;
 using SourceDocParser.NuGet.Infrastructure;
 
@@ -36,32 +37,23 @@ internal static class NuspecDependencyReader
 
     /// <summary>
     /// Reader settings shared across every parse -- async on so the
-    /// XmlReader can pump from <see cref="ZipArchiveEntry.OpenAsync"/>'s
+    /// XmlReader can pump from <see cref="ZipArchiveEntry.OpenAsync(CancellationToken)"/>'s
     /// async stream without the runtime throwing on sync .Read().
     /// </summary>
-    private static readonly XmlReaderSettings _readerSettings = new()
-    {
-        Async = true,
-        IgnoreComments = true,
-        IgnoreWhitespace = true,
-        DtdProcessing = DtdProcessing.Prohibit,
-    };
+    private static readonly XmlReaderSettings _readerSettings = new() { Async = true, IgnoreComments = true, IgnoreWhitespace = true, DtdProcessing = DtdProcessing.Prohibit, };
 
-    /// <summary>
-    /// Returns the set of dependency package IDs declared anywhere in
-    /// the nupkg's nuspec.
-    /// </summary>
+    /// <summary>Returns the set of dependency package IDs declared anywhere in the nupkg's nuspec.</summary>
     /// <param name="nupkgPath">Absolute path to the .nupkg on disk.</param>
     /// <returns>Distinct dependency IDs as an array (dedupe happens internally; callers iterate by index).</returns>
-    public static Task<string[]> ReadDependencyIdsAsync(string nupkgPath) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Task<string[]> ReadDependencyIdsAsync(string nupkgPath) =>
         ReadDependencyIdsAsync(nupkgPath, CancellationToken.None);
 
-    /// <summary>
-    /// Reads dependency IDs from an open nuspec stream.
-    /// </summary>
+    /// <summary>Reads dependency IDs from an open nuspec stream.</summary>
     /// <param name="nuspecStream">Open stream positioned at the start of the nuspec XML.</param>
     /// <returns>Distinct dependency IDs as an array.</returns>
-    public static Task<string[]> ReadDependencyIdsAsync(Stream nuspecStream) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Task<string[]> ReadDependencyIdsAsync(Stream nuspecStream) =>
         ReadDependencyIdsAsync(nuspecStream, CancellationToken.None);
 
     /// <summary>
@@ -73,7 +65,7 @@ internal static class NuspecDependencyReader
     /// <param name="nuspecStream">Open stream positioned at the start of the nuspec XML.</param>
     /// <param name="cancellationToken">Token observed across the parse.</param>
     /// <returns>Distinct dependency IDs as an array.</returns>
-    public static async Task<string[]> ReadDependencyIdsAsync(Stream nuspecStream, CancellationToken cancellationToken)
+    internal static async Task<string[]> ReadDependencyIdsAsync(Stream nuspecStream, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(nuspecStream);
         var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -90,7 +82,7 @@ internal static class NuspecDependencyReader
             var id = reader.GetAttribute(IdAttributeName);
             if (TextHelpers.HasNonWhitespace(id))
             {
-                ids.Add(id);
+                _ = ids.Add(id);
             }
         }
 
@@ -108,7 +100,7 @@ internal static class NuspecDependencyReader
     /// <param name="nupkgPath">Absolute path to the .nupkg on disk.</param>
     /// <param name="cancellationToken">Token observed across the open + parse.</param>
     /// <returns>Distinct dependency IDs as an array (dedupe happens internally; callers iterate by index).</returns>
-    public static async Task<string[]> ReadDependencyIdsAsync(string nupkgPath, CancellationToken cancellationToken)
+    internal static async Task<string[]> ReadDependencyIdsAsync(string nupkgPath, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(nupkgPath);
         var archive = await ZipFile.OpenReadAsync(nupkgPath, cancellationToken).ConfigureAwait(false);
@@ -128,13 +120,11 @@ internal static class NuspecDependencyReader
         }
     }
 
-    /// <summary>
-    /// Reads dependency IDs straight from a sidecar nuspec file on
-    /// disk.
-    /// </summary>
+    /// <summary>Reads dependency IDs straight from a sidecar nuspec file on disk.</summary>
     /// <param name="nuspecPath">Absolute path to the on-disk .nuspec.</param>
     /// <returns>Distinct dependency IDs as an array.</returns>
-    public static Task<string[]> ReadDependencyIdsFromFileAsync(string nuspecPath) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Task<string[]> ReadDependencyIdsFromFileAsync(string nuspecPath) =>
         ReadDependencyIdsFromFileAsync(nuspecPath, CancellationToken.None);
 
     /// <summary>
@@ -146,7 +136,7 @@ internal static class NuspecDependencyReader
     /// <param name="nuspecPath">Absolute path to the on-disk .nuspec.</param>
     /// <param name="cancellationToken">Token observed across the parse.</param>
     /// <returns>Distinct dependency IDs as an array.</returns>
-    public static async Task<string[]> ReadDependencyIdsFromFileAsync(string nuspecPath, CancellationToken cancellationToken)
+    internal static async Task<string[]> ReadDependencyIdsFromFileAsync(string nuspecPath, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(nuspecPath);
         var stream = new FileStream(nuspecPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, FileOptions.SequentialScan | FileOptions.Asynchronous);
@@ -163,7 +153,7 @@ internal static class NuspecDependencyReader
     /// </summary>
     /// <param name="archive">Open NuGet package archive.</param>
     /// <returns>The nuspec entry, or null when none is present.</returns>
-    public static ZipArchiveEntry? FindNuspecEntry(ZipArchive archive)
+    internal static ZipArchiveEntry? FindNuspecEntry(ZipArchive archive)
     {
         ArgumentNullException.ThrowIfNull(archive);
         for (var i = 0; i < archive.Entries.Count; i++)
@@ -178,14 +168,10 @@ internal static class NuspecDependencyReader
         return null;
     }
 
-    /// <summary>
-    /// Returns true when <paramref name="entryName"/> looks like the
-    /// root-level nuspec -- case-insensitive <c>.nuspec</c> suffix and
-    /// no path separator before it.
-    /// </summary>
+    /// <summary>Returns true when <paramref name="entryName"/> looks like the root-level nuspec -- case-insensitive <c>.nuspec</c> suffix and no path separator before it.</summary>
     /// <param name="entryName">Zip entry FullName to test.</param>
     /// <returns>True when this entry is the package's root nuspec.</returns>
-    public static bool IsRootNuspecEntry(string entryName)
+    internal static bool IsRootNuspecEntry(string entryName)
     {
         ArgumentNullException.ThrowIfNull(entryName);
         if (entryName is not [.., '.', 'n', 'u', 's', 'p', 'e', 'c'] && !entryName.EndsWith(".nuspec", StringComparison.OrdinalIgnoreCase))
@@ -205,7 +191,7 @@ internal static class NuspecDependencyReader
     /// </summary>
     /// <param name="reader">Reader positioned on an element.</param>
     /// <returns>True when the element is a recognised nuspec dependency entry.</returns>
-    public static bool IsDependencyElement(XmlReader reader)
+    internal static bool IsDependencyElement(XmlReader reader)
     {
         ArgumentNullException.ThrowIfNull(reader);
         if (!reader.LocalName.Equals(DependencyElementName, StringComparison.Ordinal))

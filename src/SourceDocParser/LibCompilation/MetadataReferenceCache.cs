@@ -1,8 +1,9 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 
 namespace SourceDocParser.LibCompilation;
@@ -21,28 +22,41 @@ namespace SourceDocParser.LibCompilation;
 /// </remarks>
 internal sealed class MetadataReferenceCache : IDisposable
 {
-    /// <summary>
-    /// Map of assembly paths to cached references. Case-insensitive for Windows path variations.
-    /// </summary>
+    /// <summary>Map of assembly paths to cached references. Case-insensitive for Windows path variations.</summary>
     private readonly ConcurrentDictionary<string, MetadataReference> _byPath = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// Logger for XML doc load progress and parse failures.
-    /// </summary>
+    /// <summary>Logger for XML doc load progress and parse failures.</summary>
     private readonly ILogger _logger;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="MetadataReferenceCache"/> class.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="MetadataReferenceCache"/> class.</summary>
     /// <param name="logger">Logger for XML doc load progress and parse failures.</param>
     public MetadataReferenceCache(ILogger logger) => _logger = logger;
 
     /// <summary>
-    /// Gets or loads the <see cref="MetadataReference"/> for the specified assembly path.
+    /// Disposes every cached <see cref="MetadataReference"/>'s backing
+    /// <see cref="AssemblyMetadata"/>, releasing the memory-mapped DLL view
+    /// for each entry. Subsequent <see cref="Get"/> calls would re-load
+    /// from disk (callers typically drop the cache itself rather than
+    /// re-using a disposed one).
     /// </summary>
+    public void Dispose()
+    {
+        foreach (var (_, entry) in _byPath)
+        {
+            if (entry is PortableExecutableReference peReference)
+            {
+                peReference.GetMetadata().Dispose();
+            }
+        }
+
+        _byPath.Clear();
+    }
+
+    /// <summary>Gets or loads the <see cref="MetadataReference"/> for the specified assembly path.</summary>
     /// <param name="assemblyPath">The absolute path to the assembly DLL.</param>
     /// <returns>A metadata reference, possibly with XML documentation attached.</returns>
-    public MetadataReference Get(string assemblyPath) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal MetadataReference Get(string assemblyPath) =>
         _byPath.GetOrAdd(
             assemblyPath,
             static (path, state) =>
@@ -54,29 +68,7 @@ internal sealed class MetadataReferenceCache : IDisposable
             },
             new FactoryState(_logger));
 
-    /// <summary>
-    /// Disposes every cached <see cref="MetadataReference"/>'s backing
-    /// <see cref="AssemblyMetadata"/>, releasing the memory-mapped DLL view
-    /// for each entry. Subsequent <see cref="Get"/> calls would re-load
-    /// from disk (callers typically drop the cache itself rather than
-    /// re-using a disposed one).
-    /// </summary>
-    public void Dispose()
-    {
-        foreach (var entry in _byPath.Values)
-        {
-            if (entry is PortableExecutableReference peReference)
-            {
-                peReference.GetMetadata().Dispose();
-            }
-        }
-
-        _byPath.Clear();
-    }
-
-    /// <summary>
-    /// The state of the Factory.
-    /// </summary>
+    /// <summary>The state of the Factory.</summary>
     /// <param name="Logger">Logger for XML doc load progress and parse failures.</param>
     private readonly record struct FactoryState(ILogger Logger);
 }

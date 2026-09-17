@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -14,6 +14,7 @@ namespace SourceDocParser.Docfx.Config;
 /// preserve verbatim from the template.
 /// </summary>
 /// <param name="Content">Ordered list of build content entries. Patched in place: previously-injected platform entries are removed and a fresh set is appended.</param>
+[System.Diagnostics.DebuggerDisplay("DocfxBuildSection: {Extra}")]
 public sealed record DocfxBuildSection(DocfxBuildContent[] Content)
 {
     /// <summary>

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -18,6 +18,29 @@ namespace SourceDocParser.Tests.Walk;
 /// </summary>
 public class AttributeExtractorTests
 {
+    /// <summary>Fixture value for Target.</summary>
+    private const string Target = "Target";
+
+    /// <summary>Fixture value for Obsolete.</summary>
+    private const string Obsolete = "Obsolete";
+
+    /// <summary>Fixture value for UsingSystemObsoleteRetiredPublicClassTarget.</summary>
+    private const string UsingSystemObsoleteRetiredPublicClassTarget = """
+            using System;
+            [Obsolete("retired")]
+            public class Target { }
+            """;
+
+    /// <summary>Fixture value for UsingSystemSerializablePublicClassTarget.</summary>
+    private const string UsingSystemSerializablePublicClassTarget = """
+            using System;
+            [Serializable]
+            public class Target { }
+            """;
+
+    /// <summary>Expected fixture value used by ExtractReturnsAttributesInDeclarationOrder.</summary>
+    private const int ExtractReturnsAttributesInDeclarationOrderExpectedValue = 2;
+
     /// <summary>Extract returns one model attribute per usage in declaration order.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -30,13 +53,13 @@ public class AttributeExtractorTests
             [Obsolete("retired")]
             public class Target { }
             """,
-            "Target");
+            Target);
 
         var attributes = AttributeExtractor.Extract(symbol);
 
-        await Assert.That(attributes.Length).IsEqualTo(2);
+        await Assert.That(attributes.Length).IsEqualTo(ExtractReturnsAttributesInDeclarationOrderExpectedValue);
         await Assert.That(attributes[0].DisplayName).IsEqualTo("Serializable");
-        await Assert.That(attributes[1].DisplayName).IsEqualTo("Obsolete");
+        await Assert.That(attributes[1].DisplayName).IsEqualTo(Obsolete);
     }
 
     /// <summary>Extract returns the empty array for symbols carrying no attributes.</summary>
@@ -44,7 +67,7 @@ public class AttributeExtractorTests
     [Test]
     public async Task ExtractReturnsEmptyForSymbolWithoutAttributes()
     {
-        var symbol = GetTypeSymbol("public class Target { }", "Target");
+        var symbol = GetTypeSymbol("public class Target { }", Target);
 
         var attributes = AttributeExtractor.Extract(symbol);
 
@@ -57,12 +80,8 @@ public class AttributeExtractorTests
     public async Task ExtractAllResolvesObsoleteWithMessage()
     {
         var symbol = GetTypeSymbol(
-            """
-            using System;
-            [Obsolete("retired")]
-            public class Target { }
-            """,
-            "Target");
+            UsingSystemObsoleteRetiredPublicClassTarget,
+            Target);
 
         var (attributes, isObsolete, obsoleteMessage) = AttributeExtractor.ExtractAll(symbol);
 
@@ -77,12 +96,8 @@ public class AttributeExtractorTests
     public async Task ExtractAllReportsNotObsoleteWhenAbsent()
     {
         var symbol = GetTypeSymbol(
-            """
-            using System;
-            [Serializable]
-            public class Target { }
-            """,
-            "Target");
+            UsingSystemSerializablePublicClassTarget,
+            Target);
 
         var (_, isObsolete, obsoleteMessage) = AttributeExtractor.ExtractAll(symbol);
 
@@ -95,7 +110,7 @@ public class AttributeExtractorTests
     [Test]
     public async Task ExtractAllReturnsEmptyTupleForNoAttributes()
     {
-        var symbol = GetTypeSymbol("public class Target { }", "Target");
+        var symbol = GetTypeSymbol("public class Target { }", Target);
 
         var (attributes, isObsolete, obsoleteMessage) = AttributeExtractor.ExtractAll(symbol);
 
@@ -118,7 +133,7 @@ public class AttributeExtractorTests
             [Obsolete("second")]
             public class Target { }
             """,
-            "Target");
+            Target);
 
         var (_, isObsolete, obsoleteMessage) = AttributeExtractor.ExtractAll(symbol);
 
@@ -137,7 +152,7 @@ public class AttributeExtractorTests
             [Obsolete]
             public class Target { }
             """,
-            "Target");
+            Target);
 
         var (_, isObsolete, obsoleteMessage) = AttributeExtractor.ExtractAll(symbol);
 
@@ -151,12 +166,8 @@ public class AttributeExtractorTests
     public async Task ResolveObsoleteMatchesExtractAll()
     {
         var symbol = GetTypeSymbol(
-            """
-            using System;
-            [Obsolete("retired")]
-            public class Target { }
-            """,
-            "Target");
+            UsingSystemObsoleteRetiredPublicClassTarget,
+            Target);
 
         var (isObsolete, message) = AttributeExtractor.ResolveObsolete(symbol);
 
@@ -170,12 +181,8 @@ public class AttributeExtractorTests
     public async Task ResolveObsoleteReturnsFalseWhenAbsent()
     {
         var symbol = GetTypeSymbol(
-            """
-            using System;
-            [Serializable]
-            public class Target { }
-            """,
-            "Target");
+            UsingSystemSerializablePublicClassTarget,
+            Target);
 
         var (isObsolete, message) = AttributeExtractor.ResolveObsolete(symbol);
 
@@ -204,13 +211,13 @@ public class AttributeExtractorTests
             [Obsolete("retired")]
             public class Target { }
             """,
-            "Target");
+            Target);
 
         var attributes = AttributeExtractor.ExtractCore(symbol.GetAttributes());
 
-        await Assert.That(attributes.Length).IsEqualTo(2);
+        await Assert.That(attributes.Length).IsEqualTo(ExtractReturnsAttributesInDeclarationOrderExpectedValue);
         await Assert.That(attributes[0].DisplayName).IsEqualTo("Serializable");
-        await Assert.That(attributes[1].DisplayName).IsEqualTo("Obsolete");
+        await Assert.That(attributes[1].DisplayName).IsEqualTo(Obsolete);
     }
 
     /// <summary>IsObsoleteAttribute returns true for the BCL <c>System.ObsoleteAttribute</c> class.</summary>
@@ -224,7 +231,7 @@ public class AttributeExtractorTests
             [Obsolete]
             public class Target { }
             """,
-            "Target");
+            Target);
         var obsolete = symbol.GetAttributes()[0].AttributeClass!;
 
         await Assert.That(AttributeExtractor.IsObsoleteAttribute(obsolete)).IsTrue();
@@ -236,12 +243,8 @@ public class AttributeExtractorTests
     public async Task IsObsoleteAttributeFalseForOtherTypes()
     {
         var symbol = GetTypeSymbol(
-            """
-            using System;
-            [Serializable]
-            public class Target { }
-            """,
-            "Target");
+            UsingSystemSerializablePublicClassTarget,
+            Target);
         var serializable = symbol.GetAttributes()[0].AttributeClass!;
 
         await Assert.That(AttributeExtractor.IsObsoleteAttribute(serializable)).IsFalse();
@@ -254,16 +257,12 @@ public class AttributeExtractorTests
     public async Task ConvertCapturesConstructorUid()
     {
         var symbol = GetTypeSymbol(
-            """
-            using System;
-            [Obsolete("retired")]
-            public class Target { }
-            """,
-            "Target");
+            UsingSystemObsoleteRetiredPublicClassTarget,
+            Target);
 
         var converted = AttributeExtractor.Convert(symbol.GetAttributes()[0]);
 
-        await Assert.That(converted.DisplayName).IsEqualTo("Obsolete");
+        await Assert.That(converted.DisplayName).IsEqualTo(Obsolete);
         await Assert.That(converted.Uid).IsEqualTo("T:System.ObsoleteAttribute");
         await Assert.That(converted.ConstructorUid).Contains("M:System.ObsoleteAttribute.#ctor(System.String)");
         await Assert.That(converted.Arguments.Length).IsEqualTo(1);
@@ -281,7 +280,7 @@ public class AttributeExtractorTests
             [DefaultValue(7)]
             public class Target { }
             """,
-            "Target");
+            Target);
         var constant = symbol.GetAttributes()[0].ConstructorArguments[0];
 
         await Assert.That(AttributeExtractor.FormatConstant(constant)).IsEqualTo("7");
@@ -298,7 +297,7 @@ public class AttributeExtractorTests
             [DefaultValue((string?)null)]
             public class Target { }
             """,
-            "Target");
+            Target);
         var constant = symbol.GetAttributes()[0].ConstructorArguments[0];
 
         await Assert.That(AttributeExtractor.FormatConstant(constant)).IsEqualTo("null");
@@ -318,7 +317,7 @@ public class AttributeExtractorTests
             [TypeRef(typeof(int))]
             public class Target { }
             """,
-            "Target");
+            Target);
         var constant = symbol.GetAttributes()[0].ConstructorArguments[0];
 
         await Assert.That(AttributeExtractor.FormatConstant(constant)).IsEqualTo("typeof(int)");
@@ -335,7 +334,7 @@ public class AttributeExtractorTests
             [AttributeUsage(AttributeTargets.Class)]
             public class Target : Attribute { }
             """,
-            "Target");
+            Target);
         var constant = symbol.GetAttributes()[0].ConstructorArguments[0];
 
         // AttributeTargets.Class is the underlying value 4.
@@ -379,6 +378,7 @@ public class AttributeExtractorTests
     /// <param name="source">C# source.</param>
     /// <param name="typeName">Simple name of the type to fetch.</param>
     /// <returns>The named type's symbol.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when <c>compilation.GetTypeByMetadataName(typeName)</c> is <see langword="null"/>.</exception>
     private static INamedTypeSymbol GetTypeSymbol(string source, string typeName)
     {
         var tree = CSharpSyntaxTree.ParseText(source, new(LanguageVersion.Preview));
@@ -391,7 +391,7 @@ public class AttributeExtractorTests
             }
         }
 
-        var compilation = CSharpCompilation.Create("AttributeExtractorTests", [tree], references);
+        var compilation = CSharpCompilation.Create(nameof(AttributeExtractorTests), [tree], references);
         return compilation.GetTypeByMetadataName(typeName)
             ?? throw new InvalidOperationException($"Type '{typeName}' not found in compilation.");
     }

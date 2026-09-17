@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace SourceDocParser.XmlDoc;
@@ -28,7 +29,7 @@ internal static class MarkdownListTableRenderer
     /// <param name="scanner">Scanner positioned on the list start tag; advanced past the matching end tag.</param>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="resolver">Cref resolver threaded into nested term / description content.</param>
-    public static void Render(ref DocXmlScanner scanner, StringBuilder sb, ICrefResolver resolver)
+    internal static void Render(ref DocXmlScanner scanner, StringBuilder sb, ICrefResolver resolver)
     {
         var listDepth = scanner.Depth;
         var headerWritten = false;
@@ -82,7 +83,7 @@ internal static class MarkdownListTableRenderer
     /// <param name="inner">Inner XML span of one item or listheader.</param>
     /// <param name="resolver">Cref resolver threaded through nested children.</param>
     /// <returns>Tuple of (term, description); each defaults to a single space when empty.</returns>
-    public static (string Term, string Description) ReadTermAndDescription(in ReadOnlySpan<char> inner, ICrefResolver resolver)
+    internal static (string Term, string Description) ReadTermAndDescription(in ReadOnlySpan<char> inner, ICrefResolver resolver)
     {
         var term = string.Empty;
         var description = string.Empty;
@@ -120,6 +121,7 @@ internal static class MarkdownListTableRenderer
     /// <param name="sb">Destination buffer.</param>
     /// <param name="term">Header text for the first column.</param>
     /// <param name="description">Header text for the second column.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void WriteHeader(StringBuilder sb, string term, string description) =>
         sb.Append("| ").Append(term).Append(" | ").Append(description).Append(" |\n")
             .Append("| --- | --- |\n");
@@ -128,6 +130,7 @@ internal static class MarkdownListTableRenderer
     /// <param name="sb">Destination buffer.</param>
     /// <param name="term">Body text for the first column.</param>
     /// <param name="description">Body text for the second column.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void WriteRow(StringBuilder sb, string term, string description) =>
         sb.Append("| ").Append(term).Append(" | ").Append(description).Append(" |\n");
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -18,6 +18,12 @@ namespace SourceDocParser.Zensical.Tests;
 /// </summary>
 public class ZensicalCatalogIndexesTests
 {
+    /// <summary>Fixture value for MissingTypeUid.</summary>
+    private const string MissingTypeUid = "T:Missing";
+
+    /// <summary>Fixture value for DerivedTypeName.</summary>
+    private const string DerivedTypeName = "Derived";
+
     /// <summary>Empty input returns the shared <see cref="ZensicalCatalogIndexes.Empty"/> singleton.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -35,9 +41,9 @@ public class ZensicalCatalogIndexesTests
     {
         var indexes = ZensicalCatalogIndexes.Empty;
 
-        await Assert.That(indexes.GetDerived("T:Missing")).IsEmpty();
-        await Assert.That(indexes.GetExtensions("T:Missing")).IsEmpty();
-        await Assert.That(indexes.GetInherited("T:Missing")).IsEmpty();
+        await Assert.That(indexes.GetDerived(MissingTypeUid)).IsEmpty();
+        await Assert.That(indexes.GetExtensions(MissingTypeUid)).IsEmpty();
+        await Assert.That(indexes.GetInherited(MissingTypeUid)).IsEmpty();
     }
 
     /// <summary>Derived lookup buckets each subclass under its base type uid.</summary>
@@ -46,7 +52,7 @@ public class ZensicalCatalogIndexesTests
     public async Task DerivedLookupBucketsByBaseUid()
     {
         var baseType = TestData.ObjectType("Base");
-        var sub = TestData.ObjectType("Derived") with
+        var sub = TestData.ObjectType(DerivedTypeName) with
         {
             BaseType = new("Base", "Base"),
         };
@@ -55,7 +61,7 @@ public class ZensicalCatalogIndexesTests
         var derived = indexes.GetDerived("Base");
 
         await Assert.That(derived.Length).IsEqualTo(1);
-        await Assert.That(derived[0].Uid).IsEqualTo("Derived");
+        await Assert.That(derived[0].Uid).IsEqualTo(DerivedTypeName);
     }
 
     /// <summary>Type page emits the new sections when the indexes carry entries.</summary>
@@ -64,7 +70,7 @@ public class ZensicalCatalogIndexesTests
     public async Task TypePageEmitsSectionsWhenIndexesPopulated()
     {
         var baseType = TestData.ObjectType("Base");
-        var sub = TestData.ObjectType("Derived") with
+        var sub = TestData.ObjectType(DerivedTypeName) with
         {
             BaseType = new("Base", "Base"),
         };
@@ -73,7 +79,7 @@ public class ZensicalCatalogIndexesTests
         var page = TypePageEmitter.Render(baseType, ZensicalEmitterOptions.Default, indexes);
 
         await Assert.That(page).Contains("## Derived types");
-        await Assert.That(page).Contains("Derived");
+        await Assert.That(page).Contains(DerivedTypeName);
         await Assert.That(page).Contains("??? abstract \"Inherited members\"");
     }
 

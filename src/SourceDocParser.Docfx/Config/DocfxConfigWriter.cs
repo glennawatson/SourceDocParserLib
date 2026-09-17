@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using SourceDocParser.Docfx.Common;
@@ -21,25 +22,17 @@ public static partial class DocfxConfigWriter
     private const string TemplateResourceName = "SourceDocParser.Docfx.docfx.template.json";
 
     /// <summary>JSON output options matching docfx's expected camelCase + indented form.</summary>
-    private static readonly JsonWriterOptions _writerOptions = new()
-    {
-        Indented = true,
-    };
+    private static readonly JsonWriterOptions _writerOptions = new() { Indented = true, };
 
-    /// <summary>
-    /// Reads the embedded template, patches metadata/build sections to
-    /// reflect the discovered TFMs, and writes the result.
-    /// </summary>
+    /// <summary>Reads the embedded template, patches metadata/build sections to reflect the discovered TFMs, and writes the result.</summary>
     /// <param name="apiPath">API root containing <c>lib/</c> and (optionally) <c>refs/</c> sub-directories.</param>
     /// <param name="outputPath">File to write the generated configuration to.</param>
     /// <returns>The same <paramref name="outputPath"/>, for fluent use by the caller.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string Write(string apiPath, string outputPath) =>
         Write(apiPath, outputPath, null);
 
-    /// <summary>
-    /// Reads the embedded template, patches metadata/build sections to
-    /// reflect the discovered TFMs, and writes the result.
-    /// </summary>
+    /// <summary>Reads the embedded template, patches metadata/build sections to reflect the discovered TFMs, and writes the result.</summary>
     /// <param name="apiPath">API root containing <c>lib/</c> and (optionally) <c>refs/</c> sub-directories.</param>
     /// <param name="outputPath">File to write the generated configuration to.</param>
     /// <param name="logger">Optional logger; defaults to a no-op logger.</param>
@@ -67,7 +60,7 @@ public static partial class DocfxConfigWriter
         }
 
         var refsTfms = Directory.Exists(refsDir) ? DocfxInternalHelpers.DiscoverTfms(refsDir) : [];
-        var refDllNameCache = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, HashSet<string>> refDllNameCache = [with(StringComparer.OrdinalIgnoreCase)];
 
         LogDiscoveredLibTfms(logger, libTfms);
         LogDiscoveredRefsTfms(logger, refsTfms);
@@ -80,16 +73,14 @@ public static partial class DocfxConfigWriter
         var patchedBuild = DocfxInternalHelpers.PatchBuildSection(template.Build, orderedPlatforms);
         var generated = new DocfxConfig([.. entries], patchedBuild);
 
-        Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
         WriteConfig(generated, outputPath);
 
         LogWroteConfig(logger, entries.Count, outputPath);
         return outputPath;
     }
 
-    /// <summary>
-    /// Reads and parses the docfx template embedded in this assembly via <see cref="DocfxConfigReader"/>.
-    /// </summary>
+    /// <summary>Reads and parses the docfx template embedded in this assembly via <see cref="DocfxConfigReader"/>.</summary>
     /// <returns>The parsed template configuration.</returns>
     /// <exception cref="InvalidOperationException">When the resource is missing.</exception>
     private static DocfxConfig ReadTemplate()
@@ -117,22 +108,20 @@ public static partial class DocfxConfigWriter
         }
 
         var copy = new Dictionary<string, JsonElement>(extra);
-        copy.Remove("references");
+        _ = copy.Remove("references");
         return copy.Count is 0 ? null : copy;
     }
 
-    /// <summary>
-    /// Builds the metadata entries and injected platform list for the generated docfx configuration.
-    /// </summary>
+    /// <summary>Builds the metadata entries and injected platform list for the generated docfx configuration.</summary>
     /// <param name="libTfms">Discovered library TFMs.</param>
     /// <param name="context">Shared state needed to build metadata entries.</param>
     /// <returns>The generated metadata entries plus the ordered injected platform labels.</returns>
     private static (List<DocfxMetadataEntry> Entries, string[] OrderedPlatforms) BuildMetadataEntries(
         List<string> libTfms,
-        MetadataEntryBuildContext context)
+        in MetadataEntryBuildContext context)
     {
-        var metadataEntries = new List<DocfxMetadataEntry>(libTfms.Count);
-        var platformLabels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        List<DocfxMetadataEntry> metadataEntries = [with(libTfms.Count)];
+        HashSet<string> platformLabels = [with(StringComparer.OrdinalIgnoreCase)];
 
         for (var i = 0; i < libTfms.Count; i++)
         {
@@ -145,7 +134,7 @@ public static partial class DocfxConfigWriter
             metadataEntries.Add(entry);
             if (platformLabel is not null)
             {
-                platformLabels.Add(platformLabel);
+                _ = platformLabels.Add(platformLabel);
             }
         }
 
@@ -154,16 +143,14 @@ public static partial class DocfxConfigWriter
         return (metadataEntries, [.. orderedPlatforms]);
     }
 
-    /// <summary>
-    /// Attempts to build a metadata entry for a single lib/ TFM.
-    /// </summary>
+    /// <summary>Attempts to build a metadata entry for a single lib/ TFM.</summary>
     /// <param name="context">Shared state needed to build metadata entries.</param>
     /// <param name="tfm">Current lib/ TFM being processed.</param>
     /// <param name="entry">Generated metadata entry when successful.</param>
     /// <param name="platformLabel">Platform label associated with the generated entry.</param>
     /// <returns><see langword="true"/> when a metadata entry was generated.</returns>
     private static bool TryCreateMetadataEntry(
-        MetadataEntryBuildContext context,
+        in MetadataEntryBuildContext context,
         string tfm,
         out DocfxMetadataEntry entry,
         out string? platformLabel)
@@ -192,10 +179,7 @@ public static partial class DocfxConfigWriter
 
         entry = new(
             Src: [new($"api/lib/{tfm}", [.. packageDlls])],
-            Dest: dest)
-        {
-            Extra = context.SharedExtra,
-        };
+            Dest: dest) { Extra = context.SharedExtra, };
 
         LogMetadataEntry(context.Logger, tfm, packageDlls.Count, bestRef, dest);
         return true;
@@ -237,10 +221,7 @@ public static partial class DocfxConfigWriter
         writer.Flush();
     }
 
-    /// <summary>
-    /// Writes one metadata entry: the typed src+dest properties, then any
-    /// round-tripped extras.
-    /// </summary>
+    /// <summary>Writes one metadata entry: the typed src+dest properties, then any round-tripped extras.</summary>
     /// <param name="writer">Destination writer.</param>
     /// <param name="entry">Metadata entry to write.</param>
     private static void WriteMetadataEntry(Utf8JsonWriter writer, DocfxMetadataEntry entry)
@@ -263,9 +244,7 @@ public static partial class DocfxConfigWriter
         writer.WriteEndObject();
     }
 
-    /// <summary>
-    /// Writes one metadata src record (src directory + file list).
-    /// </summary>
+    /// <summary>Writes one metadata src record (src directory + file list).</summary>
     /// <param name="writer">Destination writer.</param>
     /// <param name="source">Source record to write.</param>
     private static void WriteMetadataSource(Utf8JsonWriter writer, DocfxMetadataSource source)
@@ -277,9 +256,7 @@ public static partial class DocfxConfigWriter
         writer.WriteEndObject();
     }
 
-    /// <summary>
-    /// Writes the build section: typed content array, then any round-tripped extras.
-    /// </summary>
+    /// <summary>Writes the build section: typed content array, then any round-tripped extras.</summary>
     /// <param name="writer">Destination writer.</param>
     /// <param name="build">Build section to write.</param>
     private static void WriteBuildSection(Utf8JsonWriter writer, DocfxBuildSection build)
@@ -300,9 +277,7 @@ public static partial class DocfxConfigWriter
         writer.WriteEndObject();
     }
 
-    /// <summary>
-    /// Writes one build content entry: the optional files array, then any round-tripped extras.
-    /// </summary>
+    /// <summary>Writes one build content entry: the optional files array, then any round-tripped extras.</summary>
     /// <param name="writer">Destination writer.</param>
     /// <param name="entry">Build content entry.</param>
     private static void WriteBuildContent(Utf8JsonWriter writer, DocfxBuildContent entry)
@@ -320,9 +295,7 @@ public static partial class DocfxConfigWriter
         writer.WriteEndObject();
     }
 
-    /// <summary>
-    /// Writes <paramref name="values"/> as a JSON string array.
-    /// </summary>
+    /// <summary>Writes <paramref name="values"/> as a JSON string array.</summary>
     /// <param name="writer">Destination writer.</param>
     /// <param name="values">Strings to emit.</param>
     private static void WriteStringArray(Utf8JsonWriter writer, string[] values)
@@ -397,9 +370,7 @@ public static partial class DocfxConfigWriter
     [LoggerMessage(Level = LogLevel.Information, Message = "Wrote generated docfx config with {MetadataEntryCount} metadata entries to {OutputPath}")]
     private static partial void LogWroteConfig(ILogger logger, int metadataEntryCount, string outputPath);
 
-    /// <summary>
-    /// Shared state threaded through per-TFM metadata entry construction.
-    /// </summary>
+    /// <summary>Shared state threaded through per-TFM metadata entry construction.</summary>
     /// <param name="LibDir">Root <c>lib/</c> directory.</param>
     /// <param name="RefsDir">Root <c>refs/</c> directory.</param>
     /// <param name="RefsTfms">Discovered reference TFMs.</param>

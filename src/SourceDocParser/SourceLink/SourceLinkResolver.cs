@@ -1,33 +1,27 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 
 namespace SourceDocParser.SourceLink;
 
-/// <summary>
-/// Resolves symbols to source URLs using PDB and SourceLink data.
-/// </summary>
+/// <summary>Resolves symbols to source URLs using PDB and SourceLink data.</summary>
+/// <param name="assemblyPath">Absolute path to the .dll.</param>
 /// <remarks>
 /// One resolver is typically created per assembly. The PDB is opened once at construction.
 /// </remarks>
-/// <param name="assemblyPath">Absolute path to the .dll.</param>
+[System.Diagnostics.DebuggerDisplay("SourceLinkResolver: {_reader}")]
 public sealed class SourceLinkResolver(string assemblyPath) : ISourceLinkResolver
 {
-    /// <summary>
-    /// The underlying PDB reader.
-    /// </summary>
+    /// <summary>The underlying PDB reader.</summary>
     private readonly SourceLinkReader _reader = new(assemblyPath);
 
-    /// <summary>
-    /// Cache of the first method found on a type.
-    /// </summary>
-    private readonly Dictionary<INamedTypeSymbol, IMethodSymbol?> _firstMethodCache = new(SymbolEqualityComparer.Default);
+    /// <summary>Cache of the first method found on a type.</summary>
+    private readonly Dictionary<INamedTypeSymbol, IMethodSymbol?> _firstMethodCache = [with(SymbolEqualityComparer.Default)];
 
-    /// <summary>
-    /// Resolves the supplied symbol to a source URL.
-    /// </summary>
+    /// <summary>Resolves the supplied symbol to a source URL.</summary>
     /// <param name="symbol">The symbol to resolve.</param>
     /// <returns>A source URL with line anchor, or null if resolution fails.</returns>
     public string? Resolve(ISymbol symbol)
@@ -53,16 +47,15 @@ public sealed class SourceLinkResolver(string assemblyPath) : ISourceLinkResolve
     }
 
     /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _reader.Dispose();
 
-    /// <summary>
-    /// Picks the method symbol that best represents the symbol's source location.
-    /// </summary>
+    /// <summary>Picks the method symbol that best represents the symbol's source location.</summary>
+    /// <param name="symbol">The symbol whose source line to find.</param>
+    /// <returns>The representing method symbol, or null.</returns>
     /// <remarks>
     /// Properties and events reference their accessors. Fields and types fall back to the first method on the containing type.
     /// </remarks>
-    /// <param name="symbol">The symbol whose source line to find.</param>
-    /// <returns>The representing method symbol, or null.</returns>
     private IMethodSymbol? PickMethodForLocation(ISymbol symbol) => symbol switch
     {
         IMethodSymbol method => method,
@@ -75,9 +68,7 @@ public sealed class SourceLinkResolver(string assemblyPath) : ISourceLinkResolve
         _ => null,
     };
 
-    /// <summary>
-    /// Finds the first method on a type with a valid metadata token.
-    /// </summary>
+    /// <summary>Finds the first method on a type with a valid metadata token.</summary>
     /// <param name="type">The type to scan.</param>
     /// <returns>The first method symbol found, or null.</returns>
     private IMethodSymbol? FirstMethodOnContainingType(INamedTypeSymbol? type)
@@ -97,11 +88,13 @@ public sealed class SourceLinkResolver(string assemblyPath) : ISourceLinkResolve
         for (var i = 0; i < members.Length; i++)
         {
             var member = members[i];
-            if (member is IMethodSymbol { MetadataToken: not 0 } method)
+            if (member is not IMethodSymbol { MetadataToken: not 0 } method)
             {
-                found = method;
-                break;
+                continue;
             }
+
+            found = method;
+            break;
         }
 
         return _firstMethodCache[type] = found;

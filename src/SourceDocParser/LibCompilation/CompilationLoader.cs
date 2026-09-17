@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using ICSharpCode.Decompiler.Metadata;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -11,14 +12,11 @@ using static Microsoft.CodeAnalysis.OutputKind;
 
 namespace SourceDocParser.LibCompilation;
 
-/// <summary>
-/// Loads a compiled .NET assembly into a Roslyn <see cref="CSharpCompilation"/>.
-/// </summary>
+/// <summary>Loads a compiled .NET assembly into a Roslyn <see cref="CSharpCompilation"/>.</summary>
+[System.Diagnostics.DebuggerDisplay("CompilationLoader: {_logger}")]
 public sealed partial class CompilationLoader : ICompilationLoader
 {
-    /// <summary>
-    /// Gets a bootstrap syntax tree included in every compilation.
-    /// </summary>
+    /// <summary>Gets a bootstrap syntax tree included in every compilation.</summary>
     /// <remarks>
     /// Ensures Roslyn has a primary source to anchor the assembly identity,
     /// allowing it to bind core types like <c>System.Object</c>.
@@ -40,18 +38,13 @@ public sealed partial class CompilationLoader : ICompilationLoader
     /// <summary>Cache of <see cref="MetadataReference"/> instances by absolute path. Owned by this loader.</summary>
     private readonly MetadataReferenceCache _referenceCache;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="CompilationLoader"/> class
-    /// using a no-op logger.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="CompilationLoader"/> class using a no-op logger.</summary>
     public CompilationLoader()
         : this(null)
     {
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="CompilationLoader"/> class.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="CompilationLoader"/> class.</summary>
     /// <param name="logger">Logger for resolver progress and reference-resolution warnings; <see cref="NullLogger.Instance"/> when null.</param>
     public CompilationLoader(ILogger? logger)
     {
@@ -60,6 +53,7 @@ public sealed partial class CompilationLoader : ICompilationLoader
     }
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public (CSharpCompilation Compilation, IAssemblySymbol Assembly) Load(
         string assemblyPath,
         Dictionary<string, string> fallbackReferences) =>
@@ -98,11 +92,10 @@ public sealed partial class CompilationLoader : ICompilationLoader
     }
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _referenceCache.Dispose();
 
-    /// <summary>
-    /// Resolves the closure of assembly references for a DLL.
-    /// </summary>
+    /// <summary>Resolves the closure of assembly references for a DLL.</summary>
     /// <param name="assemblyPath">The absolute path to the primary DLL.</param>
     /// <param name="fallbackIndex">The fallback map for resolver misses.</param>
     /// <param name="logger">Logger for resolver progress and unresolved-reference warnings.</param>
@@ -122,11 +115,11 @@ public sealed partial class CompilationLoader : ICompilationLoader
         {
             Resolver = new(assemblyPath, throwOnError: false, primary.DetectTargetFrameworkId()),
             FallbackIndex = fallbackIndex,
-            ResolvedNames = new(StringComparer.Ordinal),
+            ResolvedNames = [with(StringComparer.Ordinal)],
             ResolvedPaths = [],
             Pending = new(),
             Logger = logger,
-            AssemblyName = Path.GetFileName(assemblyPath)
+            AssemblyName = Path.GetFileName(assemblyPath),
         };
 
         context.Pending.Push(new(assemblyPath));
@@ -154,9 +147,7 @@ public sealed partial class CompilationLoader : ICompilationLoader
         return context.ResolvedPaths;
     }
 
-    /// <summary>
-    /// Processes all assembly references of a single PE file.
-    /// </summary>
+    /// <summary>Processes all assembly references of a single PE file.</summary>
     /// <param name="current">The PE file to process.</param>
     /// <param name="context">The resolution context.</param>
     private static void ProcessReferences(PEFile current, ref ResolutionContext context)
@@ -189,9 +180,7 @@ public sealed partial class CompilationLoader : ICompilationLoader
         }
     }
 
-    /// <summary>
-    /// Disposes all PE files remaining in the pending stack.
-    /// </summary>
+    /// <summary>Disposes all PE files remaining in the pending stack.</summary>
     /// <param name="pending">The stack of pending PE files.</param>
     private static void DisposePending(Stack<PEFile> pending)
     {
@@ -215,9 +204,7 @@ public sealed partial class CompilationLoader : ICompilationLoader
     [LoggerMessage(Level = LogLevel.Warning, Message = "Unable to resolve assembly reference '{Reference}' for {Assembly}")]
     private static partial void LogUnresolvedReference(ILogger logger, string reference, string assembly);
 
-    /// <summary>
-    /// Context for transitive assembly reference resolution.
-    /// </summary>
+    /// <summary>Context for transitive assembly reference resolution.</summary>
     private readonly ref struct ResolutionContext
     {
         /// <summary>Gets the assembly resolver.</summary>

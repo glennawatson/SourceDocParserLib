@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using SourceDocParser.Model;
 using SourceDocParser.NuGet.Infrastructure;
@@ -10,13 +11,36 @@ using ProbedTfm = SourceDocParser.NuGet.Infrastructure.NuGetAssemblySource.Probe
 
 namespace SourceDocParser.NuGet.Tests;
 
-/// <summary>
-/// Constructor-level coverage for <see cref="NuGetAssemblySource"/>.
-/// Heavier scenarios that touch nuget.org live in
-/// <c>SourceDocParser.IntegrationTests</c>.
-/// </summary>
+/// <summary>Constructor-level coverage for <see cref="NuGetAssemblySource"/>. Heavier scenarios that touch nuget.org live in <c>SourceDocParser.IntegrationTests</c>.</summary>
 public class NuGetAssemblySourceTests
 {
+    /// <summary>Fixture value for Net100.</summary>
+    private const string Net100 = "net10.0";
+
+    /// <summary>Fixture value for PackageDll.</summary>
+    private const string PackageDll = "Package.dll";
+
+    /// <summary>Fixture value for TSampleA.</summary>
+    private const string TSampleA = "T:Sample.A";
+
+    /// <summary>Fixture value for TSampleB.</summary>
+    private const string TSampleB = "T:Sample.B";
+
+    /// <summary>Fixture value for ADll.</summary>
+    private const string ADll = "A.dll";
+
+    /// <summary>Fixture value for Net90.</summary>
+    private const string Net90 = "net9.0";
+
+    /// <summary>Expected fixture value used by SelectCanonicalsAndBroadcastsGrowsBroadcastSlotsOnFifthSubset.</summary>
+    private const int SelectCanonicalsAndBroadcastsGrowsBroadcastSlotsOnFifthSubsetExpectedValue = 5;
+
+    /// <summary>Expected fixture value used by SelectCanonicalsAndBroadcastsKeepsBroadcastScratchOnExactFit.</summary>
+    private const int SelectCanonicalsAndBroadcastsKeepsBroadcastScratchOnExactFitExpectedValue = 4;
+
+    /// <summary>Expected fixture value used by SelectCanonicalsAndBroadcastsBreaksRankTiesByOrdinalTfm.</summary>
+    private const int SelectCanonicalsAndBroadcastsBreaksRankTiesByOrdinalTfmExpectedValue = 2;
+
     /// <summary>Constructing with a null root directory throws.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -52,16 +76,16 @@ public class NuGetAssemblySourceTests
     {
         using var root = new TempDirectory();
         using var api = new TempDirectory();
-        var libTfmDir = Path.Combine(api.Path, "lib", "net10.0");
-        var refsTfmDir = Path.Combine(api.Path, "refs", "net10.0");
-        Directory.CreateDirectory(libTfmDir);
-        Directory.CreateDirectory(refsTfmDir);
+        var libTfmDir = Path.Combine(api.Path, "lib", Net100);
+        var refsTfmDir = Path.Combine(api.Path, "refs", Net100);
+        _ = Directory.CreateDirectory(libTfmDir);
+        _ = Directory.CreateDirectory(refsTfmDir);
 
-        await File.WriteAllBytesAsync(Path.Combine(libTfmDir, "Package.dll"), []);
+        await File.WriteAllBytesAsync(Path.Combine(libTfmDir, PackageDll), []);
         await File.WriteAllBytesAsync(Path.Combine(libTfmDir, "Shared.dll"), []);
         await File.WriteAllBytesAsync(Path.Combine(refsTfmDir, "Shared.dll"), []);
 
-        var source = new NuGetAssemblySource(root.Path, api.Path, logger: null, fetcher: new NoOpFetcher());
+        using var source = new NuGetAssemblySource(root.Path, api.Path, logger: null, fetcher: new NoOpFetcher());
         List<AssemblyGroup> groups = [];
         await foreach (var group in source.DiscoverAsync())
         {
@@ -69,9 +93,9 @@ public class NuGetAssemblySourceTests
         }
 
         await Assert.That(groups.Count).IsEqualTo(1);
-        await Assert.That(groups[0].Tfm).IsEqualTo("net10.0");
+        await Assert.That(groups[0].Tfm).IsEqualTo(Net100);
         await Assert.That(groups[0].AssemblyPaths.Length).IsEqualTo(1);
-        await Assert.That(Path.GetFileName(groups[0].AssemblyPaths[0])).IsEqualTo("Package.dll");
+        await Assert.That(Path.GetFileName(groups[0].AssemblyPaths[0])).IsEqualTo(PackageDll);
     }
 
     /// <summary>
@@ -112,9 +136,9 @@ public class NuGetAssemblySourceTests
     {
         using var root = new TempDirectory();
         using var api = new TempDirectory();
-        var libTfmDir = Path.Combine(api.Path, "lib", "net10.0");
-        Directory.CreateDirectory(libTfmDir);
-        await File.WriteAllBytesAsync(Path.Combine(libTfmDir, "Package.dll"), []);
+        var libTfmDir = Path.Combine(api.Path, "lib", Net100);
+        _ = Directory.CreateDirectory(libTfmDir);
+        await File.WriteAllBytesAsync(Path.Combine(libTfmDir, PackageDll), []);
 
         var source = new NuGetAssemblySource(root.Path, api.Path, logger: null, fetcher: new NoOpFetcher());
         using var cts = new CancellationTokenSource();
@@ -142,11 +166,11 @@ public class NuGetAssemblySourceTests
     {
         using var root = new TempDirectory();
         using var api = new TempDirectory();
-        var libTfmDir = Path.Combine(api.Path, "lib", "net10.0");
-        Directory.CreateDirectory(libTfmDir);
-        await File.WriteAllBytesAsync(Path.Combine(libTfmDir, "Package.dll"), []);
+        var libTfmDir = Path.Combine(api.Path, "lib", Net100);
+        _ = Directory.CreateDirectory(libTfmDir);
+        await File.WriteAllBytesAsync(Path.Combine(libTfmDir, PackageDll), []);
 
-        var source = new NuGetAssemblySource(root.Path, api.Path, logger: null, fetcher: new NoOpFetcher());
+        using var source = new NuGetAssemblySource(root.Path, api.Path, logger: null, fetcher: new NoOpFetcher());
         List<AssemblyGroup> groups = [];
         await foreach (var group in source.DiscoverAsync())
         {
@@ -154,7 +178,7 @@ public class NuGetAssemblySourceTests
         }
 
         await Assert.That(groups.Count).IsEqualTo(1);
-        await Assert.That(groups[0].Tfm).IsEqualTo("net10.0");
+        await Assert.That(groups[0].Tfm).IsEqualTo(Net100);
     }
 
     /// <summary>
@@ -171,16 +195,10 @@ public class NuGetAssemblySourceTests
         await Assert.That(groups.Length).IsEqualTo(0);
     }
 
-    /// <summary>
-    /// Null input is rejected with the standard guard so callers fail
-    /// loudly rather than NREing inside the ranking helper.
-    /// </summary>
+    /// <summary>Null input is rejected with the standard guard so callers fail loudly rather than NREing inside the ranking helper.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task SelectCanonicalsAndBroadcastsRejectsNull()
-    {
-        await Assert.That(() => NuGetAssemblySource.SelectCanonicalsAndBroadcasts(null!)).Throws<ArgumentNullException>();
-    }
+    public async Task SelectCanonicalsAndBroadcastsRejectsNull() => await Assert.That(static () => NuGetAssemblySource.SelectCanonicalsAndBroadcasts(null!)).Throws<ArgumentNullException>();
 
     /// <summary>
     /// A lone probe with no subset peers becomes a single canonical
@@ -192,16 +210,16 @@ public class NuGetAssemblySourceTests
     public async Task SelectCanonicalsAndBroadcastsPromotesSingleProbeToCanonical()
     {
         var probe = new ProbedTfm(
-            Tfm: "net10.0",
-            Dlls: ["Package.dll"],
-            Fallback: new(StringComparer.OrdinalIgnoreCase),
+            Tfm: Net100,
+            Dlls: [PackageDll],
+            Fallback: [with(StringComparer.OrdinalIgnoreCase)],
             Uids: ["T:Sample.Type"],
             Rank: 100);
 
         var groups = NuGetAssemblySource.SelectCanonicalsAndBroadcasts([probe]);
 
         await Assert.That(groups.Length).IsEqualTo(1);
-        await Assert.That(groups[0].Tfm).IsEqualTo("net10.0");
+        await Assert.That(groups[0].Tfm).IsEqualTo(Net100);
         await Assert.That(groups[0].BroadcastTfms.Length).IsEqualTo(0);
     }
 
@@ -219,24 +237,24 @@ public class NuGetAssemblySourceTests
     public async Task SelectCanonicalsAndBroadcastsGrowsBroadcastSlotsOnFifthSubset()
     {
         var fallback = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        HashSet<string> canonicalUids = ["T:Sample.A", "T:Sample.B"];
-        HashSet<string> subsetUids = ["T:Sample.A"];
+        HashSet<string> canonicalUids = [TSampleA, TSampleB];
+        HashSet<string> subsetUids = [TSampleA];
         var probes = new[]
         {
-            new ProbedTfm("net10.0", ["A.dll"], fallback, canonicalUids, Rank: 100),
-            new ProbedTfm("net9.0", ["A.dll"], fallback, subsetUids, Rank: 90),
-            new ProbedTfm("net8.0", ["A.dll"], fallback, subsetUids, Rank: 80),
-            new ProbedTfm("net7.0", ["A.dll"], fallback, subsetUids, Rank: 70),
-            new ProbedTfm("net6.0", ["A.dll"], fallback, subsetUids, Rank: 60),
-            new ProbedTfm("netstandard2.1", ["A.dll"], fallback, subsetUids, Rank: 50),
+            new ProbedTfm(Net100, [ADll], fallback, canonicalUids, Rank: 100),
+            new ProbedTfm(Net90, [ADll], fallback, subsetUids, Rank: 90),
+            new ProbedTfm("net8.0", [ADll], fallback, subsetUids, Rank: 80),
+            new ProbedTfm("net7.0", [ADll], fallback, subsetUids, Rank: 70),
+            new ProbedTfm("net6.0", [ADll], fallback, subsetUids, Rank: 60),
+            new ProbedTfm("netstandard2.1", [ADll], fallback, subsetUids, Rank: 50),
         };
 
         var groups = NuGetAssemblySource.SelectCanonicalsAndBroadcasts(probes);
 
         await Assert.That(groups.Length).IsEqualTo(1);
-        await Assert.That(groups[0].Tfm).IsEqualTo("net10.0");
-        await Assert.That(groups[0].BroadcastTfms.Length).IsEqualTo(5);
-        await Assert.That(groups[0].BroadcastTfms).Contains("net9.0");
+        await Assert.That(groups[0].Tfm).IsEqualTo(Net100);
+        await Assert.That(groups[0].BroadcastTfms.Length).IsEqualTo(SelectCanonicalsAndBroadcastsGrowsBroadcastSlotsOnFifthSubsetExpectedValue);
+        await Assert.That(groups[0].BroadcastTfms).Contains(Net90);
         await Assert.That(groups[0].BroadcastTfms).Contains("netstandard2.1");
     }
 
@@ -251,21 +269,21 @@ public class NuGetAssemblySourceTests
     public async Task SelectCanonicalsAndBroadcastsKeepsBroadcastScratchOnExactFit()
     {
         var fallback = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        HashSet<string> canonicalUids = ["T:Sample.A", "T:Sample.B"];
-        HashSet<string> subsetUids = ["T:Sample.A"];
+        HashSet<string> canonicalUids = [TSampleA, TSampleB];
+        HashSet<string> subsetUids = [TSampleA];
         var probes = new[]
         {
-            new ProbedTfm("net10.0", ["A.dll"], fallback, canonicalUids, Rank: 100),
-            new ProbedTfm("net9.0", ["A.dll"], fallback, subsetUids, Rank: 90),
-            new ProbedTfm("net8.0", ["A.dll"], fallback, subsetUids, Rank: 80),
-            new ProbedTfm("net7.0", ["A.dll"], fallback, subsetUids, Rank: 70),
-            new ProbedTfm("net6.0", ["A.dll"], fallback, subsetUids, Rank: 60),
+            new ProbedTfm(Net100, [ADll], fallback, canonicalUids, Rank: 100),
+            new ProbedTfm(Net90, [ADll], fallback, subsetUids, Rank: 90),
+            new ProbedTfm("net8.0", [ADll], fallback, subsetUids, Rank: 80),
+            new ProbedTfm("net7.0", [ADll], fallback, subsetUids, Rank: 70),
+            new ProbedTfm("net6.0", [ADll], fallback, subsetUids, Rank: 60),
         };
 
         var groups = NuGetAssemblySource.SelectCanonicalsAndBroadcasts(probes);
 
         await Assert.That(groups.Length).IsEqualTo(1);
-        await Assert.That(groups[0].BroadcastTfms.Length).IsEqualTo(4);
+        await Assert.That(groups[0].BroadcastTfms.Length).IsEqualTo(SelectCanonicalsAndBroadcastsKeepsBroadcastScratchOnExactFitExpectedValue);
     }
 
     /// <summary>
@@ -280,17 +298,17 @@ public class NuGetAssemblySourceTests
     public async Task SelectCanonicalsAndBroadcastsBreaksRankTiesByOrdinalTfm()
     {
         var fallback = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        HashSet<string> uidsA = ["T:Sample.A"];
-        HashSet<string> uidsB = ["T:Sample.B"];
+        HashSet<string> uidsA = [TSampleA];
+        HashSet<string> uidsB = [TSampleB];
         var probes = new[]
         {
-            new ProbedTfm("net10.0-windows", ["A.dll"], fallback, uidsA, Rank: 100),
+            new ProbedTfm("net10.0-windows", [ADll], fallback, uidsA, Rank: 100),
             new ProbedTfm("net10.0-android", ["B.dll"], fallback, uidsB, Rank: 100),
         };
 
         var groups = NuGetAssemblySource.SelectCanonicalsAndBroadcasts(probes);
 
-        await Assert.That(groups.Length).IsEqualTo(2);
+        await Assert.That(groups.Length).IsEqualTo(SelectCanonicalsAndBroadcastsBreaksRankTiesByOrdinalTfmExpectedValue);
 
         // Ordinal sort puts "net10.0-android" before "net10.0-windows" -- 'a' < 'w'.
         // The ranker emits in ordinal order when ranks tie.
@@ -313,21 +331,21 @@ public class NuGetAssemblySourceTests
         using var api = new TempDirectory();
 
         // net10.0: a real package DLL survives filtering.
-        var net10Lib = Path.Combine(api.Path, "lib", "net10.0");
-        Directory.CreateDirectory(net10Lib);
-        await File.WriteAllBytesAsync(Path.Combine(net10Lib, "Package.dll"), []);
+        var net10Lib = Path.Combine(api.Path, "lib", Net100);
+        _ = Directory.CreateDirectory(net10Lib);
+        await File.WriteAllBytesAsync(Path.Combine(net10Lib, PackageDll), []);
 
         // net9.0: the only DLL is shadowed by a co-located ref, so the
         // post-filter package DLL list is empty and the probe slot is
         // skipped -- forcing the probe loop's trim branch.
-        var net9Lib = Path.Combine(api.Path, "lib", "net9.0");
-        var net9Refs = Path.Combine(api.Path, "refs", "net9.0");
-        Directory.CreateDirectory(net9Lib);
-        Directory.CreateDirectory(net9Refs);
+        var net9Lib = Path.Combine(api.Path, "lib", Net90);
+        var net9Refs = Path.Combine(api.Path, "refs", Net90);
+        _ = Directory.CreateDirectory(net9Lib);
+        _ = Directory.CreateDirectory(net9Refs);
         await File.WriteAllBytesAsync(Path.Combine(net9Lib, "Shadowed.dll"), []);
         await File.WriteAllBytesAsync(Path.Combine(net9Refs, "Shadowed.dll"), []);
 
-        var source = new NuGetAssemblySource(root.Path, api.Path, logger: null, fetcher: new NoOpFetcher());
+        using var source = new NuGetAssemblySource(root.Path, api.Path, logger: null, fetcher: new NoOpFetcher());
         List<AssemblyGroup> groups = [];
         await foreach (var group in source.DiscoverAsync())
         {
@@ -335,14 +353,10 @@ public class NuGetAssemblySourceTests
         }
 
         await Assert.That(groups.Count).IsEqualTo(1);
-        await Assert.That(groups[0].Tfm).IsEqualTo("net10.0");
+        await Assert.That(groups[0].Tfm).IsEqualTo(Net100);
     }
 
-    /// <summary>
-    /// Whitespace-only <c>rootDirectory</c> trips the
-    /// <see cref="ArgumentException.ThrowIfNullOrWhiteSpace"/> guard --
-    /// distinct branch from the null check covered above.
-    /// </summary>
+    /// <summary>Whitespace-only <c>rootDirectory</c> trips the <see cref="ArgumentException.ThrowIfNullOrWhiteSpace"/> guard -- distinct branch from the null check covered above.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task RejectsWhitespaceRootDirectory()
@@ -354,10 +368,7 @@ public class NuGetAssemblySourceTests
         void Act() => _ = new NuGetAssemblySource(rootDirectory: "   ", apiPath: apiPath);
     }
 
-    /// <summary>
-    /// Whitespace-only <c>apiPath</c> trips the
-    /// <see cref="ArgumentException.ThrowIfNullOrWhiteSpace"/> guard.
-    /// </summary>
+    /// <summary>Whitespace-only <c>apiPath</c> trips the <see cref="ArgumentException.ThrowIfNullOrWhiteSpace"/> guard.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task RejectsWhitespaceApiPath()
@@ -369,16 +380,14 @@ public class NuGetAssemblySourceTests
         void Act() => _ = new NuGetAssemblySource(rootDirectory: rootDirectory, apiPath: "   ");
     }
 
-    /// <summary>
-    /// Disposable scratch directory the test deletes on dispose.
-    /// </summary>
+    /// <summary>Disposable scratch directory the test deletes on dispose.</summary>
     private sealed class TempDirectory : IDisposable
     {
         /// <summary>Initializes a new instance of the <see cref="TempDirectory"/> class.</summary>
         public TempDirectory()
         {
             Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"sdp-nuget-tests-{Guid.NewGuid():N}");
-            Directory.CreateDirectory(Path);
+            _ = Directory.CreateDirectory(Path);
         }
 
         /// <summary>Gets the absolute path of the scratch directory.</summary>
@@ -396,18 +405,19 @@ public class NuGetAssemblySourceTests
         }
     }
 
-    /// <summary>
-    /// Fetcher fake used by discovery tests that prepare the lib/refs layout directly.
-    /// </summary>
+    /// <summary>Fetcher fake used by discovery tests that prepare the lib/refs layout directly.</summary>
     private sealed class NoOpFetcher : INuGetFetcher
     {
         /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Task FetchPackagesAsync(string rootDirectory, string apiPath) => Task.CompletedTask;
 
         /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Task FetchPackagesAsync(string rootDirectory, string apiPath, ILogger? logger) => Task.CompletedTask;
 
         /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Task FetchPackagesAsync(string rootDirectory, string apiPath, ILogger? logger, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

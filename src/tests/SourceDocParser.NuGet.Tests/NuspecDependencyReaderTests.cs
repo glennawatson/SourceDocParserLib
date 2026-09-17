@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -17,6 +17,9 @@ namespace SourceDocParser.NuGet.Tests;
 /// </summary>
 public class NuspecDependencyReaderTests
 {
+    /// <summary>Expected fixture value used by ReadDependencyIdsDedupesAcrossTfmGroups.</summary>
+    private const int ReadDependencyIdsDedupesAcrossTfmGroupsExpectedValue = 3;
+
     /// <summary>
     /// Reads a typical multi-group nuspec -- one dependency in each
     /// of two TFM groups, plus a duplicate in a third group. The
@@ -48,7 +51,7 @@ public class NuspecDependencyReaderTests
 
         var ids = await NuspecDependencyReader.ReadDependencyIdsAsync(StreamFor(nuspecXml)).ConfigureAwait(false);
 
-        await Assert.That(ids.Count).IsEqualTo(3);
+        await Assert.That(ids.Count).IsEqualTo(ReadDependencyIdsDedupesAcrossTfmGroupsExpectedValue);
         await Assert.That(ids).Contains("Splat.Core");
         await Assert.That(ids).Contains("Splat.Logging");
         await Assert.That(ids).Contains("Splat.Builder");
@@ -290,6 +293,7 @@ public class NuspecDependencyReaderTests
     /// <param name="reader">Reader to drive.</param>
     /// <param name="localName">Local name to land on.</param>
     /// <returns>A task representing the navigation.</returns>
+    /// <exception cref="InvalidOperationException">The named element is absent.</exception>
     private static async Task AdvanceToFirstElementWithLocalName(XmlReader reader, string localName)
     {
         while (await reader.ReadAsync().ConfigureAwait(false))

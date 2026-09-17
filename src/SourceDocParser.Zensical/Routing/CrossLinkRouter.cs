@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -28,7 +28,7 @@ internal static class CrossLinkRouter
     /// <param name="reference">Type reference to render.</param>
     /// <param name="options">Emitter options whose <see cref="ZensicalEmitterOptions.Resolver"/> drives the dispatch.</param>
     /// <returns>The Markdown fragment for the reference.</returns>
-    public static string Format(ApiTypeReference reference, ZensicalEmitterOptions options)
+    internal static string Format(ApiTypeReference reference, ZensicalEmitterOptions options)
     {
         ArgumentNullException.ThrowIfNull(reference);
         ArgumentNullException.ThrowIfNull(options);
@@ -36,15 +36,11 @@ internal static class CrossLinkRouter
         return Format(reference, options.Resolver);
     }
 
-    /// <summary>
-    /// Renders <paramref name="reference"/> as Markdown via the
-    /// supplied <paramref name="resolver"/>. Empty UIDs fall back to
-    /// inline code.
-    /// </summary>
+    /// <summary>Renders <paramref name="reference"/> as Markdown via the supplied <paramref name="resolver"/>. Empty UIDs fall back to inline code.</summary>
     /// <param name="reference">Type reference to render.</param>
     /// <param name="resolver">Cref resolver supplied by the emitter.</param>
     /// <returns>The Markdown fragment for the reference.</returns>
-    public static string Format(ApiTypeReference reference, ICrefResolver resolver)
+    internal static string Format(ApiTypeReference reference, ICrefResolver resolver)
     {
         ArgumentNullException.ThrowIfNull(reference);
         ArgumentNullException.ThrowIfNull(resolver);

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -13,15 +13,27 @@ namespace SourceDocParser.Docfx.Tests.Config;
 /// </summary>
 public class DocfxConfigWriterTests
 {
+    /// <summary>Prefix for isolated configuration-writer fixture directories.</summary>
+    private const string ScratchDirectoryPrefix = "docfxcw";
+
+    /// <summary>Relative path of the runtime reference assembly fixture.</summary>
+    private const string RuntimeReferencePath = "refs/net8.0/System.Runtime.dll";
+
+    /// <summary>File name of the generated docfx configuration.</summary>
+    private const string ConfigFileName = "docfx.json";
+
+    /// <summary>JSON property containing metadata extraction entries.</summary>
+    private const string MetadataProperty = "metadata";
+
     /// <summary>The writer projects each lib TFM with a co-located refs match into one metadata entry.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task WritesMetadataEntryPerLibTfmWithMatchingRefs()
     {
-        using var scratch = new ScratchDirectory("docfxcw");
+        using var scratch = new ScratchDirectory(ScratchDirectoryPrefix);
         WriteEmptyDll(scratch.Path, "lib/net8.0/MyPkg.dll");
-        WriteEmptyDll(scratch.Path, "refs/net8.0/System.Runtime.dll");
-        var output = Path.Combine(scratch.Path, "docfx.json");
+        WriteEmptyDll(scratch.Path, RuntimeReferencePath);
+        var output = Path.Combine(scratch.Path, ConfigFileName);
 
         var written = Docfx.Config.DocfxConfigWriter.Write(scratch.Path, output);
 
@@ -29,12 +41,12 @@ public class DocfxConfigWriterTests
         await Assert.That(File.Exists(output)).IsTrue();
 
         using var doc = JsonDocument.Parse(await File.ReadAllBytesAsync(output));
-        var metadata = doc.RootElement.GetProperty("metadata");
+        var metadata = doc.RootElement.GetProperty(MetadataProperty);
         await Assert.That(metadata.GetArrayLength()).IsEqualTo(1);
         var entry = metadata[0];
         await Assert.That(entry.GetProperty("dest").GetString()).IsEqualTo("api");
         var src = entry.GetProperty("src")[0];
-        await Assert.That(src.GetProperty("src").GetString()).IsEqualTo("api/lib/net8.0");
+        await Assert.That(src.GetProperty(nameof(src)).GetString()).IsEqualTo("api/lib/net8.0");
 
         // The package DLL is kept; the System.Runtime ref DLL must be filtered out.
         var files = src.GetProperty("files");
@@ -53,15 +65,15 @@ public class DocfxConfigWriterTests
     [Test]
     public async Task PlatformLabelDrivesDestDirectory()
     {
-        using var scratch = new ScratchDirectory("docfxcw");
+        using var scratch = new ScratchDirectory(ScratchDirectoryPrefix);
         WriteEmptyDll(scratch.Path, "lib/net8.0-windows/MyPkg.dll");
         WriteEmptyDll(scratch.Path, "refs/net8.0-windows/System.Runtime.dll");
-        var output = Path.Combine(scratch.Path, "docfx.json");
+        var output = Path.Combine(scratch.Path, ConfigFileName);
 
-        Docfx.Config.DocfxConfigWriter.Write(scratch.Path, output);
+        _ = Docfx.Config.DocfxConfigWriter.Write(scratch.Path, output);
 
         using var doc = JsonDocument.Parse(await File.ReadAllBytesAsync(output));
-        var dest = doc.RootElement.GetProperty("metadata")[0].GetProperty("dest").GetString();
+        var dest = doc.RootElement.GetProperty(MetadataProperty)[0].GetProperty("dest").GetString();
         await Assert.That(dest).IsEqualTo("api-windows");
     }
 
@@ -70,19 +82,19 @@ public class DocfxConfigWriterTests
     [Test]
     public async Task LibTfmWithoutMatchingRefsIsSkipped()
     {
-        using var scratch = new ScratchDirectory("docfxcw");
+        using var scratch = new ScratchDirectory(ScratchDirectoryPrefix);
 
         // monoandroid is a legacy TFM that TfmResolver explicitly returns
         // null for -- guarantees no refs match regardless of what we put
         // under refs/, exercising the "no matching refs" skip branch.
         WriteEmptyDll(scratch.Path, "lib/monoandroid10.0/MyPkg.dll");
-        WriteEmptyDll(scratch.Path, "refs/net8.0/System.Runtime.dll");
-        var output = Path.Combine(scratch.Path, "docfx.json");
+        WriteEmptyDll(scratch.Path, RuntimeReferencePath);
+        var output = Path.Combine(scratch.Path, ConfigFileName);
 
-        Docfx.Config.DocfxConfigWriter.Write(scratch.Path, output);
+        _ = Docfx.Config.DocfxConfigWriter.Write(scratch.Path, output);
 
         using var doc = JsonDocument.Parse(await File.ReadAllBytesAsync(output));
-        await Assert.That(doc.RootElement.GetProperty("metadata").GetArrayLength()).IsEqualTo(0);
+        await Assert.That(doc.RootElement.GetProperty(MetadataProperty).GetArrayLength()).IsEqualTo(0);
     }
 
     /// <summary>A lib TFM containing only ref DLLs (everything filtered out) is skipped.</summary>
@@ -90,15 +102,15 @@ public class DocfxConfigWriterTests
     [Test]
     public async Task LibTfmWithOnlyRefDllsIsSkipped()
     {
-        using var scratch = new ScratchDirectory("docfxcw");
+        using var scratch = new ScratchDirectory(ScratchDirectoryPrefix);
         WriteEmptyDll(scratch.Path, "lib/net8.0/System.Runtime.dll");
-        WriteEmptyDll(scratch.Path, "refs/net8.0/System.Runtime.dll");
-        var output = Path.Combine(scratch.Path, "docfx.json");
+        WriteEmptyDll(scratch.Path, RuntimeReferencePath);
+        var output = Path.Combine(scratch.Path, ConfigFileName);
 
-        Docfx.Config.DocfxConfigWriter.Write(scratch.Path, output);
+        _ = Docfx.Config.DocfxConfigWriter.Write(scratch.Path, output);
 
         using var doc = JsonDocument.Parse(await File.ReadAllBytesAsync(output));
-        await Assert.That(doc.RootElement.GetProperty("metadata").GetArrayLength()).IsEqualTo(0);
+        await Assert.That(doc.RootElement.GetProperty(MetadataProperty).GetArrayLength()).IsEqualTo(0);
     }
 
     /// <summary>A missing <c>lib/</c> directory throws <see cref="DirectoryNotFoundException"/>.</summary>
@@ -106,9 +118,9 @@ public class DocfxConfigWriterTests
     [Test]
     public async Task MissingLibDirectoryThrows()
     {
-        using var scratch = new ScratchDirectory("docfxcw");
+        using var scratch = new ScratchDirectory(ScratchDirectoryPrefix);
 
-        await Assert.That(() => Docfx.Config.DocfxConfigWriter.Write(scratch.Path, Path.Combine(scratch.Path, "docfx.json")))
+        await Assert.That(() => Docfx.Config.DocfxConfigWriter.Write(scratch.Path, Path.Combine(scratch.Path, ConfigFileName)))
             .Throws<DirectoryNotFoundException>();
     }
 
@@ -117,10 +129,10 @@ public class DocfxConfigWriterTests
     [Test]
     public async Task EmptyLibDirectoryThrows()
     {
-        using var scratch = new ScratchDirectory("docfxcw");
-        Directory.CreateDirectory(Path.Combine(scratch.Path, "lib"));
+        using var scratch = new ScratchDirectory(ScratchDirectoryPrefix);
+        _ = Directory.CreateDirectory(Path.Combine(scratch.Path, "lib"));
 
-        await Assert.That(() => Docfx.Config.DocfxConfigWriter.Write(scratch.Path, Path.Combine(scratch.Path, "docfx.json")))
+        await Assert.That(() => Docfx.Config.DocfxConfigWriter.Write(scratch.Path, Path.Combine(scratch.Path, ConfigFileName)))
             .Throws<InvalidOperationException>();
     }
 
@@ -129,9 +141,9 @@ public class DocfxConfigWriterTests
     [Test]
     public async Task RejectsBlankArguments()
     {
-        await Assert.That(() => Docfx.Config.DocfxConfigWriter.Write(string.Empty, "out.json")).Throws<ArgumentException>();
-        await Assert.That(() => Docfx.Config.DocfxConfigWriter.Write("api", string.Empty)).Throws<ArgumentException>();
-        await Assert.That(() => Docfx.Config.DocfxConfigWriter.Write("   ", "out.json")).Throws<ArgumentException>();
+        await Assert.That(static () => Docfx.Config.DocfxConfigWriter.Write(string.Empty, "out.json")).Throws<ArgumentException>();
+        await Assert.That(static () => Docfx.Config.DocfxConfigWriter.Write("api", string.Empty)).Throws<ArgumentException>();
+        await Assert.That(static () => Docfx.Config.DocfxConfigWriter.Write("   ", "out.json")).Throws<ArgumentException>();
     }
 
     /// <summary>Creates an empty file at <paramref name="relative"/> under <paramref name="root"/>, creating parent directories as needed.</summary>
@@ -141,7 +153,7 @@ public class DocfxConfigWriterTests
     {
         var native = relative.Replace('/', Path.DirectorySeparatorChar);
         var fullPath = Path.Combine(root, native);
-        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
         File.WriteAllBytes(fullPath, []);
     }
 }

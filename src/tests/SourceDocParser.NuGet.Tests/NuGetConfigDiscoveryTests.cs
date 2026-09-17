@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -15,6 +15,12 @@ namespace SourceDocParser.NuGet.Tests;
 /// </summary>
 public class NuGetConfigDiscoveryTests
 {
+    /// <summary>Fixture value for Fixtures.</summary>
+    private const string Fixtures = "Fixtures";
+
+    /// <summary>Expected fixture value used by ResolvesPackageSourcesFromConfigInWorkingFolder.</summary>
+    private const int ResolvesPackageSourcesFromConfigInWorkingFolderExpectedValue = 2;
+
     /// <summary>
     /// Working folder = the fixture itself. The config sitting
     /// next to it is the first hit; <c>ResolveAsync</c> returns
@@ -24,7 +30,7 @@ public class NuGetConfigDiscoveryTests
     [Test]
     public async Task ResolvesGlobalFolderFromConfigInWorkingDirectory()
     {
-        var fixture = Path.Combine(AppContext.BaseDirectory, "Fixtures", "with-global");
+        var fixture = Path.Combine(AppContext.BaseDirectory, Fixtures, "with-global");
 
         var resolved = await NuGetConfigDiscovery.ResolveAsync(fixture).ConfigureAwait(false);
 
@@ -42,9 +48,9 @@ public class NuGetConfigDiscoveryTests
     [Test]
     public async Task WalksUpToFindParentConfig()
     {
-        var fixtureRoot = Path.Combine(AppContext.BaseDirectory, "Fixtures", "walk-up");
+        var fixtureRoot = Path.Combine(AppContext.BaseDirectory, Fixtures, "walk-up");
         var deepWorkingFolder = Path.Combine(fixtureRoot, "sub", "nested");
-        Directory.CreateDirectory(deepWorkingFolder);
+        _ = Directory.CreateDirectory(deepWorkingFolder);
 
         var resolved = await NuGetConfigDiscovery.ResolveAsync(deepWorkingFolder).ConfigureAwait(false);
 
@@ -60,7 +66,7 @@ public class NuGetConfigDiscoveryTests
     [Test]
     public async Task RecognisesWindowsStyleNuGetConfigCasing()
     {
-        var fixture = Path.Combine(AppContext.BaseDirectory, "Fixtures", "windows-style");
+        var fixture = Path.Combine(AppContext.BaseDirectory, Fixtures, "windows-style");
 
         var resolved = await NuGetConfigDiscovery.ResolveAsync(fixture).ConfigureAwait(false);
 
@@ -77,7 +83,7 @@ public class NuGetConfigDiscoveryTests
     public async Task FallsBackToPlatformDefaultWhenNoConfigFound()
     {
         var emptyFolder = Path.Combine(Path.GetTempPath(), $"sdp-empty-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(emptyFolder);
+        _ = Directory.CreateDirectory(emptyFolder);
         var originalEnv = Environment.GetEnvironmentVariable(NuGetGlobalCache.GlobalPackagesFolderEnvVar);
 
         try
@@ -107,9 +113,10 @@ public class NuGetConfigDiscoveryTests
     [Test]
     public async Task EnumerateConfigPathsVisitsWorkingFolderFirst()
     {
-        var fixture = Path.Combine(AppContext.BaseDirectory, "Fixtures", "with-global");
+        var fixture = Path.Combine(AppContext.BaseDirectory, Fixtures, "with-global");
 
-        var first = NuGetConfigDiscovery.EnumerateConfigPaths(fixture).FirstOrDefault();
+        using var paths = NuGetConfigDiscovery.EnumerateConfigPaths(fixture).GetEnumerator();
+        var first = paths.MoveNext() ? paths.Current : null;
 
         await Assert.That(first).IsEqualTo(Path.Combine(fixture, "nuget.config"));
     }
@@ -123,11 +130,11 @@ public class NuGetConfigDiscoveryTests
     [Test]
     public async Task ResolvesPackageSourcesFromConfigInWorkingFolder()
     {
-        var fixture = Path.Combine(AppContext.BaseDirectory, "Fixtures", "with-sources");
+        var fixture = Path.Combine(AppContext.BaseDirectory, Fixtures, "with-sources");
 
         var sources = await NuGetConfigDiscovery.ResolvePackageSourcesAsync(fixture).ConfigureAwait(false);
 
-        await Assert.That(sources.Length).IsEqualTo(2);
+        await Assert.That(sources.Length).IsEqualTo(ResolvesPackageSourcesFromConfigInWorkingFolderExpectedValue);
         await Assert.That(sources[0].Key).IsEqualTo("nuget.org");
         await Assert.That(sources[1].Key).IsEqualTo("github");
     }
@@ -141,7 +148,7 @@ public class NuGetConfigDiscoveryTests
     [Test]
     public async Task ClearStopsWalkAndDropsParentSources()
     {
-        var fixture = Path.Combine(AppContext.BaseDirectory, "Fixtures", "sources-clear");
+        var fixture = Path.Combine(AppContext.BaseDirectory, Fixtures, "sources-clear");
 
         var sources = await NuGetConfigDiscovery.ResolvePackageSourcesAsync(fixture).ConfigureAwait(false);
 
@@ -159,7 +166,7 @@ public class NuGetConfigDiscoveryTests
     public async Task FallsBackToNuGetOrgWhenNoSourcesDeclared()
     {
         var emptyFolder = Path.Combine(Path.GetTempPath(), $"sdp-empty-sources-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(emptyFolder);
+        _ = Directory.CreateDirectory(emptyFolder);
 
         try
         {
@@ -169,7 +176,7 @@ public class NuGetConfigDiscoveryTests
             // sources too -- but our well-known nuget.org default is
             // always present at minimum.
             await Assert.That(sources.Length).IsGreaterThan(0);
-            await Assert.That(Array.Exists(sources, s => s.Key == "nuget.org" || s.Url.Contains("api.nuget.org", StringComparison.OrdinalIgnoreCase))).IsTrue();
+            await Assert.That(Array.Exists(sources, static s => s.Key == "nuget.org" || s.Url.Contains("api.nuget.org", StringComparison.OrdinalIgnoreCase))).IsTrue();
         }
         finally
         {

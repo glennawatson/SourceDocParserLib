@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using SamplePdb;
@@ -21,6 +22,15 @@ namespace SourceDocParser.Tests.Walk;
 /// </summary>
 public class SamplePdbWalkerIntegrationTests
 {
+    /// <summary>Expected fixture value used by OverloadedMethodsAreCapturedSeparately.</summary>
+    private const int OverloadedMethodsAreCapturedSeparatelyExpectedValue = 3;
+
+    /// <summary>Expected fixture value used by DelegateTypeCapturesSignature.</summary>
+    private const int DelegateTypeCapturesSignatureExpectedValue = 2;
+
+    /// <summary>Expected fixture value used by AttributeArgumentsAreCaptured.</summary>
+    private const int AttributeArgumentsAreCapturedExpectedValue = 6;
+
     /// <summary>Walking the fixture surfaces every expected public type.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -31,7 +41,7 @@ public class SamplePdbWalkerIntegrationTests
         var fullNames = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < catalog.Types.Length; i++)
         {
-            fullNames.Add(catalog.Types[i].FullName);
+            _ = fullNames.Add(catalog.Types[i].FullName);
         }
 
         // FullName captures the bare type name + namespace; generic
@@ -87,7 +97,7 @@ public class SamplePdbWalkerIntegrationTests
             }
         }
 
-        await Assert.That(runOverloads.Count).IsEqualTo(3);
+        await Assert.That(runOverloads.Count).IsEqualTo(OverloadedMethodsAreCapturedSeparatelyExpectedValue);
 
         // Each overload has a distinct uid (M:...Run, M:...Run(System.Int32), M:...Run(System.Int32,System.Int32)).
         var uids = new HashSet<string>(StringComparer.Ordinal);
@@ -132,7 +142,7 @@ public class SamplePdbWalkerIntegrationTests
         var memberNames = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < player.Members.Length; i++)
         {
-            memberNames.Add(player.Members[i].Name);
+            _ = memberNames.Add(player.Members[i].Name);
         }
 
         await Assert.That(memberNames).Contains("Name");
@@ -202,7 +212,7 @@ public class SamplePdbWalkerIntegrationTests
         var catalog = WalkSamplePdb();
 
         var binaryOp = FindDelegateType(catalog, "SamplePdb.SampleBinaryOp");
-        await Assert.That(binaryOp.Invoke.Parameters.Length).IsEqualTo(2);
+        await Assert.That(binaryOp.Invoke.Parameters.Length).IsEqualTo(DelegateTypeCapturesSignatureExpectedValue);
         await Assert.That(binaryOp.Invoke.Parameters[0].Name).IsEqualTo("left");
         await Assert.That(binaryOp.Invoke.Parameters[1].Name).IsEqualTo("right");
         await Assert.That(binaryOp.Invoke.ReturnType).IsNotNull();
@@ -228,10 +238,10 @@ public class SamplePdbWalkerIntegrationTests
     {
         var severity = FindEnumType(WalkSamplePdb(), "SamplePdb.SampleSeverity");
 
-        await Assert.That(severity.Values.Length).IsEqualTo(3);
+        await Assert.That(severity.Values.Length).IsEqualTo(OverloadedMethodsAreCapturedSeparatelyExpectedValue);
         await Assert.That(severity.Values[0].Name).IsEqualTo("Info");
         await Assert.That(severity.Values[1].Name).IsEqualTo("Warning");
-        await Assert.That(severity.Values[2].Name).IsEqualTo("Error");
+        await Assert.That(severity.Values[DelegateTypeCapturesSignatureExpectedValue].Name).IsEqualTo("Error");
     }
 
     /// <summary>Flags enums carry the explicit underlying-type display name and every declared member.</summary>
@@ -247,7 +257,7 @@ public class SamplePdbWalkerIntegrationTests
         var memberNames = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < flags.Values.Length; i++)
         {
-            memberNames.Add(flags.Values[i].Name);
+            _ = memberNames.Add(flags.Values[i].Name);
         }
 
         await Assert.That(memberNames).Contains("None");
@@ -272,15 +282,17 @@ public class SamplePdbWalkerIntegrationTests
         ApiAttribute? marker = null;
         for (var i = 0; i < target.Attributes.Length; i++)
         {
-            if (target.Attributes[i].DisplayName == "Marker")
+            if (target.Attributes[i].DisplayName != "Marker")
             {
-                marker = target.Attributes[i];
-                break;
+                continue;
             }
+
+            marker = target.Attributes[i];
+            break;
         }
 
         await Assert.That(marker).IsNotNull();
-        await Assert.That(marker!.Arguments.Length).IsEqualTo(6);
+        await Assert.That(marker!.Arguments.Length).IsEqualTo(AttributeArgumentsAreCapturedExpectedValue);
 
         // Positional first -- the constructor's string parameter.
         await Assert.That(marker.Arguments[0].Name).IsNull();
@@ -320,7 +332,7 @@ public class SamplePdbWalkerIntegrationTests
         var caseNames = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < shape.Cases.Length; i++)
         {
-            caseNames.Add(shape.Cases[i].DisplayName);
+            _ = caseNames.Add(shape.Cases[i].DisplayName);
         }
 
         await Assert.That(caseNames).Contains("SampleCircle");
@@ -381,6 +393,7 @@ public class SamplePdbWalkerIntegrationTests
     /// <param name="compilation">The compilation under inspection.</param>
     /// <param name="shortName">The short assembly name.</param>
     /// <returns>The matching assembly symbol.</returns>
+    /// <exception cref="InvalidOperationException">The requested assembly is absent.</exception>
     private static IAssemblySymbol FindAssemblySymbol(Compilation compilation, string shortName)
     {
         foreach (var reference in compilation.References)
@@ -398,6 +411,7 @@ public class SamplePdbWalkerIntegrationTests
     /// <param name="catalog">The walked catalog.</param>
     /// <param name="fullName">Full name to look up.</param>
     /// <returns>The matching type.</returns>
+    /// <exception cref="InvalidOperationException">The requested object type is absent.</exception>
     private static ApiObjectType FindObjectType(ApiCatalog catalog, string fullName) =>
         FindType(catalog, fullName, static type => type is ApiObjectType, nameof(ApiObjectType)) as ApiObjectType
         ?? throw new InvalidOperationException($"ApiObjectType '{fullName}' not in catalog.");
@@ -406,6 +420,7 @@ public class SamplePdbWalkerIntegrationTests
     /// <param name="catalog">The walked catalog.</param>
     /// <param name="fullName">Full name to look up.</param>
     /// <returns>The matching type.</returns>
+    /// <exception cref="InvalidOperationException">The requested delegate type is absent.</exception>
     private static ApiDelegateType FindDelegateType(ApiCatalog catalog, string fullName) =>
         FindType(catalog, fullName, static type => type is ApiDelegateType, nameof(ApiDelegateType)) as ApiDelegateType
         ?? throw new InvalidOperationException($"ApiDelegateType '{fullName}' not in catalog.");
@@ -414,6 +429,7 @@ public class SamplePdbWalkerIntegrationTests
     /// <param name="catalog">The walked catalog.</param>
     /// <param name="fullName">Full name to look up.</param>
     /// <returns>The matching type.</returns>
+    /// <exception cref="InvalidOperationException">The requested enum type is absent.</exception>
     private static ApiEnumType FindEnumType(ApiCatalog catalog, string fullName) =>
         FindType(catalog, fullName, static type => type is ApiEnumType, nameof(ApiEnumType)) as ApiEnumType
         ?? throw new InvalidOperationException($"ApiEnumType '{fullName}' not in catalog.");
@@ -422,6 +438,7 @@ public class SamplePdbWalkerIntegrationTests
     /// <param name="catalog">The walked catalog.</param>
     /// <param name="fullName">Full name to look up.</param>
     /// <returns>The matching type.</returns>
+    /// <exception cref="InvalidOperationException">The requested union type is absent.</exception>
     private static ApiUnionType FindUnionType(ApiCatalog catalog, string fullName) =>
         FindType(catalog, fullName, static type => type is ApiUnionType, nameof(ApiUnionType)) as ApiUnionType
         ?? throw new InvalidOperationException($"ApiUnionType '{fullName}' not in catalog.");
@@ -432,6 +449,7 @@ public class SamplePdbWalkerIntegrationTests
     /// <param name="matchesType">Predicate selecting the desired concrete type.</param>
     /// <param name="typeName">Friendly type name for the failure message.</param>
     /// <returns>The matching type.</returns>
+    /// <exception cref="InvalidOperationException">The requested type is absent.</exception>
     private static ApiType FindType(ApiCatalog catalog, string fullName, Predicate<ApiType> matchesType, string typeName)
     {
         for (var i = 0; i < catalog.Types.Length; i++)
@@ -449,6 +467,7 @@ public class SamplePdbWalkerIntegrationTests
     /// <param name="type">Owning type.</param>
     /// <param name="name">Metadata name.</param>
     /// <returns>The matching member.</returns>
+    /// <exception cref="InvalidOperationException">The requested member is absent.</exception>
     private static ApiMember FindMember(ApiObjectType type, string name)
     {
         for (var i = 0; i < type.Members.Length; i++)
@@ -466,6 +485,7 @@ public class SamplePdbWalkerIntegrationTests
     private sealed class NullSourceLinkResolver : ISourceLinkResolver
     {
         /// <inheritdoc />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public string? Resolve(ISymbol symbol) => null;
 
         /// <inheritdoc />

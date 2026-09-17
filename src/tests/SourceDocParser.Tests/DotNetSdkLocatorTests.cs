@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -15,6 +15,12 @@ namespace SourceDocParser.Tests;
 /// </summary>
 public class DotNetSdkLocatorTests
 {
+    /// <summary>Fixture value for Dotnet.</summary>
+    private const string Dotnet = "dotnet";
+
+    /// <summary>Expected fixture value used by GetDefaultInstallRootsHonoursWindowsSnapshot.</summary>
+    private const int GetDefaultInstallRootsHonoursWindowsSnapshotExpectedValue = 2;
+
     /// <summary>The Snapshot factory captures something usable on the host.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -44,15 +50,12 @@ public class DotNetSdkLocatorTests
         await Assert.That(roots[0]).IsEqualTo(Path.TrimEndingDirectorySeparator(Path.GetFullPath(scratch.Path)));
     }
 
-    /// <summary>
-    /// A non-existent DOTNET_ROOT is silently skipped -- the rest
-    /// of the chain still drives discovery.
-    /// </summary>
+    /// <summary>A non-existent DOTNET_ROOT is silently skipped -- the rest of the chain still drives discovery.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task EnumerateInstallRootsIgnoresNonExistentDotnetRoot()
     {
-        var bogus = "/nonexistent/sdp-test-" + Guid.NewGuid();
+        var bogus = $"/nonexistent/sdp-test-{Guid.NewGuid()}";
         var inputs = LinuxInputs() with { DotnetRoot = bogus };
 
         var roots = DotNetSdkLocator.EnumerateInstallRoots(inputs);
@@ -63,10 +66,7 @@ public class DotNetSdkLocatorTests
         }
     }
 
-    /// <summary>
-    /// DOTNET_ROOT(x86) is honoured in second slot when the primary
-    /// DOTNET_ROOT is unset.
-    /// </summary>
+    /// <summary>DOTNET_ROOT(x86) is honoured in second slot when the primary DOTNET_ROOT is unset.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task EnumerateInstallRootsHonoursDotnetRootX86()
@@ -84,17 +84,14 @@ public class DotNetSdkLocatorTests
         await Assert.That(roots[0]).IsEqualTo(Path.TrimEndingDirectorySeparator(Path.GetFullPath(scratch.Path)));
     }
 
-    /// <summary>
-    /// EnumeratePackRoots returns each install root's <c>packs/</c>
-    /// subdir when present, in the same priority order.
-    /// </summary>
+    /// <summary>EnumeratePackRoots returns each install root's <c>packs/</c> subdir when present, in the same priority order.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task EnumeratePackRootsIncludesPacksSubdirOfInstallRoot()
     {
         using var scratch = new TempDirectory();
         var packs = Path.Combine(scratch.Path, "packs");
-        Directory.CreateDirectory(packs);
+        _ = Directory.CreateDirectory(packs);
         var inputs = LinuxInputs() with { DotnetRoot = scratch.Path };
 
         var packRoots = DotNetSdkLocator.EnumeratePackRoots(inputs);
@@ -102,11 +99,13 @@ public class DotNetSdkLocatorTests
         var matched = false;
         for (var i = 0; i < packRoots.Count; i++)
         {
-            if (string.Equals(packRoots[i], expected, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(packRoots[i], expected, StringComparison.OrdinalIgnoreCase))
             {
-                matched = true;
-                break;
+                continue;
             }
+
+            matched = true;
+            break;
         }
 
         await Assert.That(matched)
@@ -114,10 +113,7 @@ public class DotNetSdkLocatorTests
             .Because($"expected pack roots to contain '{expected}', got [{string.Join(", ", packRoots)}]");
     }
 
-    /// <summary>
-    /// Fresh installs without any <c>packs/</c> subdir contribute
-    /// nothing -- their install roots are silently filtered out.
-    /// </summary>
+    /// <summary>Fresh installs without any <c>packs/</c> subdir contribute nothing -- their install roots are silently filtered out.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task EnumeratePackRootsSkipsRootsWithoutPacksFolder()
@@ -156,9 +152,9 @@ public class DotNetSdkLocatorTests
 
         var roots = DotNetSdkLocator.GetDefaultInstallRoots(inputs);
 
-        await Assert.That(roots.Count).IsEqualTo(2);
-        await Assert.That(roots[0]).EndsWith("dotnet");
-        await Assert.That(roots[1]).EndsWith("dotnet");
+        await Assert.That(roots.Count).IsEqualTo(GetDefaultInstallRootsHonoursWindowsSnapshotExpectedValue);
+        await Assert.That(roots[0]).EndsWith(Dotnet);
+        await Assert.That(roots[1]).EndsWith(Dotnet);
     }
 
     /// <summary>GetDefaultInstallRoots returns the macOS path when the snapshot says macOS.</summary>
@@ -181,7 +177,7 @@ public class DotNetSdkLocatorTests
     {
         var roots = DotNetSdkLocator.GetDefaultInstallRoots(LinuxInputs());
 
-        await Assert.That(roots.Count).IsEqualTo(2);
+        await Assert.That(roots.Count).IsEqualTo(GetDefaultInstallRootsHonoursWindowsSnapshotExpectedValue);
         await Assert.That(roots[0]).IsEqualTo("/usr/share/dotnet");
         await Assert.That(roots[1]).IsEqualTo("/usr/lib/dotnet");
     }
@@ -243,7 +239,7 @@ public class DotNetSdkLocatorTests
     public async Task GetDotnetDirFromPathReturnsParentOfDotnetExecutable()
     {
         using var scratch = new TempDirectory();
-        var dotnetPath = Path.Combine(scratch.Path, "dotnet");
+        var dotnetPath = Path.Combine(scratch.Path, Dotnet);
         await File.WriteAllTextAsync(dotnetPath, string.Empty);
 
         var inputs = LinuxInputs() with { Path = scratch.Path };
@@ -252,7 +248,7 @@ public class DotNetSdkLocatorTests
     }
 
     /// <summary>
-    /// Concurrent <see cref="DotNetSdkLocator.EnumerateInstallRoots(DotNetSdkLocatorInputs)"/>
+    /// Concurrent <see cref="DotNetSdkLocator.EnumerateInstallRoots(in DotNetSdkLocatorInputs)"/>
     /// calls against distinct snapshots produce distinct results --
     /// proves the function holds no shared mutable state.
     /// </summary>
@@ -268,7 +264,7 @@ public class DotNetSdkLocatorTests
         var tasks = new Task<IReadOnlyList<string>>[100];
         for (var i = 0; i < tasks.Length; i++)
         {
-            var pick = i % 2 is 0 ? inputsA : inputsB;
+            var pick = i % GetDefaultInstallRootsHonoursWindowsSnapshotExpectedValue is 0 ? inputsA : inputsB;
             tasks[i] = Task.Run(() => DotNetSdkLocator.EnumerateInstallRoots(pick));
         }
 
@@ -277,7 +273,7 @@ public class DotNetSdkLocatorTests
         var expectedB = Path.TrimEndingDirectorySeparator(Path.GetFullPath(scratchB.Path));
         for (var i = 0; i < results.Length; i++)
         {
-            var expected = i % 2 is 0 ? expectedA : expectedB;
+            var expected = i % GetDefaultInstallRootsHonoursWindowsSnapshotExpectedValue is 0 ? expectedA : expectedB;
             await Assert.That(results[i].Count).IsGreaterThan(0);
             await Assert.That(results[i][0]).IsEqualTo(expected);
         }

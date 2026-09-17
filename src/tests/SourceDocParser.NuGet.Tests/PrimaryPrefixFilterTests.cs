@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,6 +16,18 @@ namespace SourceDocParser.NuGet.Tests;
 /// </summary>
 public class PrimaryPrefixFilterTests
 {
+    /// <summary>Fixture value for Splat.</summary>
+    private const string Splat = "Splat";
+
+    /// <summary>Fixture value for ReactiveUI.</summary>
+    private const string ReactiveUI = "ReactiveUI";
+
+    /// <summary>Fixture value for SplatPrefix.</summary>
+    private const string SplatPrefix = "Splat.";
+
+    /// <summary>Fixture value for ReactiveUIPrefix.</summary>
+    private const string ReactiveUIPrefix = "ReactiveUI.";
+
     /// <summary>
     /// The prefix array lays out IDs as bare-id / id+dot pairs so
     /// the filter handles umbrella DLL exact matches alongside
@@ -28,7 +40,7 @@ public class PrimaryPrefixFilterTests
         var config = new PackageConfig(
             NugetPackageOwners: [],
             TfmPreference: [],
-            AdditionalPackages: [new("Splat", null), new("ReactiveUI", null)],
+            AdditionalPackages: [new(Splat, null), new(ReactiveUI, null)],
             ExcludePackages: [],
             ExcludePackagePrefixes: [],
             ReferencePackages: [],
@@ -36,7 +48,7 @@ public class PrimaryPrefixFilterTests
 
         var prefixes = NuGetAssemblySource.BuildPrimaryPrefixes(config);
 
-        await Assert.That(prefixes).IsEquivalentTo((string[])["Splat", "Splat.", "ReactiveUI", "ReactiveUI."]);
+        await Assert.That(prefixes).IsEquivalentTo((string[])[Splat, SplatPrefix, ReactiveUI, ReactiveUIPrefix]);
     }
 
     /// <summary>
@@ -63,19 +75,16 @@ public class PrimaryPrefixFilterTests
         await Assert.That(prefixes.Length).IsEqualTo(0);
     }
 
-    /// <summary>
-    /// Bare-ID exact match: the umbrella DLL (<c>Splat.dll</c>)
-    /// matches the bare <c>Splat</c> entry -- case-insensitive.
-    /// </summary>
+    /// <summary>Bare-ID exact match: the umbrella DLL (<c>Splat.dll</c>) matches the bare <c>Splat</c> entry -- case-insensitive.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task IsPrimaryDllMatchesBareIdExactly()
     {
-        string[] prefixes = ["Splat", "Splat.", "ReactiveUI", "ReactiveUI."];
+        string[] prefixes = [Splat, SplatPrefix, ReactiveUI, ReactiveUIPrefix];
 
-        await Assert.That(NuGetAssemblySource.IsPrimaryDll("Splat", prefixes)).IsTrue();
+        await Assert.That(NuGetAssemblySource.IsPrimaryDll(Splat, prefixes)).IsTrue();
         await Assert.That(NuGetAssemblySource.IsPrimaryDll("splat", prefixes)).IsTrue();
-        await Assert.That(NuGetAssemblySource.IsPrimaryDll("ReactiveUI", prefixes)).IsTrue();
+        await Assert.That(NuGetAssemblySource.IsPrimaryDll(ReactiveUI, prefixes)).IsTrue();
     }
 
     /// <summary>
@@ -87,7 +96,7 @@ public class PrimaryPrefixFilterTests
     [Test]
     public async Task IsPrimaryDllMatchesDottedSiblings()
     {
-        string[] prefixes = ["Splat", "Splat.", "ReactiveUI", "ReactiveUI."];
+        string[] prefixes = [Splat, SplatPrefix, ReactiveUI, ReactiveUIPrefix];
 
         await Assert.That(NuGetAssemblySource.IsPrimaryDll("Splat.Core", prefixes)).IsTrue();
         await Assert.That(NuGetAssemblySource.IsPrimaryDll("Splat.Logging", prefixes)).IsTrue();
@@ -105,7 +114,7 @@ public class PrimaryPrefixFilterTests
     [Test]
     public async Task IsPrimaryDllRejectsUnrelatedDlls()
     {
-        string[] prefixes = ["Splat", "Splat.", "ReactiveUI", "ReactiveUI."];
+        string[] prefixes = [Splat, SplatPrefix, ReactiveUI, ReactiveUIPrefix];
 
         await Assert.That(NuGetAssemblySource.IsPrimaryDll("Microsoft.Maui.Controls", prefixes)).IsFalse();
         await Assert.That(NuGetAssemblySource.IsPrimaryDll("Xamarin.Google.Crypto.Tink", prefixes)).IsFalse();
@@ -136,7 +145,7 @@ public class PrimaryPrefixFilterTests
     [Test]
     public async Task IsPrimaryDllRejectsNearMissNames()
     {
-        string[] prefixes = ["Splat", "Splat."];
+        string[] prefixes = [Splat, SplatPrefix];
 
         await Assert.That(NuGetAssemblySource.IsPrimaryDll("SplatExtra", prefixes)).IsFalse();
         await Assert.That(NuGetAssemblySource.IsPrimaryDll("SplatLike", prefixes)).IsFalse();
@@ -152,9 +161,9 @@ public class PrimaryPrefixFilterTests
     [Test]
     public async Task BuildPrimaryPrefixesFromIdsEmitsBareAndDottedPair()
     {
-        var prefixes = NuGetAssemblySource.BuildPrimaryPrefixesFromIds(["Splat", "ReactiveUI"]);
+        var prefixes = NuGetAssemblySource.BuildPrimaryPrefixesFromIds([Splat, ReactiveUI]);
 
-        await Assert.That(prefixes).IsEquivalentTo((string[])["Splat", "Splat.", "ReactiveUI", "ReactiveUI."]);
+        await Assert.That(prefixes).IsEquivalentTo((string[])[Splat, SplatPrefix, ReactiveUI, ReactiveUIPrefix]);
     }
 
     /// <summary>
@@ -167,9 +176,9 @@ public class PrimaryPrefixFilterTests
     [Test]
     public async Task BuildPrimaryPrefixesFromIdsSkipsBlankEntries()
     {
-        var prefixes = NuGetAssemblySource.BuildPrimaryPrefixesFromIds([string.Empty, "Splat", null!, "ReactiveUI"]);
+        var prefixes = NuGetAssemblySource.BuildPrimaryPrefixesFromIds([string.Empty, Splat, null!, ReactiveUI]);
 
-        await Assert.That(prefixes).IsEquivalentTo((string[])["Splat", "Splat.", "ReactiveUI", "ReactiveUI."]);
+        await Assert.That(prefixes).IsEquivalentTo((string[])[Splat, SplatPrefix, ReactiveUI, ReactiveUIPrefix]);
     }
 
     /// <summary>
@@ -200,7 +209,7 @@ public class PrimaryPrefixFilterTests
         {
             var ids = NuGetAssemblySource.ReadPrimaryIdsSidecar(sidecar);
 
-            await Assert.That(ids).IsEquivalentTo((string[])["ReactiveUI", "Splat", "System.Reactive"]);
+            await Assert.That(ids).IsEquivalentTo((string[])[ReactiveUI, Splat, "System.Reactive"]);
         }
         finally
         {
@@ -226,7 +235,7 @@ public class PrimaryPrefixFilterTests
         {
             var prefixes = NuGetAssemblySource.ResolvePrimaryPrefixes(sidecar, manifest);
 
-            await Assert.That(prefixes).IsEquivalentTo((string[])["ReactiveUI", "ReactiveUI.", "Splat", "Splat."]);
+            await Assert.That(prefixes).IsEquivalentTo((string[])[ReactiveUI, ReactiveUIPrefix, Splat, SplatPrefix]);
         }
         finally
         {
@@ -260,11 +269,7 @@ public class PrimaryPrefixFilterTests
         }
     }
 
-    /// <summary>
-    /// Returns an empty array when neither file exists -- caller's
-    /// <see cref="NuGetAssemblySource.IsPrimaryDll"/> reads that as
-    /// "no filter configured, walk everything".
-    /// </summary>
+    /// <summary>Returns an empty array when neither file exists -- caller's <see cref="NuGetAssemblySource.IsPrimaryDll"/> reads that as "no filter configured, walk everything".</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ResolvePrimaryPrefixesReturnsEmptyWhenBothMissing()

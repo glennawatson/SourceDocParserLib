@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -74,7 +74,7 @@ public class PackageSourceCredentialParserTests
     [Test]
     public async Task ExpandEnvironmentVariablesResolvesDefinedVariable()
     {
-        var name = "SDP_TEST_VAR_" + Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture);
+        var name = $"SDP_TEST_VAR_{Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture)}";
         Environment.SetEnvironmentVariable(name, "resolved");
         try
         {
@@ -92,7 +92,7 @@ public class PackageSourceCredentialParserTests
     [Test]
     public async Task ExpandEnvironmentVariablesLeavesUnresolvedLiteral()
     {
-        var name = "SDP_DEFINITELY_NOT_SET_" + Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture);
+        var name = $"SDP_DEFINITELY_NOT_SET_{Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture)}";
 
         await Assert.That(PackageSourceCredentialParser.ExpandEnvironmentVariables($"prefix-%{name}%-suffix"))
             .IsEqualTo($"prefix-%{name}%-suffix");
@@ -107,6 +107,7 @@ public class PackageSourceCredentialParserTests
     /// <param name="xml">XML document to parse.</param>
     /// <param name="elementName">Local name of the element to position on.</param>
     /// <returns>The XML reader positioned on the named start element.</returns>
+    /// <exception cref="InvalidOperationException">The named start element is absent.</exception>
     private static XmlReader ReaderOnFirstElement(string xml, string elementName)
     {
         var reader = XmlReader.Create(new MemoryStream(Encoding.UTF8.GetBytes(xml)));
@@ -125,6 +126,7 @@ public class PackageSourceCredentialParserTests
     /// <param name="xml">XML document to parse.</param>
     /// <param name="elementName">Local name of the end element to position on.</param>
     /// <returns>The XML reader positioned on the named end element.</returns>
+    /// <exception cref="InvalidOperationException">The named end element is absent.</exception>
     private static XmlReader EndReaderOn(string xml, string elementName)
     {
         var reader = XmlReader.Create(new MemoryStream(Encoding.UTF8.GetBytes(xml)));

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -6,9 +6,7 @@ using SourceDocParser.NuGet.Models;
 
 namespace SourceDocParser.NuGet.Infrastructure;
 
-/// <summary>
-/// Bundles the shared inputs required to install one package from one or more NuGet sources.
-/// </summary>
+/// <summary>Bundles the shared inputs required to install one package from one or more NuGet sources.</summary>
 /// <param name="EnabledSources">Resolved enabled sources to probe.</param>
 /// <param name="Credentials">Per-source credentials.</param>
 /// <param name="FeedHttp">HTTP surface used for feed metadata and package downloads.</param>

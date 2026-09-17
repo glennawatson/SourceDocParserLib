@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using SourceDocParser.Model;
 
@@ -19,9 +20,10 @@ namespace SourceDocParser.Walk;
 /// </summary>
 internal static class TypeBuilder
 {
-    /// <summary>
-    /// Builds the <see cref="ApiType"/> for <paramref name="type"/>.
-    /// </summary>
+    /// <summary>Estimated text length contributed by each containing type.</summary>
+    private const int ContainingTypeNameCapacity = 16;
+
+    /// <summary>Builds the <see cref="ApiType"/> for <paramref name="type"/>.</summary>
     /// <param name="type">Source type symbol.</param>
     /// <param name="context">Per-walk state bundle.</param>
     /// <returns>The generated API type, or null when classification failed.</returns>
@@ -65,6 +67,7 @@ internal static class TypeBuilder
     /// <summary>Constructs the <see cref="ApiUnionType"/> branch.</summary>
     /// <param name="input">Per-type build inputs.</param>
     /// <returns>The constructed union type.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static ApiUnionType BuildUnion(in TypeBuildContext input) =>
         WithBaseFields(
             ApiUnionType.Empty with
@@ -77,6 +80,7 @@ internal static class TypeBuilder
     /// <summary>Constructs the <see cref="ApiEnumType"/> branch.</summary>
     /// <param name="input">Per-type build inputs.</param>
     /// <returns>The constructed enum type.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static ApiEnumType BuildEnum(in TypeBuildContext input) =>
         WithBaseFields(
             ApiEnumType.Empty with
@@ -91,6 +95,7 @@ internal static class TypeBuilder
     /// <summary>Constructs the <see cref="ApiDelegateType"/> branch.</summary>
     /// <param name="input">Per-type build inputs.</param>
     /// <returns>The constructed delegate type.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static ApiDelegateType BuildDelegate(in TypeBuildContext input) =>
         WithBaseFields(
             ApiDelegateType.Empty with
@@ -179,18 +184,18 @@ internal static class TypeBuilder
             chain.Push(ct.Name);
         }
 
-        var sb = new System.Text.StringBuilder(ns.Length + (chain.Count * 16) + type.Name.Length);
+        var sb = new System.Text.StringBuilder(ns.Length + (chain.Count * ContainingTypeNameCapacity) + type.Name.Length);
         if (ns is [_, ..])
         {
-            sb.Append(ns).Append('.');
+            _ = sb.Append(ns).Append('.');
         }
 
         while (chain.TryPop(out var part))
         {
-            sb.Append(part).Append('.');
+            _ = sb.Append(part).Append('.');
         }
 
-        sb.Append(type.Name);
+        _ = sb.Append(type.Name);
         return sb.ToString();
     }
 }

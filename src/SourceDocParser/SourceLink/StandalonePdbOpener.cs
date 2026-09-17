@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -27,7 +27,7 @@ internal static class StandalonePdbOpener
     /// <param name="provider">Receives the metadata reader provider on success.</param>
     /// <param name="reader">Receives the metadata reader on success.</param>
     /// <returns>True on success, false on missing / malformed input.</returns>
-    public static bool TryOpen(
+    internal static bool TryOpen(
         string pdbPath,
         [NotNullWhen(true)] out MetadataReaderProvider? provider,
         [NotNullWhen(true)] out MetadataReader? reader)

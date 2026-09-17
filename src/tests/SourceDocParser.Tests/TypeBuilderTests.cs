@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -21,7 +21,7 @@ public class TypeBuilderTests
     public async Task ClassDispatchesToObjectKind()
     {
         var compilation = WalkerTestFixtures.Compile("public class Foo { }");
-        var fooSymbol = (INamedTypeSymbol)compilation.GetSymbolsWithName("Foo").Single();
+        var fooSymbol = (INamedTypeSymbol)(await Assert.That(compilation.GetSymbolsWithName("Foo")).HasSingleItem());
         var context = WalkerTestFixtures.NewContext(compilation);
 
         var built = TypeBuilder.TryBuild(fooSymbol, context);
@@ -36,7 +36,7 @@ public class TypeBuilderTests
     public async Task EnumDispatchesToEnumBranch()
     {
         var compilation = WalkerTestFixtures.Compile("public enum Day { Mon, Tue }");
-        var symbol = (INamedTypeSymbol)compilation.GetSymbolsWithName("Day").Single();
+        var symbol = (INamedTypeSymbol)(await Assert.That(compilation.GetSymbolsWithName("Day")).HasSingleItem());
         var context = WalkerTestFixtures.NewContext(compilation);
 
         var built = TypeBuilder.TryBuild(symbol, context);
@@ -50,7 +50,7 @@ public class TypeBuilderTests
     public async Task DelegateDispatchesToDelegateBranch()
     {
         var compilation = WalkerTestFixtures.Compile("public delegate void Handler(int x);");
-        var symbol = (INamedTypeSymbol)compilation.GetSymbolsWithName("Handler").Single();
+        var symbol = (INamedTypeSymbol)(await Assert.That(compilation.GetSymbolsWithName("Handler")).HasSingleItem());
         var context = WalkerTestFixtures.NewContext(compilation);
 
         var built = TypeBuilder.TryBuild(symbol, context);
@@ -64,7 +64,7 @@ public class TypeBuilderTests
     public async Task InterfaceDispatchesToInterfaceKind()
     {
         var compilation = WalkerTestFixtures.Compile("public interface IFoo { }");
-        var symbol = (INamedTypeSymbol)compilation.GetSymbolsWithName("IFoo").Single();
+        var symbol = (INamedTypeSymbol)(await Assert.That(compilation.GetSymbolsWithName("IFoo")).HasSingleItem());
         var context = WalkerTestFixtures.NewContext(compilation);
 
         var built = TypeBuilder.TryBuild(symbol, context);
@@ -85,7 +85,7 @@ public class TypeBuilderTests
                 extension(string source) { public int Length => source.Length; }
             }
             """);
-        var symbol = (INamedTypeSymbol)compilation.GetSymbolsWithName("Helpers").Single();
+        var symbol = (INamedTypeSymbol)(await Assert.That(compilation.GetSymbolsWithName("Helpers")).HasSingleItem());
         var context = WalkerTestFixtures.NewContext(compilation);
 
         var built = (ApiObjectType?)TypeBuilder.TryBuild(symbol, context);

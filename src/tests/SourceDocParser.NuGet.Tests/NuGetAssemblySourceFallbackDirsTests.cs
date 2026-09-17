@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -18,6 +18,24 @@ namespace SourceDocParser.NuGet.Tests;
 /// </summary>
 public class NuGetAssemblySourceFallbackDirsTests
 {
+    /// <summary>Fixture value for Nuget.</summary>
+    private const string Nuget = "nuget";
+
+    /// <summary>Fixture value for Net80.</summary>
+    private const string Net80 = "net8.0";
+
+    /// <summary>Fixture value for Netstandard20.</summary>
+    private const string Netstandard20 = "netstandard2.0";
+
+    /// <summary>Fixture value for Net60.</summary>
+    private const string Net60 = "net6.0";
+
+    /// <summary>Fixture value for NugetRefs.</summary>
+    private const string NugetRefs = "nuget/refs";
+
+    /// <summary>Expected fixture value used by BuildFallbackDirListPlacesSdkRefPackDirsLast.</summary>
+    private const int BuildFallbackDirListPlacesSdkRefPackDirsLastThat = 2;
+
     /// <summary>
     /// Net 8.0 consumer pulls in a package shipped under
     /// <c>netstandard2.0</c> -- the fallback list must include the
@@ -27,22 +45,22 @@ public class NuGetAssemblySourceFallbackDirsTests
     [Test]
     public async Task BuildFallbackDirListIncludesLowerCompatibleTfms()
     {
-        var libDir = Path.Combine("nuget", "lib");
-        var libTfms = new List<string> { "net8.0", "netstandard2.0", "net6.0" };
-        var libTfmDir = Path.Combine(libDir, "net8.0");
+        var libDir = Path.Combine(Nuget, "lib");
+        var libTfms = new List<string> { Net80, Netstandard20, Net60 };
+        var libTfmDir = Path.Combine(libDir, Net80);
 
         var dirs = NuGetAssemblySource.BuildFallbackDirList(
             libDir,
             libTfms,
-            targetTfm: "net8.0",
+            targetTfm: Net80,
             libTfmDir: libTfmDir,
-            refsDir: "nuget/refs",
+            refsDir: NugetRefs,
             bestRefTfm: null,
             sdkRefPackDirs: []);
 
         await Assert.That(dirs).Contains(libTfmDir);
-        await Assert.That(dirs).Contains(Path.Combine(libDir, "net6.0"));
-        await Assert.That(dirs).Contains(Path.Combine(libDir, "netstandard2.0"));
+        await Assert.That(dirs).Contains(Path.Combine(libDir, Net60));
+        await Assert.That(dirs).Contains(Path.Combine(libDir, Netstandard20));
     }
 
     /// <summary>
@@ -54,26 +72,26 @@ public class NuGetAssemblySourceFallbackDirsTests
     [Test]
     public async Task BuildFallbackDirListPlacesTargetTfmBeforeLowerCompatibles()
     {
-        var libDir = Path.Combine("nuget", "lib");
-        var libTfms = new List<string> { "netstandard2.0", "net6.0", "net8.0" };
-        var libTfmDir = Path.Combine(libDir, "net8.0");
+        var libDir = Path.Combine(Nuget, "lib");
+        var libTfms = new List<string> { Netstandard20, Net60, Net80 };
+        var libTfmDir = Path.Combine(libDir, Net80);
 
         var dirs = NuGetAssemblySource.BuildFallbackDirList(
             libDir,
             libTfms,
-            targetTfm: "net8.0",
+            targetTfm: Net80,
             libTfmDir: libTfmDir,
-            refsDir: "nuget/refs",
+            refsDir: NugetRefs,
             bestRefTfm: null,
             sdkRefPackDirs: []);
 
         var targetIndex = dirs.IndexOf(libTfmDir);
-        var net6Index = dirs.IndexOf(Path.Combine(libDir, "net6.0"));
-        var nsIndex = dirs.IndexOf(Path.Combine(libDir, "netstandard2.0"));
+        var net6Index = dirs.IndexOf(Path.Combine(libDir, Net60));
+        var netstandardIndex = dirs.IndexOf(Path.Combine(libDir, Netstandard20));
 
         await Assert.That(targetIndex).IsGreaterThanOrEqualTo(0);
         await Assert.That(targetIndex).IsLessThan(net6Index);
-        await Assert.That(net6Index).IsLessThan(nsIndex);
+        await Assert.That(net6Index).IsLessThan(netstandardIndex);
     }
 
     /// <summary>
@@ -85,21 +103,21 @@ public class NuGetAssemblySourceFallbackDirsTests
     [Test]
     public async Task BuildFallbackDirListPlacesRefsDirFirstWhenBestRefSupplied()
     {
-        var libDir = Path.Combine("nuget", "lib");
-        var refsDir = Path.Combine("nuget", "refs");
-        var libTfms = new List<string> { "net8.0", "netstandard2.0" };
-        var libTfmDir = Path.Combine(libDir, "net8.0");
+        var libDir = Path.Combine(Nuget, "lib");
+        var refsDir = Path.Combine(Nuget, "refs");
+        var libTfms = new List<string> { Net80, Netstandard20 };
+        var libTfmDir = Path.Combine(libDir, Net80);
 
         var dirs = NuGetAssemblySource.BuildFallbackDirList(
             libDir,
             libTfms,
-            targetTfm: "net8.0",
+            targetTfm: Net80,
             libTfmDir: libTfmDir,
             refsDir: refsDir,
-            bestRefTfm: "net8.0",
+            bestRefTfm: Net80,
             sdkRefPackDirs: []);
 
-        await Assert.That(dirs[0]).IsEqualTo(Path.Combine(refsDir, "net8.0"));
+        await Assert.That(dirs[0]).IsEqualTo(Path.Combine(refsDir, Net80));
         await Assert.That(dirs[1]).IsEqualTo(libTfmDir);
     }
 
@@ -112,16 +130,16 @@ public class NuGetAssemblySourceFallbackDirsTests
     [Test]
     public async Task BuildFallbackDirListDoesNotDuplicateTargetTfm()
     {
-        var libDir = Path.Combine("nuget", "lib");
-        var libTfms = new List<string> { "net8.0", "net6.0" };
-        var libTfmDir = Path.Combine(libDir, "net8.0");
+        var libDir = Path.Combine(Nuget, "lib");
+        var libTfms = new List<string> { Net80, Net60 };
+        var libTfmDir = Path.Combine(libDir, Net80);
 
         var dirs = NuGetAssemblySource.BuildFallbackDirList(
             libDir,
             libTfms,
-            targetTfm: "net8.0",
+            targetTfm: Net80,
             libTfmDir: libTfmDir,
-            refsDir: "nuget/refs",
+            refsDir: NugetRefs,
             bestRefTfm: null,
             sdkRefPackDirs: []);
 
@@ -146,16 +164,16 @@ public class NuGetAssemblySourceFallbackDirsTests
     [Test]
     public async Task BuildFallbackDirListSkipsIncompatibleLibDirs()
     {
-        var libDir = Path.Combine("nuget", "lib");
-        var libTfms = new List<string> { "net8.0", "net48" };
-        var libTfmDir = Path.Combine(libDir, "net8.0");
+        var libDir = Path.Combine(Nuget, "lib");
+        var libTfms = new List<string> { Net80, "net48" };
+        var libTfmDir = Path.Combine(libDir, Net80);
 
         var dirs = NuGetAssemblySource.BuildFallbackDirList(
             libDir,
             libTfms,
-            targetTfm: "net8.0",
+            targetTfm: Net80,
             libTfmDir: libTfmDir,
-            refsDir: "nuget/refs",
+            refsDir: NugetRefs,
             bestRefTfm: null,
             sdkRefPackDirs: []);
 
@@ -171,16 +189,16 @@ public class NuGetAssemblySourceFallbackDirsTests
     [Test]
     public async Task BuildFallbackDirListReturnsSingleEntryWhenNoCompatibleSiblings()
     {
-        var libDir = Path.Combine("nuget", "lib");
-        var libTfms = new List<string> { "net8.0" };
-        var libTfmDir = Path.Combine(libDir, "net8.0");
+        var libDir = Path.Combine(Nuget, "lib");
+        var libTfms = new List<string> { Net80 };
+        var libTfmDir = Path.Combine(libDir, Net80);
 
         var dirs = NuGetAssemblySource.BuildFallbackDirList(
             libDir,
             libTfms,
-            targetTfm: "net8.0",
+            targetTfm: Net80,
             libTfmDir: libTfmDir,
-            refsDir: "nuget/refs",
+            refsDir: NugetRefs,
             bestRefTfm: null,
             sdkRefPackDirs: []);
 
@@ -197,23 +215,23 @@ public class NuGetAssemblySourceFallbackDirsTests
     [Test]
     public async Task BuildFallbackDirListPlacesSdkRefPackDirsLast()
     {
-        var libDir = Path.Combine("nuget", "lib");
-        var libTfms = new List<string> { "net8.0", "net6.0" };
-        var libTfmDir = Path.Combine(libDir, "net8.0");
-        var sdkPack1 = Path.Combine("dotnet", "packs", "Microsoft.WindowsDesktop.App.Ref", "8.0.10", "ref", "net8.0");
-        var sdkPack2 = Path.Combine("dotnet", "packs", "Microsoft.NETCore.App.Ref", "8.0.10", "ref", "net8.0");
+        var libDir = Path.Combine(Nuget, "lib");
+        var libTfms = new List<string> { Net80, Net60 };
+        var libTfmDir = Path.Combine(libDir, Net80);
+        var sdkPack1 = Path.Combine("dotnet", "packs", "Microsoft.WindowsDesktop.App.Ref", "8.0.10", "ref", Net80);
+        var sdkPack2 = Path.Combine("dotnet", "packs", "Microsoft.NETCore.App.Ref", "8.0.10", "ref", Net80);
 
         var dirs = NuGetAssemblySource.BuildFallbackDirList(
             libDir,
             libTfms,
-            targetTfm: "net8.0",
+            targetTfm: Net80,
             libTfmDir: libTfmDir,
-            refsDir: "nuget/refs",
+            refsDir: NugetRefs,
             bestRefTfm: null,
             sdkRefPackDirs: [sdkPack1, sdkPack2]);
 
         await Assert.That(dirs[0]).IsEqualTo(libTfmDir);
-        await Assert.That(dirs[^2]).IsEqualTo(sdkPack1);
+        await Assert.That(dirs[^BuildFallbackDirListPlacesSdkRefPackDirsLastThat]).IsEqualTo(sdkPack1);
         await Assert.That(dirs[^1]).IsEqualTo(sdkPack2);
     }
 
@@ -226,39 +244,36 @@ public class NuGetAssemblySourceFallbackDirsTests
     [Test]
     public async Task BuildFallbackDirListWorksWithEmptySdkRefPackDirs()
     {
-        var libDir = Path.Combine("nuget", "lib");
-        var libTfms = new List<string> { "net8.0", "netstandard2.0" };
-        var libTfmDir = Path.Combine(libDir, "net8.0");
+        var libDir = Path.Combine(Nuget, "lib");
+        var libTfms = new List<string> { Net80, Netstandard20 };
+        var libTfmDir = Path.Combine(libDir, Net80);
 
         var dirs = NuGetAssemblySource.BuildFallbackDirList(
             libDir,
             libTfms,
-            targetTfm: "net8.0",
+            targetTfm: Net80,
             libTfmDir: libTfmDir,
-            refsDir: "nuget/refs",
+            refsDir: NugetRefs,
             bestRefTfm: null,
             sdkRefPackDirs: []);
 
         // Without SDK packs the list is exactly: target + compatible
         // libs (which here means just netstandard2.0) -- no trailing
         // pack dirs.
-        await Assert.That(dirs.Count).IsEqualTo(2);
+        await Assert.That(dirs.Count).IsEqualTo(BuildFallbackDirListPlacesSdkRefPackDirsLastThat);
         await Assert.That(dirs[0]).IsEqualTo(libTfmDir);
-        await Assert.That(dirs[1]).IsEqualTo(Path.Combine(libDir, "netstandard2.0"));
+        await Assert.That(dirs[1]).IsEqualTo(Path.Combine(libDir, Netstandard20));
     }
 
     /// <summary>Null <c>sdkRefPackDirs</c> is rejected with the standard guard.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task BuildFallbackDirListRejectsNullSdkRefPackDirs()
-    {
-        await Assert.That(() => NuGetAssemblySource.BuildFallbackDirList(
+    public async Task BuildFallbackDirListRejectsNullSdkRefPackDirs() => await Assert.That(static () => NuGetAssemblySource.BuildFallbackDirList(
             "nuget/lib",
-            ["net8.0"],
-            targetTfm: "net8.0",
+            [Net80],
+            targetTfm: Net80,
             libTfmDir: "nuget/lib/net8.0",
-            refsDir: "nuget/refs",
+            refsDir: NugetRefs,
             bestRefTfm: null,
             sdkRefPackDirs: null!)).Throws<ArgumentNullException>();
-    }
 }

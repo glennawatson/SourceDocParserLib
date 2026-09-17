@@ -1,12 +1,11 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 namespace SourceDocParser.SourceLink;
 
-/// <summary>
-/// Parsed SourceLink substitution rules for an assembly.
-/// </summary>
+/// <summary>Parsed SourceLink substitution rules for an assembly.</summary>
+/// <param name="entries">Substitution rules in matching order.</param>
 /// <remarks>
 /// Provider-agnostic: matches path prefixes to URL prefixes for remote resolution.
 /// It implements the SourceLink spec where the first matching pattern in the JSON
@@ -14,22 +13,16 @@ namespace SourceDocParser.SourceLink;
 /// </remarks>
 internal sealed class SourceLinkMap(List<SourceLinkMapEntry> entries)
 {
-    /// <summary>
-    /// Path-prefix to URL-prefix entries in declaration order.
-    /// </summary>
+    /// <summary>Path-prefix to URL-prefix entries in declaration order.</summary>
     private readonly List<SourceLinkMapEntry> _entries = entries;
 
-    /// <summary>
-    /// Cache of resolved local paths to remote URLs.
-    /// </summary>
-    private readonly Dictionary<string, string?> _resolutionCache = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>Cache of resolved local paths to remote URLs.</summary>
+    private readonly Dictionary<string, string?> _resolutionCache = [with(StringComparer.OrdinalIgnoreCase)];
 
-    /// <summary>
-    /// Attempts to substitute a local file path into a remote URL.
-    /// </summary>
+    /// <summary>Attempts to substitute a local file path into a remote URL.</summary>
     /// <param name="localPath">PDB-recorded path to the source file.</param>
     /// <returns>The resolved remote URL, or null if no match was found.</returns>
-    public string? TryResolve(string localPath)
+    internal string? TryResolve(string localPath)
     {
         if (_resolutionCache.TryGetValue(localPath, out var cached))
         {
@@ -41,9 +34,7 @@ internal sealed class SourceLinkMap(List<SourceLinkMapEntry> entries)
         return resolved;
     }
 
-    /// <summary>
-    /// Substitution logic for <see cref="TryResolve"/>.
-    /// </summary>
+    /// <summary>Substitution logic for <see cref="TryResolve"/>.</summary>
     /// <param name="localPath">PDB-recorded path to the source file.</param>
     /// <returns>The resolved remote URL, or null.</returns>
     private string? ResolveCore(string localPath)

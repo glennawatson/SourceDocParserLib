@@ -1,10 +1,12 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
+using BenchmarkDotNet.Jobs;
 using SourceDocParser.LibCompilation;
 using SourceDocParser.Merge;
 using SourceDocParser.Model;
@@ -20,7 +22,9 @@ namespace SourceDocParser.Benchmarks;
 /// pipeline phases in the source document parsing process, including discovery,
 /// loading and walking, merging, emitting, and source link operations.
 /// </summary>
-[ShortRunJob]
+[System.Diagnostics.DebuggerDisplay("PipelinePhaseBenchmarks: {_scratchRoot}")]
+[ShortRunJob(RuntimeMoniker.Net10_0)]
+[ShortRunJob(RuntimeMoniker.Net11_0)]
 [MemoryDiagnoser]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 [SuppressMessage(
@@ -57,11 +61,7 @@ public class PipelinePhaseBenchmarks
     /// </summary>
     private List<PreLoadedAssembly> _preLoaded = [];
 
-    /// <summary>
-    /// Loaders backing <see cref="_preLoaded"/>; held so the cached
-    /// metadata references aren't released between iterations.
-    /// Disposed in <see cref="GlobalCleanup"/>.
-    /// </summary>
+    /// <summary>Loaders backing <see cref="_preLoaded"/>; held so the cached metadata references aren't released between iterations. Disposed in <see cref="GlobalCleanup"/>.</summary>
     private List<CompilationLoader> _preLoadedLoaders = [];
 
     /// <summary>
@@ -75,14 +75,14 @@ public class PipelinePhaseBenchmarks
     public async Task GlobalSetupAsync()
     {
         _scratchRoot = Path.Combine(Path.GetTempPath(), $"sdp-phasebench-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(_scratchRoot);
+        _ = Directory.CreateDirectory(_scratchRoot);
 
         File.Copy(
             Path.Combine(AppContext.BaseDirectory, "Fixtures", "nuget-packages.json"),
             Path.Combine(_scratchRoot, "nuget-packages.json"));
 
         var apiPath = Path.Combine(_scratchRoot, "api");
-        Directory.CreateDirectory(apiPath);
+        _ = Directory.CreateDirectory(apiPath);
 
         _source = new(_scratchRoot, apiPath);
         _emitter = new();
@@ -99,27 +99,7 @@ public class PipelinePhaseBenchmarks
         }
 
         // Capture catalogs from an upfront walk for MergeBench.
-        _walkedCatalogs = [];
-        var walker = new SymbolWalker();
-        for (var groupIndex = 0; groupIndex < _groups.Count; groupIndex++)
-        {
-            var group = _groups[groupIndex];
-            using var loader = new CompilationLoader();
-            for (var pathIndex = 0; pathIndex < group.AssemblyPaths.Length; pathIndex++)
-            {
-                var path = group.AssemblyPaths[pathIndex];
-                try
-                {
-                    var (compilation, assembly) = loader.Load(path, group.FallbackIndex);
-                    using var sourceLinks = new SourceLinkResolver(path);
-                    _walkedCatalogs.Add(walker.Walk(group.Tfm, assembly, compilation, sourceLinks));
-                }
-                catch
-                {
-                    // Match production behavior: skip on load failure.
-                }
-            }
-        }
+        _walkedCatalogs = BuildWalkedCatalogs(_groups);
 
         // Merge once so EmitBench has canonical types ready.
         _mergedTypes = TypeMerger.Merge(_walkedCatalogs);
@@ -142,7 +122,7 @@ public class PipelinePhaseBenchmarks
                     var sourceLinks = new SourceLinkResolver(path);
                     _preLoaded.Add(new(group.Tfm, compilation, assembly, sourceLinks));
                 }
-                catch
+                catch (Exception ex) when (ex is IOException or BadImageFormatException or UnauthorizedAccessException)
                 {
                     // Skip assemblies the loader can't handle, same as production.
                 }
@@ -154,11 +134,7 @@ public class PipelinePhaseBenchmarks
     [IterationSetup]
     public void IterationSetup() => _outputRoot = Path.Combine(_scratchRoot, $"iter-{Guid.NewGuid():N}");
 
-    /// <summary>
-    /// Per-iteration cleanup. Drops the output tree (if any) and forces a
-    /// full GC pass so memory-mapped DLL views and Roslyn compilation state
-    /// from the LoadAndWalk benchmark don't accumulate across iterations.
-    /// </summary>
+    /// <summary>Removes the output tree before the next measurement.</summary>
     [IterationCleanup]
     public void IterationCleanup()
     {
@@ -166,16 +142,9 @@ public class PipelinePhaseBenchmarks
         {
             Directory.Delete(_outputRoot, recursive: true);
         }
-
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-        GC.Collect();
     }
 
-    /// <summary>
-    /// Disposes the held-alive resolvers + loaders, then removes the
-    /// scratch directory.
-    /// </summary>
+    /// <summary>Disposes the held-alive resolvers + loaders, then removes the scratch directory.</summary>
     [GlobalCleanup]
     public void GlobalCleanup()
     {
@@ -242,10 +211,10 @@ public class PipelinePhaseBenchmarks
                 {
                     var (compilation, assembly) = loader.Load(path, group.FallbackIndex);
                     using var sourceLinks = new SourceLinkResolver(path);
-                    walker.Walk(group.Tfm, assembly, compilation, sourceLinks);
+                    _ = walker.Walk(group.Tfm, assembly, compilation, sourceLinks);
                     produced++;
                 }
-                catch
+                catch (Exception ex) when (ex is IOException or BadImageFormatException or UnauthorizedAccessException)
                 {
                     // Match production behavior: skip on load failure.
                 }
@@ -257,17 +226,17 @@ public class PipelinePhaseBenchmarks
 
     /// <summary>Runs <see cref="TypeMerger.Merge"/> on the catalogs captured during setup.</summary>
     /// <returns>The number of canonical types produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public int MergeBench() => TypeMerger.Merge(_walkedCatalogs).Length;
 
     /// <summary>Hands the pre-merged canonical types to the Zensical emitter.</summary>
     /// <returns>The number of pages emitted.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> EmitBench() => _emitter.EmitAsync(_mergedTypes, new FilePageSink(_outputRoot));
 
-    /// <summary>
-    /// Loads every assembly without walking.
-    /// </summary>
+    /// <summary>Loads every assembly without walking.</summary>
     /// <returns>Number of compilations produced.</returns>
     [Benchmark]
     public int LoadOnlyBench()
@@ -282,10 +251,10 @@ public class PipelinePhaseBenchmarks
                 var path = group.AssemblyPaths[pathIndex];
                 try
                 {
-                    loader.Load(path, group.FallbackIndex);
+                    _ = loader.Load(path, group.FallbackIndex);
                     loaded++;
                 }
-                catch
+                catch (Exception ex) when (ex is IOException or BadImageFormatException or UnauthorizedAccessException)
                 {
                     // Skip on load failure, same as production.
                 }
@@ -295,10 +264,7 @@ public class PipelinePhaseBenchmarks
         return loaded;
     }
 
-    /// <summary>
-    /// Walks every pre-loaded compilation (held alive in setup). Measures
-    /// pure walker cost -- no loader, no PDB construction.
-    /// </summary>
+    /// <summary>Walks every pre-loaded compilation (held alive in setup). Measures pure walker cost -- no loader, no PDB construction.</summary>
     /// <returns>Number of catalogs produced.</returns>
     [Benchmark]
     public int WalkOnlyBench()
@@ -307,16 +273,13 @@ public class PipelinePhaseBenchmarks
         for (var i = 0; i < _preLoaded.Count; i++)
         {
             var entry = _preLoaded[i];
-            walker.Walk(entry.Tfm, entry.Assembly, entry.Compilation, entry.SourceLinks);
+            _ = walker.Walk(entry.Tfm, entry.Assembly, entry.Compilation, entry.SourceLinks);
         }
 
         return _preLoaded.Count;
     }
 
-    /// <summary>
-    /// Constructs a fresh <see cref="SourceLinkResolver"/> per assembly
-    /// path and disposes it. Measures the PDB-open cost in isolation.
-    /// </summary>
+    /// <summary>Constructs a fresh <see cref="SourceLinkResolver"/> per assembly path and disposes it. Measures the PDB-open cost in isolation.</summary>
     /// <returns>Number of resolvers constructed.</returns>
     [Benchmark]
     public int SourceLinkOnlyBench()
@@ -336,10 +299,37 @@ public class PipelinePhaseBenchmarks
         return made;
     }
 
-    /// <summary>
-    /// One pre-loaded assembly held alive across the benchmark series so
-    /// <see cref="WalkOnlyBench"/> doesn't pay the load cost per iteration.
-    /// </summary>
+    /// <summary>Walks each discovered assembly once to prepare the merge fixture.</summary>
+    /// <param name="groups">Discovered assemblies and their reference maps.</param>
+    /// <returns>Catalogs of successfully loaded assemblies.</returns>
+    private static List<ApiCatalog> BuildWalkedCatalogs(List<AssemblyGroup> groups)
+    {
+        List<ApiCatalog> catalogs = [with(groups.Count)];
+        var walker = new SymbolWalker();
+        for (var groupIndex = 0; groupIndex < groups.Count; groupIndex++)
+        {
+            var group = groups[groupIndex];
+            using var loader = new CompilationLoader();
+            for (var pathIndex = 0; pathIndex < group.AssemblyPaths.Length; pathIndex++)
+            {
+                var path = group.AssemblyPaths[pathIndex];
+                try
+                {
+                    var (compilation, assembly) = loader.Load(path, group.FallbackIndex);
+                    using var sourceLinks = new SourceLinkResolver(path);
+                    catalogs.Add(walker.Walk(group.Tfm, assembly, compilation, sourceLinks));
+                }
+                catch (Exception ex) when (ex is IOException or BadImageFormatException or UnauthorizedAccessException)
+                {
+                    // Skip unsupported or unreadable assemblies.
+                }
+            }
+        }
+
+        return catalogs;
+    }
+
+    /// <summary>One pre-loaded assembly held alive across the benchmark series so <see cref="WalkOnlyBench"/> doesn't pay the load cost per iteration.</summary>
     /// <param name="Tfm">TFM the assembly was loaded under.</param>
     /// <param name="Compilation">The Roslyn compilation hosting the assembly.</param>
     /// <param name="Assembly">The primary assembly symbol.</param>

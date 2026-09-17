@@ -1,8 +1,7 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
 using SourceDocParser.Common;
@@ -28,19 +27,17 @@ internal static class DocfxReferenceEnricher
     /// <summary>Namespace prefixes treated as Microsoft-hosted documentation.</summary>
     private static readonly string[] _bclNamespacePrefixes = ["System", "Microsoft"];
 
-    /// <summary>
-    /// Writes one fully-populated reference entry to <paramref name="sb"/>.
-    /// </summary>
+    /// <summary>Writes one fully-populated reference entry to <paramref name="sb"/>.</summary>
     /// <param name="sb">Destination builder.</param>
     /// <param name="reference">Reference to emit.</param>
     /// <param name="internalUids">UIDs of types emitted by this run; drives <c>isExternal</c> and <c>href</c>.</param>
     /// <returns>The builder for chaining.</returns>
-    public static StringBuilder AppendEnrichedReference(
+    internal static StringBuilder AppendEnrichedReference(
         StringBuilder sb,
         ApiTypeReference reference,
         HashSet<string> internalUids)
     {
-        var uid = reference is { Uid: [_, ..] u } ? u : "T:" + reference.DisplayName;
+        var uid = reference is { Uid: [_, ..] u } ? u : $"T:{reference.DisplayName}";
         var commentId = uid;
         var displayName = reference.DisplayName;
         var bareName = UidNormalization.StripPrefix(uid);
@@ -48,12 +45,12 @@ internal static class DocfxReferenceEnricher
         var isInternal = internalUids.Contains(uid) || internalUids.Contains(openGenericUid);
         var parent = UidNormalization.ParentOf(bareName);
 
-        sb.Append("- uid: ").AppendScalar(CommentIdPrefix.Strip(uid)).AppendLine()
+        _ = sb.Append("- uid: ").AppendScalar(CommentIdPrefix.Strip(uid)).AppendLine()
             .Append("  commentId: ").AppendScalar(commentId).AppendLine();
 
         if (parent is { Length: > 0 })
         {
-            sb.Append("  parent: ").AppendScalar(parent).AppendLine();
+            _ = sb.Append("  parent: ").AppendScalar(parent).AppendLine();
         }
 
         // Constructed generics get a definition pointer back to the
@@ -61,7 +58,7 @@ internal static class DocfxReferenceEnricher
         // Docfx convention: definition uses the bare uid (no T: prefix).
         if (!string.Equals(uid, openGenericUid, StringComparison.Ordinal))
         {
-            sb.Append("  definition: ").AppendScalar(UidNormalization.StripPrefix(openGenericUid)).AppendLine();
+            _ = sb.Append("  definition: ").AppendScalar(UidNormalization.StripPrefix(openGenericUid)).AppendLine();
         }
 
         AppendIsExternal(sb, isInternal, indent: "  ");
@@ -75,7 +72,7 @@ internal static class DocfxReferenceEnricher
         // this rewrite.
         var displayLabel = BclTypeAliases.ToKeyword(bareName, displayName);
         var fullNameLabel = UidNormalization.SynthesiseFullName(bareName);
-        sb.Append("  name: ").AppendScalar(displayLabel).AppendLine()
+        _ = sb.Append("  name: ").AppendScalar(displayLabel).AppendLine()
             .Append("  nameWithType: ").AppendScalar(displayLabel).AppendLine()
             .Append("  fullName: ").AppendScalar(fullNameLabel).AppendLine();
 
@@ -96,7 +93,6 @@ internal static class DocfxReferenceEnricher
     /// <param name="bareName">Bare name (UID without the prefix).</param>
     /// <param name="isInternal">Whether the type was emitted by this run.</param>
     /// <returns>The href value, or empty when none applies.</returns>
-    [SuppressMessage("Minor Code Smell", "S4040:Strings should be normalized to uppercase", Justification = "Microsoft Learn URLs are case-sensitive.")]
     private static string ResolveHref(string openGenericUid, string bareName, bool isInternal)
     {
         if (isInternal)
@@ -104,7 +100,7 @@ internal static class DocfxReferenceEnricher
             // Local type: link at the open-generic page (Foo`1.html), since
             // constructed generics share the same page in docfx.
             var stem = UidNormalization.StripPrefix(openGenericUid).Replace('`', '-');
-            return stem + ".html";
+            return $"{stem}.html";
         }
 
         if (!StartsWithBclPrefix(bareName))
@@ -156,20 +152,20 @@ internal static class DocfxReferenceEnricher
         string openGenericUid,
         HashSet<string> internalUids)
     {
-        var ltIdx = displayName.IndexOf('<', StringComparison.Ordinal);
+        var angleIndex = displayName.IndexOf('<', StringComparison.Ordinal);
         var braceIdx = uid.IndexOf('{', StringComparison.Ordinal);
-        if (ltIdx <= 0 || braceIdx <= 0)
+        if (angleIndex <= 0 || braceIdx <= 0)
         {
             return;
         }
 
-        var baseName = displayName[..ltIdx];
-        var displayArgsRegion = displayName[(ltIdx + 1)..^1];
+        var baseName = displayName[..angleIndex];
+        var displayArgsRegion = displayName[(angleIndex + 1)..^1];
         var uidArgsRegion = uid[(braceIdx + 1)..^1];
 
-        sb.AppendLine("  spec.csharp:");
+        _ = sb.AppendLine("  spec.csharp:");
         AppendSpecComponent(sb, openGenericUid, baseName, internalUids);
-        sb.AppendLine("  - name: <");
+        _ = sb.AppendLine("  - name: <");
         var displayArgs = UidNormalization.SplitTopLevelArgs(displayArgsRegion, '<', '>');
         var uidArgs = UidNormalization.SplitTopLevelArgs(uidArgsRegion, '{', '}');
         var argCount = Math.Max(displayArgs.Count, uidArgs.Count);
@@ -180,7 +176,7 @@ internal static class DocfxReferenceEnricher
             AppendArgWithSeparator(sb, uidArg, displayArg, i, argCount, internalUids);
         }
 
-        sb.AppendLine("  - name: '>'");
+        _ = sb.AppendLine("  - name: '>'");
     }
 
     /// <summary>Renders one type-arg of a spec list and the comma separator between adjacent entries.</summary>
@@ -198,7 +194,7 @@ internal static class DocfxReferenceEnricher
             return;
         }
 
-        sb.AppendLine("  - name: ', '");
+        _ = sb.AppendLine("  - name: ', '");
     }
 
     /// <summary>Writes one type-token entry inside a <c>spec.csharp</c> list.</summary>
@@ -212,7 +208,7 @@ internal static class DocfxReferenceEnricher
         var href = ResolveHref(UidNormalization.ToOpenGenericUid(uid), UidNormalization.StripPrefix(uid), isInternal);
 
         // Docfx convention: spec.csharp uid is bare (no T: prefix).
-        sb.Append("  - uid: ").AppendScalar(UidNormalization.StripPrefix(uid)).AppendLine()
+        _ = sb.Append("  - uid: ").AppendScalar(UidNormalization.StripPrefix(uid)).AppendLine()
             .Append("    name: ").AppendScalar(name).AppendLine();
 
         // spec.csharp components are always referenced as a separate
@@ -220,7 +216,7 @@ internal static class DocfxReferenceEnricher
         // the target type is in the current walk. This keeps the spec
         // shape stable across pages and matches the docfx output we
         // diff against.
-        sb.AppendLine("    isExternal: true");
+        _ = sb.AppendLine("    isExternal: true");
         AppendHref(sb, href, indent: "    ");
     }
 
@@ -235,7 +231,7 @@ internal static class DocfxReferenceEnricher
             return;
         }
 
-        sb.Append(indent).AppendLine("isExternal: true");
+        _ = sb.Append(indent).AppendLine("isExternal: true");
     }
 
     /// <summary>Writes <c>href: ...</c> at the requested indent when the value is non-empty.</summary>
@@ -249,7 +245,7 @@ internal static class DocfxReferenceEnricher
             return;
         }
 
-        sb.Append(indent).Append("href: ").AppendScalar(href).AppendLine();
+        _ = sb.Append(indent).Append("href: ").AppendScalar(href).AppendLine();
     }
 
     /// <summary>
@@ -276,8 +272,8 @@ internal static class DocfxReferenceEnricher
             // side. Display may be unqualified -- fall back to the
             // promoted UID name when display is empty.
             var leafUid = trimmedUid is [_, ..]
-                ? "T:" + BclTypeAliases.ToClr(trimmedUid)
-                : "T:" + BclTypeAliases.ToClr(trimmedDisplay);
+                ? $"T:{BclTypeAliases.ToClr(trimmedUid)}"
+                : $"T:{BclTypeAliases.ToClr(trimmedDisplay)}";
             var label = trimmedDisplay is [_, ..] ? trimmedDisplay : trimmedUid;
             AppendSpecComponent(sb, leafUid, label, internalUids);
             return;
@@ -288,9 +284,9 @@ internal static class DocfxReferenceEnricher
         var uidBaseFqn = trimmedUid[..uidBrace];
         var uidRegion = trimmedUid[(uidBrace + 1)..^1];
         var arity = UidNormalization.CountTopLevelArgs(uidRegion, '{', '}');
-        var openUid = "T:" + uidBaseFqn + "`" + arity.ToString(CultureInfo.InvariantCulture);
+        var openUid = $"T:{uidBaseFqn}`{arity.ToString(CultureInfo.InvariantCulture)}";
         AppendSpecComponent(sb, openUid, displayBase, internalUids);
-        sb.AppendLine("  - name: <");
+        _ = sb.AppendLine("  - name: <");
         var nestedDisplayArgs = UidNormalization.SplitTopLevelArgs(displayRegion, '<', '>');
         var nestedUidArgs = UidNormalization.SplitTopLevelArgs(uidRegion, '{', '}');
         var nestedCount = Math.Max(nestedDisplayArgs.Count, nestedUidArgs.Count);
@@ -301,6 +297,6 @@ internal static class DocfxReferenceEnricher
             AppendArgWithSeparator(sb, nestedUid, nestedDisplay, i, nestedCount, internalUids);
         }
 
-        sb.AppendLine("  - name: '>'");
+        _ = sb.AppendLine("  - name: '>'");
     }
 }

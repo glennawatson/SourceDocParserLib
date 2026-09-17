@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -17,6 +17,12 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 /// </summary>
 public class DocfxExtensionBlocksTests
 {
+    /// <summary>C# keyword used by the string receiver fixture.</summary>
+    private const string StringKeyword = "string";
+
+    /// <summary>Documentation identifier for the string type.</summary>
+    private const string StringTypeUid = "T:System.String";
+
     /// <summary>No-op when the type declares no extension blocks.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -24,7 +30,7 @@ public class DocfxExtensionBlocksTests
     {
         var sb = new StringBuilder();
 
-        sb.AppendExtensionBlocks([]);
+        _ = sb.AppendExtensionBlocks([]);
 
         await Assert.That(sb.ToString().Lf()).IsEqualTo(string.Empty);
     }
@@ -58,11 +64,11 @@ public class DocfxExtensionBlocksTests
             Attributes: []);
         ApiExtensionBlock[] blocks =
         [
-            new("source", new("string", "T:System.String"), [member]),
+            new("source", new(StringKeyword, StringTypeUid), [member]),
         ];
 
         var sb = new StringBuilder();
-        sb.AppendExtensionBlocks(blocks);
+        _ = sb.AppendExtensionBlocks(blocks);
         var yaml = sb.ToString().Lf();
 
         await Assert.That(yaml).Contains("extensionBlocks:");
@@ -91,7 +97,7 @@ public class DocfxExtensionBlocksTests
             Signature: "public string ToShouty()",
             Parameters: [],
             TypeParameters: [],
-            ReturnType: new("string", "T:System.String"),
+            ReturnType: new(StringKeyword, StringTypeUid),
             ContainingTypeUid: "T:Helpers.<>E__0",
             ContainingTypeName: "<>E__0",
             SourceUrl: null,
@@ -104,7 +110,7 @@ public class DocfxExtensionBlocksTests
             IsStatic = true,
             ExtensionBlocks =
             [
-                new("source", new("string", "T:System.String"), [member]),
+                new("source", new(StringKeyword, StringTypeUid), [member]),
             ],
         };
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -58,7 +58,8 @@ public class ObsoleteAndCompilerGenTests
 
         // Only Foo + 1 package landing + 1 namespace landing -- the
         // display class never reaches the page emitter.
-        await Assert.That(pages).IsEqualTo(3);
+        const int ExpectedPages = 3;
+        await Assert.That(pages).IsEqualTo(ExpectedPages);
     }
 
     /// <summary>Type-level Attributes render under the heading, with compiler markers filtered.</summary>
@@ -106,11 +107,7 @@ public class ObsoleteAndCompilerGenTests
         await Assert.That(page).DoesNotContain("<Clone>");
     }
 
-    /// <summary>
-    /// The <see cref="ZensicalDocumentationEmitter"/> output must not
-    /// link a record's <c>&lt;Clone&gt;$</c> from the type page since
-    /// no member file is written for it.
-    /// </summary>
+    /// <summary>The <see cref="ZensicalDocumentationEmitter"/> output must not link a record's <c>&lt;Clone&gt;$</c> from the type page since no member file is written for it.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task EmitDoesNotProduceCloneDollarLinkInTypePage()

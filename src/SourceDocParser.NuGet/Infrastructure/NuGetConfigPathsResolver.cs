@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,6 +16,12 @@ internal static class NuGetConfigPathsResolver
     /// <summary>Tail of the platform-default global packages path under the user profile.</summary>
     private const string DefaultRelativePath = ".nuget/packages";
 
+    /// <summary>Directory containing user-scoped configuration files.</summary>
+    private const string ConfigurationDirectoryName = "NuGet";
+
+    /// <summary>Configuration filename used in user-scoped directories.</summary>
+    private const string ConfigurationFileName = "NuGet.Config";
+
     /// <summary>
     /// Resolves the user-scoped <c>nuget.config</c> candidate paths
     /// for the current OS -- Windows looks under <c>%AppData%\NuGet</c>,
@@ -27,27 +33,18 @@ internal static class NuGetConfigPathsResolver
     /// <param name="appData">Resolved <c>%AppData%</c> (Windows only); null/empty allowed.</param>
     /// <param name="userProfile">Resolved <c>$HOME</c> (Unix only); null/empty allowed.</param>
     /// <returns>Candidate paths in precedence order, or an empty array.</returns>
-    public static string[] GetUserPaths(bool isWindows, string? appData, string? userProfile)
+    internal static string[] GetUserPaths(bool isWindows, string? appData, string? userProfile)
     {
         if (isWindows)
         {
-            if (!TextHelpers.HasValue(appData))
-            {
-                return [];
-            }
-
-            return [Path.Combine(appData, "NuGet", "NuGet.Config")];
+            return !TextHelpers.HasValue(appData) ? [] : [Path.Combine(appData, ConfigurationDirectoryName, ConfigurationFileName)];
         }
 
-        if (!TextHelpers.HasValue(userProfile))
-        {
-            return [];
-        }
-
-        return
-        [
-            Path.Combine(userProfile, ".nuget", "NuGet", "NuGet.Config"),
-            Path.Combine(userProfile, ".config", "NuGet", "NuGet.Config"),
+        return !TextHelpers.HasValue(userProfile)
+            ? []
+            : [
+            Path.Combine(userProfile, ".nuget", ConfigurationDirectoryName, ConfigurationFileName),
+            Path.Combine(userProfile, ".config", ConfigurationDirectoryName, ConfigurationFileName),
         ];
     }
 
@@ -59,7 +56,7 @@ internal static class NuGetConfigPathsResolver
     /// </summary>
     /// <param name="root">Machine config root directory.</param>
     /// <returns>Existing <c>*.config</c> paths under the root, sorted ordinal.</returns>
-    public static string[] GetMachinePaths(string? root)
+    internal static string[] GetMachinePaths(string? root)
     {
         if (!TextHelpers.HasNonWhitespace(root) || !Directory.Exists(root))
         {
@@ -79,7 +76,7 @@ internal static class NuGetConfigPathsResolver
     /// </summary>
     /// <param name="userProfile">Resolved user profile / home folder.</param>
     /// <returns>The absolute path to the default global packages folder.</returns>
-    public static string GetDefaultGlobalPackagesFolder(string? userProfile)
+    internal static string GetDefaultGlobalPackagesFolder(string? userProfile)
     {
         var resolved = TextHelpers.HasValue(userProfile)
             ? userProfile

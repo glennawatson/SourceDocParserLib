@@ -1,8 +1,9 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Jobs;
 using SourceDocParser.Docfx.Yaml;
 using SourceDocParser.Model;
 using SourceDocParser.Zensical;
@@ -24,7 +25,9 @@ namespace SourceDocParser.Benchmarks;
 /// markup formatting, not I/O. A full-pipeline benchmark that does hit
 /// disk lives in <see cref="MetadataExtractorBenchmarks"/>.
 /// </remarks>
-[ShortRunJob]
+[System.Diagnostics.DebuggerDisplay("EmitterBenchmarks: {TypeCount}")]
+[ShortRunJob(RuntimeMoniker.Net10_0)]
+[ShortRunJob(RuntimeMoniker.Net11_0)]
 [MemoryDiagnoser]
 public class EmitterBenchmarks
 {
@@ -62,14 +65,11 @@ public class EmitterBenchmarks
     [Params(SmallMemberCount, WideMemberCount)]
     public int MembersPerType { get; set; }
 
-    /// <summary>
-    /// Materialises the canonical type set once per parameter
-    /// combination so iterations don't rebuild fixtures.
-    /// </summary>
+    /// <summary>Materialises the canonical type set once per parameter combination so iterations don't rebuild fixtures.</summary>
     [GlobalSetup]
     public void GlobalSetup()
     {
-        _types = new(TypeCount);
+        _types = [with(TypeCount)];
         for (var i = 0; i < TypeCount; i++)
         {
             _types.Add(BuildType($"Type{i:D5}", MembersPerType));
@@ -115,7 +115,7 @@ public class EmitterBenchmarks
     /// <returns>The constructed type.</returns>
     private static ApiObjectType BuildType(string uid, int memberCount)
     {
-        var members = new List<ApiMember>(memberCount);
+        List<ApiMember> members = [with(memberCount)];
         for (var i = 0; i < memberCount; i++)
         {
             var name = $"Method{i:D2}";
@@ -133,11 +133,11 @@ public class EmitterBenchmarks
                 Signature: $"public string {name}(int arg, string text)",
                 Parameters:
                 [
-                    new("arg", new("Int32", "T:System.Int32"), false, false, false, false, false, null),
-                    new("text", new("String", "T:System.String"), false, false, false, false, false, null),
+                    new("arg", new(nameof(Int32), "T:System.Int32"), false, false, false, false, false, null),
+                    new("text", new(nameof(String), "T:System.String"), false, false, false, false, false, null),
                 ],
                 TypeParameters: [],
-                ReturnType: new("String", "T:System.String"),
+                ReturnType: new(nameof(String), "T:System.String"),
                 ContainingTypeUid: uid,
                 ContainingTypeName: uid,
                 SourceUrl: null,

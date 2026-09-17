@@ -1,15 +1,15 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using NuGet.Versioning;
-using Polly;
-using Polly.Retry;
 using SourceDocParser.LibCompilation;
 using SourceDocParser.NuGet.Models;
 using SourceDocParser.NuGet.Readers;
@@ -22,59 +22,34 @@ namespace SourceDocParser.NuGet.Infrastructure;
 /// directory and API path. Responsible for coordinating package download,
 /// extraction, and handling of related metadata.
 /// </summary>
-[SuppressMessage("Minor Code Smell", "S4040:Strings should be normalized to uppercase", Justification = "NuGet package IDs are case-insensitive")]
+[System.Diagnostics.DebuggerDisplay("NuGetFetcher: {ToString(),nq}")]
 public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
 {
     /// <summary>Maximum number of NuGet packages downloaded in parallel. Kept small to stay friendly to the NuGet feed and avoid rate-limit responses.</summary>
     private const int MaxParallelDownloads = 3;
 
-    /// <summary>
-    /// Number of retry attempts the Polly policy makes per HTTP call before
-    /// surfacing the failure.
-    /// </summary>
-    private const int RetryAttempts = 6;
-
-    /// <summary>
-    /// Base delay, in seconds, for the NuGet HTTP exponential backoff policy.
-    /// </summary>
-    private const double RetryBackoffBaseSeconds = 0.1;
-
-    /// <summary>
-    /// Exponential growth factor applied between retry attempts.
-    /// </summary>
-    private const double RetryBackoffMultiplier = 2;
-
-    /// <summary>
-    /// Maximum tolerated timestamp drift, in seconds, when comparing extracted zip entries.
-    /// </summary>
+    /// <summary>Maximum tolerated timestamp drift, in seconds, when comparing extracted zip entries.</summary>
     private const double ExtractedTimestampToleranceSeconds = 2;
 
-    /// <summary>
-    /// Maximum uncompressed size allowed for any extracted archive entry.
-    /// </summary>
+    /// <summary>Maximum uncompressed size allowed for any extracted archive entry.</summary>
     private const long MaxExtractedArchiveEntryBytes = 128L * 1024L * 1024L;
 
-    /// <summary>
-    /// Copy buffer used when streaming validated ZIP entries to disk.
-    /// </summary>
-    private const int ExtractCopyBufferSize = 81920;
+    /// <summary>Copy buffer used when streaming validated ZIP entries to disk.</summary>
+    private const int ExtractCopyBufferSize = 81_920;
 
-    /// <summary>
-    /// Base URI of the NuGet v3 service index used for endpoint discovery.
-    /// </summary>
+    /// <summary>Base URI of the NuGet v3 service index used for endpoint discovery.</summary>
     private static readonly Uri ServiceIndexUri = new("https://api.nuget.org/v3/index.json");
 
-    /// <summary>
-    /// Base URI of the NuGet v3 flat-container endpoint used for version
-    /// resolution and <c>.nupkg</c> downloads.
-    /// </summary>
+    /// <summary>Base URI of the NuGet v3 flat-container endpoint used for version resolution and <c>.nupkg</c> downloads.</summary>
     private static readonly Uri FlatContainerUri = new("https://api.nuget.org/v3-flatcontainer/");
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Task FetchPackagesAsync(string rootDirectory, string apiPath) =>
         FetchPackagesAsync(rootDirectory, apiPath, null, CancellationToken.None);
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Task FetchPackagesAsync(string rootDirectory, string apiPath, ILogger? logger) =>
         FetchPackagesAsync(rootDirectory, apiPath, logger, CancellationToken.None);
 
@@ -91,9 +66,9 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         var cacheDir = Path.Combine(apiPath, "cache");
         var refsDir = Path.Combine(apiPath, "refs");
 
-        Directory.CreateDirectory(libDir);
-        Directory.CreateDirectory(cacheDir);
-        Directory.CreateDirectory(refsDir);
+        _ = Directory.CreateDirectory(libDir);
+        _ = Directory.CreateDirectory(cacheDir);
+        _ = Directory.CreateDirectory(refsDir);
 
         if (config.ReferencePackages is [_, ..])
         {
@@ -105,7 +80,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         var seenIds = new HashSet<string>(discoveredIds.Count, StringComparer.OrdinalIgnoreCase);
         for (var i = 0; i < discoveredIds.Count; i++)
         {
-            seenIds.Add(discoveredIds[i].Id);
+            _ = seenIds.Add(discoveredIds[i].Id);
         }
 
         for (var i = 0; i < config.AdditionalPackages.Length; i++)
@@ -123,13 +98,13 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         // dispatch through the comparer).
         var excludeIds = config.ExcludePackages;
         var excludePrefixes = config.ExcludePackagePrefixes;
-        discoveredIds.RemoveAll(d => PackageExclusionFilter.IsExcludedByUser(d.Id, excludeIds, excludePrefixes));
+        _ = discoveredIds.RemoveAll(d => PackageExclusionFilter.IsExcludedByUser(d.Id, excludeIds, excludePrefixes));
 
         var allPackages = new (string Id, string? Version, string? Tfm)[discoveredIds.Count];
         for (var i = 0; i < discoveredIds.Count; i++)
         {
             var d = discoveredIds[i];
-            config.TfmOverrides.TryGetValue(d.Id, out var tfm);
+            _ = config.TfmOverrides.TryGetValue(d.Id, out var tfm);
             allPackages[i] = (d.Id, d.Version, tfm);
         }
 
@@ -176,7 +151,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
     /// </summary>
     /// <param name="nupkgPath">Absolute path to the cached <c>.nupkg</c>.</param>
     /// <returns>The sidecar path.</returns>
-    internal static string NuspecSidecarPath(string nupkgPath) => nupkgPath + ".nuspec";
+    internal static string NuspecSidecarPath(string nupkgPath) => $"{nupkgPath}.nuspec";
 
     /// <summary>
     /// Persists the post-exclusion primary id list to
@@ -236,18 +211,10 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
             return false;
         }
 
-        // Round to seconds: zip entries store mtime at FAT precision (2s)
-        // and ExtractToFile rounds the destination's LastWriteTime to
-        // match. Compare in UTC-second resolution to avoid timezone
-        // drift and sub-second formatter mismatches.
-        var entryStamp = entry.LastWriteTime.UtcDateTime;
-        var destStamp = info.LastWriteTimeUtc;
-        return Math.Abs((entryStamp - destStamp).TotalSeconds) < ExtractedTimestampToleranceSeconds;
+        return Math.Abs((entry.LastWriteTime.UtcDateTime - info.LastWriteTimeUtc).TotalSeconds) < ExtractedTimestampToleranceSeconds;
     }
 
-    /// <summary>
-    /// Extracts a ZIP entry to disk after validating its uncompressed size.
-    /// </summary>
+    /// <summary>Extracts a ZIP entry to disk after validating its uncompressed size.</summary>
     /// <param name="destPath">Destination file path.</param>
     /// <param name="entry">Archive entry to extract.</param>
     internal static void ExtractValidatedEntry(string destPath, ZipArchiveEntry entry)
@@ -265,10 +232,9 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         File.SetLastWriteTimeUtc(destPath, entry.LastWriteTime.UtcDateTime);
     }
 
-    /// <summary>
-    /// Rejects archive entries whose declared uncompressed size exceeds our extraction cap.
-    /// </summary>
+    /// <summary>Rejects archive entries whose declared uncompressed size exceeds our extraction cap.</summary>
     /// <param name="entry">Archive entry to validate.</param>
+    /// <exception cref="InvalidDataException">The declared entry size exceeds the extraction limit.</exception>
     internal static void ValidateExtractedEntrySize(ZipArchiveEntry entry)
     {
         ArgumentNullException.ThrowIfNull(entry);
@@ -281,9 +247,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
             $"Refusing to extract archive entry '{entry.FullName}' because its uncompressed size {entry.Length} bytes exceeds the safety limit of {MaxExtractedArchiveEntryBytes} bytes.");
     }
 
-    /// <summary>
-    /// Adds dependency IDs that survive exclusion filtering.
-    /// </summary>
+    /// <summary>Adds dependency IDs that survive exclusion filtering.</summary>
     /// <param name="dependencyIds">Dependency IDs discovered in a nuspec.</param>
     /// <param name="request">Shared resolution request state.</param>
     /// <param name="newIds">Set collecting newly-discovered package IDs.</param>
@@ -302,7 +266,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
 
             if (request.SeenIds.Add(dependencyId))
             {
-                newIds.Add(dependencyId);
+                _ = newIds.Add(dependencyId);
             }
         }
     }
@@ -331,14 +295,12 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
 
             if (request.SeenIds.Add(packageId))
             {
-                newIds.Add(packageId);
+                _ = newIds.Add(packageId);
             }
         }
     }
 
-    /// <summary>
-    /// Returns true when the dependency survives exclusion and default-skip filters.
-    /// </summary>
+    /// <summary>Returns true when the dependency survives exclusion and default-skip filters.</summary>
     /// <param name="dependencyId">Dependency ID to test.</param>
     /// <param name="request">Shared resolution request state.</param>
     /// <returns>True when the dependency should be resolved.</returns>
@@ -346,9 +308,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         !PackageExclusionFilter.IsExcludedByUser(dependencyId, request.ExcludeIds, request.ExcludePrefixes)
         && !PackageExclusionFilter.IsDefaultTransitiveSkip(dependencyId);
 
-    /// <summary>
-    /// Builds the package batch for the next transitive resolution round.
-    /// </summary>
+    /// <summary>Builds the package batch for the next transitive resolution round.</summary>
     /// <param name="newIds">Newly-discovered package IDs.</param>
     /// <param name="tfmOverrides">Per-package TFM overrides.</param>
     /// <returns>The batch of package requests.</returns>
@@ -360,30 +320,25 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         var packageIndex = 0;
         foreach (var id in newIds)
         {
-            tfmOverrides.TryGetValue(id, out var tfm);
-            newPackages[packageIndex++] = (id, null, tfm);
+            _ = tfmOverrides.TryGetValue(id, out var tfm);
+            newPackages[packageIndex] = (id, null, tfm);
+            packageIndex++;
         }
 
         return newPackages;
     }
 
-    /// <summary>
-    /// Builds the owner search URI for a single page of NuGet package results.
-    /// </summary>
+    /// <summary>Builds the owner search URI for a single page of NuGet package results.</summary>
     /// <param name="searchEndpoint">Resolved NuGet search endpoint.</param>
     /// <param name="owner">Owner name to search for.</param>
     /// <param name="take">Page size.</param>
     /// <param name="skip">Page offset.</param>
     /// <returns>The fully-composed search URI.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Uri BuildOwnerSearchUri(Uri searchEndpoint, string owner, int take, int skip) =>
-        new UriBuilder(searchEndpoint)
-        {
-            Query = $"q=owner:{Uri.EscapeDataString(owner)}&take={take}&skip={skip}&semVerLevel=2.0.0",
-        }.Uri;
+        new UriBuilder(searchEndpoint) { Query = $"q=owner:{Uri.EscapeDataString(owner)}&take={take}&skip={skip}&semVerLevel=2.0.0", }.Uri;
 
-    /// <summary>
-    /// Adds all eligible package identifiers from a NuGet owner search response.
-    /// </summary>
+    /// <summary>Adds all eligible package identifiers from a NuGet owner search response.</summary>
     /// <param name="root">Root JSON element for the response document.</param>
     /// <param name="packageIds">Destination list to append package IDs to.</param>
     internal static void AddEligibleOwnerPackageIds(JsonElement root, List<string> packageIds)
@@ -396,16 +351,14 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
             }
 
             var id = result.GetProperty("id"u8).GetString();
-            if (id != null)
+            if (id is not null)
             {
                 packageIds.Add(id);
             }
         }
     }
 
-    /// <summary>
-    /// Returns whether an owner-search result should be excluded from discovery.
-    /// </summary>
+    /// <summary>Returns whether an owner-search result should be excluded from discovery.</summary>
     /// <param name="result">Result element from the NuGet search response.</param>
     /// <returns>True when the package should be ignored.</returns>
     internal static bool ShouldSkipOwnerSearchResult(JsonElement result)
@@ -423,12 +376,11 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
             && vulnerabilities.GetArrayLength() is > 0;
     }
 
-    /// <summary>
-    /// Copies exactly the validated number of bytes from a ZIP entry stream to disk.
-    /// </summary>
+    /// <summary>Copies exactly the validated number of bytes from a ZIP entry stream to disk.</summary>
     /// <param name="source">Entry stream to read from.</param>
     /// <param name="destination">Destination file stream.</param>
     /// <param name="expectedBytes">Validated byte count expected from the entry.</param>
+    /// <exception cref="InvalidDataException">Thrown when <c>copied &gt; expectedBytes</c>.</exception>
     private static void CopyBoundedTo(Stream source, Stream destination, long expectedBytes)
     {
         var buffer = new byte[ExtractCopyBufferSize];
@@ -459,27 +411,22 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
             $"Archive entry expanded to {copied} bytes but declared {expectedBytes} bytes.");
     }
 
-    /// <summary>
-    /// Fetches one owner-search page, appends eligible package IDs, and returns the total hit count.
-    /// </summary>
+    /// <summary>Fetches one owner-search page, appends eligible package IDs, and returns the total hit count.</summary>
     /// <param name="client">HTTP client used for the request.</param>
-    /// <param name="retryPolicy">Retry policy applied to the request.</param>
     /// <param name="url">Fully composed owner-search page URL.</param>
     /// <param name="packageIds">Destination list for eligible package IDs.</param>
     /// <param name="cancellationToken">Cancellation token for the request.</param>
     /// <returns>The total number of matching packages reported by the search service.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Task<int> FetchOwnerSearchPageAsync(
         HttpClient client,
-        AsyncRetryPolicy retryPolicy,
         Uri url,
         List<string> packageIds,
-        CancellationToken cancellationToken)
-    {
-        return retryPolicy.ExecuteAsync(
+        CancellationToken cancellationToken) => NuGetHttpRetry.ExecuteAsync(
             async ct =>
             {
-                var response = await client.GetAsync(url, ct).ConfigureAwait(false);
-                response.EnsureSuccessStatusCode();
+                using var response = await client.GetAsync(url, ct).ConfigureAwait(false);
+                _ = response.EnsureSuccessStatusCode();
 
                 await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
                 using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
@@ -488,11 +435,8 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
                 return doc.RootElement.GetProperty("totalHits"u8).GetInt32();
             },
             cancellationToken);
-    }
 
-    /// <summary>
-    /// Resolves the transitive dependencies for a given package based on the specified resolution request parameters.
-    /// </summary>
+    /// <summary>Resolves the transitive dependencies for a given package based on the specified resolution request parameters.</summary>
     /// <param name="request">
     /// A <see cref="TransitiveDependencyResolutionRequest"/> object containing information about the package to resolve,
     /// including its library directory, cache directory, exclusion parameters, target framework preferences, and more.
@@ -500,12 +444,11 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
     /// <returns>
     /// A <see cref="Task"/> that represents the asynchronous operation of resolving transitive dependencies.
     /// </returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Task ResolveTransitiveDependenciesAsync(in TransitiveDependencyResolutionRequest request) =>
         ResolveTransitiveDependenciesCoreAsync(request);
 
-    /// <summary>
-    /// Implementation of <see cref="ResolveTransitiveDependenciesAsync(in TransitiveDependencyResolutionRequest)"/>.
-    /// </summary>
+    /// <summary>Implementation of <see cref="ResolveTransitiveDependenciesAsync(in TransitiveDependencyResolutionRequest)"/>.</summary>
     /// <param name="request">Shared resolution request state.</param>
     /// <returns>A task representing the asynchronous closure.</returns>
     private static async Task ResolveTransitiveDependenciesCoreAsync(TransitiveDependencyResolutionRequest request)
@@ -559,22 +502,19 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         LogTransitiveDepLimitReached(request.Logger, maxDepth);
     }
 
-    /// <summary>
-    /// Reads dependency IDs from one nuspec sidecar and adds newly-discovered packages to the next batch.
-    /// </summary>
+    /// <summary>Reads dependency IDs from one nuspec sidecar and adds newly-discovered packages to the next batch.</summary>
     /// <param name="sidecarPath">Path to the sidecar nuspec.</param>
     /// <param name="request">Shared resolution request state.</param>
     /// <param name="newIds">Set collecting newly-discovered package IDs.</param>
     /// <returns>A task representing the asynchronous read.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Task AddDependenciesFromSidecarAsync(
         string sidecarPath,
         in TransitiveDependencyResolutionRequest request,
         HashSet<string> newIds) =>
         AddDependenciesFromSidecarCoreAsync(sidecarPath, request, newIds);
 
-    /// <summary>
-    /// Implementation of <see cref="AddDependenciesFromSidecarAsync(string, in TransitiveDependencyResolutionRequest, HashSet{string})"/>.
-    /// </summary>
+    /// <summary>Implementation of <see cref="AddDependenciesFromSidecarAsync(string, in TransitiveDependencyResolutionRequest, HashSet{string})"/>.</summary>
     /// <param name="sidecarPath">Path to the sidecar nuspec.</param>
     /// <param name="request">Shared resolution request state.</param>
     /// <param name="newIds">Set collecting newly-discovered package IDs.</param>
@@ -597,23 +537,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         }
     }
 
-    /// <summary>
-    /// Constructs the standard exponential-backoff retry policy.
-    /// </summary>
-    /// <returns>An <see cref="AsyncRetryPolicy"/> configured for HTTP retries.</returns>
-    /// <remarks>
-    /// Used for every HTTP call in this fetcher. Catches <see cref="HttpRequestException"/> and
-    /// waits exponentially longer between attempts (0.2s, 0.4s, 0.8s, ...).
-    /// </remarks>
-    private static AsyncRetryPolicy CreateRetryPolicy() =>
-        Policy.Handle<HttpRequestException>()
-            .WaitAndRetryAsync(
-                RetryAttempts,
-                static attempt => TimeSpan.FromSeconds(RetryBackoffBaseSeconds * Math.Pow(RetryBackoffMultiplier, attempt)));
-
-    /// <summary>
-    /// Copies extracted reference assemblies from <c>refs/</c> into each <c>lib/</c> TFM directory.
-    /// </summary>
+    /// <summary>Copies extracted reference assemblies from <c>refs/</c> into each <c>lib/</c> TFM directory.</summary>
     /// <param name="libDir">Root of the per-TFM lib directories.</param>
     /// <param name="refsDir">Root of the per-TFM refs directories.</param>
     /// <param name="logger">Logger for per-TFM copy summaries.</param>
@@ -664,9 +588,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         }
     }
 
-    /// <summary>
-    /// Discovers every package owned by any of the configured NuGet owner accounts.
-    /// </summary>
+    /// <summary>Discovers every package owned by any of the configured NuGet owner accounts.</summary>
     /// <param name="client">Shared HTTP client for the search-service calls.</param>
     /// <param name="config">The parsed package configuration.</param>
     /// <param name="logger">Logger for endpoint discovery and per-owner counts.</param>
@@ -677,9 +599,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
     /// </remarks>
     private static async Task<List<(string Id, string? Version)>> DiscoverAllPackagesAsync(HttpClient client, PackageConfig config, ILogger logger, CancellationToken cancellationToken)
     {
-        var retryPolicy = CreateRetryPolicy();
-
-        var searchEndpoint = await ResolveSearchEndpointAsync(client, retryPolicy, cancellationToken).ConfigureAwait(false);
+        var searchEndpoint = await ResolveSearchEndpointAsync(client, cancellationToken).ConfigureAwait(false);
         LogUsingSearchEndpoint(logger, searchEndpoint);
 
         List<(string Id, string? Version)> allIds = [];
@@ -688,7 +608,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         {
             var owner = config.NugetPackageOwners[i];
             cancellationToken.ThrowIfCancellationRequested();
-            var ids = await DiscoverPackagesByOwnerAsync(client, retryPolicy, searchEndpoint, owner, cancellationToken).ConfigureAwait(false);
+            var ids = await DiscoverPackagesByOwnerAsync(client, searchEndpoint, owner, cancellationToken).ConfigureAwait(false);
             LogDiscoveredOwnerPackages(logger, ids.Count, owner);
             for (var j = 0; j < ids.Count; j++)
             {
@@ -703,9 +623,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         return allIds;
     }
 
-    /// <summary>
-    /// Fetches reference-only packages and extracts their reference assemblies.
-    /// </summary>
+    /// <summary>Fetches reference-only packages and extracts their reference assemblies.</summary>
     /// <param name="client">Shared HTTP client for the fetch.</param>
     /// <param name="packages">Reference packages to fetch.</param>
     /// <param name="refsDir">Output root for extracted reference assemblies.</param>
@@ -726,8 +644,6 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         ILogger logger,
         CancellationToken cancellationToken)
     {
-        var retryPolicy = CreateRetryPolicy();
-
         for (var i = 0; i < packages.Length; i++)
         {
             var pkg = packages[i];
@@ -737,11 +653,11 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
                 var idLower = pkg.Id.ToLowerInvariant();
 
                 var version = pkg.Version;
-                if (version == null)
+                if (version is null)
                 {
                     LogResolvingRefVersion(logger, pkg.Id);
-                    version = await ResolveLatestStableVersionAsync(client, retryPolicy, idLower, cancellationToken).ConfigureAwait(false);
-                    if (version == null)
+                    version = await ResolveLatestStableVersionAsync(client, idLower, cancellationToken).ConfigureAwait(false);
+                    if (version is null)
                     {
                         LogRefVersionUnresolved(logger, pkg.Id);
                         continue;
@@ -755,7 +671,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
                 if (!File.Exists(nupkgPath))
                 {
                     LogDownloadingPackage(logger, pkg.Id, version);
-                    await DownloadNupkgAsync(client, retryPolicy, idLower, versionLower, nupkgPath, cancellationToken).ConfigureAwait(false);
+                    await DownloadNupkgAsync(client, idLower, versionLower, nupkgPath, cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
@@ -763,7 +679,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
                 }
 
                 var tfmRefsDir = Path.Combine(refsDir, pkg.TargetTfm);
-                Directory.CreateDirectory(tfmRefsDir);
+                _ = Directory.CreateDirectory(tfmRefsDir);
                 ExtractReferenceAssemblies(nupkgPath, tfmRefsDir, pkg.Id, pkg.PathPrefix, logger);
             }
             catch (Exception ex)
@@ -825,26 +741,20 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         LogExtractedRefs(logger, count, packageId, pathPrefix);
     }
 
-    /// <summary>
-    /// Reads the NuGet v3 service index and returns the URI of the search service.
-    /// </summary>
+    /// <summary>Reads the NuGet v3 service index and returns the URI of the search service.</summary>
     /// <param name="client">HTTP client used for the request.</param>
-    /// <param name="retryPolicy">Retry policy applied to the request.</param>
     /// <param name="cancellationToken">Cancellation token honoured by the HTTP request.</param>
     /// <returns>The resolved search endpoint URI.</returns>
     /// <exception cref="InvalidOperationException">Thrown when the service index does not advertise the required search service type.</exception>
     private static async Task<Uri> ResolveSearchEndpointAsync(
         HttpClient client,
-        AsyncRetryPolicy retryPolicy,
         CancellationToken cancellationToken)
     {
-        Uri? endpoint = null;
-
-        await retryPolicy.ExecuteAsync(
+        var endpoint = await NuGetHttpRetry.ExecuteAsync(
             async ct =>
             {
-                var response = await client.GetAsync(ServiceIndexUri, ct).ConfigureAwait(false);
-                response.EnsureSuccessStatusCode();
+                using var response = await client.GetAsync(ServiceIndexUri, ct).ConfigureAwait(false);
+                _ = response.EnsureSuccessStatusCode();
 
                 await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
                 using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
@@ -858,11 +768,13 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
 
                     if (resource.TryGetProperty("@id"u8, out var idEl) && idEl.GetString() is { } id)
                     {
-                        endpoint = new(id);
+                        return new Uri(id);
                     }
 
                     break;
                 }
+
+                return null;
             },
             cancellationToken).ConfigureAwait(false);
 
@@ -870,11 +782,8 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
             $"Could not find {Encoding.UTF8.GetString("SearchQueryService/3.5.0"u8)} in NuGet service index");
     }
 
-    /// <summary>
-    /// Pages through the NuGet search service to enumerate every package owned by the supplied owner.
-    /// </summary>
+    /// <summary>Pages through the NuGet search service to enumerate every package owned by the supplied owner.</summary>
     /// <param name="client">HTTP client used for the requests.</param>
-    /// <param name="retryPolicy">Retry policy applied to each request.</param>
     /// <param name="searchEndpoint">The resolved search service endpoint.</param>
     /// <param name="owner">The NuGet owner account to query.</param>
     /// <param name="cancellationToken">Cancellation token honoured between pages and per HTTP call.</param>
@@ -885,7 +794,6 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
     /// </remarks>
     private static async Task<List<string>> DiscoverPackagesByOwnerAsync(
         HttpClient client,
-        AsyncRetryPolicy retryPolicy,
         Uri searchEndpoint,
         string owner,
         CancellationToken cancellationToken)
@@ -898,7 +806,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
             var url = BuildOwnerSearchUri(searchEndpoint, owner, take, skip);
-            var totalHits = await FetchOwnerSearchPageAsync(client, retryPolicy, url, packageIds, cancellationToken).ConfigureAwait(false);
+            var totalHits = await FetchOwnerSearchPageAsync(client, url, packageIds, cancellationToken).ConfigureAwait(false);
 
             skip += take;
             if (skip >= totalHits)
@@ -910,9 +818,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         return packageIds;
     }
 
-    /// <summary>
-    /// Downloads and extracts every package in <paramref name="packages"/> in parallel.
-    /// </summary>
+    /// <summary>Downloads and extracts every package in <paramref name="packages"/> in parallel.</summary>
     /// <param name="client">Shared HTTP client distributed to every parallel <see cref="FetchState"/>.</param>
     /// <param name="libDir">Root of the per-TFM lib output directories.</param>
     /// <param name="cacheDir">Cache directory for downloaded <c>.nupkg</c> files.</param>
@@ -935,33 +841,24 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         ILogger logger,
         CancellationToken cancellationToken)
     {
-        var retryPolicy = CreateRetryPolicy();
-
         // Parallel.ForEachAsync replaces the prior SemaphoreSlim + Select +
         // Task.WhenAll dance. Same concurrency budget, no IDisposable to
         // manage, no analyser flow-analysis ceremony.
-        var parallelOptions = new ParallelOptions
-        {
-            MaxDegreeOfParallelism = MaxParallelDownloads,
-            CancellationToken = cancellationToken,
-        };
+        var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = MaxParallelDownloads, CancellationToken = cancellationToken, };
         var states = new FetchState[packages.Length];
         for (var i = 0; i < packages.Length; i++)
         {
-            states[i] = new(packages[i], client, retryPolicy, libDir, cacheDir, tfmPreference, logger);
+            states[i] = new(packages[i], client, libDir, cacheDir, tfmPreference, logger);
         }
 
         await Parallel.ForEachAsync(
             states,
             parallelOptions,
-            static (state, ct) => ProcessPackageAsync(state, ct)).ConfigureAwait(false);
+            ProcessPackageAsync).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Resolves the latest stable (non-prerelease) version of the named package.
-    /// </summary>
+    /// <summary>Resolves the latest stable (non-prerelease) version of the named package.</summary>
     /// <param name="client">HTTP client used for the request.</param>
-    /// <param name="retryPolicy">Retry policy applied to the request.</param>
     /// <param name="idLower">Lowercased package identifier.</param>
     /// <param name="cancellationToken">Cancellation token honoured by the HTTP request.</param>
     /// <returns>The resolved version string, or <see langword="null"/> when the package has no stable releases.</returns>
@@ -970,18 +867,16 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
     /// </remarks>
     private static async Task<string?> ResolveLatestStableVersionAsync(
         HttpClient client,
-        AsyncRetryPolicy retryPolicy,
         string idLower,
         CancellationToken cancellationToken)
     {
-        string? result = null;
         var url = new Uri(FlatContainerUri, $"{idLower}/index.json");
 
-        await retryPolicy.ExecuteAsync(
+        return await NuGetHttpRetry.ExecuteAsync(
             async ct =>
             {
-                var response = await client.GetAsync(url, ct).ConfigureAwait(false);
-                response.EnsureSuccessStatusCode();
+                using var response = await client.GetAsync(url, ct).ConfigureAwait(false);
+                _ = response.EnsureSuccessStatusCode();
 
                 await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
                 using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
@@ -1006,18 +901,13 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
                     }
                 }
 
-                result = best?.ToNormalizedString();
+                return best?.ToNormalizedString();
             },
             cancellationToken).ConfigureAwait(false);
-
-        return result;
     }
 
-    /// <summary>
-    /// Downloads a specific package version's <c>.nupkg</c> to the supplied path on disk.
-    /// </summary>
+    /// <summary>Downloads a specific package version's <c>.nupkg</c> to the supplied path on disk.</summary>
     /// <param name="client">HTTP client used for the request.</param>
-    /// <param name="retryPolicy">Retry policy applied to the request.</param>
     /// <param name="idLower">Lowercased package identifier.</param>
     /// <param name="versionLower">Lowercased package version.</param>
     /// <param name="outputPath">Destination file path.</param>
@@ -1025,7 +915,6 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     private static async Task DownloadNupkgAsync(
         HttpClient client,
-        AsyncRetryPolicy retryPolicy,
         string idLower,
         string versionLower,
         string outputPath,
@@ -1033,22 +922,21 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
     {
         var url = new Uri(FlatContainerUri, $"{idLower}/{versionLower}/{idLower}.{versionLower}.nupkg");
 
-        await retryPolicy.ExecuteAsync(
+        await NuGetHttpRetry.ExecuteAsync(
             async ct =>
             {
-                var response = await client.GetAsync(url, ct).ConfigureAwait(false);
-                response.EnsureSuccessStatusCode();
+                using var response = await client.GetAsync(url, ct).ConfigureAwait(false);
+                _ = response.EnsureSuccessStatusCode();
 
                 await using var contentStream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
                 await using var fileStream = new FileStream(outputPath, FileMode.Create);
                 await contentStream.CopyToAsync(fileStream, ct).ConfigureAwait(false);
+                return true;
             },
             cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Extracts assemblies from a <c>.nupkg</c> into TFM-bucketed directories.
-    /// </summary>
+    /// <summary>Extracts assemblies from a <c>.nupkg</c> into TFM-bucketed directories.</summary>
     /// <param name="nupkgPath">Path to the <c>.nupkg</c> on disk.</param>
     /// <param name="libDir">Root of the per-TFM lib output directories.</param>
     /// <param name="packageId">Package identifier, for logging.</param>
@@ -1094,9 +982,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         ExtractNuspecSidecar(nupkgPath, nuspecEntry);
     }
 
-    /// <summary>
-    /// Processes a single package within the parallel fetch loop.
-    /// </summary>
+    /// <summary>Processes a single package within the parallel fetch loop.</summary>
     /// <param name="state">Per-package fetch state.</param>
     /// <param name="cancellationToken">Cancellation token for the package operation.</param>
     /// <returns>A task representing the asynchronous package fetch.</returns>
@@ -1150,7 +1036,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         }
 
         LogResolvingVersion(state.Logger, pkg.Id);
-        var version = await ResolveLatestStableVersionAsync(state.Client, state.RetryPolicy, idLower, cancellationToken).ConfigureAwait(false);
+        var version = await ResolveLatestStableVersionAsync(state.Client, idLower, cancellationToken).ConfigureAwait(false);
         if (version is null)
         {
             LogVersionUnresolved(state.Logger, pkg.Id);
@@ -1211,9 +1097,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         return best;
     }
 
-    /// <summary>
-    /// Downloads and extracts a package unless its sidecar nuspec already exists.
-    /// </summary>
+    /// <summary>Downloads and extracts a package unless its sidecar nuspec already exists.</summary>
     /// <param name="state">Per-package fetch state.</param>
     /// <param name="idLower">Lowercased package identifier.</param>
     /// <param name="version">Concrete package version to install.</param>
@@ -1239,9 +1123,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
             cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Performs the under-lock package download, extraction, and cache cleanup.
-    /// </summary>
+    /// <summary>Performs the under-lock package download, extraction, and cache cleanup.</summary>
     /// <param name="state">Per-package fetch state.</param>
     /// <param name="idLower">Lowercased package identifier.</param>
     /// <param name="version">Concrete package version to install.</param>
@@ -1260,7 +1142,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         if (!File.Exists(nupkgPath))
         {
             LogDownloadingPackage(state.Logger, state.Package.Id, version);
-            await DownloadNupkgAsync(state.Client, state.RetryPolicy, idLower, versionLower, nupkgPath, cancellationToken).ConfigureAwait(false);
+            await DownloadNupkgAsync(state.Client, idLower, versionLower, nupkgPath, cancellationToken).ConfigureAwait(false);
         }
 
         ExtractAssemblies(nupkgPath, state.LibDir, state.Package.Id, state.Package.Tfm, state.TfmPreference, state.Logger);
@@ -1268,9 +1150,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         TryDeleteDownloadedPackage(nupkgPath);
     }
 
-    /// <summary>
-    /// Deletes a downloaded <c>.nupkg</c> after extraction on a best-effort basis.
-    /// </summary>
+    /// <summary>Deletes a downloaded <c>.nupkg</c> after extraction on a best-effort basis.</summary>
     /// <param name="nupkgPath">Path to the downloaded package file.</param>
     private static void TryDeleteDownloadedPackage(string nupkgPath)
     {
@@ -1278,15 +1158,13 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         {
             File.Delete(nupkgPath);
         }
-        catch
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             // Best-effort.
         }
     }
 
-    /// <summary>
-    /// Collects archive entries grouped by TFM and captures the root nuspec entry when present.
-    /// </summary>
+    /// <summary>Collects archive entries grouped by TFM and captures the root nuspec entry when present.</summary>
     /// <param name="archive">Package archive to inspect.</param>
     /// <param name="nuspecEntry">Captured root nuspec entry, if any.</param>
     /// <returns>The archive's <c>lib/{tfm}/</c> entries grouped by TFM.</returns>
@@ -1317,9 +1195,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         return libEntries;
     }
 
-    /// <summary>
-    /// Captures the package's root nuspec entry the first time it is encountered.
-    /// </summary>
+    /// <summary>Captures the package's root nuspec entry the first time it is encountered.</summary>
     /// <param name="entry">Archive entry being inspected.</param>
     /// <param name="nuspecEntry">Current nuspec entry slot.</param>
     private static void CaptureRootNuspec(ZipArchiveEntry entry, ref ZipArchiveEntry? nuspecEntry)
@@ -1336,9 +1212,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         nuspecEntry = entry;
     }
 
-    /// <summary>
-    /// Attempts to extract the TFM segment from a <c>lib/{tfm}/...</c> archive entry.
-    /// </summary>
+    /// <summary>Attempts to extract the TFM segment from a <c>lib/{tfm}/...</c> archive entry.</summary>
     /// <param name="entry">Archive entry to inspect.</param>
     /// <param name="tfm">Resolved TFM segment when present.</param>
     /// <returns>True when the entry lives under a TFM-specific <c>lib/</c> path.</returns>
@@ -1365,26 +1239,18 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         return true;
     }
 
-    /// <summary>
-    /// Adds a library entry to its TFM bucket.
-    /// </summary>
+    /// <summary>Adds a library entry to its TFM bucket.</summary>
     /// <param name="libEntries">Grouped library entries.</param>
     /// <param name="tfm">TFM bucket name.</param>
     /// <param name="entry">Archive entry to append.</param>
     private static void AddLibEntry(Dictionary<string, List<ZipArchiveEntry>> libEntries, string tfm, ZipArchiveEntry entry)
     {
-        if (!libEntries.TryGetValue(tfm, out var list))
-        {
-            list = [];
-            libEntries[tfm] = list;
-        }
-
+        ref var list = ref CollectionsMarshal.GetValueRefOrAddDefault(libEntries, tfm, out _);
+        list ??= [];
         list.Add(entry);
     }
 
-    /// <summary>
-    /// Selects supported TFMs and logs when none match the configured preferences.
-    /// </summary>
+    /// <summary>Selects supported TFMs and logs when none match the configured preferences.</summary>
     /// <param name="libEntries">Available library entries grouped by TFM.</param>
     /// <param name="packageId">Package identifier for logging.</param>
     /// <param name="tfmOverride">Optional package-specific TFM override.</param>
@@ -1450,12 +1316,11 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         return false;
     }
 
-    /// <summary>
-    /// Logs the TFMs selected for extraction.
-    /// </summary>
+    /// <summary>Logs the TFMs selected for extraction.</summary>
     /// <param name="logger">Logger for the summary.</param>
     /// <param name="packageId">Package identifier.</param>
     /// <param name="selectedTfms">TFMs selected for extraction.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void LogSelectedTfms(ILogger logger, string packageId, List<string> selectedTfms) =>
         LogInvokerHelper.Invoke(
             logger,
@@ -1473,9 +1338,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
                 LogExtractingTfms(l, id, tfms.Count, selected);
             });
 
-    /// <summary>
-    /// Extracts the selected TFM buckets from a package archive.
-    /// </summary>
+    /// <summary>Extracts the selected TFM buckets from a package archive.</summary>
     /// <param name="libDir">Root directory for extracted library files.</param>
     /// <param name="selectedTfms">TFMs selected for extraction.</param>
     /// <param name="libEntries">Available library entries grouped by TFM.</param>
@@ -1488,14 +1351,12 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         {
             var selectedTfm = selectedTfms[i];
             var tfmLibDir = Path.Combine(libDir, selectedTfm);
-            Directory.CreateDirectory(tfmLibDir);
+            _ = Directory.CreateDirectory(tfmLibDir);
             ExtractTfmEntries(tfmLibDir, libEntries[selectedTfm]);
         }
     }
 
-    /// <summary>
-    /// Extracts managed library artifacts for a single selected TFM bucket.
-    /// </summary>
+    /// <summary>Extracts managed library artifacts for a single selected TFM bucket.</summary>
     /// <param name="tfmLibDir">Destination TFM directory.</param>
     /// <param name="entries">Archive entries in the bucket.</param>
     private static void ExtractTfmEntries(string tfmLibDir, List<ZipArchiveEntry> entries)
@@ -1528,9 +1389,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
         }
     }
 
-    /// <summary>
-    /// Returns whether a lib entry should be extracted for documentation generation.
-    /// </summary>
+    /// <summary>Returns whether a lib entry should be extracted for documentation generation.</summary>
     /// <param name="entry">Archive entry to inspect.</param>
     /// <returns>True for <c>.dll</c> and <c>.xml</c> files.</returns>
     private static bool ShouldExtractAssemblyEntry(ZipArchiveEntry entry)
@@ -1540,9 +1399,7 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
             || ext.Equals(".xml", StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>
-    /// Extracts the package nuspec alongside the cached <c>.nupkg</c> when needed.
-    /// </summary>
+    /// <summary>Extracts the package nuspec alongside the cached <c>.nupkg</c> when needed.</summary>
     /// <param name="nupkgPath">Path to the cached package.</param>
     /// <param name="nuspecEntry">Root nuspec entry captured from the archive.</param>
     private static void ExtractNuspecSidecar(string nupkgPath, ZipArchiveEntry? nuspecEntry)
@@ -1726,13 +1583,9 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
     [LoggerMessage(Level = LogLevel.Information, Message = "  {PackageId}: extracting {TfmCount} TFM(s) -- {SelectedTfms}")]
     private static partial void LogExtractingTfms(ILogger logger, string packageId, int tfmCount, string selectedTfms);
 
-    /// <summary>
-    /// Encapsulates the state required for a single package fetch operation
-    /// inside a parallel loop, avoiding closure captures.
-    /// </summary>
+    /// <summary>Encapsulates the state required for a single package fetch operation inside a parallel loop, avoiding closure captures.</summary>
     /// <param name="Package">The package details (ID, version, and optional TFM override).</param>
     /// <param name="Client">The shared HTTP client for downloads.</param>
-    /// <param name="RetryPolicy">The resilience policy for transient HTTP failures.</param>
     /// <param name="LibDir">The root directory where assemblies are extracted.</param>
     /// <param name="CacheDir">The directory where downloaded <c>.nupkg</c> files are stored.</param>
     /// <param name="TfmPreference">The global TFM preference order.</param>
@@ -1740,7 +1593,6 @@ public sealed partial class NuGetFetcher : INuGetFetcher, IDisposable
     private sealed record FetchState(
         (string Id, string? Version, string? Tfm) Package,
         HttpClient Client,
-        AsyncRetryPolicy RetryPolicy,
         string LibDir,
         string CacheDir,
         string[] TfmPreference,

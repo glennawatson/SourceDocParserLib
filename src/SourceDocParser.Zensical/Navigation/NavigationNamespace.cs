@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -18,4 +18,5 @@ namespace SourceDocParser.Zensical.Navigation;
 /// <see langword="null"/> when no landing page was emitted.
 /// </param>
 /// <param name="Types">The type entries in this namespace, in display order.</param>
+[System.Diagnostics.DebuggerDisplay("NavigationNamespace: {ToString(),nq}")]
 public readonly record struct NavigationNamespace(string Name, string Folder, string? LandingPagePath, NavigationEntry[] Types);

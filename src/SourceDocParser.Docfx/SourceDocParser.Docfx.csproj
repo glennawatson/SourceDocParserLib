@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <PackageId>SourceDocParser.Docfx</PackageId>
     <Description>docfx compatibility for SourceDocParser. Reads and writes docfx.json shapes (metadata + build sections) so an existing docfx site can plug into the parser pipeline, and emits docfx ManagedReference YAML pages so the parser output is consumable by docfx as a drop-in replacement for its own metadata extractor.</Description>
   </PropertyGroup>

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -28,10 +28,7 @@ public static class AttributeFilterRules
         "T:System.Runtime.CompilerServices.ExtensionAttribute",
     ];
 
-    /// <summary>
-    /// Tests whether an attribute identified by its documentation
-    /// comment ID should be excluded from rendered output.
-    /// </summary>
+    /// <summary>Tests whether an attribute identified by its documentation comment ID should be excluded from rendered output.</summary>
     /// <param name="attributeUid">The attribute type's documentation comment ID.</param>
     /// <returns>True when the attribute is on the namespace denylist and not on the allowlist.</returns>
     public static bool IsExcluded(string attributeUid)

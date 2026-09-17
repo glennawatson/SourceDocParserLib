@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -14,6 +14,9 @@ namespace SourceDocParser.Docfx.Yaml;
 /// </summary>
 internal static class YamlLiteralBlockFormatter
 {
+    /// <summary>Spaces added beneath the literal block's key indentation.</summary>
+    private const int ContinuationIndent = 2;
+
     /// <summary>
     /// Writes <paramref name="value"/> as a literal block under
     /// <paramref name="prefix"/>. The body is indented by the prefix's
@@ -24,29 +27,25 @@ internal static class YamlLiteralBlockFormatter
     /// <param name="prefix">Key + colon + space prefix; leading spaces drive the body indent.</param>
     /// <param name="value">Body text containing at least one newline.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
-    public static StringBuilder Format(StringBuilder sb, string prefix, string value)
+    internal static StringBuilder Format(StringBuilder sb, string prefix, string value)
     {
         var indentLength = ComputeIndentLength(prefix);
-        var indent = new string(' ', indentLength + 2);
+        var indent = new string(' ', indentLength + ContinuationIndent);
         var key = prefix.AsSpan(indentLength).TrimEnd();
-        sb.Append(' ', indentLength).Append(key).Append(" |-\n");
+        _ = sb.Append(' ', indentLength).Append(key).Append(" |-\n");
 
         foreach (var line in value.AsSpan().EnumerateLines())
         {
-            sb.Append(indent).Append(line).AppendLine();
+            _ = sb.Append(indent).Append(line).AppendLine();
         }
 
         return sb;
     }
 
-    /// <summary>
-    /// Returns the leading-space count of <paramref name="prefix"/> --
-    /// this is the indent of the key line, and the body is indented
-    /// two further spaces.
-    /// </summary>
+    /// <summary>Returns the leading-space count of <paramref name="prefix"/> -- this is the indent of the key line, and the body is indented two further spaces.</summary>
     /// <param name="prefix">Key + colon + space prefix.</param>
     /// <returns>The number of leading spaces; the full prefix length when the prefix is all spaces.</returns>
-    public static int ComputeIndentLength(string prefix)
+    internal static int ComputeIndentLength(string prefix)
     {
         var span = prefix.AsSpan();
         var firstNonSpace = span.IndexOfAnyExcept(' ');

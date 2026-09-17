@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -17,9 +17,7 @@ namespace SourceDocParser.XmlDoc;
 /// </summary>
 public interface IXmlDocToMarkdownConverter
 {
-    /// <summary>
-    /// Converts <paramref name="xmlFragment"/> into Markdown.
-    /// </summary>
+    /// <summary>Converts <paramref name="xmlFragment"/> into Markdown.</summary>
     /// <param name="xmlFragment">Inner XML of one doc element.</param>
     /// <returns>Markdown-formatted doc fragment, or an empty string when nothing convertible was supplied.</returns>
     string Convert(string xmlFragment);

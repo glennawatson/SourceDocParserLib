@@ -1,7 +1,9 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using SourceDocParser.Model;
 using SourceDocParser.Zensical.Options;
 using SourceDocParser.Zensical.Pages;
@@ -15,7 +17,6 @@ namespace SourceDocParser.Zensical.Navigation;
 /// Tree shape is package -&gt; namespace -&gt; type, ordinally sorted
 /// at every level. Page paths use forward slashes regardless of host
 /// OS so the graph is portable across build agents.
-///
 /// Serialisation is deliberately out of scope: Zensical's
 /// <see href="https://zensical.org/docs/setup/navigation/#navigation-integration-with-navigation-integration">explicit
 /// navigation</see> can be authored as TOML, YAML, or JSON, and
@@ -24,6 +25,7 @@ namespace SourceDocParser.Zensical.Navigation;
 /// returned <see cref="NavigationGraph"/> with indexed
 /// <c>for</c> loops and emit whatever format their pipeline needs.
 /// </summary>
+[System.Diagnostics.DebuggerDisplay("NavigationGraphBuilder: {_options}")]
 public sealed class NavigationGraphBuilder
 {
     /// <summary>The namespace key surfaced for types whose namespace is empty.</summary>
@@ -32,7 +34,7 @@ public sealed class NavigationGraphBuilder
     /// <summary>The on-disk folder used for the global namespace bucket -- mirrors <see cref="Pages.LandingPageEmitter"/>.</summary>
     private const string GlobalNamespaceFolder = "_global";
 
-    /// <summary>Filename of the per-package and per-namespace landing page -- mirrors <see cref="Pages.LandingPageEmitter.IndexFileName"/>.</summary>
+    /// <summary>Filename of the per-package and per-namespace landing page -- mirrors <see cref="LandingPageEmitter.IndexFileName"/>.</summary>
     private const string IndexFileName = "index.md";
 
     /// <summary>Routing options -- drive the package-folder grouping.</summary>
@@ -71,20 +73,12 @@ public sealed class NavigationGraphBuilder
                 continue;
             }
 
-            var nsKey = type.Namespace is [_, ..] ? type.Namespace : GlobalNamespaceKey;
-            if (!byPackage.TryGetValue(package, out var byNs))
-            {
-                byNs = new(StringComparer.Ordinal);
-                byPackage[package] = byNs;
-            }
-
-            if (!byNs.TryGetValue(nsKey, out var bucket))
-            {
-                bucket = [];
-                byNs[nsKey] = bucket;
-            }
-
-            bucket.Add(new NavigationEntry(
+            var namespaceKey = type.Namespace is [_, ..] ? type.Namespace : GlobalNamespaceKey;
+            ref var byNs = ref CollectionsMarshal.GetValueRefOrAddDefault(byPackage, package, out _);
+            byNs ??= [with(StringComparer.Ordinal)];
+            ref var bucket = ref CollectionsMarshal.GetValueRefOrAddDefault(byNs, namespaceKey, out _);
+            bucket ??= [];
+            bucket.Add(new(
                 Title: ZensicalEmitterHelpers.FormatDisplayTypeName(type.Name, type.Arity),
                 Path: ToPosixPath(TypePageEmitter.PathFor(type, options)),
                 Kind: ClassifyKind(type),
@@ -105,36 +99,30 @@ public sealed class NavigationGraphBuilder
         return new(packages);
     }
 
-    /// <summary>
-    /// Sorts the namespace and entry buckets for one package and
-    /// freezes them into the immutable record-struct shape.
-    /// </summary>
+    /// <summary>Sorts the namespace and entry buckets for one package and freezes them into the immutable record-struct shape.</summary>
     /// <param name="packageName">Routed package folder name.</param>
     /// <param name="byNs">Namespace -&gt; entry-list buckets for the package.</param>
     /// <returns>The materialised package node.</returns>
     private static NavigationPackage MaterialisePackage(string packageName, Dictionary<string, List<NavigationEntry>> byNs)
     {
-        var nsKeys = new string[byNs.Count];
-        byNs.Keys.CopyTo(nsKeys, 0);
-        Array.Sort(nsKeys, StringComparer.Ordinal);
+        var namespaceKeys = new string[byNs.Count];
+        byNs.Keys.CopyTo(namespaceKeys, 0);
+        Array.Sort(namespaceKeys, StringComparer.Ordinal);
 
-        var namespaces = new NavigationNamespace[nsKeys.Length];
-        for (var n = 0; n < nsKeys.Length; n++)
+        var namespaces = new NavigationNamespace[namespaceKeys.Length];
+        for (var n = 0; n < namespaceKeys.Length; n++)
         {
-            namespaces[n] = MaterialiseNamespace(packageName, nsKeys[n], byNs[nsKeys[n]]);
+            namespaces[n] = MaterialiseNamespace(packageName, namespaceKeys[n], byNs[namespaceKeys[n]]);
         }
 
         return new(
             Name: packageName,
             Folder: packageName,
-            LandingPagePath: packageName + "/" + IndexFileName,
+            LandingPagePath: $"{packageName}/{IndexFileName}",
             Namespaces: namespaces);
     }
 
-    /// <summary>
-    /// Sorts the entries of one namespace by title and copies them
-    /// into a fixed-size array.
-    /// </summary>
+    /// <summary>Sorts the entries of one namespace by title and copies them into a fixed-size array.</summary>
     /// <param name="packageFolder">Owning package folder -- prepended to the namespace landing page path.</param>
     /// <param name="namespaceName">Namespace key (or <see cref="GlobalNamespaceKey"/>).</param>
     /// <param name="bucket">Unsorted entries collected for this namespace.</param>
@@ -152,7 +140,7 @@ public sealed class NavigationGraphBuilder
         return new(
             Name: namespaceName,
             Folder: folder,
-            LandingPagePath: packageFolder + "/" + folder + "/" + IndexFileName,
+            LandingPagePath: $"{packageFolder}/{folder}/{IndexFileName}",
             Types: entries);
     }
 
@@ -213,6 +201,7 @@ public sealed class NavigationGraphBuilder
         }
 
         /// <inheritdoc />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int Compare(NavigationEntry x, NavigationEntry y) =>
             string.CompareOrdinal(x.Title, y.Title);
     }

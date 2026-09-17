@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -20,8 +20,7 @@ public class LargeAssemblyEmitterPageBoundsTests
     /// <summary>
     /// Runs the pipeline against the heavy fixture and asserts the
     /// total emitted page count stays within a bounded multiple of
-    /// the canonical type count. Also writes a top-N diagnostic so
-    /// regressions surface the worst-offender type immediately.
+    /// the canonical type count.
     /// </summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -34,7 +33,7 @@ public class LargeAssemblyEmitterPageBoundsTests
 
         var apiPath = Path.Combine(scratch.Path, "api");
         var output = Path.Combine(scratch.Path, "out");
-        Directory.CreateDirectory(apiPath);
+        _ = Directory.CreateDirectory(apiPath);
 
         var source = new NuGetAssemblySource(scratch.Path, apiPath);
         var emitter = new ZensicalDocumentationEmitter();
@@ -46,39 +45,6 @@ public class LargeAssemblyEmitterPageBoundsTests
         foreach (var unused in Directory.EnumerateFiles(output, "*.md", SearchOption.AllDirectories))
         {
             emittedFiles++;
-        }
-
-        // Each type-page sits next to a directory of the same stem
-        // holding its per-overload-group member pages; counting the
-        // files in those sibling directories tells us which types are
-        // contributing the long tail.
-        List<(string dir, int count)> perTypeCounts = [];
-        foreach (var dir in Directory.EnumerateDirectories(output, "*", SearchOption.AllDirectories))
-        {
-            var count = 0;
-            foreach (var unused in Directory.EnumerateFiles(dir, "*.md", SearchOption.TopDirectoryOnly))
-            {
-                count++;
-            }
-
-            if (count > 0)
-            {
-                perTypeCounts.Add((dir, count));
-            }
-        }
-
-        perTypeCounts.Sort(static (a, b) => b.count.CompareTo(a.count));
-
-        if (perTypeCounts.Count > 20)
-        {
-            perTypeCounts.RemoveRange(20, perTypeCounts.Count - 20);
-        }
-
-        Console.WriteLine($"Pipeline: {result.CanonicalTypes} canonical types, {emittedFiles} pages " +
-            $"(ratio {(double)emittedFiles / result.CanonicalTypes:F1}x). Top contributors:");
-        foreach (var (dir, count) in perTypeCounts)
-        {
-            Console.WriteLine($"  {count,5} pages in {Path.GetRelativePath(output, dir)}");
         }
 
         // 1 type page + N overload-group pages. ~30 distinct member
@@ -93,7 +59,7 @@ public class LargeAssemblyEmitterPageBoundsTests
         await Assert.That(result.LoadFailures).IsEqualTo(0);
         await Assert.That(emittedFiles)
             .IsLessThan(allowed)
-            .Because($"emitter produced {emittedFiles} pages from {result.CanonicalTypes} canonical types " +
-                $"(ratio {(double)emittedFiles / result.CanonicalTypes:F1}x); cap is {MaxPagesPerType}x = {allowed}.");
+            .Because($"emitter produced {emittedFiles} pages from {result.CanonicalTypes} canonical types "
+                + $"(ratio {(double)emittedFiles / result.CanonicalTypes:F1}x); cap is {MaxPagesPerType}x = {allowed}.");
     }
 }

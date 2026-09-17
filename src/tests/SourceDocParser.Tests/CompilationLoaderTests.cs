@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -8,11 +8,7 @@ using CompilationLoader = SourceDocParser.LibCompilation.CompilationLoader;
 
 namespace SourceDocParser.Tests;
 
-/// <summary>
-/// Tests for <see cref="CompilationLoader"/> and <see cref="ICompilationLoader"/>
-/// driven against the test runner's own assemblies (always present next to
-/// the test binary).
-/// </summary>
+/// <summary>Tests for <see cref="CompilationLoader"/> and <see cref="ICompilationLoader"/> driven against the test runner's own assemblies (always present next to the test binary).</summary>
 public class CompilationLoaderTests
 {
     /// <summary>
@@ -22,9 +18,7 @@ public class CompilationLoaderTests
     private static string SourceDocParserDllPath { get; } =
         Path.Combine(AppContext.BaseDirectory, "SourceDocParser.dll");
 
-    /// <summary>
-    /// Loading a real DLL produces a non-null compilation and assembly symbol.
-    /// </summary>
+    /// <summary>Loading a real DLL produces a non-null compilation and assembly symbol.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task LoadProducesCompilationAndAssemblySymbol()
@@ -39,9 +33,7 @@ public class CompilationLoaderTests
         await Assert.That(assembly.Name).IsEqualTo("SourceDocParser");
     }
 
-    /// <summary>
-    /// The loader's compilation can resolve a known public type from the loaded assembly.
-    /// </summary>
+    /// <summary>The loader's compilation can resolve a known public type from the loaded assembly.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task LoadedCompilationResolvesKnownType()
@@ -71,19 +63,17 @@ public class CompilationLoaderTests
         var (secondCompilation, _) = loader.Load(SourceDocParserDllPath, fallback);
 
         // References for the same path should be the same object reference because the cache returned them.
-        var firstPrimary = firstCompilation.References.First(static r =>
+        var firstPrimary = (await Assert.That(firstCompilation.References).HasSingleItem(static r =>
             r is PortableExecutableReference per
-            && string.Equals(per.FilePath, SourceDocParserDllPath, StringComparison.OrdinalIgnoreCase));
-        var secondPrimary = secondCompilation.References.First(static r =>
+            && string.Equals(per.FilePath, SourceDocParserDllPath, StringComparison.OrdinalIgnoreCase)));
+        var secondPrimary = (await Assert.That(secondCompilation.References).HasSingleItem(static r =>
             r is PortableExecutableReference per
-            && string.Equals(per.FilePath, SourceDocParserDllPath, StringComparison.OrdinalIgnoreCase));
+            && string.Equals(per.FilePath, SourceDocParserDllPath, StringComparison.OrdinalIgnoreCase)));
 
         await Assert.That(ReferenceEquals(firstPrimary, secondPrimary)).IsTrue();
     }
 
-    /// <summary>
-    /// Null/whitespace assembly path and null fallback both throw.
-    /// </summary>
+    /// <summary>Null/whitespace assembly path and null fallback both throw.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task LoadValidatesArguments()
@@ -96,9 +86,7 @@ public class CompilationLoaderTests
         await Assert.That(() => loader.Load(SourceDocParserDllPath, null!)).Throws<ArgumentNullException>();
     }
 
-    /// <summary>
-    /// Calling <see cref="CompilationLoader.Dispose"/> twice does not throw.
-    /// </summary>
+    /// <summary>Calling <see cref="CompilationLoader.Dispose"/> twice does not throw.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task DisposeIsIdempotent()

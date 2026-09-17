@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -28,7 +28,7 @@ internal static class ZensicalMemberDisplayName
     /// <param name="member">First overload in the group.</param>
     /// <param name="containingType">Declaring type.</param>
     /// <returns>The heading text, ready to follow the leading <c>#</c>.</returns>
-    public static string Heading(ApiMember member, ApiType containingType)
+    internal static string Heading(ApiMember member, ApiType containingType)
     {
         if (member.Kind == ApiMemberKind.Constructor)
         {
@@ -50,16 +50,11 @@ internal static class ZensicalMemberDisplayName
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool TakesParens(ApiMemberKind kind) => kind switch
     {
-        ApiMemberKind.Constructor => true,
-        ApiMemberKind.Method => true,
-        ApiMemberKind.Operator => true,
+        ApiMemberKind.Constructor or ApiMemberKind.Method or ApiMemberKind.Operator => true,
         _ => false,
     };
 
-    /// <summary>
-    /// Materialises the parameter type display names into a transient
-    /// <c>string[]</c> the Common formatter consumes.
-    /// </summary>
+    /// <summary>Materialises the parameter type display names into a transient <c>string[]</c> the Common formatter consumes.</summary>
     /// <param name="parameters">Member parameter list.</param>
     /// <returns>The display-name array.</returns>
     private static string[] ParameterTypeNames(ApiParameter[] parameters)

@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using SourceDocParser.Model;
 
 namespace SourceDocParser.Docfx.Yaml;
@@ -12,6 +13,7 @@ namespace SourceDocParser.Docfx.Yaml;
 /// the System.Object baseline UIDs in docfx's bare-name form (no
 /// <c>M:</c> prefix -- docfx's xrefmap resolves them by name).
 /// </summary>
+[System.Diagnostics.DebuggerDisplay("DocfxCatalogIndexes: {_core}")]
 public sealed class DocfxCatalogIndexes
 {
     /// <summary>
@@ -35,10 +37,7 @@ public sealed class DocfxCatalogIndexes
 
     /// <summary>Initializes a new instance of the <see cref="DocfxCatalogIndexes"/> class wrapping <paramref name="core"/>.</summary>
     /// <param name="core">The underlying core indexes.</param>
-    private DocfxCatalogIndexes(CatalogIndexes core)
-    {
-        _core = core;
-    }
+    private DocfxCatalogIndexes(CatalogIndexes core) => _core = core;
 
     /// <summary>Gets the empty index bundle -- used by callers that don't supply a catalog.</summary>
     public static DocfxCatalogIndexes Empty { get; } = new(CatalogIndexes.Empty);
@@ -60,15 +59,18 @@ public sealed class DocfxCatalogIndexes
     /// <summary>Returns the derived-class list for <paramref name="uid"/>; the shared empty array when none.</summary>
     /// <param name="uid">Type uid.</param>
     /// <returns>The derived class refs.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ApiTypeReference[] GetDerived(string uid) => _core.GetDerived(uid);
 
     /// <summary>Returns the extension methods that target <paramref name="uid"/>; empty when none.</summary>
     /// <param name="uid">Extended type uid.</param>
     /// <returns>The extension method members.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ApiMember[] GetExtensions(string uid) => _core.GetExtensions(uid);
 
     /// <summary>Returns the inherited member uids for <paramref name="uid"/>; empty when no entry.</summary>
     /// <param name="uid">Type uid.</param>
     /// <returns>The inherited member uids.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public string[] GetInherited(string uid) => _core.GetInherited(uid);
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -14,6 +14,7 @@ namespace SourceDocParser.Docfx.Config;
 /// <see cref="Extra"/>.
 /// </summary>
 /// <param name="Files">Optional list of file globs the entry consumes. <see langword="null"/> for entries that only carry extension data.</param>
+[System.Diagnostics.DebuggerDisplay("DocfxBuildContent: {Extra}")]
 public sealed record DocfxBuildContent(string[]? Files = null)
 {
     /// <summary>

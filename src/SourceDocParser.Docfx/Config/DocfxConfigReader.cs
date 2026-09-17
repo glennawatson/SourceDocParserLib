@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -15,15 +15,12 @@ namespace SourceDocParser.Docfx.Config;
 public static class DocfxConfigReader
 {
     /// <summary>JSON parse options matching docfx's tolerant style.</summary>
-    private static readonly JsonDocumentOptions _docOptions = new()
-    {
-        AllowTrailingCommas = true,
-        CommentHandling = JsonCommentHandling.Skip,
-    };
+    private static readonly JsonDocumentOptions _docOptions = new() { AllowTrailingCommas = true, CommentHandling = JsonCommentHandling.Skip, };
 
-    /// <summary>
-    /// Parses a docfx config object from <paramref name="utf8Stream"/>.
-    /// </summary>
+    /// <summary>Gets the property carrying source file patterns in metadata and build entries.</summary>
+    private static ReadOnlySpan<byte> FilesProperty => "files"u8;
+
+    /// <summary>Parses a docfx config object from <paramref name="utf8Stream"/>.</summary>
     /// <param name="utf8Stream">UTF-8 JSON stream positioned at the document start.</param>
     /// <returns>The parsed configuration.</returns>
     /// <exception cref="ArgumentNullException">When <paramref name="utf8Stream"/> is null.</exception>
@@ -45,11 +42,10 @@ public static class DocfxConfigReader
             Build: ReadBuildSection(root));
     }
 
-    /// <summary>
-    /// Reads the <c>metadata</c> array (or returns an empty list when absent).
-    /// </summary>
+    /// <summary>Reads the <c>metadata</c> array (or returns an empty list when absent).</summary>
     /// <param name="root">Root JSON object.</param>
     /// <returns>Ordered metadata entries.</returns>
+    /// <exception cref="JsonException">Thrown when <c>item.ValueKind != JsonValueKind.Object</c>.</exception>
     private static DocfxMetadataEntry[] ReadMetadataArray(in JsonElement root)
     {
         if (!root.TryGetProperty("metadata"u8, out var array) || array.ValueKind != JsonValueKind.Array)
@@ -69,20 +65,17 @@ public static class DocfxConfigReader
             var dest = item.TryGetProperty("dest"u8, out var destEl) && destEl.ValueKind == JsonValueKind.String
                 ? destEl.GetString() ?? string.Empty
                 : string.Empty;
-            entries[index++] = new(ReadMetadataSources(item), dest)
-            {
-                Extra = ReadExtra(item, IsKnownMetadataProperty),
-            };
+            entries[index] = new(ReadMetadataSources(item), dest) { Extra = ReadExtra(item, IsKnownMetadataProperty), };
+            index++;
         }
 
         return entries;
     }
 
-    /// <summary>
-    /// Reads the <c>src</c> array on a metadata entry as <see cref="DocfxMetadataSource"/> records.
-    /// </summary>
+    /// <summary>Reads the <c>src</c> array on a metadata entry as <see cref="DocfxMetadataSource"/> records.</summary>
     /// <param name="entry">Metadata entry.</param>
     /// <returns>Ordered source records.</returns>
+    /// <exception cref="JsonException">Thrown when <c>item.ValueKind != JsonValueKind.Object</c>.</exception>
     private static DocfxMetadataSource[] ReadMetadataSources(in JsonElement entry)
     {
         if (!entry.TryGetProperty("src"u8, out var array) || array.ValueKind != JsonValueKind.Array)
@@ -102,35 +95,23 @@ public static class DocfxConfigReader
             var src = item.TryGetProperty("src"u8, out var srcEl) && srcEl.ValueKind == JsonValueKind.String
                 ? srcEl.GetString() ?? string.Empty
                 : string.Empty;
-            sources[index++] = new(src, ReadStringArray(item, "files"u8));
+            sources[index] = new(src, ReadStringArray(item, FilesProperty));
+            index++;
         }
 
         return sources;
     }
 
-    /// <summary>
-    /// Reads the <c>build</c> section (or returns an empty section when absent).
-    /// </summary>
+    /// <summary>Reads the <c>build</c> section (or returns an empty section when absent).</summary>
     /// <param name="root">Root JSON object.</param>
     /// <returns>Parsed build section.</returns>
-    private static DocfxBuildSection ReadBuildSection(in JsonElement root)
-    {
-        if (!root.TryGetProperty("build"u8, out var build) || build.ValueKind != JsonValueKind.Object)
-        {
-            return new([]);
-        }
+    private static DocfxBuildSection ReadBuildSection(in JsonElement root) =>
+        !root.TryGetProperty("build"u8, out var build) || build.ValueKind != JsonValueKind.Object ? new([]) : new(ReadBuildContent(build)) { Extra = ReadExtra(build, IsKnownBuildProperty), };
 
-        return new(ReadBuildContent(build))
-        {
-            Extra = ReadExtra(build, IsKnownBuildProperty),
-        };
-    }
-
-    /// <summary>
-    /// Reads the <c>content</c> array inside the build section.
-    /// </summary>
+    /// <summary>Reads the <c>content</c> array inside the build section.</summary>
     /// <param name="build">Build section element.</param>
     /// <returns>Ordered content entries.</returns>
+    /// <exception cref="JsonException">Thrown when <c>item.ValueKind != JsonValueKind.Object</c>.</exception>
     private static DocfxBuildContent[] ReadBuildContent(in JsonElement build)
     {
         if (!build.TryGetProperty("content"u8, out var array) || array.ValueKind != JsonValueKind.Array)
@@ -147,38 +128,25 @@ public static class DocfxConfigReader
                 throw new JsonException("Each build content entry must be a JSON object.");
             }
 
-            var files = item.TryGetProperty("files"u8, out var filesEl) && filesEl is { ValueKind: JsonValueKind.Array }
+            var files = item.TryGetProperty(FilesProperty, out var filesEl) && filesEl is { ValueKind: JsonValueKind.Array }
                 ? ReadStringList(filesEl)
                 : null;
 
-            entries[index++] = new(files)
-            {
-                Extra = ReadExtra(item, IsKnownBuildContentProperty),
-            };
+            entries[index] = new(files) { Extra = ReadExtra(item, IsKnownBuildContentProperty), };
+            index++;
         }
 
         return entries;
     }
 
-    /// <summary>
-    /// Reads an array of strings under <paramref name="propertyName"/> as a list.
-    /// </summary>
+    /// <summary>Reads an array of strings under <paramref name="propertyName"/> as a list.</summary>
     /// <param name="element">Containing object.</param>
     /// <param name="propertyName">UTF-8 encoded property name to read.</param>
     /// <returns>String values in document order.</returns>
-    private static string[] ReadStringArray(in JsonElement element, in ReadOnlySpan<byte> propertyName)
-    {
-        if (!element.TryGetProperty(propertyName, out var array) || array.ValueKind != JsonValueKind.Array)
-        {
-            return [];
-        }
+    private static string[] ReadStringArray(in JsonElement element, in ReadOnlySpan<byte> propertyName) =>
+        !element.TryGetProperty(propertyName, out var array) || array.ValueKind != JsonValueKind.Array ? [] : ReadStringList(array);
 
-        return ReadStringList(array);
-    }
-
-    /// <summary>
-    /// Materialises a JSON array element as a list of strings.
-    /// </summary>
+    /// <summary>Materialises a JSON array element as a list of strings.</summary>
     /// <param name="array">JSON array element.</param>
     /// <returns>String values in document order.</returns>
     private static string[] ReadStringList(in JsonElement array)
@@ -187,7 +155,8 @@ public static class DocfxConfigReader
         var index = 0;
         foreach (var item in array.EnumerateArray())
         {
-            values[index++] = item.GetString() ?? string.Empty;
+            values[index] = item.GetString() ?? string.Empty;
+            index++;
         }
 
         return values;
@@ -213,32 +182,26 @@ public static class DocfxConfigReader
                 continue;
             }
 
-            extra ??= new(StringComparer.Ordinal);
+            extra ??= [with(StringComparer.Ordinal)];
             extra[name] = prop.Value.Clone();
         }
 
         return extra;
     }
 
-    /// <summary>
-    /// Checks if the property name is a known metadata property.
-    /// </summary>
+    /// <summary>Checks if the property name is a known metadata property.</summary>
     /// <param name="propertyName">The property name to check.</param>
     /// <returns>True if known, false otherwise.</returns>
     private static bool IsKnownMetadataProperty(string propertyName) =>
         propertyName is "src" or "dest";
 
-    /// <summary>
-    /// Checks if the property name is a known build property.
-    /// </summary>
+    /// <summary>Checks if the property name is a known build property.</summary>
     /// <param name="propertyName">The property name to check.</param>
     /// <returns>True if known, false otherwise.</returns>
     private static bool IsKnownBuildProperty(string propertyName) =>
         propertyName is "content";
 
-    /// <summary>
-    /// Checks if the property name is a known build content property.
-    /// </summary>
+    /// <summary>Checks if the property name is a known build content property.</summary>
     /// <param name="propertyName">The property name to check.</param>
     /// <returns>True if known, false otherwise.</returns>
     private static bool IsKnownBuildContentProperty(string propertyName) =>

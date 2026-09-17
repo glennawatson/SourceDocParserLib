@@ -1,20 +1,21 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace SourceDocParser.XmlDoc;
 
-/// <summary>
-/// Helper methods for converting XML documentation to Markdown.
-/// </summary>
+/// <summary>Helper methods for converting XML documentation to Markdown.</summary>
 internal static class XmlDocMarkdownHelper
 {
-    /// <summary>
-    /// Length of the prefix in a Roslyn cref.
-    /// </summary>
+    /// <summary>Length of the prefix in a Roslyn cref.</summary>
     private const int CrefPrefixLength = 2;
+
+    /// <summary>Characters requiring escaping in a Markdown table cell.</summary>
+    private static readonly SearchValues<char> TableSpecialCharacters = SearchValues.Create("|\n\r");
 
     /// <summary>
     /// Renders a captured inner span into Markdown via a fresh scanner
@@ -24,16 +25,15 @@ internal static class XmlDocMarkdownHelper
     /// </summary>
     /// <param name="span">Inner XML span to render.</param>
     /// <returns>Markdown text.</returns>
-    public static string ConvertSpanToMarkdown(in ReadOnlySpan<char> span) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string ConvertSpanToMarkdown(in ReadOnlySpan<char> span) =>
         ConvertSpanToMarkdown(span, DefaultCrefResolver.Instance);
 
-    /// <summary>
-    /// Renders a captured inner span into Markdown via a fresh scanner.
-    /// </summary>
+    /// <summary>Renders a captured inner span into Markdown via a fresh scanner.</summary>
     /// <param name="span">Inner XML span to render.</param>
     /// <param name="resolver">Cref resolver invoked when a <c>see cref="..."/</c> is encountered.</param>
     /// <returns>Markdown text.</returns>
-    public static string ConvertSpanToMarkdown(in ReadOnlySpan<char> span, ICrefResolver resolver)
+    internal static string ConvertSpanToMarkdown(in ReadOnlySpan<char> span, ICrefResolver resolver)
     {
         if (span.IsEmpty)
         {
@@ -53,25 +53,19 @@ internal static class XmlDocMarkdownHelper
         return CollapseWhitespace(sb).ToString();
     }
 
-    /// <summary>
-    /// Escapes pipes and replaces newlines with spaces so a string is
-    /// safe to drop into a GFM table cell.
-    /// </summary>
+    /// <summary>Escapes pipes and replaces newlines with spaces so a string is safe to drop into a GFM table cell.</summary>
     /// <param name="text">Cell content.</param>
     /// <returns>The escaped text, or a single space when the input was empty.</returns>
-    public static string TableEscape(string text)
+    internal static string TableEscape(string text)
     {
         if (text is not [_, ..])
         {
             return " ";
         }
 
-        if (text.AsSpan().IndexOfAny(['|', '\n', '\r']) < 0)
-        {
-            return text;
-        }
-
-        return string.Create(
+        return text.AsSpan().IndexOfAny(TableSpecialCharacters) < 0
+            ? text
+            : string.Create(
             text.Length + CountEscapedPipes(text),
             text,
             static (dest, state) =>
@@ -83,20 +77,24 @@ internal static class XmlDocMarkdownHelper
                     {
                         case '|':
                         {
-                            dest[cursor++] = '\\';
-                            dest[cursor++] = '|';
+                            dest[cursor] = '\\';
+                            cursor++;
+                            dest[cursor] = '|';
+                            cursor++;
                             break;
                         }
 
                         case '\n' or '\r':
                         {
-                            dest[cursor++] = ' ';
+                            dest[cursor] = ' ';
+                            cursor++;
                             break;
                         }
 
                         default:
                         {
-                            dest[cursor++] = state[i];
+                            dest[cursor] = state[i];
+                            cursor++;
                             break;
                         }
                     }
@@ -112,7 +110,7 @@ internal static class XmlDocMarkdownHelper
     /// <param name="sb">Destination buffer.</param>
     /// <param name="listContext">Inherited list context.</param>
     /// <param name="resolver">Cref resolver passed through to the see/seealso renderer.</param>
-    public static void WriteFragment(ref DocXmlScanner scanner, StringBuilder sb, ListContext listContext, ICrefResolver resolver)
+    internal static void WriteFragment(ref DocXmlScanner scanner, StringBuilder sb, ListContext listContext, ICrefResolver resolver)
     {
         while (scanner.Read())
         {
@@ -129,6 +127,9 @@ internal static class XmlDocMarkdownHelper
                         WriteElement(ref scanner, sb, listContext, resolver);
                         break;
                     }
+
+                case DocTokenKind.None or DocTokenKind.EndElement:
+                    break;
             }
         }
     }
@@ -143,7 +144,7 @@ internal static class XmlDocMarkdownHelper
     /// <param name="listContext">Inherited list context.</param>
     /// <param name="suppressTags">When true, nested elements emit text-only without markdown formatting.</param>
     /// <param name="resolver">Cref resolver threaded through the subtree.</param>
-    public static void WriteSubtreeChildren(ref DocXmlScanner scanner, StringBuilder sb, ListContext listContext, bool suppressTags, ICrefResolver resolver)
+    internal static void WriteSubtreeChildren(ref DocXmlScanner scanner, StringBuilder sb, ListContext listContext, bool suppressTags, ICrefResolver resolver)
     {
         var startDepth = scanner.Depth;
         while (scanner.Read())
@@ -174,6 +175,9 @@ internal static class XmlDocMarkdownHelper
 
                         break;
                     }
+
+                case DocTokenKind.None or DocTokenKind.EndElement:
+                    break;
             }
         }
     }
@@ -191,7 +195,7 @@ internal static class XmlDocMarkdownHelper
     /// <param name="sb">Destination buffer.</param>
     /// <param name="listContext">Inherited list context.</param>
     /// <param name="resolver">Cref resolver passed through to see/seealso.</param>
-    public static void WriteElement(ref DocXmlScanner scanner, StringBuilder sb, ListContext listContext, ICrefResolver resolver)
+    internal static void WriteElement(ref DocXmlScanner scanner, StringBuilder sb, ListContext listContext, ICrefResolver resolver)
     {
         var name = scanner.Name;
         if (name is "see" or "seealso")
@@ -243,7 +247,7 @@ internal static class XmlDocMarkdownHelper
     /// <param name="sb">Destination buffer.</param>
     /// <param name="listContext">Inherited list context.</param>
     /// <param name="resolver">Cref resolver passed through.</param>
-    public static void WriteRareElement(ref DocXmlScanner scanner, StringBuilder sb, ListContext listContext, ICrefResolver resolver)
+    internal static void WriteRareElement(ref DocXmlScanner scanner, StringBuilder sb, ListContext listContext, ICrefResolver resolver)
     {
         var name = scanner.Name;
         if (name is "b" or "strong")
@@ -289,18 +293,18 @@ internal static class XmlDocMarkdownHelper
     /// <param name="scanner">Scanner positioned on the see/seealso start tag.</param>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="resolver">Resolver invoked for the cref form.</param>
-    public static void WriteSee(ref DocXmlScanner scanner, StringBuilder sb, ICrefResolver resolver)
+    internal static void WriteSee(ref DocXmlScanner scanner, StringBuilder sb, ICrefResolver resolver)
     {
         if (scanner.GetAttribute("cref") is [_, ..] cref)
         {
-            sb.Append(resolver.Render(cref.ToString(), ShortName(cref)));
+            _ = sb.Append(resolver.Render(cref.ToString(), ShortName(cref)));
             scanner.SkipElement();
             return;
         }
 
         if (scanner.GetAttribute("langword") is [_, ..] langword)
         {
-            sb.Append('`').Append(langword).Append('`');
+            _ = sb.Append('`').Append(langword).Append('`');
             scanner.SkipElement();
             return;
         }
@@ -309,13 +313,13 @@ internal static class XmlDocMarkdownHelper
         {
             if (scanner.IsEmptyElement)
             {
-                sb.Append('<').Append(href).Append('>');
+                _ = sb.Append('<').Append(href).Append('>');
                 return;
             }
 
-            sb.Append('[');
+            _ = sb.Append('[');
             WriteSubtreeChildren(ref scanner, sb, ListContext.None, suppressTags: true, resolver);
-            sb.Append("](").Append(href).Append(')');
+            _ = sb.Append("](").Append(href).Append(')');
             return;
         }
 
@@ -328,7 +332,7 @@ internal static class XmlDocMarkdownHelper
     /// </summary>
     /// <param name="scanner">Scanner positioned on the code start tag.</param>
     /// <param name="sb">Destination buffer.</param>
-    public static void WriteCode(ref DocXmlScanner scanner, StringBuilder sb)
+    internal static void WriteCode(ref DocXmlScanner scanner, StringBuilder sb)
     {
         if (scanner.IsEmptyElement)
         {
@@ -337,20 +341,17 @@ internal static class XmlDocMarkdownHelper
 
         var inner = scanner.ReadInnerSpan();
         EnsureBlankLine(sb);
-        sb.Append("```csharp\n");
+        _ = sb.Append("```csharp\n");
         var trimmed = inner.Trim();
         XmlEntityDecoder.AppendDecoded(sb, trimmed);
-        sb.Append("\n```\n");
+        _ = sb.Append("\n```\n");
     }
 
-    /// <summary>
-    /// Renders a list element based on its type attribute (bullet,
-    /// number, or table -- bullet by default).
-    /// </summary>
+    /// <summary>Renders a list element based on its type attribute (bullet, number, or table -- bullet by default).</summary>
     /// <param name="scanner">Scanner positioned on the list start tag.</param>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="resolver">Cref resolver threaded into nested item renders.</param>
-    public static void WriteList(ref DocXmlScanner scanner, StringBuilder sb, ICrefResolver resolver)
+    internal static void WriteList(ref DocXmlScanner scanner, StringBuilder sb, ICrefResolver resolver)
     {
         if (scanner.IsEmptyElement)
         {
@@ -373,15 +374,12 @@ internal static class XmlDocMarkdownHelper
         EnsureBlankLine(sb);
     }
 
-    /// <summary>
-    /// Renders bullet or numbered list items by walking each child item
-    /// element and recursing into its children.
-    /// </summary>
+    /// <summary>Renders bullet or numbered list items by walking each child item element and recursing into its children.</summary>
     /// <param name="scanner">Scanner positioned on the list start tag.</param>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="numbered">True for numbered, false for bullet.</param>
     /// <param name="resolver">Cref resolver threaded into item children.</param>
-    public static void WriteListAsBulletsOrNumbered(ref DocXmlScanner scanner, StringBuilder sb, bool numbered, ICrefResolver resolver)
+    internal static void WriteListAsBulletsOrNumbered(ref DocXmlScanner scanner, StringBuilder sb, bool numbered, ICrefResolver resolver)
     {
         var listDepth = scanner.Depth;
         var index = 1;
@@ -400,15 +398,16 @@ internal static class XmlDocMarkdownHelper
             EnsureLineStart(sb);
             if (numbered)
             {
-                sb.Append(index++).Append(". ");
+                _ = sb.Append(index).Append(". ");
+                index++;
             }
             else
             {
-                sb.Append("- ");
+                _ = sb.Append("- ");
             }
 
             WriteSubtreeChildren(ref scanner, sb, numbered ? ListContext.Numbered : ListContext.Bullet, suppressTags: false, resolver);
-            sb.Append('\n');
+            _ = sb.Append('\n');
         }
     }
 
@@ -421,7 +420,8 @@ internal static class XmlDocMarkdownHelper
     /// <param name="scanner">Scanner positioned on the list start tag.</param>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="resolver">Cref resolver threaded into row content.</param>
-    public static void WriteListAsTable(ref DocXmlScanner scanner, StringBuilder sb, ICrefResolver resolver) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void WriteListAsTable(ref DocXmlScanner scanner, StringBuilder sb, ICrefResolver resolver) =>
         MarkdownListTableRenderer.Render(ref scanner, sb, resolver);
 
     /// <summary>
@@ -432,7 +432,7 @@ internal static class XmlDocMarkdownHelper
     /// </summary>
     /// <param name="cref">Roslyn cref string as a span.</param>
     /// <returns>The short name as a span over <paramref name="cref"/>.</returns>
-    public static ReadOnlySpan<char> ShortName(in ReadOnlySpan<char> cref)
+    internal static ReadOnlySpan<char> ShortName(in ReadOnlySpan<char> cref)
     {
         var name = cref;
         if (name.Length >= CrefPrefixLength && name[1] == ':')
@@ -461,12 +461,9 @@ internal static class XmlDocMarkdownHelper
         return name;
     }
 
-    /// <summary>
-    /// Ensures the buffer ends with at least one blank line (two
-    /// trailing line endings).
-    /// </summary>
+    /// <summary>Ensures the buffer ends with at least one blank line (two trailing line endings).</summary>
     /// <param name="sb">Buffer to inspect.</param>
-    public static void EnsureBlankLine(StringBuilder sb)
+    internal static void EnsureBlankLine(StringBuilder sb)
     {
         TrimTrailingWhitespace(sb);
         if (sb.Length is 0)
@@ -474,12 +471,12 @@ internal static class XmlDocMarkdownHelper
             return;
         }
 
-        sb.Append("\n\n");
+        _ = sb.Append("\n\n");
     }
 
     /// <summary>Ensures the buffer ends at a line start.</summary>
     /// <param name="sb">Buffer to inspect.</param>
-    public static void EnsureLineStart(StringBuilder sb)
+    internal static void EnsureLineStart(StringBuilder sb)
     {
         TrimTrailingWhitespace(sb);
         if (sb.Length is 0)
@@ -487,12 +484,12 @@ internal static class XmlDocMarkdownHelper
             return;
         }
 
-        sb.Append('\n');
+        _ = sb.Append('\n');
     }
 
     /// <summary>Trims trailing whitespace from the buffer.</summary>
     /// <param name="sb">Buffer to trim.</param>
-    public static void TrimTrailingWhitespace(StringBuilder sb)
+    internal static void TrimTrailingWhitespace(StringBuilder sb)
     {
         while (sb.Length is not 0 && char.IsWhiteSpace(sb[^1]))
         {
@@ -506,7 +503,7 @@ internal static class XmlDocMarkdownHelper
     /// </summary>
     /// <param name="sb">Buffer to compact.</param>
     /// <returns>The same StringBuilder instance with whitespace collapsed.</returns>
-    public static StringBuilder CollapseWhitespace(StringBuilder sb)
+    internal static StringBuilder CollapseWhitespace(StringBuilder sb)
     {
         var write = 0;
         var inSpaceRun = false;
@@ -521,12 +518,14 @@ internal static class XmlDocMarkdownHelper
                 }
 
                 inSpaceRun = true;
-                sb[write++] = ' ';
+                sb[write] = ' ';
+                write++;
             }
             else
             {
                 inSpaceRun = false;
-                sb[write++] = ch;
+                sb[write] = ch;
+                write++;
             }
         }
 
@@ -542,7 +541,7 @@ internal static class XmlDocMarkdownHelper
     {
         if (scanner.GetAttribute("name") is [_, ..] refName)
         {
-            sb.Append('`').Append(refName).Append('`');
+            _ = sb.Append('`').Append(refName).Append('`');
         }
 
         scanner.SkipElement();
@@ -555,9 +554,9 @@ internal static class XmlDocMarkdownHelper
     /// <param name="resolver">Cref resolver threaded through children.</param>
     private static void WriteC(ref DocXmlScanner scanner, StringBuilder sb, ListContext listContext, ICrefResolver resolver)
     {
-        sb.Append('`');
+        _ = sb.Append('`');
         WriteSubtreeChildren(ref scanner, sb, listContext, suppressTags: true, resolver);
-        sb.Append('`');
+        _ = sb.Append('`');
     }
 
     /// <summary>Renders a para element.</summary>
@@ -577,7 +576,7 @@ internal static class XmlDocMarkdownHelper
     /// <param name="sb">The string builder.</param>
     private static void WriteBr(ref DocXmlScanner scanner, StringBuilder sb)
     {
-        sb.Append("  \n");
+        _ = sb.Append("  \n");
         scanner.SkipElement();
     }
 
@@ -588,9 +587,9 @@ internal static class XmlDocMarkdownHelper
     /// <param name="resolver">Cref resolver threaded through children.</param>
     private static void WriteBold(ref DocXmlScanner scanner, StringBuilder sb, ListContext listContext, ICrefResolver resolver)
     {
-        sb.Append("**");
+        _ = sb.Append("**");
         WriteSubtreeChildren(ref scanner, sb, listContext, suppressTags: false, resolver);
-        sb.Append("**");
+        _ = sb.Append("**");
     }
 
     /// <summary>Renders an i or em element.</summary>
@@ -600,9 +599,9 @@ internal static class XmlDocMarkdownHelper
     /// <param name="resolver">Cref resolver threaded through children.</param>
     private static void WriteItalic(ref DocXmlScanner scanner, StringBuilder sb, ListContext listContext, ICrefResolver resolver)
     {
-        sb.Append('*');
+        _ = sb.Append('*');
         WriteSubtreeChildren(ref scanner, sb, listContext, suppressTags: false, resolver);
-        sb.Append('*');
+        _ = sb.Append('*');
     }
 
     /// <summary>Renders an item element.</summary>
@@ -615,7 +614,7 @@ internal static class XmlDocMarkdownHelper
         // lose the content even if the doc author was sloppy with
         // the wrapping element.
         EnsureLineStart(sb);
-        sb.Append("- ");
+        _ = sb.Append("- ");
         WriteSubtreeChildren(ref scanner, sb, ListContext.Bullet, suppressTags: false, resolver);
         EnsureLineStart(sb);
     }
@@ -625,8 +624,8 @@ internal static class XmlDocMarkdownHelper
     /// <param name="sb">The string builder.</param>
     /// <param name="listContext">The list context.</param>
     /// <param name="resolver">Cref resolver threaded through children.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void WriteDescriptionOrTerm(ref DocXmlScanner scanner, StringBuilder sb, ListContext listContext, ICrefResolver resolver) =>
-
         // List item parts: emit children inline; the parent list
         // writer arranges separators.
         WriteSubtreeChildren(ref scanner, sb, listContext, suppressTags: false, resolver);
@@ -636,14 +635,12 @@ internal static class XmlDocMarkdownHelper
     /// <param name="sb">The string builder.</param>
     /// <param name="listContext">The list context.</param>
     /// <param name="resolver">Cref resolver threaded through children.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void WriteUnknown(ref DocXmlScanner scanner, StringBuilder sb, ListContext listContext, ICrefResolver resolver) =>
-
         // Unknown tag: keep its content so we don't drop words.
-        WriteSubtreeChildren(ref scanner, sb, listContext, suppressTags: false, resolver);
+        WriteDescriptionOrTerm(ref scanner, sb, listContext, resolver);
 
-    /// <summary>
-    /// Counts pipes so the escaped table-cell length can be computed up front.
-    /// </summary>
+    /// <summary>Counts pipes so the escaped table-cell length can be computed up front.</summary>
     /// <param name="text">Text to scan.</param>
     /// <returns>The number of extra escape characters required.</returns>
     private static int CountEscapedPipes(string text)

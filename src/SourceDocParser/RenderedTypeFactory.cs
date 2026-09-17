@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -18,11 +18,7 @@ namespace SourceDocParser;
 /// </summary>
 public static class RenderedTypeFactory
 {
-    /// <summary>
-    /// Returns a copy of <paramref name="type"/> whose
-    /// <see cref="ApiType.Documentation"/> and any per-member /
-    /// per-value docs have been run through <paramref name="converter"/>.
-    /// </summary>
+    /// <summary>Returns a copy of <paramref name="type"/> whose <see cref="ApiType.Documentation"/> and any per-member / per-value docs have been run through <paramref name="converter"/>.</summary>
     /// <param name="type">Type with raw-XML docs (walker output).</param>
     /// <param name="converter">Converter wired with the emitter's <see cref="ICrefResolver"/>.</param>
     /// <returns>The same type shape with Markdown-rendered docs.</returns>
@@ -99,11 +95,7 @@ public static class RenderedTypeFactory
         return result ?? members;
     }
 
-    /// <summary>
-    /// Renders every enum value's docs. Same skip-on-no-change shape
-    /// as <see cref="RenderMembers"/> so undocumented enums never
-    /// pay the array allocation.
-    /// </summary>
+    /// <summary>Renders every enum value's docs. Same skip-on-no-change shape as <see cref="RenderMembers"/> so undocumented enums never pay the array allocation.</summary>
     /// <param name="values">Values to render.</param>
     /// <param name="converter">Converter to run them through.</param>
     /// <returns>A new array when at least one value changed, otherwise the input array.</returns>

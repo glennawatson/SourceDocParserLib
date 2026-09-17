@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -11,11 +11,6 @@ namespace SourceDocParser.Model;
 /// information about the number of types processed, the total Markdown pages emitted,
 /// the number of load failures, and source links generated during the extraction process.
 /// </summary>
-/// <remarks>
-/// This record is immutable and is intended to provide the output summary of
-/// a metadata extraction task. It includes information about cross-target framework
-/// merges, documentation generation, and assembly loading issues encountered.
-/// </remarks>
 /// <param name="CanonicalTypes">
 /// The total number of distinct types after processing and merging across different
 /// target framework monikers (TFMs).
@@ -32,6 +27,12 @@ namespace SourceDocParser.Model;
 /// This array may be empty if no SourceLink data was available. The data is directly
 /// passed to a validator for further processing.
 /// </param>
+/// <remarks>
+/// This record is immutable and is intended to provide the output summary of
+/// a metadata extraction task. It includes information about cross-target framework
+/// merges, documentation generation, and assembly loading issues encountered.
+/// </remarks>
+[System.Diagnostics.DebuggerDisplay("ExtractionResult: {ToString(),nq}")]
 public sealed record ExtractionResult(
     int CanonicalTypes,
     int PagesEmitted,

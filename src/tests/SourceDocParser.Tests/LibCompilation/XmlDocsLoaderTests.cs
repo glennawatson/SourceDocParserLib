@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,6 +16,12 @@ namespace SourceDocParser.Tests.LibCompilation;
 /// </summary>
 public class XmlDocsLoaderTests
 {
+    /// <summary>Fixture value for FakeDll.</summary>
+    private const string FakeDll = "fake.dll";
+
+    /// <summary>Fixture value for FakeXml.</summary>
+    private const string FakeXml = "fake.xml";
+
     /// <summary>A missing .xml sibling returns null without logging an error.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -24,8 +30,8 @@ public class XmlDocsLoaderTests
         var dir = Path.Combine(Path.GetTempPath(), $"sdp-xml-{Guid.NewGuid():N}");
         try
         {
-            Directory.CreateDirectory(dir);
-            var assemblyPath = Path.Combine(dir, "fake.dll");
+            _ = Directory.CreateDirectory(dir);
+            var assemblyPath = Path.Combine(dir, FakeDll);
             await File.WriteAllBytesAsync(assemblyPath, [0x4D, 0x5A]);
 
             var docs = XmlDocsLoader.TryLoad(assemblyPath, NullLogger.Instance);
@@ -56,9 +62,9 @@ public class XmlDocsLoaderTests
         var dir = Path.Combine(Path.GetTempPath(), $"sdp-xml-bad-{Guid.NewGuid():N}");
         try
         {
-            Directory.CreateDirectory(dir);
-            var assemblyPath = Path.Combine(dir, "fake.dll");
-            var xmlPath = Path.Combine(dir, "fake.xml");
+            _ = Directory.CreateDirectory(dir);
+            var assemblyPath = Path.Combine(dir, FakeDll);
+            var xmlPath = Path.Combine(dir, FakeXml);
             await File.WriteAllBytesAsync(assemblyPath, [0x4D, 0x5A]);
             await File.WriteAllTextAsync(xmlPath, "<doc/>");
             if (!OperatingSystem.IsWindows())
@@ -74,7 +80,7 @@ public class XmlDocsLoaderTests
         {
             if (Directory.Exists(dir))
             {
-                var xmlPath = Path.Combine(dir, "fake.xml");
+                var xmlPath = Path.Combine(dir, FakeXml);
                 if (File.Exists(xmlPath) && !OperatingSystem.IsWindows())
                 {
                     File.SetUnixFileMode(xmlPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
@@ -93,9 +99,9 @@ public class XmlDocsLoaderTests
         var dir = Path.Combine(Path.GetTempPath(), $"sdp-xml-good-{Guid.NewGuid():N}");
         try
         {
-            Directory.CreateDirectory(dir);
-            var assemblyPath = Path.Combine(dir, "fake.dll");
-            var xmlPath = Path.Combine(dir, "fake.xml");
+            _ = Directory.CreateDirectory(dir);
+            var assemblyPath = Path.Combine(dir, FakeDll);
+            var xmlPath = Path.Combine(dir, FakeXml);
             await File.WriteAllBytesAsync(assemblyPath, [0x4D, 0x5A]);
             const string xml = """
                 <doc>

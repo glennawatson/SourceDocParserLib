@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -7,9 +7,7 @@ using System.Runtime.CompilerServices;
 
 namespace SourceDocParser.XmlDoc;
 
-/// <summary>
-/// Static helpers for parsing XML attributes from a span.
-/// </summary>
+/// <summary>Static helpers for parsing XML attributes from a span.</summary>
 internal static class XmlAttributeParser
 {
     /// <summary>The four whitespace characters allowed inside an XML start tag.</summary>
@@ -31,7 +29,7 @@ internal static class XmlAttributeParser
     /// <param name="attrArea">The span containing attributes.</param>
     /// <param name="attributeName">Attribute name to look up.</param>
     /// <returns>The attribute value as a span, or empty.</returns>
-    public static ReadOnlySpan<char> GetAttribute(ReadOnlySpan<char> attrArea, ReadOnlySpan<char> attributeName)
+    internal static ReadOnlySpan<char> GetAttribute(ReadOnlySpan<char> attrArea, ReadOnlySpan<char> attributeName)
     {
         var index = 0;
         while (TryReadAttributeInline(attrArea, ref index, out var nameStart, out var nameLength, out var valueStart, out var valueLength))

@@ -1,8 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using SourceDocParser.Model;
 using SourceDocParser.XmlDoc;
 using SourceDocParser.Zensical.Options;
@@ -21,7 +21,6 @@ namespace SourceDocParser.Zensical.Pages;
 internal static class LandingPageEmitter
 {
     /// <summary>Filename used for every landing page.</summary>
-    [SuppressMessage("Critical Code Smell", "S2339:Public constant members should not be used", Justification = "Default value is not secret.")]
     public const string IndexFileName = "index.md";
 
     /// <summary>Initial StringBuilder capacity for a landing page.</summary>
@@ -73,7 +72,7 @@ internal static class LandingPageEmitter
         foreach (var ns in namespaces)
         {
             var slug = NamespaceFolderName(ns.Key);
-            sb.Append("- [").Append(ns.Key).Append("](").Append(slug).Append('/').Append(IndexFileName).Append(") -- ")
+            _ = sb.Append("- [").Append(ns.Key).Append("](").Append(slug).Append('/').Append(IndexFileName).Append(") -- ")
               .Append(ns.Value.Count).AppendLine(" types");
         }
 
@@ -98,7 +97,7 @@ internal static class LandingPageEmitter
 
         foreach (var entry in entries)
         {
-            sb.Append("| [").Append(entry.Title).Append("](").Append(entry.FileName).Append(") | ")
+            _ = sb.Append("| [").Append(entry.Title).Append("](").Append(entry.FileName).Append(") | ")
               .Append(entry.KindLabel).Append(" | ")
               .Append(entry.Summary).AppendLine(" |");
         }
@@ -118,6 +117,7 @@ internal static class LandingPageEmitter
     /// <param name="converter">XML to Markdown converter for the per-type summary.</param>
     /// <param name="options">Routing options used to derive the package folder.</param>
     /// <returns>The ordered tree.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static SortedDictionary<string, SortedDictionary<string, List<TypeEntry>>> BuildTree(
         ApiType[] types,
         XmlDocToMarkdown converter,
@@ -159,8 +159,9 @@ internal static class LandingPageEmitter
     /// <summary>Collapses a documentation summary to a single, table-cell-safe line.</summary>
     /// <param name="summary">The raw documentation summary.</param>
     /// <returns>A single-line summary suitable for the listing table.</returns>
-    private static string OneLineSummary(string summary)
-        => ZensicalEmitterHelpers.FirstParagraphAsSingleLine(summary, escapePipes: true);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string OneLineSummary(string summary) =>
+        ZensicalEmitterHelpers.FirstParagraphAsSingleLine(summary, escapePipes: true);
 
     /// <summary>One row in a namespace landing page.</summary>
     /// <param name="Title">Display name (with generic angles).</param>

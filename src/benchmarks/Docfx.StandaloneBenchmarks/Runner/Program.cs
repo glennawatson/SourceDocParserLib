@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -39,9 +39,9 @@ public static class Program
     {
         ArgumentNullException.ThrowIfNull(args);
 
-        if (args.Length > 0)
+        if (args is [_, ..])
         {
-            BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
+            _ = BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
             return;
         }
 
@@ -53,13 +53,14 @@ public static class Program
     private static async Task RunDumpAsync()
     {
         var bench = new DocfxLibraryBenchmark();
-        bench.GlobalSetup();
+        await bench.GlobalSetupAsync().ConfigureAwait(false);
 
-        Console.WriteLine();
-        Console.WriteLine("docfx GenerateManagedReferenceYamlFiles -- one pass per TFM");
-        Console.WriteLine();
-        Console.WriteLine("| TFM      | Wall time | Allocated |");
-        Console.WriteLine("|----------|----------:|----------:|");
+        var output = Console.Out;
+        await output.WriteLineAsync().ConfigureAwait(false);
+        await output.WriteLineAsync("docfx GenerateManagedReferenceYamlFiles -- one pass per TFM").ConfigureAwait(false);
+        await output.WriteLineAsync().ConfigureAwait(false);
+        await output.WriteLineAsync("| TFM      | Wall time | Allocated |").ConfigureAwait(false);
+        await output.WriteLineAsync("|----------|----------:|----------:|").ConfigureAwait(false);
 
         for (var i = 0; i < Tfms.Length; i++)
         {
@@ -72,15 +73,16 @@ public static class Program
             GC.Collect();
 
             var allocBefore = GC.GetTotalAllocatedBytes(precise: true);
-            var sw = Stopwatch.StartNew();
+            var start = Stopwatch.GetTimestamp();
             await bench.GenerateManagedReferenceYaml().ConfigureAwait(false);
-            sw.Stop();
+            var elapsed = Stopwatch.GetElapsedTime(start);
             var allocAfter = GC.GetTotalAllocatedBytes(precise: true);
 
-            Console.WriteLine($"| {tfm,-TfmColumnWidth} | {sw.Elapsed.TotalSeconds,TimeColumnWidth:F2} s | {(allocAfter - allocBefore) / BytesToMegabytes,AllocationColumnWidth:F2} MB |");
+            await output.WriteLineAsync(
+                $"| {tfm,-TfmColumnWidth} | {elapsed.TotalSeconds,TimeColumnWidth:F2} s | {(allocAfter - allocBefore) / BytesToMegabytes,AllocationColumnWidth:F2} MB |").ConfigureAwait(false);
         }
 
-        Console.WriteLine();
-        Console.WriteLine($"YAML output retained at: {bench.WorkspaceForInspection}");
+        await output.WriteLineAsync().ConfigureAwait(false);
+        await output.WriteLineAsync($"YAML output retained at: {bench.WorkspaceForInspection}").ConfigureAwait(false);
     }
 }

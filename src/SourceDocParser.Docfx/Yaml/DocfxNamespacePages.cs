@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.InteropServices;
 using System.Text;
 using SourceDocParser.Common;
 using SourceDocParser.Docfx.Common;
@@ -36,7 +37,7 @@ internal static class DocfxNamespacePages
     /// </summary>
     /// <param name="types">Catalog types to fold into namespace groups.</param>
     /// <returns>Sorted (by namespace) array of namespace pages.</returns>
-    public static NamespacePage[] BuildNamespacePages(ApiType[] types)
+    internal static NamespacePage[] BuildNamespacePages(ApiType[] types)
     {
         ArgumentNullException.ThrowIfNull(types);
         if (types is not [_, ..])
@@ -45,7 +46,7 @@ internal static class DocfxNamespacePages
         }
 
         // Bucket-by-namespace in one pass so we visit each type once.
-        var byNamespace = new Dictionary<string, (List<string> Uids, string AssemblyName)>(StringComparer.Ordinal);
+        Dictionary<string, (List<string> Uids, string AssemblyName)> byNamespace = [with(StringComparer.Ordinal)];
         for (var i = 0; i < types.Length; i++)
         {
             var type = types[i];
@@ -59,16 +60,16 @@ internal static class DocfxNamespacePages
                 continue;
             }
 
-            var uid = CommentIdPrefix.Strip(type.Uid is [_, ..] ? type.Uid : "T:" + type.FullName);
+            var uid = CommentIdPrefix.Strip(type.Uid is [_, ..] ? type.Uid : $"T:{type.FullName}");
             if (uid is [])
             {
                 continue;
             }
 
-            if (!byNamespace.TryGetValue(type.Namespace, out var bucket))
+            ref var bucket = ref CollectionsMarshal.GetValueRefOrAddDefault(byNamespace, type.Namespace, out var exists);
+            if (!exists)
             {
                 bucket = ([], type.AssemblyName);
-                byNamespace[type.Namespace] = bucket;
             }
 
             bucket.Uids.Add(uid);
@@ -81,20 +82,18 @@ internal static class DocfxNamespacePages
             var uids = new string[bucket.Uids.Count];
             bucket.Uids.CopyTo(uids);
             Array.Sort(uids, StringComparer.Ordinal);
-            pages[idx++] = new(ns, uids, bucket.AssemblyName);
+            pages[idx] = new(ns, uids, bucket.AssemblyName);
+            idx++;
         }
 
         Array.Sort(pages, static (a, b) => string.CompareOrdinal(a.Namespace, b.Namespace));
         return pages;
     }
 
-    /// <summary>
-    /// Returns the relative path for a namespace's <c>.yml</c> file.
-    /// Mirrors docfx's <c>Namespace.yml</c> convention.
-    /// </summary>
+    /// <summary>Returns the relative path for a namespace's <c>.yml</c> file. Mirrors docfx's <c>Namespace.yml</c> convention.</summary>
     /// <param name="namespaceName">Namespace whose page path to compute.</param>
     /// <returns>The path relative to the output root.</returns>
-    public static string PathFor(string namespaceName)
+    internal static string PathFor(string namespaceName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(namespaceName);
         return DocfxInternalHelpers.SanitiseFileStem(namespaceName) + DocfxYamlEmitter.FileExtension;
@@ -109,7 +108,7 @@ internal static class DocfxNamespacePages
     /// </summary>
     /// <param name="page">Namespace page descriptor.</param>
     /// <returns>The YAML page text.</returns>
-    public static string Render(in NamespacePage page)
+    internal static string Render(in NamespacePage page)
     {
         using var rental = PageBuilderPool.Rent(InitialPageCapacity);
         BuildPage(rental.Builder, in page);
@@ -122,7 +121,7 @@ internal static class DocfxNamespacePages
     internal static void BuildPage(StringBuilder sb, in NamespacePage page)
     {
         ArgumentNullException.ThrowIfNull(page.Namespace);
-        sb.AppendLine(DocfxYamlEmitter.YamlMimeHeader)
+        _ = sb.AppendLine(DocfxYamlEmitter.YamlMimeHeader)
             .Append("items:\n")
             .Append("- uid: ").AppendScalar(page.Namespace).AppendLine()
             .Append("  commentId: ").Append(NamespaceCommentIdPrefix).AppendScalar(page.Namespace).AppendLine()
@@ -131,10 +130,10 @@ internal static class DocfxNamespacePages
 
         for (var i = 0; i < page.ChildUids.Length; i++)
         {
-            sb.Append("  - ").AppendScalar(page.ChildUids[i]).AppendLine();
+            _ = sb.Append("  - ").AppendScalar(page.ChildUids[i]).AppendLine();
         }
 
-        sb.AppendLine("  langs:")
+        _ = sb.AppendLine("  langs:")
             .AppendLine("  - csharp")
             .Append("  name: ").AppendScalar(page.Namespace).AppendLine()
             .Append("  nameWithType: ").AppendScalar(page.Namespace).AppendLine()
@@ -148,5 +147,5 @@ internal static class DocfxNamespacePages
     /// <param name="Namespace">Namespace name (never empty -- global namespace is skipped).</param>
     /// <param name="ChildUids">Bare UIDs of the types that live directly in this namespace, sorted ordinal.</param>
     /// <param name="AssemblyName">Assembly the namespace's types come from (first type's assembly).</param>
-    public readonly record struct NamespacePage(string Namespace, string[] ChildUids, string AssemblyName);
+    internal readonly record struct NamespacePage(string Namespace, string[] ChildUids, string AssemblyName);
 }

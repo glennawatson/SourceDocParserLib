@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -14,10 +14,13 @@ namespace SourceDocParser.Zensical.Tests;
 /// </summary>
 public class UidNormaliserTests
 {
+    /// <summary>Fixture value for GenericActionUid.</summary>
+    private const string GenericActionUid = "T:System.Action`1";
+
     /// <summary>Single type-arg constructed form folds back to arity 1.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task NormalisesSingleTypeArgConstructedForm() => await Assert.That(UidNormaliser.Normalise("T:System.Action{`0}")).IsEqualTo("T:System.Action`1");
+    public async Task NormalisesSingleTypeArgConstructedForm() => await Assert.That(UidNormaliser.Normalise("T:System.Action{`0}")).IsEqualTo(GenericActionUid);
 
     /// <summary>Multi-type-arg constructed form folds back to its arity.</summary>
     /// <returns>A task representing the test execution.</returns>
@@ -44,7 +47,7 @@ public class UidNormaliserTests
     public async Task AlreadyCanonicalIsUnchanged()
     {
         await Assert.That(UidNormaliser.Normalise("T:System.String")).IsEqualTo("T:System.String");
-        await Assert.That(UidNormaliser.Normalise("T:System.Action`1")).IsEqualTo("T:System.Action`1");
+        await Assert.That(UidNormaliser.Normalise(GenericActionUid)).IsEqualTo(GenericActionUid);
     }
 
     /// <summary>Member UIDs aren't touched (signatures legitimately carry braces).</summary>

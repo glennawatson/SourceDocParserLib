@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,6 +16,9 @@ namespace SourceDocParser.Tests.XmlDoc;
 /// </summary>
 public class XmlDocSourceTests
 {
+    /// <summary>Expected fixture value used by BuildIndexCapturesEachMemberElement.</summary>
+    private const int BuildIndexCapturesEachMemberElementExpectedValue = 2;
+
     /// <summary>Well-formed doc XML maps each member-id to a substring carrying the full element.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -36,7 +39,7 @@ public class XmlDocSourceTests
             </doc>
             """);
 
-        await Assert.That(source.Count).IsEqualTo(2);
+        await Assert.That(source.Count).IsEqualTo(BuildIndexCapturesEachMemberElementExpectedValue);
 
         var typeXml = source.Get("T:Foo");
         await Assert.That(typeXml).IsNotNull();
@@ -230,9 +233,8 @@ public class XmlDocSourceTests
         try
         {
             byte[] bom = [0xEF, 0xBB, 0xBF];
-            const string xml = """<doc><members><member name="T:Bom"><summary>ok</summary></member></members></doc>""";
-            byte[] body = System.Text.Encoding.UTF8.GetBytes(xml);
-            byte[] full = new byte[bom.Length + body.Length];
+            var body = "<doc><members><member name=\"T:Bom\"><summary>ok</summary></member></members></doc>"u8.ToArray();
+            var full = new byte[bom.Length + body.Length];
             bom.CopyTo(full, 0);
             body.CopyTo(full, bom.Length);
             await File.WriteAllBytesAsync(path, full);
@@ -247,9 +249,7 @@ public class XmlDocSourceTests
         }
     }
 
-    /// <summary>
-    /// TryLoad returns a source when the XML file exists next to the assembly.
-    /// </summary>
+    /// <summary>TryLoad returns a source when the XML file exists next to the assembly.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task TryLoadReturnsSourceWhenXmlFileExists()
@@ -259,7 +259,7 @@ public class XmlDocSourceTests
         var xmlPath = Path.Combine(baseDir, "TestAssembly.xml");
         try
         {
-            Directory.CreateDirectory(baseDir);
+            _ = Directory.CreateDirectory(baseDir);
             await File.WriteAllTextAsync(xmlPath, "<doc><members><member name=\"T:A\">summary</member></members></doc>");
 
             var source = XmlDocSource.TryLoad(assemblyPath);
@@ -275,9 +275,7 @@ public class XmlDocSourceTests
         }
     }
 
-    /// <summary>
-    /// TryLoad returns null when the XML file is missing.
-    /// </summary>
+    /// <summary>TryLoad returns null when the XML file is missing.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task TryLoadReturnsNullWhenXmlFileIsMissing()
@@ -286,7 +284,7 @@ public class XmlDocSourceTests
         var assemblyPath = Path.Combine(baseDir, "TestAssembly.dll");
         try
         {
-            Directory.CreateDirectory(baseDir);
+            _ = Directory.CreateDirectory(baseDir);
             var source = XmlDocSource.TryLoad(assemblyPath);
             await Assert.That(source).IsNull();
         }

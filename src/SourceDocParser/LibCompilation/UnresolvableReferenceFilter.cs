@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Frozen;
 using ICSharpCode.Decompiler.Metadata;
 
 namespace SourceDocParser.LibCompilation;
@@ -44,10 +45,10 @@ internal static class UnresolvableReferenceFilter
 
     /// <summary>
     /// Exact assembly names that we know aren't on NuGet and won't be
-    /// in any SDK ref pack we can probe -- looked up via <see cref="HashSet{T}"/>
+    /// in any SDK ref pack we can probe -- looked up via <see cref="FrozenSet{T}"/>
     /// for O(1) membership.
     /// </summary>
-    private static readonly HashSet<string> ExactUnresolvable = new(StringComparer.Ordinal)
+    private static readonly FrozenSet<string> ExactUnresolvable = new[]
     {
         // Android workload synthetic refs
         "Java.Interop",
@@ -105,7 +106,7 @@ internal static class UnresolvableReferenceFilter
         // Windows API contract refs (UWP-era, never on NuGet).
         "Windows.Foundation.UniversalApiContract",
         "Windows.Foundation.FoundationContract",
-    };
+    }.ToFrozenSet(StringComparer.Ordinal);
 
     /// <summary>
     /// Prefixes whose entire family ships outside NuGet -- bucketed
@@ -132,34 +133,27 @@ internal static class UnresolvableReferenceFilter
     /// </summary>
     /// <param name="reference">The assembly reference being resolved.</param>
     /// <returns>True when the reference is a stub or platform-only assembly.</returns>
-    public static bool IsKnownUnresolvable(AssemblyReference reference)
+    internal static bool IsKnownUnresolvable(AssemblyReference reference)
     {
         ArgumentNullException.ThrowIfNull(reference);
         return IsStubVersion(reference.Version) || IsKnownUnresolvableName(reference.Name);
     }
 
-    /// <summary>
-    /// Tests <paramref name="version"/> against the known sentinel
-    /// values that compiler/source-generator output uses for never-
-    /// resolvable refs.
-    /// </summary>
+    /// <summary>Tests <paramref name="version"/> against the known sentinel values that compiler/source-generator output uses for never- resolvable refs.</summary>
     /// <param name="version">The assembly version (may be null).</param>
     /// <returns>True when the version matches a stub sentinel.</returns>
-    public static bool IsStubVersion(Version? version) => version switch
+    internal static bool IsStubVersion(Version? version) => version switch
     {
         null => false,
-        { Major: StubVersionZero, Minor: StubVersionZero, Build: StubVersionZero, Revision: StubVersionZero } => true,
-        { Major: StubVersionMax, Minor: StubVersionMax, Build: StubVersionMax, Revision: StubVersionMax } => true,
+        { Major: StubVersionZero, Minor: StubVersionZero, Build: StubVersionZero, Revision: StubVersionZero }
+            or { Major: StubVersionMax, Minor: StubVersionMax, Build: StubVersionMax, Revision: StubVersionMax } => true,
         _ => false,
     };
 
-    /// <summary>
-    /// Tests the simple <paramref name="assemblyName"/> against the
-    /// exact-match set and prefix list.
-    /// </summary>
+    /// <summary>Tests the simple <paramref name="assemblyName"/> against the exact-match set and prefix list.</summary>
     /// <param name="assemblyName">The simple assembly name (no extension).</param>
     /// <returns>True when the name matches a known platform/SDK ref.</returns>
-    public static bool IsKnownUnresolvableName(string assemblyName)
+    internal static bool IsKnownUnresolvableName(string assemblyName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(assemblyName);
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -17,6 +17,7 @@ namespace SourceDocParser.NuGet.Infrastructure;
 /// by <c>nuget-packages.json</c> into <c>apiPath/lib</c> + <c>apiPath/refs</c>
 /// and exposes the extracted assemblies, grouped by TFM, to the parser.
 /// </summary>
+[System.Diagnostics.DebuggerDisplay("NuGetAssemblySource: {_rootDirectory}")]
 public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
 {
     /// <summary>
@@ -33,6 +34,9 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
 
     /// <summary>Growth factor applied when a broadcast scratch array fills up.</summary>
     private const int BroadcastSlotGrowthFactor = 2;
+
+    /// <summary>Each primary package contributes its exact name and its dotted prefix.</summary>
+    private const int PrefixesPerPackage = 2;
 
     /// <summary>File pattern used to discover assemblies.</summary>
     private const string DllPattern = "*.dll";
@@ -58,10 +62,7 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
     /// <summary>True when <see cref="_fetcher"/> was built inside the constructor and must therefore be disposed alongside this source.</summary>
     private readonly bool _ownsFetcher;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="NuGetAssemblySource"/> class
-    /// using default logging and fetch behavior.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="NuGetAssemblySource"/> class using default logging and fetch behavior.</summary>
     /// <param name="rootDirectory">Repository root containing <c>nuget-packages.json</c>.</param>
     /// <param name="apiPath">Destination root for fetched and extracted package assemblies (typically <c>reactiveui/api</c>).</param>
     public NuGetAssemblySource(string rootDirectory, string apiPath)
@@ -69,10 +70,7 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
     {
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="NuGetAssemblySource"/> class
-    /// using the supplied logger and default fetch behavior.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="NuGetAssemblySource"/> class using the supplied logger and default fetch behavior.</summary>
     /// <param name="rootDirectory">Repository root containing <c>nuget-packages.json</c>.</param>
     /// <param name="apiPath">Destination root for fetched and extracted package assemblies (typically <c>reactiveui/api</c>).</param>
     /// <param name="logger">Optional logger; defaults to a no-op logger.</param>
@@ -81,9 +79,7 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
     {
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="NuGetAssemblySource"/> class.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="NuGetAssemblySource"/> class.</summary>
     /// <param name="rootDirectory">Repository root containing <c>nuget-packages.json</c>.</param>
     /// <param name="apiPath">Destination root for fetched and extracted package assemblies (typically <c>reactiveui/api</c>).</param>
     /// <param name="logger">Optional logger; defaults to a no-op logger.</param>
@@ -115,10 +111,9 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
         (_fetcher as IDisposable)?.Dispose();
     }
 
-    /// <summary>
-    /// Fetches the configured packages when needed, then discovers the extracted assemblies.
-    /// </summary>
+    /// <summary>Fetches the configured packages when needed, then discovers the extracted assemblies.</summary>
     /// <returns>An async stream of assembly groups keyed by TFM.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public IAsyncEnumerable<AssemblyGroup> DiscoverAsync() =>
         DiscoverAsync(CancellationToken.None);
 
@@ -166,7 +161,7 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
     /// fallback mappings, unique identifiers, and ranking information.
     /// </param>
     /// <returns>
-    /// An array of <see cref="SourceDocParser.Model.AssemblyGroup"/> instances that represent the
+    /// An array of <see cref="Model.AssemblyGroup"/> instances that represent the
     /// canonical assemblies and their corresponding broadcast TFMs.
     /// </returns>
     internal static AssemblyGroup[] SelectCanonicalsAndBroadcasts(ProbedTfm[] probed)
@@ -204,12 +199,7 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
             return BuildPrimaryPrefixesFromIds(ReadPrimaryIdsSidecar(sidecarPath));
         }
 
-        if (File.Exists(manifestPath))
-        {
-            return BuildPrimaryPrefixes(PackageConfigReader.Read(manifestPath));
-        }
-
-        return [];
+        return File.Exists(manifestPath) ? BuildPrimaryPrefixes(PackageConfigReader.Read(manifestPath)) : [];
     }
 
     /// <summary>
@@ -273,7 +263,7 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
             return [];
         }
 
-        var prefixes = new string[valid * 2];
+        var prefixes = new string[valid * PrefixesPerPackage];
         var write = 0;
         for (var i = 0; i < ids.Length; i++)
         {
@@ -283,8 +273,10 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
                 continue;
             }
 
-            prefixes[write++] = id;
-            prefixes[write++] = id + ".";
+            prefixes[write] = id;
+            write++;
+            prefixes[write] = $"{id}.";
+            write++;
         }
 
         return prefixes;
@@ -332,7 +324,8 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
                 continue;
             }
 
-            ids[write++] = line.ToString();
+            ids[write] = line.ToString();
+            write++;
         }
 
         return ids;
@@ -379,9 +372,7 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
         return false;
     }
 
-    /// <summary>
-    /// Returns the names of every immediate sub-directory of <paramref name="root"/> that contains at least one DLL.
-    /// </summary>
+    /// <summary>Returns the names of every immediate sub-directory of <paramref name="root"/> that contains at least one DLL.</summary>
     /// <param name="root">Directory to enumerate.</param>
     /// <returns>Sorted list of TFM directory names.</returns>
     internal static List<string> DiscoverTfms(string root)
@@ -441,10 +432,7 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
         return packageDlls;
     }
 
-    /// <summary>
-    /// Returns the cached reference-assembly names for <paramref name="bestRef"/>,
-    /// populating the cache on the first request.
-    /// </summary>
+    /// <summary>Returns the cached reference-assembly names for <paramref name="bestRef"/>, populating the cache on the first request.</summary>
     /// <param name="cache">Per-discovery cache keyed by refs/ TFM.</param>
     /// <param name="refsDir">Root refs directory.</param>
     /// <param name="bestRef">Matched refs TFM.</param>
@@ -464,9 +452,7 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
         return names;
     }
 
-    /// <summary>
-    /// Returns the filenames-without-extension of every file matching <paramref name="pattern"/> in <paramref name="dir"/>.
-    /// </summary>
+    /// <summary>Returns the filenames-without-extension of every file matching <paramref name="pattern"/> in <paramref name="dir"/>.</summary>
     /// <param name="dir">Directory to scan (must exist).</param>
     /// <param name="pattern">File pattern.</param>
     /// <returns>OrdinalIgnoreCase set of filenames without extensions.</returns>
@@ -476,7 +462,7 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
 
         foreach (var file in Directory.EnumerateFiles(dir, pattern))
         {
-            names.Add(Path.GetFileNameWithoutExtension(file.AsSpan()).ToString());
+            _ = names.Add(Path.GetFileNameWithoutExtension(file.AsSpan()).ToString());
         }
 
         return names;
@@ -559,10 +545,7 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
         return dirs;
     }
 
-    /// <summary>
-    /// Sorts <paramref name="probed"/> by descending TFM rank with an
-    /// ordinal tiebreaker so the canonical pick is deterministic.
-    /// </summary>
+    /// <summary>Sorts <paramref name="probed"/> by descending TFM rank with an ordinal tiebreaker so the canonical pick is deterministic.</summary>
     /// <param name="probed">Source array (left untouched).</param>
     /// <returns>A new array holding the sorted entries.</returns>
     private static ProbedTfm[] RankProbedDescending(ProbedTfm[] probed)
@@ -599,7 +582,8 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
             var matched = FindCanonicalSuperset(canonicalSlots, canonicalCount, probe);
             if (matched < 0)
             {
-                canonicalSlots[canonicalCount++] = probe;
+                canonicalSlots[canonicalCount] = probe;
+                canonicalCount++;
                 continue;
             }
 
@@ -634,21 +618,21 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
     /// <param name="tfm">TFM to add as a broadcast target.</param>
     private static void AppendBroadcast(string[][] broadcastSlots, int[] broadcastCounts, int canonicalIndex, string tfm)
     {
-        var bcArr = broadcastSlots[canonicalIndex];
-        var bcCount = broadcastCounts[canonicalIndex];
-        if (bcArr is null)
+        var broadcasts = broadcastSlots[canonicalIndex];
+        var broadcastCount = broadcastCounts[canonicalIndex];
+        if (broadcasts is null)
         {
-            bcArr = new string[BroadcastSlotInitialCapacity];
-            broadcastSlots[canonicalIndex] = bcArr;
+            broadcasts = new string[BroadcastSlotInitialCapacity];
+            broadcastSlots[canonicalIndex] = broadcasts;
         }
-        else if (bcCount == bcArr.Length)
+        else if (broadcastCount == broadcasts.Length)
         {
-            Array.Resize(ref bcArr, bcArr.Length * BroadcastSlotGrowthFactor);
-            broadcastSlots[canonicalIndex] = bcArr;
+            Array.Resize(ref broadcasts, broadcasts.Length * BroadcastSlotGrowthFactor);
+            broadcastSlots[canonicalIndex] = broadcasts;
         }
 
-        bcArr[bcCount] = tfm;
-        broadcastCounts[canonicalIndex] = bcCount + 1;
+        broadcasts[broadcastCount] = tfm;
+        broadcastCounts[canonicalIndex] = broadcastCount + 1;
     }
 
     /// <summary>Materialises the final <see cref="AssemblyGroup"/> array from the per-canonical scratch state.</summary>
@@ -666,20 +650,20 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
         var result = new AssemblyGroup[canonicalCount];
         for (var i = 0; i < canonicalCount; i++)
         {
-            var bcCount = broadcastCounts[i];
+            var broadcastCount = broadcastCounts[i];
             string[] broadcast;
-            if (bcCount is 0)
+            if (broadcastCount is 0)
             {
                 broadcast = [];
             }
-            else if (bcCount == broadcastSlots[i].Length)
+            else if (broadcastCount == broadcastSlots[i].Length)
             {
                 broadcast = broadcastSlots[i];
             }
             else
             {
-                broadcast = new string[bcCount];
-                Array.Copy(broadcastSlots[i], broadcast, bcCount);
+                broadcast = new string[broadcastCount];
+                Array.Copy(broadcastSlots[i], broadcast, broadcastCount);
             }
 
             result[i] = new(canonicalSlots[i].Tfm, canonicalSlots[i].Dlls, canonicalSlots[i].Fallback, broadcast);
@@ -688,9 +672,7 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
         return result;
     }
 
-    /// <summary>
-    /// Cheap "does this directory contain at least one matching file?" check via lazy enumeration.
-    /// </summary>
+    /// <summary>Cheap "does this directory contain at least one matching file?" check via lazy enumeration.</summary>
     /// <param name="dir">Directory to check.</param>
     /// <param name="pattern">File pattern.</param>
     /// <returns>True if at least one matching file exists.</returns>
@@ -752,7 +734,7 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
             }
             else
             {
-                refDllNames = new(StringComparer.OrdinalIgnoreCase);
+                refDllNames = [with(StringComparer.OrdinalIgnoreCase)];
                 fallbackIndex = AssemblyResolution.BuildFallbackIndex(fallbackDirs, _logger);
             }
 
@@ -764,7 +746,8 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
 
             var dlls = packageDlls.ToArray();
             var uids = PublicSurfaceProbe.ProbePublicTypeUids(dlls);
-            slots[count++] = new(tfm, dlls, fallbackIndex, uids, Tfm.Tfm.Parse(tfm).Rank);
+            slots[count] = new(tfm, dlls, fallbackIndex, uids, Tfm.Tfm.Parse(tfm).Rank);
+            count++;
         }
 
         if (count == slots.Length)
@@ -777,10 +760,7 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
         return result;
     }
 
-    /// <summary>
-    /// Per-TFM probe result paired with the metadata the
-    /// <see cref="AssemblyGroup"/> needs once a canonical pick is made.
-    /// </summary>
+    /// <summary>Per-TFM probe result paired with the metadata the <see cref="AssemblyGroup"/> needs once a canonical pick is made.</summary>
     /// <param name="Tfm">TFM directory name.</param>
     /// <param name="Dlls">Absolute paths to the package DLLs in this TFM's <c>lib/</c>.</param>
     /// <param name="Fallback">Resolver fallback index for the compilation.</param>

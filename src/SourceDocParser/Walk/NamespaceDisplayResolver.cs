@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -25,13 +25,5 @@ internal static class NamespaceDisplayResolver
     /// <param name="context">Per-walk context owning the namespace cache.</param>
     /// <param name="ns">Namespace symbol to format; may be null.</param>
     /// <returns>The cached display string, or empty for the global namespace / null.</returns>
-    internal static string Resolve(SymbolWalkContext context, INamespaceSymbol? ns)
-    {
-        if (ns is not { IsGlobalNamespace: false })
-        {
-            return string.Empty;
-        }
-
-        return context.NamespaceDisplayNames.GetOrAdd(ns);
-    }
+    internal static string Resolve(SymbolWalkContext context, INamespaceSymbol? ns) => ns is not { IsGlobalNamespace: false } ? string.Empty : context.NamespaceDisplayNames.GetOrAdd(ns);
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -33,7 +33,7 @@ internal static partial class PackageSourceCredentialParser
     /// <param name="reader">Reader positioned on an element.</param>
     /// <param name="currentSourceKey">Key of the source container we're already inside, or null.</param>
     /// <returns>True when the element should be processed by the credential walk.</returns>
-    public static bool IsCredentialChildElement(XmlReader reader, string? currentSourceKey)
+    internal static bool IsCredentialChildElement(XmlReader reader, string? currentSourceKey)
     {
         ArgumentNullException.ThrowIfNull(reader);
         return currentSourceKey is null
@@ -51,19 +51,16 @@ internal static partial class PackageSourceCredentialParser
     /// <param name="reader">Reader positioned on an end element.</param>
     /// <param name="currentSourceKey">The source key currently being accumulated.</param>
     /// <returns>True when the close tag matches the open container.</returns>
-    public static bool IsSourceContainerEnd(XmlReader reader, string currentSourceKey)
+    internal static bool IsSourceContainerEnd(XmlReader reader, string currentSourceKey)
     {
         ArgumentNullException.ThrowIfNull(reader);
         return UnescapeSourceName(reader.LocalName).Equals(currentSourceKey, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// Decodes the <c>_x0020_</c> space escape NuGet uses for source
-    /// names with spaces in their key.
-    /// </summary>
+    /// <summary>Decodes the <c>_x0020_</c> space escape NuGet uses for source names with spaces in their key.</summary>
     /// <param name="elementName">Raw element local-name.</param>
     /// <returns>The friendly source name.</returns>
-    public static string UnescapeSourceName(string elementName)
+    internal static string UnescapeSourceName(string elementName)
     {
         ArgumentNullException.ThrowIfNull(elementName);
         return elementName.Replace(SpaceEscape, " ", StringComparison.Ordinal);
@@ -76,10 +73,10 @@ internal static partial class PackageSourceCredentialParser
     /// </summary>
     /// <param name="value">Raw value from the config.</param>
     /// <returns>Value with env-var references substituted; unresolved sequences stay literal.</returns>
-    public static string ExpandEnvironmentVariables(string value)
+    internal static string ExpandEnvironmentVariables(string value)
     {
         ArgumentNullException.ThrowIfNull(value);
-        return EnvVarPattern().Replace(value, match =>
+        return EnvVarPattern().Replace(value, static match =>
         {
             var name = match.Groups[1].Value;
             return Environment.GetEnvironmentVariable(name) ?? match.Value;

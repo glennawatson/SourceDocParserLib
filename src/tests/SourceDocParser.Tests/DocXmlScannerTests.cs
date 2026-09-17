@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -14,6 +14,9 @@ namespace SourceDocParser.Tests;
 /// </summary>
 public class DocXmlScannerTests
 {
+    /// <summary>Fixture value for After.</summary>
+    private const string After = "after";
+
     /// <summary>An empty input yields no tokens.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -70,7 +73,7 @@ public class DocXmlScannerTests
     {
         var (kind, text) = ProbeFirstToken("<!-- ignored -->after");
         await Assert.That(kind).IsEqualTo(DocTokenKind.Text);
-        await Assert.That(text).IsEqualTo("after");
+        await Assert.That(text).IsEqualTo(After);
     }
 
     /// <summary>CDATA sections surface as Text.</summary>
@@ -111,7 +114,7 @@ public class DocXmlScannerTests
     {
         var (inner, tail) = ProbeReadInner("<see/>after");
         await Assert.That(inner).IsEqualTo(string.Empty);
-        await Assert.That(tail).IsEqualTo("after");
+        await Assert.That(tail).IsEqualTo(After);
     }
 
     /// <summary>SkipElement advances past the matching end tag without yielding child tokens.</summary>
@@ -149,7 +152,7 @@ public class DocXmlScannerTests
     {
         var (kind, text) = ProbeFirstToken("<?xml version=\"1.0\"?>after");
         await Assert.That(kind).IsEqualTo(DocTokenKind.Text);
-        await Assert.That(text).IsEqualTo("after");
+        await Assert.That(text).IsEqualTo(After);
     }
 
     /// <summary>Truncated comment (no closing comment-end marker) yields a None token and exhausts the input.</summary>
@@ -208,7 +211,7 @@ public class DocXmlScannerTests
     public async Task GetAttributeReturnsEmptyForUnquotedValue()
     {
         var scanner = new DocXmlScanner("<see cref=bare/>".AsSpan());
-        scanner.Read();
+        _ = scanner.Read();
 
         var cref = scanner.GetAttribute("cref").ToString();
         await Assert.That(cref).IsEqualTo(string.Empty);
@@ -224,7 +227,7 @@ public class DocXmlScannerTests
         // the scanner consumes the final `>` first, so the attr area
         // is `cref="open` with no closing quote.
         var scanner = new DocXmlScanner("<see cref=\"open>".AsSpan());
-        scanner.Read();
+        _ = scanner.Read();
 
         var cref = scanner.GetAttribute("cref").ToString();
         await Assert.That(cref).IsEqualTo(string.Empty);
@@ -236,7 +239,7 @@ public class DocXmlScannerTests
     public async Task GetAttributeReturnsEmptyForElementWithoutAttributes()
     {
         var scanner = new DocXmlScanner("<summary>body</summary>".AsSpan());
-        scanner.Read();
+        _ = scanner.Read();
 
         var attr = scanner.GetAttribute("cref").ToString();
         await Assert.That(attr).IsEqualTo(string.Empty);
@@ -248,7 +251,7 @@ public class DocXmlScannerTests
     public async Task ReadInnerSpanReturnsEmptyForUnclosedElement()
     {
         var scanner = new DocXmlScanner("<summary>orphan content".AsSpan());
-        scanner.Read();
+        _ = scanner.Read();
 
         var inner = scanner.ReadInnerSpan().ToString();
         await Assert.That(inner).IsEqualTo(string.Empty);
@@ -260,10 +263,10 @@ public class DocXmlScannerTests
     public async Task SkipElementIsNoOpForSelfClosing()
     {
         var scanner = new DocXmlScanner("<see/>after".AsSpan());
-        scanner.Read();
+        _ = scanner.Read();
         scanner.SkipElement();
-        scanner.Read();
-        await Assert.That(scanner.RawText.ToString()).IsEqualTo("after");
+        _ = scanner.Read();
+        await Assert.That(scanner.RawText.ToString()).IsEqualTo(After);
     }
 
     /// <summary>Synchronously runs the scanner over an empty input.</summary>
@@ -279,7 +282,7 @@ public class DocXmlScannerTests
     private static (DocTokenKind Kind, string Text, bool More) ProbePlain()
     {
         var scanner = new DocXmlScanner("hello world".AsSpan());
-        scanner.Read();
+        _ = scanner.Read();
         var kind = scanner.Kind;
         var text = scanner.RawText.ToString();
         var more = scanner.Read();
@@ -291,7 +294,7 @@ public class DocXmlScannerTests
     private static (DocTokenKind Kind, string Name, int Depth, bool IsEmpty, string Cref) ProbeSelfClosing()
     {
         var scanner = new DocXmlScanner("<see cref=\"X\"/>".AsSpan());
-        scanner.Read();
+        _ = scanner.Read();
         return (scanner.Kind, scanner.Name.ToString(), scanner.Depth, scanner.IsEmptyElement, scanner.GetAttribute("cref").ToString());
     }
 
@@ -315,7 +318,7 @@ public class DocXmlScannerTests
     private static (DocTokenKind Kind, string Text) ProbeFirstToken(string input)
     {
         var scanner = new DocXmlScanner(input.AsSpan());
-        scanner.Read();
+        _ = scanner.Read();
         return (scanner.Kind, scanner.RawText.ToString());
     }
 
@@ -334,7 +337,7 @@ public class DocXmlScannerTests
     private static (string Name, string Type, bool MissingEmpty) ProbeAttributes()
     {
         var scanner = new DocXmlScanner("<param name=\"x\" type=\"int\"/>".AsSpan());
-        scanner.Read();
+        _ = scanner.Read();
         return (
             scanner.GetAttribute("name").ToString(),
             scanner.GetAttribute("type").ToString(),
@@ -347,9 +350,9 @@ public class DocXmlScannerTests
     private static (string Inner, string Tail) ProbeReadInner(string input)
     {
         var scanner = new DocXmlScanner(input.AsSpan());
-        scanner.Read();
+        _ = scanner.Read();
         var inner = scanner.ReadInnerSpan().ToString();
-        scanner.Read();
+        _ = scanner.Read();
         return (inner, scanner.RawText.ToString());
     }
 
@@ -359,9 +362,9 @@ public class DocXmlScannerTests
     private static string ProbeSkip(string input)
     {
         var scanner = new DocXmlScanner(input.AsSpan());
-        scanner.Read();
+        _ = scanner.Read();
         scanner.SkipElement();
-        scanner.Read();
+        _ = scanner.Read();
         return scanner.RawText.ToString();
     }
 }

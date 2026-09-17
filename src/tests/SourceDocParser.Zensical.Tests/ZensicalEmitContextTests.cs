@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -45,72 +45,57 @@ public class ZensicalEmitContextTests
     /// <summary>A null <c>options</c> argument is rejected with <see cref="ArgumentNullException"/>.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ConstructorThrowsWhenOptionsNull()
-    {
-        await Assert.That(() => new ZensicalEmitContext(
+    public async Task ConstructorThrowsWhenOptionsNull() => await Assert.That(static () => new ZensicalEmitContext(
             null!,
             ZensicalCatalogIndexes.Empty,
             EmptyEmittedUids,
             new XmlDocToMarkdown(),
             DiscardSink))
             .Throws<ArgumentNullException>();
-    }
 
     /// <summary>A null <c>indexes</c> argument is rejected with <see cref="ArgumentNullException"/>.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ConstructorThrowsWhenIndexesNull()
-    {
-        await Assert.That(() => new ZensicalEmitContext(
+    public async Task ConstructorThrowsWhenIndexesNull() => await Assert.That(static () => new ZensicalEmitContext(
             ZensicalEmitterOptions.Default,
             null!,
             [],
             new XmlDocToMarkdown(),
             DiscardSink))
             .Throws<ArgumentNullException>();
-    }
 
     /// <summary>A null <c>emittedUids</c> argument is rejected with <see cref="ArgumentNullException"/>.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ConstructorThrowsWhenEmittedUidsNull()
-    {
-        await Assert.That(() => new ZensicalEmitContext(
+    public async Task ConstructorThrowsWhenEmittedUidsNull() => await Assert.That(static () => new ZensicalEmitContext(
             ZensicalEmitterOptions.Default,
             ZensicalCatalogIndexes.Empty,
             null!,
             new XmlDocToMarkdown(),
             DiscardSink))
             .Throws<ArgumentNullException>();
-    }
 
     /// <summary>A null <c>converter</c> argument is rejected with <see cref="ArgumentNullException"/>.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ConstructorThrowsWhenConverterNull()
-    {
-        await Assert.That(() => new ZensicalEmitContext(
+    public async Task ConstructorThrowsWhenConverterNull() => await Assert.That(static () => new ZensicalEmitContext(
             ZensicalEmitterOptions.Default,
             ZensicalCatalogIndexes.Empty,
             [],
             null!,
             DiscardSink))
             .Throws<ArgumentNullException>();
-    }
 
     /// <summary>A null <c>sink</c> argument is rejected with <see cref="ArgumentNullException"/>.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ConstructorThrowsWhenSinkNull()
-    {
-        await Assert.That(() => new ZensicalEmitContext(
+    public async Task ConstructorThrowsWhenSinkNull() => await Assert.That(static () => new ZensicalEmitContext(
             ZensicalEmitterOptions.Default,
             ZensicalCatalogIndexes.Empty,
             [],
             new XmlDocToMarkdown(),
             null!))
             .Throws<ArgumentNullException>();
-    }
 
     /// <summary>Null and empty fragments short-circuit to <see cref="string.Empty"/> without invoking the converter.</summary>
     /// <param name="rawXml">Raw fragment value: null or empty string.</param>

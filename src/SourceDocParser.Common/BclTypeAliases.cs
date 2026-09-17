@@ -1,6 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
+
+using System.Runtime.CompilerServices;
 
 namespace SourceDocParser.Common;
 
@@ -16,9 +18,7 @@ namespace SourceDocParser.Common;
 /// </summary>
 public static class BclTypeAliases
 {
-    /// <summary>
-    /// Map of CLR names to C# keywords.
-    /// </summary>
+    /// <summary>Map of CLR names to C# keywords.</summary>
     private static readonly Dictionary<string, string> ToKeywordMap = new()
     {
         ["System.Object"] = "object",
@@ -39,9 +39,7 @@ public static class BclTypeAliases
         ["System.Void"] = "void",
     };
 
-    /// <summary>
-    /// Map of C# keywords to CLR names.
-    /// </summary>
+    /// <summary>Map of C# keywords to CLR names.</summary>
     private static readonly Dictionary<string, string> ToClrMap = new()
     {
         ["int"] = "System.Int32",
@@ -74,6 +72,7 @@ public static class BclTypeAliases
     /// <param name="bareName">Reference name without any UID prefix (e.g. <c>System.Object</c>).</param>
     /// <param name="fallback">Display string to return when the name isn't a known primitive.</param>
     /// <returns>The keyword alias, or <paramref name="fallback"/>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string ToKeyword(string bareName, string fallback) =>
         ToKeywordMap.GetValueOrDefault(bareName, fallback);
 
@@ -86,6 +85,7 @@ public static class BclTypeAliases
     /// </summary>
     /// <param name="name">A possibly-aliased type name (e.g. <c>int</c>).</param>
     /// <returns>The promoted CLR name, or the input unchanged.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string ToClr(string name) =>
         ToClrMap.GetValueOrDefault(name, name);
 }

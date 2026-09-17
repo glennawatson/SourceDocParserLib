@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Xml;
 using SourceDocParser.NuGet.Infrastructure;
 using SourceDocParser.NuGet.Models;
@@ -36,18 +37,13 @@ internal static class PackageSourcesReader
     private const string ValueAttributeName = "value";
 
     /// <summary>Reader settings shared across every parse -- async on so we pump a FileStream that opened with FileOptions.Asynchronous.</summary>
-    private static readonly XmlReaderSettings _readerSettings = new()
-    {
-        Async = true, IgnoreComments = true, IgnoreWhitespace = true, DtdProcessing = DtdProcessing.Prohibit,
-    };
+    private static readonly XmlReaderSettings _readerSettings = new() { Async = true, IgnoreComments = true, IgnoreWhitespace = true, DtdProcessing = DtdProcessing.Prohibit, };
 
-    /// <summary>
-    /// Reads the <c>packageSources</c> section from
-    /// <paramref name="configPath"/>.
-    /// </summary>
+    /// <summary>Reads the <c>packageSources</c> section from <paramref name="configPath"/>.</summary>
     /// <param name="configPath">Absolute path to a <c>nuget.config</c>.</param>
     /// <returns>Per-file result (clearedSeen + ordered sources).</returns>
-    public static Task<PackageSourceFileResult> ReadPackageSourcesAsync(string configPath) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Task<PackageSourceFileResult> ReadPackageSourcesAsync(string configPath) =>
         ReadPackageSourcesAsync(configPath, CancellationToken.None);
 
     /// <summary>
@@ -61,7 +57,7 @@ internal static class PackageSourcesReader
     /// <param name="configPath">Absolute path to a <c>nuget.config</c>.</param>
     /// <param name="cancellationToken">Token observed across the parse.</param>
     /// <returns>Per-file result (clearedSeen + ordered sources).</returns>
-    public static async Task<PackageSourceFileResult> ReadPackageSourcesAsync(
+    internal static async Task<PackageSourceFileResult> ReadPackageSourcesAsync(
         string configPath,
         CancellationToken cancellationToken)
     {
@@ -79,23 +75,18 @@ internal static class PackageSourcesReader
         }
     }
 
-    /// <summary>
-    /// Reads the <c>packageSources</c> section from an open
-    /// <c>nuget.config</c> stream.
-    /// </summary>
+    /// <summary>Reads the <c>packageSources</c> section from an open <c>nuget.config</c> stream.</summary>
     /// <param name="configStream">Open stream positioned at the start of the <c>nuget.config</c> XML.</param>
     /// <returns>Per-file result (clearedSeen + ordered sources).</returns>
-    public static Task<PackageSourceFileResult> ReadPackageSourcesAsync(Stream configStream) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Task<PackageSourceFileResult> ReadPackageSourcesAsync(Stream configStream) =>
         ReadPackageSourcesAsync(configStream, CancellationToken.None);
 
-    /// <summary>
-    /// Stream-based overload -- useful for tests that feed canned
-    /// XML without a tempfile dance.
-    /// </summary>
+    /// <summary>Stream-based overload -- useful for tests that feed canned XML without a tempfile dance.</summary>
     /// <param name="configStream">Open stream positioned at the start of the <c>nuget.config</c> XML.</param>
     /// <param name="cancellationToken">Token observed across the parse.</param>
     /// <returns>Per-file result (clearedSeen + ordered sources).</returns>
-    public static async Task<PackageSourceFileResult> ReadPackageSourcesAsync(
+    internal static async Task<PackageSourceFileResult> ReadPackageSourcesAsync(
         Stream configStream,
         CancellationToken cancellationToken)
     {
@@ -133,9 +124,7 @@ internal static class PackageSourcesReader
         return new(clearedSeen, [.. entries]);
     }
 
-    /// <summary>
-    /// Updates whether the reader is currently inside the packageSources section.
-    /// </summary>
+    /// <summary>Updates whether the reader is currently inside the packageSources section.</summary>
     /// <param name="reader">Reader positioned on the current node.</param>
     /// <param name="insideSection">Current in-section flag.</param>
     /// <returns>True when the node only updated scope.</returns>
@@ -158,18 +147,14 @@ internal static class PackageSourcesReader
         return true;
     }
 
-    /// <summary>
-    /// Returns true when the current node should be inspected as a packageSources child element.
-    /// </summary>
+    /// <summary>Returns true when the current node should be inspected as a packageSources child element.</summary>
     /// <param name="reader">Reader positioned on the current node.</param>
     /// <param name="insideSection">Whether the parser is currently inside the packageSources section.</param>
     /// <returns>True when the node is a candidate packageSources child element.</returns>
     internal static bool ShouldInspectPackageSourcesElement(XmlReader reader, bool insideSection) =>
         insideSection && reader.NodeType == XmlNodeType.Element;
 
-    /// <summary>
-    /// Handles a clear directive inside the packageSources section.
-    /// </summary>
+    /// <summary>Handles a clear directive inside the packageSources section.</summary>
     /// <param name="reader">Reader positioned on the current element.</param>
     /// <param name="entries">Current entry accumulator.</param>
     /// <param name="seenKeys">Current duplicate-key filter set.</param>
@@ -192,9 +177,7 @@ internal static class PackageSourcesReader
         return true;
     }
 
-    /// <summary>
-    /// Adds a package source entry when the current element is a valid, non-duplicate add entry.
-    /// </summary>
+    /// <summary>Adds a package source entry when the current element is a valid, non-duplicate add entry.</summary>
     /// <param name="reader">Reader positioned on the current element.</param>
     /// <param name="seenKeys">Duplicate-key filter set.</param>
     /// <param name="entries">Current entry accumulator.</param>

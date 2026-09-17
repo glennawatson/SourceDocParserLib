@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging.Abstractions;
 using SourceDocParser.NuGet.Models;
 
@@ -16,8 +17,12 @@ namespace SourceDocParser.NuGet.Infrastructure;
 /// <c>.nupkg.metadata</c> marker so re-runs and concurrent
 /// installs don't repeat work.
 /// </summary>
+[System.Diagnostics.DebuggerDisplay("GlobalCacheInstaller: {GlobalPackagesFolder}")]
 public sealed class GlobalCacheInstaller : IDisposable
 {
+    /// <summary>Explains the initialization requirement before accessing resolved package settings.</summary>
+    private const string InitializationRequiredMessage = "Call InitializeAsync first.";
+
     /// <summary>Project root used to start the nuget.config discovery walk.</summary>
     private readonly string _workingFolder;
 
@@ -31,7 +36,7 @@ public sealed class GlobalCacheInstaller : IDisposable
     private readonly bool _ownsFeedHttp;
 
     /// <summary>Per-source flat-container endpoint cache (one HTTP roundtrip per feed).</summary>
-    private readonly Dictionary<string, string?> _flatContainerByFeed = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string?> _flatContainerByFeed = [with(StringComparer.OrdinalIgnoreCase)];
 
     /// <summary>Resolved global packages folder; set by InitializeAsync.</summary>
     private string? _globalPackagesFolder;
@@ -45,20 +50,14 @@ public sealed class GlobalCacheInstaller : IDisposable
     /// <summary>Resolved fallback folders probed before any HTTP; set by InitializeAsync.</summary>
     private string[]? _fallbackFolders;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="GlobalCacheInstaller"/> class
-    /// using default logging and HTTP behavior.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="GlobalCacheInstaller"/> class using default logging and HTTP behavior.</summary>
     /// <param name="workingFolder">Project root used to start the nuget.config discovery walk.</param>
     public GlobalCacheInstaller(string workingFolder)
         : this(workingFolder, (ILogger?)null, (HttpClient?)null)
     {
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="GlobalCacheInstaller"/> class
-    /// using the supplied logger and default HTTP behavior.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="GlobalCacheInstaller"/> class using the supplied logger and default HTTP behavior.</summary>
     /// <param name="workingFolder">Project root used to start the nuget.config discovery walk.</param>
     /// <param name="logger">Optional logger; defaults to a no-op.</param>
     public GlobalCacheInstaller(string workingFolder, ILogger? logger)
@@ -96,16 +95,15 @@ public sealed class GlobalCacheInstaller : IDisposable
 
     /// <summary>Gets the resolved global packages folder.</summary>
     public string GlobalPackagesFolder =>
-        _globalPackagesFolder ?? throw new InvalidOperationException("Call InitializeAsync first.");
+        _globalPackagesFolder ?? throw new InvalidOperationException(InitializationRequiredMessage);
 
     /// <summary>Gets the resolved enabled package sources, ordered by precedence.</summary>
     public IReadOnlyList<PackageSource> EnabledSources =>
-        _enabledSources ?? throw new InvalidOperationException("Call InitializeAsync first.");
+        _enabledSources ?? throw new InvalidOperationException(InitializationRequiredMessage);
 
-    /// <summary>
-    /// Resolves the global cache, sources, credentials, disabled set, and fallback folders.
-    /// </summary>
+    /// <summary>Resolves the global cache, sources, credentials, disabled set, and fallback folders.</summary>
     /// <returns>A task representing the asynchronous initialise step.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ValueTask InitializeAsync() =>
         InitializeAsync(CancellationToken.None);
 
@@ -132,14 +130,11 @@ public sealed class GlobalCacheInstaller : IDisposable
         _fallbackFolders = await NuGetConfigDiscovery.ResolveFallbackFoldersAsync(_workingFolder, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Returns the install path for <paramref name="packageId"/> /
-    /// <paramref name="packageVersion"/> after ensuring the package is
-    /// available.
-    /// </summary>
+    /// <summary>Returns the install path for <paramref name="packageId"/> / <paramref name="packageVersion"/> after ensuring the package is available.</summary>
     /// <param name="packageId">NuGet package id.</param>
     /// <param name="packageVersion">Normalised version string.</param>
     /// <returns>The absolute install directory the caller can enumerate <c>lib/{tfm}/</c> under.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ValueTask<string> InstallAsync(string packageId, string packageVersion) =>
         InstallAsync(packageId, packageVersion, CancellationToken.None);
 
@@ -153,13 +148,14 @@ public sealed class GlobalCacheInstaller : IDisposable
     /// <param name="packageVersion">Normalised version string.</param>
     /// <param name="cancellationToken">Token observed across the install.</param>
     /// <returns>The absolute install directory the caller can enumerate <c>lib/{tfm}/</c> under.</returns>
+    /// <exception cref="InvalidOperationException">Initialization has not completed.</exception>
     public async ValueTask<string> InstallAsync(string packageId, string packageVersion, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(packageId);
         ArgumentException.ThrowIfNullOrWhiteSpace(packageVersion);
         if (_globalPackagesFolder is null || _enabledSources is null || _fallbackFolders is null || _credentials is null)
         {
-            throw new InvalidOperationException("Call InitializeAsync first.");
+            throw new InvalidOperationException(InitializationRequiredMessage);
         }
 
         var installPath = NuGetGlobalCache.GetPackageInstallPath(_globalPackagesFolder, packageId, packageVersion);

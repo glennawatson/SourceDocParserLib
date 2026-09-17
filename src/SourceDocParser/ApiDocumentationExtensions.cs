@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -15,40 +15,41 @@ namespace SourceDocParser;
 /// </summary>
 public static class ApiDocumentationExtensions
 {
-    /// <summary>
-    /// Returns a copy of <paramref name="doc"/> with every text-bearing
-    /// field run through <paramref name="converter"/>. Cref-bearing
-    /// fields (<see cref="ApiDocumentation.SeeAlso"/>) and the
-    /// inheritance marker stay untouched -- those are UID strings and a
-    /// display name, not doc content.
-    /// </summary>
-    /// <param name="doc">Doc with raw inner-XML fragments (walker output).</param>
-    /// <param name="converter">Converter wired with the emitter's <see cref="ICrefResolver"/>.</param>
-    /// <returns>The same doc shape with Markdown-rendered text fields.</returns>
-    public static ApiDocumentation RenderWith(this ApiDocumentation doc, XmlDocToMarkdown converter)
+    /// <summary>Extension members for <c>ApiDocumentation</c>.</summary>
+    /// <param name="doc">Documentation whose XML fields are rendered.</param>
+    extension(ApiDocumentation doc)
     {
-        ArgumentNullException.ThrowIfNull(doc);
-        ArgumentNullException.ThrowIfNull(converter);
-
-        // Skip the rebuild and the eight Convert calls when the doc
-        // has nothing to render -- common for compiler-synthesised
-        // accessors and internal-but-public helpers.
-        if (IsBlank(doc))
+        /// <summary>
+        /// Returns a copy of <paramref name="doc"/> with every text-bearing
+        /// field run through <paramref name="converter"/>. Cref-bearing
+        /// fields (<see cref="ApiDocumentation.SeeAlso"/>) and the
+        /// inheritance marker stay untouched -- those are UID strings and a
+        /// display name, not doc content.
+        /// </summary>
+        /// <param name="converter">Converter wired with the emitter's <see cref="ICrefResolver"/>.</param>
+        /// <returns>The same doc shape with Markdown-rendered text fields.</returns>
+        public ApiDocumentation RenderWith(XmlDocToMarkdown converter)
         {
-            return doc;
+            ArgumentNullException.ThrowIfNull(doc);
+            ArgumentNullException.ThrowIfNull(converter);
+
+            // Skip the rebuild and the eight Convert calls when the doc
+            // has nothing to render -- common for compiler-synthesised
+            // accessors and internal-but-public helpers.
+            return IsBlank(doc)
+                ? doc
+                : doc with
+                {
+                    Summary = converter.Convert(doc.Summary),
+                    Remarks = converter.Convert(doc.Remarks),
+                    Returns = converter.Convert(doc.Returns),
+                    Value = converter.Convert(doc.Value),
+                    Examples = ConvertAll(doc.Examples, converter),
+                    Parameters = ConvertEntries(doc.Parameters, converter),
+                    TypeParameters = ConvertEntries(doc.TypeParameters, converter),
+                    Exceptions = ConvertEntries(doc.Exceptions, converter),
+                };
         }
-
-        return doc with
-        {
-            Summary = converter.Convert(doc.Summary),
-            Remarks = converter.Convert(doc.Remarks),
-            Returns = converter.Convert(doc.Returns),
-            Value = converter.Convert(doc.Value),
-            Examples = ConvertAll(doc.Examples, converter),
-            Parameters = ConvertEntries(doc.Parameters, converter),
-            TypeParameters = ConvertEntries(doc.TypeParameters, converter),
-            Exceptions = ConvertEntries(doc.Exceptions, converter),
-        };
     }
 
     /// <summary>

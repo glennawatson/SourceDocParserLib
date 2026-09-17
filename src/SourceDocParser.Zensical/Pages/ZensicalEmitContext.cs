@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -18,7 +18,7 @@ namespace SourceDocParser.Zensical.Pages;
 /// matching <see cref="ZensicalCrefResolver"/>.
 /// </summary>
 /// <remarks>
-/// Built once in <see cref="ZensicalDocumentationEmitter.EmitAsync(ApiType[], IPageSink, System.Threading.CancellationToken)"/>
+/// Built once in <see cref="ZensicalDocumentationEmitter.EmitAsync(ApiType[], IPageSink, CancellationToken)"/>
 /// and passed by reference to every page renderer so cref tags inside
 /// doc strings resolve consistently across types and members.
 /// </remarks>
@@ -71,6 +71,6 @@ internal sealed class ZensicalEmitContext
     /// </summary>
     /// <param name="rawXml">Raw inner-XML fragment captured by the walker.</param>
     /// <returns>The rendered Markdown.</returns>
-    public string RenderDocFragment(string? rawXml) =>
+    internal string RenderDocFragment(string? rawXml) =>
         rawXml is { Length: > 0 } ? Converter.Convert(rawXml) : string.Empty;
 }

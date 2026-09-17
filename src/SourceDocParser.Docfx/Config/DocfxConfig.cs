@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -12,6 +12,7 @@ namespace SourceDocParser.Docfx.Config;
 /// </summary>
 /// <param name="Metadata">Ordered list of metadata entries -- one per lib TFM that has matching reference assemblies.</param>
 /// <param name="Build">The build section, copied from the template with the content array patched to include platform-specific outputs.</param>
+[System.Diagnostics.DebuggerDisplay("DocfxConfig: {ToString(),nq}")]
 public sealed record DocfxConfig(
     DocfxMetadataEntry[] Metadata,
     DocfxBuildSection Build);

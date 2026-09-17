@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -37,8 +37,8 @@ public class SymbolWalkerHelpersTests
     public async Task ClassifyObjectKindMapsKnownKinds(TypeKind kind, bool isRecord, ApiObjectKind expected)
     {
         var symbol = Substitute.For<INamedTypeSymbol>();
-        symbol.TypeKind.Returns(kind);
-        symbol.IsRecord.Returns(isRecord);
+        _ = symbol.TypeKind.Returns(kind);
+        _ = symbol.IsRecord.Returns(isRecord);
 
         await Assert.That(SymbolWalkerHelpers.ClassifyObjectKind(symbol)).IsEqualTo(expected);
     }
@@ -53,15 +53,12 @@ public class SymbolWalkerHelpersTests
     public async Task ClassifyObjectKindReturnsNullForNonObjectKinds(TypeKind kind)
     {
         var symbol = Substitute.For<INamedTypeSymbol>();
-        symbol.TypeKind.Returns(kind);
+        _ = symbol.TypeKind.Returns(kind);
 
         await Assert.That(SymbolWalkerHelpers.ClassifyObjectKind(symbol)).IsNull();
     }
 
-    /// <summary>
-    /// <see cref="SymbolWalkerHelpers.IsExternallyVisible"/> returns true
-    /// only for accessibilities that surface in public docs.
-    /// </summary>
+    /// <summary><see cref="SymbolWalkerHelpers.IsExternallyVisible"/> returns true only for accessibilities that surface in public docs.</summary>
     /// <param name="accessibility">The accessibility level to check.</param>
     /// <param name="expected">Expected visibility outcome.</param>
     /// <returns>A task representing the test execution.</returns>
@@ -76,9 +73,7 @@ public class SymbolWalkerHelpersTests
     public async Task IsExternallyVisibleMatchesPolicy(Accessibility accessibility, bool expected) =>
         await Assert.That(SymbolWalkerHelpers.IsExternallyVisible(accessibility)).IsEqualTo(expected);
 
-    /// <summary>
-    /// Methods classify as Constructor / Operator / Method depending on <see cref="MethodKind"/>.
-    /// </summary>
+    /// <summary>Methods classify as Constructor / Operator / Method depending on <see cref="MethodKind"/>.</summary>
     /// <param name="methodKind">Roslyn method kind.</param>
     /// <param name="expected">Expected member kind.</param>
     /// <returns>A task representing the test execution.</returns>
@@ -92,7 +87,7 @@ public class SymbolWalkerHelpersTests
     public async Task TryClassifyMemberMapsMethodKinds(MethodKind methodKind, ApiMemberKind expected)
     {
         var method = Substitute.For<IMethodSymbol>();
-        method.MethodKind.Returns(methodKind);
+        _ = method.MethodKind.Returns(methodKind);
 
         await Assert.That(SymbolWalkerHelpers.TryClassifyMember(method)).IsEqualTo(expected);
     }
@@ -106,8 +101,8 @@ public class SymbolWalkerHelpersTests
         var ev = Substitute.For<IEventSymbol>();
         var field = Substitute.For<IFieldSymbol>();
         var containing = Substitute.For<INamedTypeSymbol>();
-        containing.TypeKind.Returns(TypeKind.Class);
-        field.ContainingType.Returns(containing);
+        _ = containing.TypeKind.Returns(TypeKind.Class);
+        _ = field.ContainingType.Returns(containing);
 
         await Assert.That(SymbolWalkerHelpers.TryClassifyMember(prop)).IsEqualTo(ApiMemberKind.Property);
         await Assert.That(SymbolWalkerHelpers.TryClassifyMember(ev)).IsEqualTo(ApiMemberKind.Event);
@@ -120,9 +115,9 @@ public class SymbolWalkerHelpersTests
     public async Task TryClassifyMemberClassifiesEnumFieldsAsEnumValue()
     {
         var enumType = Substitute.For<INamedTypeSymbol>();
-        enumType.TypeKind.Returns(TypeKind.Enum);
+        _ = enumType.TypeKind.Returns(TypeKind.Enum);
         var field = Substitute.For<IFieldSymbol>();
-        field.ContainingType.Returns(enumType);
+        _ = field.ContainingType.Returns(enumType);
 
         await Assert.That(SymbolWalkerHelpers.TryClassifyMember(field)).IsEqualTo(ApiMemberKind.EnumValue);
     }
@@ -142,10 +137,10 @@ public class SymbolWalkerHelpersTests
     public async Task IsRequiredMemberMatchesRequiredFlag()
     {
         var requiredProp = Substitute.For<IPropertySymbol>();
-        requiredProp.IsRequired.Returns(true);
+        _ = requiredProp.IsRequired.Returns(true);
 
         var optionalField = Substitute.For<IFieldSymbol>();
-        optionalField.IsRequired.Returns(false);
+        _ = optionalField.IsRequired.Returns(false);
 
         var method = Substitute.For<IMethodSymbol>();
 
@@ -154,10 +149,7 @@ public class SymbolWalkerHelpersTests
         await Assert.That(SymbolWalkerHelpers.IsRequiredMember(method)).IsFalse();
     }
 
-    /// <summary>
-    /// Default-value literal renders for null, strings, chars, bools, and
-    /// numeric types.
-    /// </summary>
+    /// <summary>Default-value literal renders for null, strings, chars, bools, and numeric types.</summary>
     /// <param name="value">Value to render.</param>
     /// <param name="expected">Expected rendered string.</param>
     /// <returns>A task representing the test execution.</returns>
@@ -171,11 +163,7 @@ public class SymbolWalkerHelpersTests
     public async Task FormatLiteralRendersExpected(object? value, string expected) =>
         await Assert.That(SymbolWalkerHelpers.FormatLiteral(value)).IsEqualTo(expected);
 
-    /// <summary>
-    /// <see cref="SymbolWalkerHelpers.BuildBaseTypeReference"/> filters
-    /// the noise base types (object, ValueType, Enum, Delegate,
-    /// MulticastDelegate) and returns null for them.
-    /// </summary>
+    /// <summary><see cref="SymbolWalkerHelpers.BuildBaseTypeReference"/> filters the noise base types (object, ValueType, Enum, Delegate, MulticastDelegate) and returns null for them.</summary>
     /// <param name="specialType">Special type to feed as base.</param>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -187,9 +175,9 @@ public class SymbolWalkerHelpersTests
     public async Task BuildBaseTypeReferenceFiltersNoiseBases(SpecialType specialType)
     {
         var baseSymbol = Substitute.For<INamedTypeSymbol>();
-        baseSymbol.SpecialType.Returns(specialType);
+        _ = baseSymbol.SpecialType.Returns(specialType);
         var type = Substitute.For<INamedTypeSymbol>();
-        type.BaseType.Returns(baseSymbol);
+        _ = type.BaseType.Returns(baseSymbol);
 
         await Assert.That(SymbolWalkerHelpers.BuildBaseTypeReference(type, new())).IsNull();
     }
@@ -200,7 +188,7 @@ public class SymbolWalkerHelpersTests
     public async Task BuildBaseTypeReferenceReturnsNullWhenNoBase()
     {
         var type = Substitute.For<INamedTypeSymbol>();
-        type.BaseType.Returns((INamedTypeSymbol?)null);
+        _ = type.BaseType.Returns((INamedTypeSymbol?)null);
 
         await Assert.That(SymbolWalkerHelpers.BuildBaseTypeReference(type, new())).IsNull();
     }
@@ -211,7 +199,7 @@ public class SymbolWalkerHelpersTests
     public async Task BuildInterfaceReferencesReturnsEmptyForNoInterfaces()
     {
         var type = Substitute.For<INamedTypeSymbol>();
-        type.Interfaces.Returns([]);
+        _ = type.Interfaces.Returns([]);
 
         var refs = SymbolWalkerHelpers.BuildInterfaceReferences(type, new());
 
@@ -229,14 +217,11 @@ public class SymbolWalkerHelpersTests
     public async Task BuildUnionCasesReturnsEmptyWhenNoContainingAssembly()
     {
         var type = Substitute.For<INamedTypeSymbol>();
-        type.ContainingAssembly.Returns((IAssemblySymbol?)null);
+        _ = type.ContainingAssembly.Returns((IAssemblySymbol?)null);
         await Assert.That(SymbolWalkerHelpers.BuildUnionCases(type, new())).IsEmpty();
     }
 
-    /// <summary>
-    /// Members without parameters (events, fields) get an empty
-    /// parameter list without invoking the type-reference cache.
-    /// </summary>
+    /// <summary>Members without parameters (events, fields) get an empty parameter list without invoking the type-reference cache.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task BuildParametersReturnsEmptyForNonParameterizedMember()
@@ -251,7 +236,7 @@ public class SymbolWalkerHelpersTests
     public async Task BuildParametersReturnsEmptyForParameterlessMethod()
     {
         var method = Substitute.For<IMethodSymbol>();
-        method.Parameters.Returns([]);
+        _ = method.Parameters.Returns([]);
 
         await Assert.That(SymbolWalkerHelpers.BuildParameters(method, new())).IsEmpty();
     }
@@ -262,7 +247,7 @@ public class SymbolWalkerHelpersTests
     public async Task BuildTypeParametersReturnsEmptyForNonGenericMethod()
     {
         var method = Substitute.For<IMethodSymbol>();
-        method.TypeParameters.Returns([]);
+        _ = method.TypeParameters.Returns([]);
 
         await Assert.That(SymbolWalkerHelpers.BuildTypeParameters(method)).IsEmpty();
     }
@@ -273,12 +258,12 @@ public class SymbolWalkerHelpersTests
     public async Task BuildTypeParametersReturnsNamesForGenericMethod()
     {
         var t1 = Substitute.For<ITypeParameterSymbol>();
-        t1.Name.Returns("T");
+        _ = t1.Name.Returns("T");
         var t2 = Substitute.For<ITypeParameterSymbol>();
-        t2.Name.Returns("U");
+        _ = t2.Name.Returns("U");
 
         var method = Substitute.For<IMethodSymbol>();
-        method.TypeParameters.Returns([t1, t2]);
+        _ = method.TypeParameters.Returns([t1, t2]);
 
         var names = SymbolWalkerHelpers.BuildTypeParameters(method);
 
@@ -291,7 +276,7 @@ public class SymbolWalkerHelpersTests
     public async Task BuildReturnTypeReferenceReturnsNullForVoid()
     {
         var method = Substitute.For<IMethodSymbol>();
-        method.ReturnsVoid.Returns(true);
+        _ = method.ReturnsVoid.Returns(true);
 
         await Assert.That(SymbolWalkerHelpers.BuildReturnTypeReference(method, new())).IsNull();
     }

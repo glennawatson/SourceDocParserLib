@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -20,6 +20,9 @@ namespace SourceDocParser.Zensical.Tests;
 /// </summary>
 public class ClassicExtensionMethodMarkdownTests
 {
+    /// <summary>Fixture value for ExtensionHostName.</summary>
+    private const string ExtensionHostName = "Helpers";
+
     /// <summary>Index lookup for the extended type's UID returns the classic extension method.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -46,7 +49,7 @@ public class ClassicExtensionMethodMarkdownTests
 
         await Assert.That(page).Contains("## Extension members");
         await Assert.That(page).Contains("DoIt");
-        await Assert.That(page).Contains("Helpers");
+        await Assert.That(page).Contains(ExtensionHostName);
     }
 
     /// <summary>Builds a Target type and a static Helpers host with one classic extension method targeting Target.</summary>
@@ -74,7 +77,7 @@ public class ClassicExtensionMethodMarkdownTests
             TypeParameters: [],
             ReturnType: null,
             ContainingTypeUid: "T:My.Helpers",
-            ContainingTypeName: "Helpers",
+            ContainingTypeName: ExtensionHostName,
             SourceUrl: null,
             Documentation: ApiDocumentation.Empty,
             IsObsolete: false,
@@ -82,7 +85,7 @@ public class ClassicExtensionMethodMarkdownTests
             Attributes: []);
 
         var target = TestData.ObjectType("Target") with { Namespace = "My", FullName = "My.Target", Uid = "T:My.Target" };
-        var helpers = TestData.ObjectType("Helpers") with
+        var helpers = TestData.ObjectType(ExtensionHostName) with
         {
             Namespace = "My",
             FullName = "My.Helpers",

@@ -1,8 +1,9 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using SourceDocParser.Model;
@@ -40,12 +41,10 @@ internal static class AttributeExtractor
     /// <summary>The index offset for the first character in a quoted string literal.</summary>
     private const int QuotedStringStartOffset = 1;
 
-    /// <summary>
-    /// Returns the model representation of every attribute applied to
-    /// <paramref name="symbol"/>, in declaration order.
-    /// </summary>
+    /// <summary>Returns the model representation of every attribute applied to <paramref name="symbol"/>, in declaration order.</summary>
     /// <param name="symbol">The symbol whose attributes to extract.</param>
     /// <returns>The attributes; an empty array when the symbol has none.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static ApiAttribute[] Extract(ISymbol symbol) =>
         ExtractCore(symbol.GetAttributes());
 
@@ -204,7 +203,7 @@ internal static class AttributeExtractor
         return constant.Kind switch
         {
             TypedConstantKind.Type => constant.Value is ITypeSymbol type
-                ? "typeof(" + type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) + ")"
+                ? $"typeof({type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)})"
                 : "typeof(?)",
             TypedConstantKind.Enum => FormatEnumConstant(constant),
             TypedConstantKind.Array => FormatArrayConstant(constant),
@@ -233,10 +232,10 @@ internal static class AttributeExtractor
         {
             if (i > 0)
             {
-                sb.Append(", ");
+                _ = sb.Append(", ");
             }
 
-            sb.Append(FormatConstant(constant.Values[i]));
+            _ = sb.Append(FormatConstant(constant.Values[i]));
         }
 
         return sb.Append(']').ToString();
@@ -255,17 +254,14 @@ internal static class AttributeExtractor
         _ => value.ToString() ?? string.Empty,
     };
 
-    /// <summary>
-    /// Formats a C# string literal with escaped quotes and backslashes.
-    /// </summary>
+    /// <summary>Formats a C# string literal with escaped quotes and backslashes.</summary>
     /// <param name="value">Raw string value.</param>
     /// <returns>The quoted literal.</returns>
     internal static string QuoteStringLiteral(string value)
     {
         var firstEscapeIndex = value.AsSpan().IndexOfAny([Backslash, DoubleQuote]);
-        if (firstEscapeIndex < 0)
-        {
-            return string.Create(
+        return firstEscapeIndex < 0
+            ? string.Create(
                 value.Length + StringLiteralQuoteOverhead,
                 value,
                 static (dest, state) =>
@@ -273,10 +269,8 @@ internal static class AttributeExtractor
                     dest[0] = DoubleQuote;
                     state.CopyTo(dest[QuotedStringStartOffset..]);
                     dest[^1] = DoubleQuote;
-                });
-        }
-
-        return string.Create(
+                })
+            : string.Create(
             value.Length + StringLiteralQuoteOverhead + CountEscapes(value.AsSpan(firstEscapeIndex)),
             (Value: value, FirstEscapeIndex: firstEscapeIndex),
             static (dest, state) =>
@@ -289,19 +283,19 @@ internal static class AttributeExtractor
                     var current = state.Value[i];
                     if (current is Backslash or DoubleQuote)
                     {
-                        dest[destIndex++] = Backslash;
+                        dest[destIndex] = Backslash;
+                        destIndex++;
                     }
 
-                    dest[destIndex++] = current;
+                    dest[destIndex] = current;
+                    destIndex++;
                 }
 
                 dest[destIndex] = DoubleQuote;
             });
     }
 
-    /// <summary>
-    /// Counts quotes and backslashes so the escaped literal length can be precomputed.
-    /// </summary>
+    /// <summary>Counts quotes and backslashes so the escaped literal length can be precomputed.</summary>
     /// <param name="text">Text to inspect.</param>
     /// <returns>The number of inserted escape characters.</returns>
     internal static int CountEscapes(in ReadOnlySpan<char> text)

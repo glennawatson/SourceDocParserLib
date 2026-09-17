@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Xml;
 using SourceDocParser.NuGet.Infrastructure;
 
@@ -32,29 +33,25 @@ internal static class DisabledPackageSourcesReader
     private const string TrueLiteral = "true";
 
     /// <summary>Settings for the XML reader.</summary>
-    private static readonly XmlReaderSettings _readerSettings = new()
-    {
-        Async = true, IgnoreComments = true, IgnoreWhitespace = true, DtdProcessing = DtdProcessing.Prohibit,
-    };
+    private static readonly XmlReaderSettings _readerSettings = new() { Async = true, IgnoreComments = true, IgnoreWhitespace = true, DtdProcessing = DtdProcessing.Prohibit, };
 
-    /// <summary>
-    /// Reads the disabled-source keys from the specified <paramref name="configPath"/>.
-    /// </summary>
+    /// <summary>Reads the disabled-source keys from the specified <paramref name="configPath"/>.</summary>
     /// <param name="configPath">The absolute path to a <c>nuget.config</c> file.</param>
     /// <returns>A task that represents the asynchronous read operation. The task result contains a set of disabled source keys (case-insensitive).</returns>
-    public static Task<HashSet<string>> ReadAsync(string configPath) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Task<HashSet<string>> ReadAsync(string configPath) =>
         ReadAsync(configPath, CancellationToken.None);
 
     /// <summary>Reads the disabled-source keys from the specified <paramref name="configPath"/>.</summary>
-    /// <remarks>
-    /// This method opens the <c>nuget.config</c> file for reading and parses the <c>disabledPackageSources</c> section.
-    /// It returns a set of keys for sources that have been explicitly disabled by setting their value to <c>"true"</c>.
-    /// </remarks>
     /// <param name="configPath">The absolute path to a <c>nuget.config</c> file.</param>
     /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
     /// <returns>A task that represents the asynchronous read operation. The task result contains a set of disabled source keys (case-insensitive).</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="configPath"/> is null or whitespace.</exception>
-    public static async Task<HashSet<string>> ReadAsync(
+    /// <remarks>
+    /// This method opens the <c>nuget.config</c> file for reading and parses the <c>disabledPackageSources</c> section.
+    /// It returns a set of keys for sources that have been explicitly disabled by setting their value to <c>"true"</c>.
+    /// </remarks>
+    internal static async Task<HashSet<string>> ReadAsync(
         string configPath,
         CancellationToken cancellationToken)
     {
@@ -72,25 +69,24 @@ internal static class DisabledPackageSourcesReader
         }
     }
 
-    /// <summary>
-    /// Reads the disabled-source keys from the provided <paramref name="configStream"/>.
-    /// </summary>
+    /// <summary>Reads the disabled-source keys from the provided <paramref name="configStream"/>.</summary>
     /// <param name="configStream">The open stream containing the <c>nuget.config</c> XML content.</param>
     /// <returns>A task that represents the asynchronous read operation. The task result contains a set of disabled source keys (case-insensitive).</returns>
-    public static Task<HashSet<string>> ReadAsync(Stream configStream) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Task<HashSet<string>> ReadAsync(Stream configStream) =>
         ReadAsync(configStream, CancellationToken.None);
 
     /// <summary>Reads the disabled-source keys from the provided <paramref name="configStream"/>.</summary>
+    /// <param name="configStream">The open stream containing the <c>nuget.config</c> XML content.</param>
+    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
+    /// <returns>A task that represents the asynchronous read operation. The task result contains a set of disabled source keys (case-insensitive).</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="configStream"/> is null.</exception>
     /// <remarks>
     /// This overload is primarily intended for testing purposes. It parses the XML content from the stream
     /// and extracts disabled package sources. It identifies sources where the <c>value</c> attribute
     /// is set to <c>"true"</c>.
     /// </remarks>
-    /// <param name="configStream">The open stream containing the <c>nuget.config</c> XML content.</param>
-    /// <param name="cancellationToken">The token to monitor for cancellation requests.</param>
-    /// <returns>A task that represents the asynchronous read operation. The task result contains a set of disabled source keys (case-insensitive).</returns>
-    /// <exception cref="ArgumentNullException">Thrown when <paramref name="configStream"/> is null.</exception>
-    public static async Task<HashSet<string>> ReadAsync(
+    internal static async Task<HashSet<string>> ReadAsync(
         Stream configStream,
         CancellationToken cancellationToken)
     {
@@ -137,7 +133,7 @@ internal static class DisabledPackageSourcesReader
                 continue;
             }
 
-            disabled.Add(key);
+            _ = disabled.Add(key);
         }
 
         return disabled;

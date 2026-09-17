@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -21,6 +21,12 @@ namespace SourceDocParser.Tests;
 /// </summary>
 public class MetadataDiscoveryHelperTests
 {
+    /// <summary>Fixture value for Net100.</summary>
+    private const string Net100 = "net10.0";
+
+    /// <summary>Expected fixture value used by DiscoverTfmGroupsAsyncCreatesOneLoaderPerGroup.</summary>
+    private const int DiscoverTfmGroupsAsyncCreatesOneLoaderPerGroupExpectedValue = 2;
+
     /// <summary>One loader is created per discovered group and tracked in the registry.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -29,31 +35,30 @@ public class MetadataDiscoveryHelperTests
         var source = new FakeAssemblySource(
         [
             new("net9.0", ["/a/A.dll"], []),
-            new("net10.0", ["/b/B.dll", "/b/C.dll"], []),
+            new(Net100, ["/b/B.dll", "/b/C.dll"], []),
         ]);
 
-        using var registry = new LoaderRegistry();
         var loaders = new List<RecordingLoader>();
+        List<TfmGroup> groups;
+        using (var registry = new LoaderRegistry())
+        {
+            groups = await MetadataDiscoveryHelper.DiscoverTfmGroupsAsync(
+                source,
+                _ =>
+                {
+                    var loader = new RecordingLoader();
+                    loaders.Add(loader);
+                    return loader;
+                },
+                registry,
+                NullLogger.Instance,
+                CancellationToken.None);
+        }
 
-        var groups = await MetadataDiscoveryHelper.DiscoverTfmGroupsAsync(
-            source,
-            _ =>
-            {
-                var loader = new RecordingLoader();
-                loaders.Add(loader);
-                return loader;
-            },
-            registry,
-            NullLogger.Instance,
-            CancellationToken.None);
-
-        await Assert.That(groups.Count).IsEqualTo(2);
-        await Assert.That(loaders.Count).IsEqualTo(2);
+        await Assert.That(groups.Count).IsEqualTo(DiscoverTfmGroupsAsyncCreatesOneLoaderPerGroupExpectedValue);
+        await Assert.That(loaders.Count).IsEqualTo(DiscoverTfmGroupsAsyncCreatesOneLoaderPerGroupExpectedValue);
         await Assert.That(groups[0].Group.Tfm).IsEqualTo("net9.0");
-        await Assert.That(groups[1].Group.Tfm).IsEqualTo("net10.0");
-
-        // Disposing the registry should flow through to every tracked loader.
-        registry.Dispose();
+        await Assert.That(groups[1].Group.Tfm).IsEqualTo(Net100);
         await Assert.That(loaders[0].DisposeCount).IsEqualTo(1);
         await Assert.That(loaders[1].DisposeCount).IsEqualTo(1);
     }
@@ -84,7 +89,7 @@ public class MetadataDiscoveryHelperTests
     {
         var source = new FakeAssemblySource(
         [
-            new("net10.0", ["/a/A.dll", "/a/B.dll", "/a/C.dll"], []),
+            new(Net100, ["/a/A.dll", "/a/B.dll", "/a/C.dll"], []),
         ]);
 
         using var registry = new LoaderRegistry();
@@ -110,6 +115,7 @@ public class MetadataDiscoveryHelperTests
     private sealed class FakeAssemblySource(List<AssemblyGroup> groups) : IAssemblySource
     {
         /// <inheritdoc />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IAsyncEnumerable<AssemblyGroup> DiscoverAsync() => DiscoverAsync(CancellationToken.None);
 
         /// <inheritdoc />
@@ -131,6 +137,7 @@ public class MetadataDiscoveryHelperTests
         public int DisposeCount { get; private set; }
 
         /// <inheritdoc />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public (CSharpCompilation Compilation, IAssemblySymbol Assembly) Load(string assemblyPath, Dictionary<string, string> fallbackReferences) =>
             Load(assemblyPath, fallbackReferences, includePrivateMembers: false);
 

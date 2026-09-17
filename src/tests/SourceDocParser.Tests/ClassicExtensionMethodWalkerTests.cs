@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using SourceDocParser.Model;
 using SourceDocParser.SourceLink;
 using SourceDocParser.Walk;
@@ -19,6 +20,9 @@ namespace SourceDocParser.Tests;
 /// </summary>
 public class ClassicExtensionMethodWalkerTests
 {
+    /// <summary>Expected fixture value used by ClassicExtensionMethodCapturedWithReceiver.</summary>
+    private const int ClassicExtensionMethodCapturedWithReceiverExpectedValue = 2;
+
     /// <summary>A classic <c>this T</c> extension method on a static class is captured with IsExtension + receiver parameter.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -41,12 +45,12 @@ public class ClassicExtensionMethodWalkerTests
 
         var catalog = walker.Walk("net10.0", compilation.Assembly, compilation, resolver);
 
-        var helpers = catalog.Types.OfType<ApiObjectType>().Single(t => t.Name == "Helpers");
+        var helpers = ((ApiObjectType)(await Assert.That(catalog.Types).HasSingleItem(static t => t is ApiObjectType && (t.Name == "Helpers"))));
         await Assert.That(helpers.IsStatic).IsTrue();
 
-        var doIt = helpers.Members.Single(m => m.Name == "DoIt");
+        var doIt = (await Assert.That(helpers.Members).HasSingleItem(static m => m.Name == "DoIt"));
         await Assert.That(doIt.IsExtension).IsTrue();
-        await Assert.That(doIt.Parameters.Length).IsEqualTo(2);
+        await Assert.That(doIt.Parameters.Length).IsEqualTo(ClassicExtensionMethodCapturedWithReceiverExpectedValue);
         await Assert.That(doIt.Parameters[0].Name).IsEqualTo("self");
         await Assert.That(doIt.Parameters[0].Type.DisplayName).Contains("Target");
         await Assert.That(doIt.Parameters[0].Type.Uid).Contains("Target");
@@ -71,8 +75,8 @@ public class ClassicExtensionMethodWalkerTests
         var resolver = new NullSourceLinkResolver();
 
         var catalog = walker.Walk("net10.0", compilation.Assembly, compilation, resolver);
-        var helpers = catalog.Types.OfType<ApiObjectType>().Single(t => t.Name == "Helpers");
-        var plain = helpers.Members.Single(m => m.Name == "Plain");
+        var helpers = ((ApiObjectType)(await Assert.That(catalog.Types).HasSingleItem(static t => t is ApiObjectType && (t.Name == "Helpers"))));
+        var plain = (await Assert.That(helpers.Members).HasSingleItem(static m => m.Name == "Plain"));
 
         await Assert.That(plain.IsExtension).IsFalse();
     }
@@ -81,6 +85,7 @@ public class ClassicExtensionMethodWalkerTests
     private sealed class NullSourceLinkResolver : ISourceLinkResolver
     {
         /// <inheritdoc />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public string? Resolve(Microsoft.CodeAnalysis.ISymbol symbol) => null;
 
         /// <inheritdoc />

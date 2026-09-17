@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -19,13 +19,19 @@ namespace SourceDocParser.Zensical.Tests;
 /// </summary>
 public class PackageNamespaceTreeBuilderTests
 {
+    /// <summary>Fixture value for AlphaAssembly.</summary>
+    private const string AlphaAssembly = "AlphaAsm";
+
+    /// <summary>Fixture value for AlphaFolder.</summary>
+    private const string AlphaFolder = "alpha";
+
     /// <summary>Routing with one rule, used by the single-package cases.</summary>
     private static readonly PackageRoutingRule[] _singleRouting = [new("routed", "RoutedAsm")];
 
     /// <summary>Routing with two rules used by the multi-package case.</summary>
     private static readonly PackageRoutingRule[] _multiRouting =
     [
-        new("alpha", "AlphaAsm"),
+        new(AlphaFolder, AlphaAssembly),
         new("beta", "BetaAsm"),
     ];
 
@@ -50,7 +56,7 @@ public class PackageNamespaceTreeBuilderTests
             types,
             _singleRouting,
             static type => type.Uid,
-            static (a, b) => string.CompareOrdinal(a, b));
+            string.CompareOrdinal);
 
         await Assert.That(tree.Count).IsEqualTo(1);
         await Assert.That(tree.ContainsKey("routed")).IsTrue();
@@ -63,9 +69,9 @@ public class PackageNamespaceTreeBuilderTests
     {
         ApiType[] types =
         [
-            TestData.ObjectType("T:NsA.B", ApiObjectKind.Class, "AlphaAsm") with { Namespace = "NsA" },
-            TestData.ObjectType("T:NsA.A", ApiObjectKind.Class, "AlphaAsm") with { Namespace = "NsA" },
-            TestData.ObjectType("T:NsB.X", ApiObjectKind.Class, "AlphaAsm") with { Namespace = "NsB" },
+            TestData.ObjectType("T:NsA.B", ApiObjectKind.Class, AlphaAssembly) with { Namespace = "NsA" },
+            TestData.ObjectType("T:NsA.A", ApiObjectKind.Class, AlphaAssembly) with { Namespace = "NsA" },
+            TestData.ObjectType("T:NsB.X", ApiObjectKind.Class, AlphaAssembly) with { Namespace = "NsB" },
             TestData.ObjectType("T:NsZ.Y", ApiObjectKind.Class, "BetaAsm") with { Namespace = "NsZ" },
         ];
 
@@ -73,12 +79,12 @@ public class PackageNamespaceTreeBuilderTests
             types,
             _multiRouting,
             static type => type.Uid,
-            static (a, b) => string.CompareOrdinal(a, b));
+            string.CompareOrdinal);
 
-        await Assert.That(tree.Keys).IsEquivalentTo((string[])["alpha", "beta"]);
-        await Assert.That(tree["alpha"].Keys).IsEquivalentTo((string[])["NsA", "NsB"]);
-        await Assert.That(tree["alpha"]["NsA"]).IsEquivalentTo((string[])["T:NsA.A", "T:NsA.B"]);
-        await Assert.That(tree["alpha"]["NsB"]).IsEquivalentTo((string[])["T:NsB.X"]);
+        await Assert.That(tree.Keys).IsEquivalentTo((string[])[AlphaFolder, "beta"]);
+        await Assert.That(tree[AlphaFolder].Keys).IsEquivalentTo((string[])["NsA", "NsB"]);
+        await Assert.That(tree[AlphaFolder]["NsA"]).IsEquivalentTo((string[])["T:NsA.A", "T:NsA.B"]);
+        await Assert.That(tree[AlphaFolder]["NsB"]).IsEquivalentTo((string[])["T:NsB.X"]);
         await Assert.That(tree["beta"]["NsZ"]).IsEquivalentTo((string[])["T:NsZ.Y"]);
     }
 
@@ -93,7 +99,7 @@ public class PackageNamespaceTreeBuilderTests
             types,
             _pkgRouting,
             static type => type.Uid,
-            static (a, b) => string.CompareOrdinal(a, b));
+            string.CompareOrdinal);
 
         await Assert.That(tree["pkg"].Keys).IsEquivalentTo((string[])["(global)"]);
     }
@@ -103,11 +109,11 @@ public class PackageNamespaceTreeBuilderTests
     [Test]
     public async Task BuildHandlesEmptyTypeArray()
     {
-        var tree = PackageNamespaceTreeBuilder.Build<string>(
+        var tree = PackageNamespaceTreeBuilder.Build(
             [],
             _noRouting,
             static t => t.Uid,
-            static (a, b) => string.CompareOrdinal(a, b));
+            string.CompareOrdinal);
 
         await Assert.That(tree.Count).IsEqualTo(0);
     }
@@ -141,13 +147,13 @@ public class PackageNamespaceTreeBuilderTests
     {
         ApiType[] empty = [];
 
-        await Assert.That(() => PackageNamespaceTreeBuilder.Build<string>(null!, _noRouting, static t => t.Uid, static (_, _) => 0))
+        await Assert.That(static () => PackageNamespaceTreeBuilder.Build(null!, _noRouting, static t => t.Uid, static (_, _) => 0))
             .Throws<ArgumentNullException>();
-        await Assert.That(() => PackageNamespaceTreeBuilder.Build<string>(empty, null!, static t => t.Uid, static (_, _) => 0))
+        await Assert.That(() => PackageNamespaceTreeBuilder.Build(empty, null!, static t => t.Uid, static (_, _) => 0))
             .Throws<ArgumentNullException>();
         await Assert.That(() => PackageNamespaceTreeBuilder.Build<string>(empty, _noRouting, null!, static (_, _) => 0))
             .Throws<ArgumentNullException>();
-        await Assert.That(() => PackageNamespaceTreeBuilder.Build<string>(empty, _noRouting, static t => t.Uid, null!))
+        await Assert.That(() => PackageNamespaceTreeBuilder.Build(empty, _noRouting, static t => t.Uid, null!))
             .Throws<ArgumentNullException>();
     }
 }

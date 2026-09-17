@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,7 +16,7 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 /// </summary>
 public class YamlScalarQuotingTests
 {
-    /// <summary>Plain identifiers and dotted UIDs survive unquoted.</summary>
+    /// <summary>Plain identifiers, dotted UIDs, and embedded colons or hashes survive unquoted.</summary>
     /// <param name="value">Scalar value to probe.</param>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -25,10 +25,12 @@ public class YamlScalarQuotingTests
     [Arguments("M:Foo.Bar(System.Int32)")]
     [Arguments("snake_case_name")]
     [Arguments("123Numeric")]
+    [Arguments("Foo:Bar")]
+    [Arguments("Foo#Bar")]
     public async Task NeedsQuotingReturnsFalseForSafeIdentifiers(string value) => await Assert.That(YamlScalarQuoting.NeedsQuoting(value)).IsFalse();
 
-    /// <summary>YAML reserved leading-indicator characters force quoting.</summary>
-    /// <param name="value">Scalar value beginning with a reserved indicator.</param>
+    /// <summary>Reserved indicators, YAML tokens, and embedded terminators force quoting.</summary>
+    /// <param name="value">Scalar value unsafe to emit without quotes.</param>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     [Arguments("- leading dash")]
@@ -52,12 +54,6 @@ public class YamlScalarQuotingTests
     [Arguments(", leading comma")]
     [Arguments(" leading space")]
     [Arguments("\t leading tab")]
-    public async Task NeedsQuotingReturnsTrueForReservedLeadingIndicators(string value) => await Assert.That(YamlScalarQuoting.NeedsQuoting(value)).IsTrue();
-
-    /// <summary>YAML boolean / null reserved tokens force quoting in any case.</summary>
-    /// <param name="value">Scalar value matching a reserved token.</param>
-    /// <returns>A task representing the test execution.</returns>
-    [Test]
     [Arguments("true")]
     [Arguments("false")]
     [Arguments("null")]
@@ -70,17 +66,6 @@ public class YamlScalarQuotingTests
     [Arguments("~")]
     [Arguments("yes")]
     [Arguments("no")]
-    public async Task NeedsQuotingReturnsTrueForReservedTokens(string value) => await Assert.That(YamlScalarQuoting.NeedsQuoting(value)).IsTrue();
-
-    /// <summary>
-    /// Embedded characters that would terminate a plain scalar (control
-    /// chars, quotes, backslash, newline, tab, and the context-sensitive
-    /// <c>:</c>+space / space+<c>#</c> terminators) force the value
-    /// into a quoted form.
-    /// </summary>
-    /// <param name="value">Scalar value containing a terminator.</param>
-    /// <returns>A task representing the test execution.</returns>
-    [Test]
     [Arguments("Foo: Bar")]
     [Arguments("Foo #Bar")]
     [Arguments("Foo\nBar")]
@@ -88,21 +73,7 @@ public class YamlScalarQuotingTests
     [Arguments("Foo\\Bar")]
     [Arguments("Foo\tBar")]
     [Arguments("trailing:")]
-    public async Task NeedsQuotingReturnsTrueForEmbeddedTerminators(string value) => await Assert.That(YamlScalarQuoting.NeedsQuoting(value)).IsTrue();
-
-    /// <summary>
-    /// Bare colons inside docfx UIDs (and bare hashes inside plain
-    /// scalars) are valid YAML in plain form -- only the
-    /// space-terminated forms break the parser, so the predicate must
-    /// stay quiet for embedded-but-not-terminating cases.
-    /// </summary>
-    /// <param name="value">Scalar with a benign embedded colon or hash.</param>
-    /// <returns>A task representing the test execution.</returns>
-    [Test]
-    [Arguments("M:Foo.Bar(System.Int32)")]
-    [Arguments("Foo:Bar")]
-    [Arguments("Foo#Bar")]
-    public async Task NeedsQuotingReturnsFalseForBenignEmbeddedColonOrHash(string value) => await Assert.That(YamlScalarQuoting.NeedsQuoting(value)).IsFalse();
+    public async Task NeedsQuotingReturnsTrueForUnsafeScalars(string value) => await Assert.That(YamlScalarQuoting.NeedsQuoting(value)).IsTrue();
 
     /// <summary>
     /// CompositeNeedsQuoting matches NeedsQuoting on the joined string

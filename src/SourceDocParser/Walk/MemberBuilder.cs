@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -28,10 +28,7 @@ namespace SourceDocParser.Walk;
 /// </summary>
 internal static class MemberBuilder
 {
-    /// <summary>
-    /// Display format for full member signatures including accessibility,
-    /// modifiers, parameter names, and default values.
-    /// </summary>
+    /// <summary>Display format for full member signatures including accessibility, modifiers, parameter names, and default values.</summary>
     [SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1118:Parameter should not span multiple lines", Justification = "Due to line complexity justified")]
     internal static readonly SymbolDisplayFormat SignatureFormat = new(
         globalNamespaceStyle: OmittedAsContaining,

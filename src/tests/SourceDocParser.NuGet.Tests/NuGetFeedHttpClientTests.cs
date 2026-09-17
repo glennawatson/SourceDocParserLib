@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -17,28 +17,43 @@ namespace SourceDocParser.NuGet.Tests;
 /// </summary>
 public class NuGetFeedHttpClientTests
 {
+    /// <summary>Fixture value for HttpsFeedIndexJson.</summary>
+    private const string HttpsFeedIndexJson = "https://feed/index.json";
+
+    /// <summary>Fixture value for NugetOrg.</summary>
+    private const string NugetOrg = "nuget.org";
+
+    /// <summary>Fixture value for Basic.</summary>
+    private const string Basic = "Basic";
+
+    /// <summary>Fixture value for HttpsFeedXNupkg.</summary>
+    private const string HttpsFeedXNupkg = "https://feed/x.nupkg";
+
+    /// <summary>Expected fixture value used by TryDownloadNupkgAsyncReturnsStreamOnSuccess.</summary>
+    private const int TryDownloadNupkgAsyncReturnsStreamOnSuccessValue = 2;
+
+    /// <summary>Expected fixture value used by TryDownloadNupkgAsyncReturnsStreamOnSuccess.</summary>
+    private const int TryDownloadNupkgAsyncReturnsStreamOnSuccessValue2 = 3;
+
+    /// <summary>Bytes served by the successful package download fixture.</summary>
+    private static readonly byte[] PackagePayload = [1, TryDownloadNupkgAsyncReturnsStreamOnSuccessValue, TryDownloadNupkgAsyncReturnsStreamOnSuccessValue2];
+
     /// <summary>Constructor rejects null HttpClient.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ConstructorRejectsNullHttp() =>
-        await Assert.That(() => new NuGetFeedHttpClient(null!)).Throws<ArgumentNullException>();
+        await Assert.That(static () => new NuGetFeedHttpClient(null!)).Throws<ArgumentNullException>();
 
     /// <summary>ReadServiceIndexAsync returns the success-body stream.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ReadServiceIndexAsyncReturnsContentOnSuccess()
     {
-        var handler = new FakeHandler((_, _) =>
-        {
-            return new(HttpStatusCode.OK)
-            {
-                Content = new StringContent("INDEX-OK"),
-            };
-        });
-        using var http = new HttpClient(handler);
-        var sut = new NuGetFeedHttpClient(http);
+        var handler = new FakeHandler(static (_, _) => new(HttpStatusCode.OK) { Content = new StringContent("INDEX-OK"), });
+        using var http = TestHttpClientFactory.Create(handler);
+        using var sut = new NuGetFeedHttpClient(http);
 
-        await using var stream = await sut.ReadServiceIndexAsync("https://feed/index.json", credential: null, CancellationToken.None);
+        await using var stream = await sut.ReadServiceIndexAsync(HttpsFeedIndexJson, credential: null, CancellationToken.None);
         using var reader = new StreamReader(stream);
         var body = await reader.ReadToEndAsync();
         await Assert.That(body).IsEqualTo("INDEX-OK");
@@ -49,11 +64,11 @@ public class NuGetFeedHttpClientTests
     [Test]
     public async Task ReadServiceIndexAsyncThrowsOnError()
     {
-        var handler = new FakeHandler((_, _) => new(HttpStatusCode.InternalServerError));
-        using var http = new HttpClient(handler);
+        var handler = new FakeHandler(static (_, _) => new(HttpStatusCode.InternalServerError));
+        using var http = TestHttpClientFactory.Create(handler);
         var sut = new NuGetFeedHttpClient(http);
 
-        Task Act() => sut.ReadServiceIndexAsync("https://feed/index.json", credential: null, CancellationToken.None);
+        Task Act() => sut.ReadServiceIndexAsync(HttpsFeedIndexJson, credential: null, CancellationToken.None);
 
         await Assert.That(Act).Throws<HttpRequestException>();
     }
@@ -67,19 +82,16 @@ public class NuGetFeedHttpClientTests
         var handler = new FakeHandler((req, _) =>
         {
             sent = req.Headers.Authorization;
-            return new(HttpStatusCode.OK)
-            {
-                Content = new StringContent(string.Empty),
-            };
+            return new(HttpStatusCode.OK) { Content = new StringContent(string.Empty), };
         });
-        using var http = new HttpClient(handler);
-        var sut = new NuGetFeedHttpClient(http);
-        var cred = new PackageSourceCredential("nuget.org", "user", "pw", null);
+        using var http = TestHttpClientFactory.Create(handler);
+        using var sut = new NuGetFeedHttpClient(http);
+        var cred = new PackageSourceCredential(NugetOrg, "user", "pw", null);
 
-        await using var stream = await sut.ReadServiceIndexAsync("https://feed/index.json", cred, CancellationToken.None);
+        await using var stream = await sut.ReadServiceIndexAsync(HttpsFeedIndexJson, cred, CancellationToken.None);
 
         var expected = Convert.ToBase64String("user:pw"u8);
-        await Assert.That(sent?.Scheme).IsEqualTo("Basic");
+        await Assert.That(sent?.Scheme).IsEqualTo(Basic);
         await Assert.That(sent?.Parameter).IsEqualTo(expected);
     }
 
@@ -88,19 +100,16 @@ public class NuGetFeedHttpClientTests
     [Test]
     public async Task TryDownloadNupkgAsyncReturnsStreamOnSuccess()
     {
-        var handler = new FakeHandler((_, _) => new(HttpStatusCode.OK)
-        {
-            Content = new ByteArrayContent([1, 2, 3]),
-        });
-        using var http = new HttpClient(handler);
-        var sut = new NuGetFeedHttpClient(http);
+        var handler = new FakeHandler(static (_, _) => new(HttpStatusCode.OK) { Content = new ByteArrayContent(PackagePayload), });
+        using var http = TestHttpClientFactory.Create(handler);
+        using var sut = new NuGetFeedHttpClient(http);
 
-        await using var stream = await sut.TryDownloadNupkgAsync("https://feed/x.nupkg", credential: null, CancellationToken.None);
+        await using var stream = await sut.TryDownloadNupkgAsync(HttpsFeedXNupkg, credential: null, CancellationToken.None);
         await Assert.That(stream).IsNotNull();
 
         await using var ms = new MemoryStream();
         await stream!.CopyToAsync(ms);
-        await Assert.That(ms.ToArray()).IsEquivalentTo(new byte[] { 1, 2, 3 });
+        await Assert.That(ms.ToArray()).IsEquivalentTo(PackagePayload);
     }
 
     /// <summary>TryDownloadNupkgAsync returns null on 404.</summary>
@@ -108,11 +117,11 @@ public class NuGetFeedHttpClientTests
     [Test]
     public async Task TryDownloadNupkgAsyncReturnsNullOn404()
     {
-        var handler = new FakeHandler((_, _) => new(HttpStatusCode.NotFound));
-        using var http = new HttpClient(handler);
-        var sut = new NuGetFeedHttpClient(http);
+        var handler = new FakeHandler(static (_, _) => new(HttpStatusCode.NotFound));
+        using var http = TestHttpClientFactory.Create(handler);
+        using var sut = new NuGetFeedHttpClient(http);
 
-        var stream = await sut.TryDownloadNupkgAsync("https://feed/x.nupkg", credential: null, CancellationToken.None);
+        var stream = await sut.TryDownloadNupkgAsync(HttpsFeedXNupkg, credential: null, CancellationToken.None);
 
         await Assert.That(stream).IsNull();
     }
@@ -122,11 +131,11 @@ public class NuGetFeedHttpClientTests
     [Test]
     public async Task TryDownloadNupkgAsyncThrowsOnError()
     {
-        var handler = new FakeHandler((_, _) => new(HttpStatusCode.Unauthorized));
-        using var http = new HttpClient(handler);
+        var handler = new FakeHandler(static (_, _) => new(HttpStatusCode.Unauthorized));
+        using var http = TestHttpClientFactory.Create(handler);
         var sut = new NuGetFeedHttpClient(http);
 
-        async Task Act() => await sut.TryDownloadNupkgAsync("https://feed/x.nupkg", credential: null, CancellationToken.None);
+        async Task Act() => await sut.TryDownloadNupkgAsync(HttpsFeedXNupkg, credential: null, CancellationToken.None);
 
         await Assert.That(Act).Throws<HttpRequestException>();
     }
@@ -142,13 +151,13 @@ public class NuGetFeedHttpClientTests
             sent = req.Headers.Authorization;
             return new(HttpStatusCode.OK) { Content = new ByteArrayContent([]) };
         });
-        using var http = new HttpClient(handler);
-        var sut = new NuGetFeedHttpClient(http);
-        var cred = new PackageSourceCredential("nuget.org", "u", "p", null);
+        using var http = TestHttpClientFactory.Create(handler);
+        using var sut = new NuGetFeedHttpClient(http);
+        var cred = new PackageSourceCredential(NugetOrg, "u", "p", null);
 
-        await using var stream = await sut.TryDownloadNupkgAsync("https://feed/x.nupkg", cred, CancellationToken.None);
+        await using var stream = await sut.TryDownloadNupkgAsync(HttpsFeedXNupkg, cred, CancellationToken.None);
 
-        await Assert.That(sent?.Scheme).IsEqualTo("Basic");
+        await Assert.That(sent?.Scheme).IsEqualTo(Basic);
     }
 
     /// <summary>Dispose with ownsHttp=true disposes the underlying HttpClient.</summary>
@@ -157,7 +166,7 @@ public class NuGetFeedHttpClientTests
     public async Task DisposeWithOwnsHttpDisposesHttpClient()
     {
         var handler = new TrackingHandler();
-        var http = new HttpClient(handler);
+        var http = TestHttpClientFactory.Create(handler);
         var sut = new NuGetFeedHttpClient(http, ownsHttp: true);
 
         sut.Dispose();
@@ -171,7 +180,7 @@ public class NuGetFeedHttpClientTests
     public async Task DisposeWithoutOwnsHttpLeavesHttpClient()
     {
         var handler = new TrackingHandler();
-        using var http = new HttpClient(handler);
+        using var http = TestHttpClientFactory.Create(handler);
         var sut = new NuGetFeedHttpClient(http, ownsHttp: false);
 
         sut.Dispose();
@@ -198,10 +207,10 @@ public class NuGetFeedHttpClientTests
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "https://example/");
 
-        NuGetFeedHttpClient.ApplyCredentials(request, new PackageSourceCredential("nuget.org", "alice", "secret", null));
+        NuGetFeedHttpClient.ApplyCredentials(request, new PackageSourceCredential(NugetOrg, "alice", "secret", null));
 
         var expected = Convert.ToBase64String("alice:secret"u8);
-        await Assert.That(request.Headers.Authorization?.Scheme).IsEqualTo("Basic");
+        await Assert.That(request.Headers.Authorization?.Scheme).IsEqualTo(Basic);
         await Assert.That(request.Headers.Authorization?.Parameter).IsEqualTo(expected);
     }
 

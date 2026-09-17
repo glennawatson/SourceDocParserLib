@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -15,6 +15,9 @@ namespace SourceDocParser.Tests.XmlDoc;
 /// </summary>
 public class XmlAttributeParserTests
 {
+    /// <summary>Fixture value for TFoo.</summary>
+    private const string TFoo = "T:Foo";
+
     /// <summary>An empty attribute area yields an empty span lookup.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -33,7 +36,7 @@ public class XmlAttributeParserTests
         var cref = XmlAttributeParser.GetAttribute(area, "cref".AsSpan()).ToString();
         var name = XmlAttributeParser.GetAttribute(area, "name".AsSpan()).ToString();
 
-        await Assert.That(cref).IsEqualTo("T:Foo");
+        await Assert.That(cref).IsEqualTo(TFoo);
         await Assert.That(name).IsEqualTo("x");
     }
 
@@ -56,7 +59,7 @@ public class XmlAttributeParserTests
         var cref = XmlAttributeParser.GetAttribute(source.AsSpan(), "cref".AsSpan()).ToString();
 
         await Assert.That(nameLen).IsEqualTo(0);
-        await Assert.That(cref).IsEqualTo("T:Foo");
+        await Assert.That(cref).IsEqualTo(TFoo);
     }
 
     /// <summary>Single-quoted values are not recognised -- contract is double-quote only.</summary>
@@ -84,7 +87,7 @@ public class XmlAttributeParserTests
     {
         var area = "   cref =   \"T:Foo\"   name=\"x\"".AsSpan();
         var cref = XmlAttributeParser.GetAttribute(area, "cref".AsSpan()).ToString();
-        await Assert.That(cref).IsEqualTo("T:Foo");
+        await Assert.That(cref).IsEqualTo(TFoo);
     }
 
     /// <summary>Multiple attributes after a match are still findable when scanning order matters.</summary>

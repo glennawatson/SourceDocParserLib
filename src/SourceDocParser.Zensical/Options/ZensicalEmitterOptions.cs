@@ -1,8 +1,7 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Diagnostics.CodeAnalysis;
 using SourceDocParser.Zensical.Routing;
 
 namespace SourceDocParser.Zensical.Options;
@@ -21,14 +20,17 @@ namespace SourceDocParser.Zensical.Options;
 /// search index -- useful when API docs are sprawling and would otherwise
 /// drown out the hand-written guides.
 /// </param>
+[System.Diagnostics.DebuggerDisplay("ZensicalEmitterOptions: {Resolver}")]
 public sealed record ZensicalEmitterOptions(
     PackageRoutingRule[] PackageRouting,
-    string MicrosoftLearnBaseUrl = ZensicalEmitterOptions.DefaultMicrosoftLearnBaseUrl,
+    string MicrosoftLearnBaseUrl = ZensicalEmitterOptions.MicrosoftLearnApiRoot,
     bool IncludeInSearch = true)
 {
-    /// <summary>Canonical Microsoft Learn .NET API root.</summary>
-    [SuppressMessage("Critical Code Smell", "S2339:Public constant members should not be used", Justification = "Default value is not secret.")]
-    public const string DefaultMicrosoftLearnBaseUrl = "https://learn.microsoft.com/dotnet/api/";
+    /// <summary>Canonical Microsoft Learn .NET API root used by optional arguments.</summary>
+    private const string MicrosoftLearnApiRoot = "https://learn.microsoft.com/dotnet/api/";
+
+    /// <summary>Gets the canonical Microsoft Learn .NET API root.</summary>
+    public static string DefaultMicrosoftLearnBaseUrl => MicrosoftLearnApiRoot;
 
     /// <summary>Gets the legacy default: no per-package routing, no override URLs.</summary>
     public static ZensicalEmitterOptions Default { get; } = new([]);

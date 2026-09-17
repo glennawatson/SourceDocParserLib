@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,6 +16,9 @@ namespace SourceDocParser.Tests;
 /// </summary>
 public class MetadataExtractorTests
 {
+    /// <summary>Fixture value for Net100.</summary>
+    private const string Net100 = "net10.0";
+
     /// <summary>
     /// An empty source (no TFM groups) throws InvalidOperationException --
     /// the parser refuses to "succeed" on a no-op input because it almost
@@ -35,9 +38,7 @@ public class MetadataExtractorTests
             .Throws<InvalidOperationException>();
     }
 
-    /// <summary>
-    /// Null source / null emitter / null sink throw ArgumentNullException.
-    /// </summary>
+    /// <summary>Null source / null emitter / null sink throw ArgumentNullException.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task RunAsyncValidatesArguments()
@@ -67,10 +68,7 @@ public class MetadataExtractorTests
         // We need a source that produces at least one group to avoid InvalidOperationException.
         // But since LoadAndWalkAssembly is called, we might need a real-ish dll or a fake that works.
         // Actually, let's see if we can just provide an empty list of assembly paths in a group.
-        var groups = new List<AssemblyGroup>
-        {
-            new("net10.0", [], []),
-        };
+        var groups = new List<AssemblyGroup> { new(Net100, [], []), };
         var source = new FakeAssemblySource(groups);
         var emitter = new RecordingEmitter();
         using var output = new TempDirectory();
@@ -88,10 +86,7 @@ public class MetadataExtractorTests
     [Test]
     public async Task RunAsyncThreeArgOverloadDelegates()
     {
-        var groups = new List<AssemblyGroup>
-        {
-            new("net10.0", [], []),
-        };
+        var groups = new List<AssemblyGroup> { new(Net100, [], []), };
         var source = new FakeAssemblySource(groups);
         var emitter = new RecordingEmitter();
         using var output = new TempDirectory();
@@ -109,10 +104,7 @@ public class MetadataExtractorTests
     [Test]
     public async Task RunAsyncFourArgOverloadAcceptsLogger()
     {
-        var groups = new List<AssemblyGroup>
-        {
-            new("net10.0", [], []),
-        };
+        var groups = new List<AssemblyGroup> { new(Net100, [], []), };
         var source = new FakeAssemblySource(groups);
         var emitter = new RecordingEmitter();
         using var output = new TempDirectory();
@@ -125,18 +117,12 @@ public class MetadataExtractorTests
         await Assert.That(emitter.CapturedSink).IsSameReferenceAs(sink);
     }
 
-    /// <summary>
-    /// Direct-mode <see cref="MetadataExtractor.ExtractAsync(IAssemblySource)"/> returns the merged catalog
-    /// without invoking an emitter or touching disk.
-    /// </summary>
+    /// <summary>Direct-mode <see cref="MetadataExtractor.ExtractAsync(IAssemblySource)"/> returns the merged catalog without invoking an emitter or touching disk.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ExtractAsyncReturnsMergedCatalogWithoutEmitter()
     {
-        var groups = new List<AssemblyGroup>
-        {
-            new("net10.0", [], []),
-        };
+        var groups = new List<AssemblyGroup> { new(Net100, [], []), };
         var source = new FakeAssemblySource(groups);
         var extractor = new MetadataExtractor();
 
@@ -147,9 +133,7 @@ public class MetadataExtractorTests
         await Assert.That(result.SourceLinks).IsNotNull();
     }
 
-    /// <summary>
-    /// <see cref="MetadataExtractor.ExtractAsync(IAssemblySource)"/> rejects a null source.
-    /// </summary>
+    /// <summary><see cref="MetadataExtractor.ExtractAsync(IAssemblySource)"/> rejects a null source.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ExtractAsyncValidatesArguments()
@@ -160,10 +144,7 @@ public class MetadataExtractorTests
             .Throws<ArgumentNullException>();
     }
 
-    /// <summary>
-    /// An empty source (no TFM groups) throws <see cref="InvalidOperationException"/>
-    /// from the direct-mode path too.
-    /// </summary>
+    /// <summary>An empty source (no TFM groups) throws <see cref="InvalidOperationException"/> from the direct-mode path too.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ExtractAsyncThrowsWhenSourceProducesNoGroups()
@@ -175,9 +156,7 @@ public class MetadataExtractorTests
             .Throws<InvalidOperationException>();
     }
 
-    /// <summary>
-    /// Recording emitter that captures the merged catalog the extractor hands it.
-    /// </summary>
+    /// <summary>Recording emitter that captures the merged catalog the extractor hands it.</summary>
     private sealed class RecordingEmitter : IDocumentationEmitter
     {
         /// <summary>Gets the catalog captured on the most recent invocation.</summary>
@@ -187,6 +166,7 @@ public class MetadataExtractorTests
         public IPageSink? CapturedSink { get; private set; }
 
         /// <inheritdoc />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Task<int> EmitAsync(ApiType[] types, IPageSink sink) => EmitAsync(types, sink, CancellationToken.None);
 
         /// <inheritdoc />
@@ -198,14 +178,12 @@ public class MetadataExtractorTests
         }
     }
 
-    /// <summary>
-    /// Source that yields a pre-built list of <see cref="AssemblyGroup"/>s
-    /// without touching the disk.
-    /// </summary>
+    /// <summary>Source that yields a pre-built list of <see cref="AssemblyGroup"/>s without touching the disk.</summary>
     /// <param name="groups">Groups to yield in DiscoverAsync.</param>
     private sealed class FakeAssemblySource(List<AssemblyGroup> groups) : IAssemblySource
     {
         /// <inheritdoc />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IAsyncEnumerable<AssemblyGroup> DiscoverAsync() => DiscoverAsync(CancellationToken.None);
 
         /// <inheritdoc />
@@ -221,16 +199,14 @@ public class MetadataExtractorTests
         }
     }
 
-    /// <summary>
-    /// Disposable scratch directory the test deletes on dispose.
-    /// </summary>
+    /// <summary>Disposable scratch directory the test deletes on dispose.</summary>
     private sealed class TempDirectory : IDisposable
     {
         /// <summary>Initializes a new instance of the <see cref="TempDirectory"/> class..</summary>
         public TempDirectory()
         {
             Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"sdp-tests-{Guid.NewGuid():N}");
-            Directory.CreateDirectory(Path);
+            _ = Directory.CreateDirectory(Path);
         }
 
         /// <summary>Gets the absolute path of the scratch directory.</summary>

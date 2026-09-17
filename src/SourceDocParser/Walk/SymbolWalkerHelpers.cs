@@ -1,9 +1,10 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Immutable;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using SourceDocParser.Model;
 
@@ -21,9 +22,7 @@ namespace SourceDocParser.Walk;
 /// </summary>
 internal static class SymbolWalkerHelpers
 {
-    /// <summary>
-    /// Roslyn display format for base-type/interface labels (short names + generic args).
-    /// </summary>
+    /// <summary>Roslyn display format for base-type/interface labels (short names + generic args).</summary>
     private static readonly SymbolDisplayFormat _displayFormat = SymbolDisplayFormat.MinimallyQualifiedFormat;
 
     /// <summary>
@@ -34,7 +33,7 @@ internal static class SymbolWalkerHelpers
     /// </summary>
     /// <param name="type">Type to classify.</param>
     /// <returns>The matching object kind, or <see langword="null"/> if the type is not class- or struct-shaped.</returns>
-    public static ApiObjectKind? ClassifyObjectKind(INamedTypeSymbol type) => type.TypeKind switch
+    internal static ApiObjectKind? ClassifyObjectKind(INamedTypeSymbol type) => type.TypeKind switch
     {
         TypeKind.Class when type.IsRecord => ApiObjectKind.Record,
         TypeKind.Class => ApiObjectKind.Class,
@@ -52,6 +51,8 @@ internal static class SymbolWalkerHelpers
     /// <see langword="false"/> in practice today; on future Roslyn the
     /// detection lights up automatically.
     /// </summary>
+    /// <param name="type">Type to inspect.</param>
+    /// <returns><see langword="true"/> if the type is a union base.</returns>
     /// <remarks>
     /// Once a stable Microsoft.CodeAnalysis.CSharp release ships with
     /// first-class union support (<c>TypeKind.Union</c>,
@@ -61,15 +62,13 @@ internal static class SymbolWalkerHelpers
     /// drop the same-assembly derivation walk in
     /// <see cref="BuildUnionCases"/>.
     /// </remarks>
-    /// <param name="type">Type to inspect.</param>
-    /// <returns><see langword="true"/> if the type is a union base.</returns>
-    public static bool IsUnion(INamedTypeSymbol type)
+    internal static bool IsUnion(INamedTypeSymbol type)
     {
         for (var i = 0; i < type.AllInterfaces.Length; i++)
         {
             var iface = type.AllInterfaces[i];
-            if (iface is { Name: "IUnion", ContainingNamespace: { Name: "CompilerServices", ContainingNamespace.Name: "Runtime" } } &&
-                iface.ContainingNamespace.ContainingNamespace.ContainingNamespace?.Name == "System")
+            if (iface is { Name: "IUnion", ContainingNamespace: { Name: "CompilerServices", ContainingNamespace.Name: "Runtime" } }
+                && iface.ContainingNamespace.ContainingNamespace.ContainingNamespace?.Name == "System")
             {
                 return true;
             }
@@ -78,12 +77,10 @@ internal static class SymbolWalkerHelpers
         return false;
     }
 
-    /// <summary>
-    /// Maps an <see cref="ISymbol"/> to <see cref="ApiMemberKind"/>; returns null for kinds the walker skips.
-    /// </summary>
+    /// <summary>Maps an <see cref="ISymbol"/> to <see cref="ApiMemberKind"/>; returns null for kinds the walker skips.</summary>
     /// <param name="member">Symbol to classify.</param>
     /// <returns>The classified member kind, or null.</returns>
-    public static ApiMemberKind? TryClassifyMember(ISymbol member)
+    internal static ApiMemberKind? TryClassifyMember(ISymbol member)
     {
         if (member is IMethodSymbol method)
         {
@@ -103,12 +100,10 @@ internal static class SymbolWalkerHelpers
         return member is IEventSymbol ? ApiMemberKind.Event : null;
     }
 
-    /// <summary>
-    /// Classifies a method-like symbol into an API member kind.
-    /// </summary>
+    /// <summary>Classifies a method-like symbol into an API member kind.</summary>
     /// <param name="member">Method to classify.</param>
     /// <returns>The classified member kind, or null.</returns>
-    public static ApiMemberKind? ClassifyMethod(IMethodSymbol member)
+    internal static ApiMemberKind? ClassifyMethod(IMethodSymbol member)
     {
         if (member.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor)
         {
@@ -120,30 +115,21 @@ internal static class SymbolWalkerHelpers
             return ApiMemberKind.Operator;
         }
 
-        if (member.MethodKind is not (MethodKind.Ordinary or MethodKind.ExplicitInterfaceImplementation or MethodKind.DeclareMethod))
-        {
-            return null;
-        }
-
-        return ApiMemberKind.Method;
+        return member.MethodKind is not (MethodKind.Ordinary or MethodKind.ExplicitInterfaceImplementation or MethodKind.DeclareMethod) ? null : ApiMemberKind.Method;
     }
 
-    /// <summary>
-    /// Classifies a field symbol into either an enum value or a field.
-    /// </summary>
+    /// <summary>Classifies a field symbol into either an enum value or a field.</summary>
     /// <param name="member">Field to classify.</param>
     /// <returns>The classified member kind.</returns>
-    public static ApiMemberKind ClassifyField(IFieldSymbol member) =>
+    internal static ApiMemberKind ClassifyField(IFieldSymbol member) =>
         member.ContainingType.TypeKind == TypeKind.Enum
             ? ApiMemberKind.EnumValue
             : ApiMemberKind.Field;
 
-    /// <summary>
-    /// Documents public, protected, and protected-internal members.
-    /// </summary>
+    /// <summary>Documents public, protected, and protected-internal members.</summary>
     /// <param name="accessibility">Accessibility level to check.</param>
     /// <returns>True if externally visible.</returns>
-    public static bool IsExternallyVisible(Accessibility accessibility) => accessibility
+    internal static bool IsExternallyVisible(Accessibility accessibility) => accessibility
         is Accessibility.Public
         or Accessibility.Protected
         or Accessibility.ProtectedOrInternal;
@@ -161,27 +147,24 @@ internal static class SymbolWalkerHelpers
     /// </summary>
     /// <param name="type">Candidate type to inspect.</param>
     /// <returns>True when the type is a C# 14 extension marker.</returns>
-    public static bool IsExtensionDeclaration(INamedTypeSymbol type) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsExtensionDeclaration(INamedTypeSymbol type) =>
         type.IsExtension;
 
-    /// <summary>
-    /// Returns true when the member carries the C# 11 <c>required</c> modifier.
-    /// </summary>
+    /// <summary>Returns true when the member carries the C# 11 <c>required</c> modifier.</summary>
     /// <param name="member">Member to check.</param>
     /// <returns>True if required.</returns>
-    public static bool IsRequiredMember(ISymbol member) => member switch
+    internal static bool IsRequiredMember(ISymbol member) => member switch
     {
         IPropertySymbol p => p.IsRequired,
         IFieldSymbol f => f.IsRequired,
         _ => false,
     };
 
-    /// <summary>
-    /// Renders a default-value literal as C# source text.
-    /// </summary>
+    /// <summary>Renders a default-value literal as C# source text.</summary>
     /// <param name="value">The literal value.</param>
     /// <returns>The formatted literal string.</returns>
-    public static string FormatLiteral(object? value) => value switch
+    internal static string FormatLiteral(object? value) => value switch
     {
         null => "null",
         string s => $"\"{s}\"",
@@ -190,12 +173,10 @@ internal static class SymbolWalkerHelpers
         _ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "null",
     };
 
-    /// <summary>
-    /// Cache-miss factory for <see cref="TypeReferenceCache.GetOrAdd"/>.
-    /// </summary>
+    /// <summary>Cache-miss factory for <see cref="TypeReferenceCache.GetOrAdd"/>.</summary>
     /// <param name="symbol">Type symbol the cache is building a reference for.</param>
     /// <returns>A new API type reference.</returns>
-    public static ApiTypeReference BuildReference(ITypeSymbol symbol) =>
+    internal static ApiTypeReference BuildReference(ITypeSymbol symbol) =>
         new(symbol.ToDisplayString(_displayFormat), symbol.GetDocumentationCommentId() ?? string.Empty);
 
     /// <summary>
@@ -207,7 +188,7 @@ internal static class SymbolWalkerHelpers
     /// <param name="type">Type whose base to inspect.</param>
     /// <param name="cache">Type reference cache.</param>
     /// <returns>The base type reference, or null if filtered.</returns>
-    public static ApiTypeReference? BuildBaseTypeReference(INamedTypeSymbol type, TypeReferenceCache cache)
+    internal static ApiTypeReference? BuildBaseTypeReference(INamedTypeSymbol type, TypeReferenceCache cache)
     {
         if (type.BaseType is not { } baseType)
         {
@@ -228,7 +209,7 @@ internal static class SymbolWalkerHelpers
     /// <param name="type">Type whose declared interfaces to inspect.</param>
     /// <param name="cache">Type reference cache.</param>
     /// <returns>The declared interface references.</returns>
-    public static ApiTypeReference[] BuildInterfaceReferences(INamedTypeSymbol type, TypeReferenceCache cache)
+    internal static ApiTypeReference[] BuildInterfaceReferences(INamedTypeSymbol type, TypeReferenceCache cache)
     {
         if (type.Interfaces.IsEmpty)
         {
@@ -255,7 +236,7 @@ internal static class SymbolWalkerHelpers
     /// <param name="type">Union base to inspect.</param>
     /// <param name="cache">Type-reference cache.</param>
     /// <returns>The union case type references.</returns>
-    public static ApiTypeReference[] BuildUnionCases(INamedTypeSymbol type, TypeReferenceCache cache)
+    internal static ApiTypeReference[] BuildUnionCases(INamedTypeSymbol type, TypeReferenceCache cache)
     {
         // Walk every named type in the same assembly looking for direct
         // derivations of this base. Same-assembly is the closure rule
@@ -295,7 +276,7 @@ internal static class SymbolWalkerHelpers
     /// <param name="type">Enum type symbol.</param>
     /// <param name="context">Per-walk state bundle.</param>
     /// <returns>The declared values, in source order.</returns>
-    public static ApiEnumValue[] BuildEnumValues(INamedTypeSymbol type, SymbolWalkContext context)
+    internal static ApiEnumValue[] BuildEnumValues(INamedTypeSymbol type, SymbolWalkContext context)
     {
         var members = type.GetMembers();
         var values = new List<ApiEnumValue>(members.Length);
@@ -332,7 +313,7 @@ internal static class SymbolWalkerHelpers
     /// <param name="type">Delegate type symbol.</param>
     /// <param name="context">Per-walk state bundle.</param>
     /// <returns>The delegate's invoke signature.</returns>
-    public static ApiDelegateSignature BuildDelegateInvoke(INamedTypeSymbol type, SymbolWalkContext context)
+    internal static ApiDelegateSignature BuildDelegateInvoke(INamedTypeSymbol type, SymbolWalkContext context)
     {
         var invoke = type.DelegateInvokeMethod;
         var typeParameters = new string[type.TypeParameters.Length];
@@ -341,25 +322,20 @@ internal static class SymbolWalkerHelpers
             typeParameters[i] = type.TypeParameters[i].Name;
         }
 
-        if (invoke is null)
-        {
-            return new(type.ToDisplayString(), null, [], typeParameters);
-        }
-
-        return new(
+        return invoke is null
+            ? new(type.ToDisplayString(), null, [], typeParameters)
+            : new(
             Signature: invoke.ToDisplayString(),
             ReturnType: BuildReturnTypeReference(invoke, context.TypeRefs),
             Parameters: BuildParameters(invoke, context.TypeRefs),
             TypeParameters: typeParameters);
     }
 
-    /// <summary>
-    /// Returns the parameters of a method, constructor, operator, or indexer.
-    /// </summary>
+    /// <summary>Returns the parameters of a method, constructor, operator, or indexer.</summary>
     /// <param name="member">Member whose parameters to read.</param>
     /// <param name="typeRefs">Type-reference cache.</param>
     /// <returns>The parameters.</returns>
-    public static ApiParameter[] BuildParameters(ISymbol member, TypeReferenceCache typeRefs)
+    internal static ApiParameter[] BuildParameters(ISymbol member, TypeReferenceCache typeRefs)
     {
         var parameters = member switch
         {
@@ -391,14 +367,12 @@ internal static class SymbolWalkerHelpers
         return result;
     }
 
-    /// <summary>
-    /// Returns generic type-parameter names for a member.
-    /// </summary>
+    /// <summary>Returns generic type-parameter names for a member.</summary>
     /// <param name="member">Member to inspect.</param>
     /// <returns>The type parameter names.</returns>
-    public static string[] BuildTypeParameters(ISymbol member)
+    internal static string[] BuildTypeParameters(ISymbol member)
     {
-        ImmutableArray<ITypeParameterSymbol> typeParams = member switch
+        var typeParams = member switch
         {
             IMethodSymbol method => method.TypeParameters,
             INamedTypeSymbol named => named.TypeParameters,
@@ -419,13 +393,11 @@ internal static class SymbolWalkerHelpers
         return result;
     }
 
-    /// <summary>
-    /// Returns the return type of a method, operator, or property.
-    /// </summary>
+    /// <summary>Returns the return type of a method, operator, or property.</summary>
     /// <param name="member">Member to inspect.</param>
     /// <param name="typeRefs">Type-reference cache.</param>
     /// <returns>The return type reference, or null when the member has no return type.</returns>
-    public static ApiTypeReference? BuildReturnTypeReference(ISymbol member, TypeReferenceCache typeRefs) => member switch
+    internal static ApiTypeReference? BuildReturnTypeReference(ISymbol member, TypeReferenceCache typeRefs) => member switch
     {
         IMethodSymbol { ReturnsVoid: true } => null,
         IMethodSymbol m => typeRefs.GetOrAdd(m.ReturnType, BuildReference),

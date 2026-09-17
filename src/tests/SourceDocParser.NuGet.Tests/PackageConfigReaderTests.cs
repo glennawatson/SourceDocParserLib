@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -15,13 +15,19 @@ namespace SourceDocParser.NuGet.Tests;
 /// </summary>
 public class PackageConfigReaderTests
 {
+    /// <summary>Fixture value for Net80.</summary>
+    private const string Net80 = "net8.0";
+
+    /// <summary>Expected fixture value used by ReadTfmOverridesPopulatesDictionary.</summary>
+    private const int ReadTfmOverridesPopulatesDictionaryExpectedValue = 2;
+
     /// <summary>Read rejects a blank path.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ReadRejectsBlankPath()
     {
-        await Assert.That(() => PackageConfigReader.Read(string.Empty)).Throws<ArgumentException>();
-        await Assert.That(() => PackageConfigReader.Read("   ")).Throws<ArgumentException>();
+        await Assert.That(static () => PackageConfigReader.Read(string.Empty)).Throws<ArgumentException>();
+        await Assert.That(static () => PackageConfigReader.Read("   ")).Throws<ArgumentException>();
     }
 
     /// <summary>Read throws when the JSON root is not an object.</summary>
@@ -146,9 +152,9 @@ public class PackageConfigReaderTests
         {
             var config = PackageConfigReader.Read(path);
 
-            await Assert.That(config.TfmOverrides.Count).IsEqualTo(2);
-            await Assert.That(config.TfmOverrides["net6.0"]).IsEqualTo("net8.0");
-            await Assert.That(config.TfmOverrides["netstandard2.0"]).IsEqualTo("net8.0");
+            await Assert.That(config.TfmOverrides.Count).IsEqualTo(ReadTfmOverridesPopulatesDictionaryExpectedValue);
+            await Assert.That(config.TfmOverrides["net6.0"]).IsEqualTo(Net80);
+            await Assert.That(config.TfmOverrides["netstandard2.0"]).IsEqualTo(Net80);
         }
         finally
         {
@@ -205,10 +211,10 @@ public class PackageConfigReaderTests
         {
             var config = PackageConfigReader.Read(path);
 
-            await Assert.That(config.ReferencePackages.Length).IsEqualTo(2);
+            await Assert.That(config.ReferencePackages.Length).IsEqualTo(ReadTfmOverridesPopulatesDictionaryExpectedValue);
             await Assert.That(config.ReferencePackages[0].Id).IsEqualTo("Foo");
             await Assert.That(config.ReferencePackages[0].Version).IsEqualTo("1.2.3");
-            await Assert.That(config.ReferencePackages[0].TargetTfm).IsEqualTo("net8.0");
+            await Assert.That(config.ReferencePackages[0].TargetTfm).IsEqualTo(Net80);
             await Assert.That(config.ReferencePackages[0].PathPrefix).IsEqualTo("lib");
             await Assert.That(config.ReferencePackages[1].Id).IsEqualTo("Bar");
             await Assert.That(config.ReferencePackages[1].Version).IsNull();
@@ -239,7 +245,7 @@ public class PackageConfigReaderTests
             var config = PackageConfigReader.Read(path);
 
             string[] expectedOwners = ["alice"];
-            string[] expectedTfms = ["net8.0"];
+            string[] expectedTfms = [Net80];
             string[] expectedExcludes = ["Bad"];
             string[] expectedPrefixes = ["Internal."];
             await Assert.That(config.NugetPackageOwners).IsEquivalentTo(expectedOwners);

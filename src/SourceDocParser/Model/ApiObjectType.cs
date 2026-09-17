@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -33,6 +33,8 @@ namespace SourceDocParser.Model;
 /// <param name="IsByRefLike">Whether the type is a <c>ref struct</c>.</param>
 /// <param name="Members">Documented members declared on the type.</param>
 /// <param name="ExtensionBlocks">C# 14 <c>extension(T receiver)</c> blocks declared on this type (only populated for static container types). Empty for non-static and non-host types.</param>
+[System.Diagnostics.DebuggerDisplay("ApiObjectType: {ToString(),nq}")]
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "SST2338", Justification = "Type metadata fields coexist for every kind and are not mutually exclusive payloads.")]
 public sealed record ApiObjectType(
     string Name,
     string FullName,

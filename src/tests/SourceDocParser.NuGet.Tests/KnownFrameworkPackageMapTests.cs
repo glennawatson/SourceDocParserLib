@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -15,11 +15,20 @@ namespace SourceDocParser.NuGet.Tests;
 /// </summary>
 public class KnownFrameworkPackageMapTests
 {
+    /// <summary>Fixture value for MicrosoftWindowsAppSDK.</summary>
+    private const string MicrosoftWindowsAppSDK = "Microsoft.WindowsAppSDK";
+
+    /// <summary>Fixture value for MicrosoftWinUI.</summary>
+    private const string MicrosoftWinUI = "Microsoft.WinUI";
+
+    /// <summary>Expected fixture value used by AdditionalNuGetPackagesForPreservesFirstSeenOrder.</summary>
+    private const int AdditionalNuGetPackagesForPreservesFirstSeenOrderExpectedValue = 2;
+
     /// <summary>Every WinUI / Windows App SDK projection collapses onto Microsoft.WindowsAppSDK.</summary>
     /// <param name="referenceName">Synthetic projection assembly name.</param>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    [Arguments("Microsoft.WinUI")]
+    [Arguments(MicrosoftWinUI)]
     [Arguments("WinRT.Runtime")]
     [Arguments("Microsoft.Windows.SDK.NET")]
     [Arguments("Microsoft.InteractiveExperiences.Projection")]
@@ -27,7 +36,7 @@ public class KnownFrameworkPackageMapTests
     [Arguments("Microsoft.Windows.UI.Xaml")]
     [Arguments("Microsoft.Windows.AppLifecycle.Projection")]
     public async Task WinUiProjectionsMapToWindowsAppSdk(string referenceName) =>
-        await Assert.That(KnownFrameworkPackageMap.TryGetPackageId(referenceName)).IsEqualTo("Microsoft.WindowsAppSDK");
+        await Assert.That(KnownFrameworkPackageMap.TryGetPackageId(referenceName)).IsEqualTo(MicrosoftWindowsAppSDK);
 
     /// <summary>Standalone WebView2 surfaces map to Microsoft.Web.WebView2.</summary>
     /// <param name="referenceName">WebView2 surface assembly name.</param>
@@ -55,7 +64,7 @@ public class KnownFrameworkPackageMapTests
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task TryGetPackageIdRejectsBlankInput() =>
-        await Assert.That(() => KnownFrameworkPackageMap.TryGetPackageId(string.Empty)).Throws<ArgumentException>();
+        await Assert.That(static () => KnownFrameworkPackageMap.TryGetPackageId(string.Empty)).Throws<ArgumentException>();
 
     /// <summary>
     /// AdditionalNuGetPackagesFor de-duplicates: multiple WinUI
@@ -68,20 +77,17 @@ public class KnownFrameworkPackageMapTests
     {
         var packages = KnownFrameworkPackageMap.AdditionalNuGetPackagesFor(
         [
-            "Microsoft.WinUI",
+            MicrosoftWinUI,
             "WinRT.Runtime",
             "Microsoft.Windows.SDK.NET",
             "Microsoft.InteractiveExperiences.Projection",
         ]);
 
         await Assert.That(packages.Count).IsEqualTo(1);
-        await Assert.That(packages[0]).IsEqualTo("Microsoft.WindowsAppSDK");
+        await Assert.That(packages[0]).IsEqualTo(MicrosoftWindowsAppSDK);
     }
 
-    /// <summary>
-    /// AdditionalNuGetPackagesFor preserves first-seen ordering when
-    /// multiple distinct mappings appear in the same input list.
-    /// </summary>
+    /// <summary>AdditionalNuGetPackagesFor preserves first-seen ordering when multiple distinct mappings appear in the same input list.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task AdditionalNuGetPackagesForPreservesFirstSeenOrder()
@@ -89,13 +95,13 @@ public class KnownFrameworkPackageMapTests
         var packages = KnownFrameworkPackageMap.AdditionalNuGetPackagesFor(
         [
             "Microsoft.Web.WebView2.Wpf",
-            "Microsoft.WinUI",
+            MicrosoftWinUI,
             "Microsoft.Web.WebView2.Core",
         ]);
 
-        await Assert.That(packages.Count).IsEqualTo(2);
+        await Assert.That(packages.Count).IsEqualTo(AdditionalNuGetPackagesForPreservesFirstSeenOrderExpectedValue);
         await Assert.That(packages[0]).IsEqualTo("Microsoft.Web.WebView2");
-        await Assert.That(packages[1]).IsEqualTo("Microsoft.WindowsAppSDK");
+        await Assert.That(packages[1]).IsEqualTo(MicrosoftWindowsAppSDK);
     }
 
     /// <summary>Unmapped entries are filtered out without affecting the result of mapped ones.</summary>
@@ -106,12 +112,12 @@ public class KnownFrameworkPackageMapTests
         var packages = KnownFrameworkPackageMap.AdditionalNuGetPackagesFor(
         [
             "System.Reactive",
-            "Microsoft.WinUI",
+            MicrosoftWinUI,
             "Splat",
         ]);
 
         await Assert.That(packages.Count).IsEqualTo(1);
-        await Assert.That(packages[0]).IsEqualTo("Microsoft.WindowsAppSDK");
+        await Assert.That(packages[0]).IsEqualTo(MicrosoftWindowsAppSDK);
     }
 
     /// <summary>Empty / whitespace entries are silently skipped (not mapped, not thrown).</summary>
@@ -119,17 +125,17 @@ public class KnownFrameworkPackageMapTests
     [Test]
     public async Task AdditionalNuGetPackagesForSkipsBlankEntries()
     {
-        var packages = KnownFrameworkPackageMap.AdditionalNuGetPackagesFor([string.Empty, "Microsoft.WinUI"]);
+        var packages = KnownFrameworkPackageMap.AdditionalNuGetPackagesFor([string.Empty, MicrosoftWinUI]);
 
         await Assert.That(packages.Count).IsEqualTo(1);
-        await Assert.That(packages[0]).IsEqualTo("Microsoft.WindowsAppSDK");
+        await Assert.That(packages[0]).IsEqualTo(MicrosoftWindowsAppSDK);
     }
 
     /// <summary>Null input is rejected via the standard guard.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task AdditionalNuGetPackagesForRejectsNullInput() =>
-        await Assert.That(() => KnownFrameworkPackageMap.AdditionalNuGetPackagesFor(null!)).Throws<ArgumentNullException>();
+        await Assert.That(static () => KnownFrameworkPackageMap.AdditionalNuGetPackagesFor(null!)).Throws<ArgumentNullException>();
 
     /// <summary>
     /// KnownReferenceNames is non-empty and contains both the WinUI
@@ -143,7 +149,7 @@ public class KnownFrameworkPackageMapTests
         var names = KnownFrameworkPackageMap.KnownReferenceNames();
 
         await Assert.That(names.Length).IsGreaterThan(0);
-        await Assert.That(names).Contains("Microsoft.WinUI");
+        await Assert.That(names).Contains(MicrosoftWinUI);
         await Assert.That(names).Contains("Microsoft.Web.WebView2.Core");
     }
 }

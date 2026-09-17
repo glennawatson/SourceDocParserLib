@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,13 +16,10 @@ namespace SourceDocParser.Docfx.Yaml;
 /// </summary>
 internal static class MemberUidProjection
 {
-    /// <summary>
-    /// Counts non-compiler-generated members so an exact-size buffer
-    /// can be allocated for the children list.
-    /// </summary>
+    /// <summary>Counts non-compiler-generated members so an exact-size buffer can be allocated for the children list.</summary>
     /// <param name="members">Member array to scan.</param>
     /// <returns>The number of members that survive the compiler-gen filter.</returns>
-    public static int CountKept(ApiMember[] members)
+    internal static int CountKept(ApiMember[] members)
     {
         var kept = 0;
         for (var i = 0; i < members.Length; i++)
@@ -44,7 +41,7 @@ internal static class MemberUidProjection
     /// </summary>
     /// <param name="members">Member array to project.</param>
     /// <returns>The alphabetically-sorted child UIDs.</returns>
-    public static string[] CollectSortedChildUids(ApiMember[] members)
+    internal static string[] CollectSortedChildUids(ApiMember[] members)
     {
         var kept = CountKept(members);
         if (kept is 0)
@@ -62,7 +59,8 @@ internal static class MemberUidProjection
                 continue;
             }
 
-            uids[cursor++] = CommentIdPrefix.Strip(member.Uid);
+            uids[cursor] = CommentIdPrefix.Strip(member.Uid);
+            cursor++;
         }
 
         Array.Sort(uids, StringComparer.Ordinal);

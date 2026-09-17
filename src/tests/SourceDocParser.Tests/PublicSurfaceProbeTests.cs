@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using SamplePdb;
 
 namespace SourceDocParser.Tests;
@@ -101,7 +102,7 @@ public class PublicSurfaceProbeTests
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ProbeThrowsForNullList() =>
-        await Assert.That(() => PublicSurfaceProbe.ProbePublicTypeUids(null!)).Throws<ArgumentNullException>();
+        await Assert.That(static () => PublicSurfaceProbe.ProbePublicTypeUids(null!)).Throws<ArgumentNullException>();
 
     /// <summary>Multiple inputs are aggregated into one set; probing the same DLL twice does not duplicate UIDs.</summary>
     /// <returns>A task representing the test execution.</returns>
@@ -133,5 +134,6 @@ public class PublicSurfaceProbeTests
 
     /// <summary>Returns the on-disk path of the SamplePdb fixture assembly that ships next to the tests.</summary>
     /// <returns>The absolute path to <c>SamplePdb.dll</c>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string GetSamplePdbPath() => typeof(SamplePdbAnchor).Assembly.Location;
 }

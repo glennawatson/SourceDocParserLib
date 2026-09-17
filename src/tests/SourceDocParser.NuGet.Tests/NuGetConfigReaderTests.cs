@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,10 +16,7 @@ namespace SourceDocParser.NuGet.Tests;
 /// </summary>
 public class NuGetConfigReaderTests
 {
-    /// <summary>
-    /// A nuget.config with a globalPackagesFolder add inside the config
-    /// section returns the configured value.
-    /// </summary>
+    /// <summary>A nuget.config with a globalPackagesFolder add inside the config section returns the configured value.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ReadsGlobalPackagesFolderFromConfigFile()
@@ -59,54 +56,47 @@ public class NuGetConfigReaderTests
     [Test]
     public async Task IgnoresAddElementsOutsideConfigContainer()
     {
-        const string xml = """
+        var xml = """
             <?xml version="1.0" encoding="utf-8"?>
             <configuration>
               <packageSources>
                 <add key="globalPackagesFolder" value="https://api.nuget.org/v3/index.json" />
               </packageSources>
             </configuration>
-            """;
+            """u8.ToArray();
 
-        await using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml));
+        await using var stream = new MemoryStream(xml);
         var result = await NuGetConfigReader.ReadGlobalPackagesFolderAsync(stream).ConfigureAwait(false);
 
         await Assert.That(result.State).IsEqualTo(SettingState.NotMentioned);
     }
 
-    /// <summary>
-    /// Empty / whitespace-only value is treated as "not set" so
-    /// the caller falls through to the next layer.
-    /// </summary>
+    /// <summary>Empty / whitespace-only value is treated as "not set" so the caller falls through to the next layer.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ReturnsNotMentionedWhenValueIsBlank()
     {
-        const string xml = """
+        var xml = """
             <?xml version="1.0" encoding="utf-8"?>
             <configuration>
               <config>
                 <add key="globalPackagesFolder" value="   " />
               </config>
             </configuration>
-            """;
+            """u8.ToArray();
 
-        await using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml));
+        await using var stream = new MemoryStream(xml);
         var result = await NuGetConfigReader.ReadGlobalPackagesFolderAsync(stream).ConfigureAwait(false);
 
         await Assert.That(result.State).IsEqualTo(SettingState.NotMentioned);
     }
 
-    /// <summary>
-    /// First <c>add</c> wins per NuGet's
-    /// <c>GetFirstItemWithAttribute</c> rule -- duplicates inside
-    /// the same file are ignored.
-    /// </summary>
+    /// <summary>First <c>add</c> wins per NuGet's <c>GetFirstItemWithAttribute</c> rule -- duplicates inside the same file are ignored.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task FirstAddWinsOverDuplicates()
     {
-        const string xml = """
+        var xml = """
             <?xml version="1.0" encoding="utf-8"?>
             <configuration>
               <config>
@@ -114,24 +104,21 @@ public class NuGetConfigReaderTests
                 <add key="globalPackagesFolder" value="/second" />
               </config>
             </configuration>
-            """;
+            """u8.ToArray();
 
-        await using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml));
+        await using var stream = new MemoryStream(xml);
         var result = await NuGetConfigReader.ReadGlobalPackagesFolderAsync(stream).ConfigureAwait(false);
 
         await Assert.That(result.State).IsEqualTo(SettingState.Found);
         await Assert.That(result.Value).IsEqualTo("/first");
     }
 
-    /// <summary>
-    /// <c>clear/</c> wipes earlier in-file accumulator --
-    /// the post-clear add becomes the resolved value.
-    /// </summary>
+    /// <summary><c>clear/</c> wipes earlier in-file accumulator -- the post-clear add becomes the resolved value.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ClearResetsAndPostClearAddWins()
     {
-        const string xml = """
+        var xml = """
             <?xml version="1.0" encoding="utf-8"?>
             <configuration>
               <config>
@@ -140,9 +127,9 @@ public class NuGetConfigReaderTests
                 <add key="globalPackagesFolder" value="/after-clear" />
               </config>
             </configuration>
-            """;
+            """u8.ToArray();
 
-        await using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml));
+        await using var stream = new MemoryStream(xml);
         var result = await NuGetConfigReader.ReadGlobalPackagesFolderAsync(stream).ConfigureAwait(false);
 
         await Assert.That(result.State).IsEqualTo(SettingState.Found);
@@ -159,7 +146,7 @@ public class NuGetConfigReaderTests
     [Test]
     public async Task ClearWithoutPostAddProducesClearedState()
     {
-        const string xml = """
+        var xml = """
             <?xml version="1.0" encoding="utf-8"?>
             <configuration>
               <config>
@@ -167,9 +154,9 @@ public class NuGetConfigReaderTests
                 <clear />
               </config>
             </configuration>
-            """;
+            """u8.ToArray();
 
-        await using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(xml));
+        await using var stream = new MemoryStream(xml);
         var result = await NuGetConfigReader.ReadGlobalPackagesFolderAsync(stream).ConfigureAwait(false);
 
         await Assert.That(result.State).IsEqualTo(SettingState.Cleared);

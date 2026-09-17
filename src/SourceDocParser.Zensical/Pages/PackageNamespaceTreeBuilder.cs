@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -32,7 +32,7 @@ internal static class PackageNamespaceTreeBuilder
     /// <param name="entryFactory">Function producing one leaf entry per type.</param>
     /// <param name="entryComparer">Comparator used to sort each namespace's entries by display order.</param>
     /// <returns>The ordered tree.</returns>
-    public static SortedDictionary<string, SortedDictionary<string, List<TEntry>>> Build<TEntry>(
+    internal static SortedDictionary<string, SortedDictionary<string, List<TEntry>>> Build<TEntry>(
         ApiType[] types,
         PackageRoutingRule[] packageRouting,
         Func<ApiType, TEntry> entryFactory,

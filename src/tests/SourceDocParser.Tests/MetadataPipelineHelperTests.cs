@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -24,6 +25,15 @@ namespace SourceDocParser.Tests;
 /// </summary>
 public class MetadataPipelineHelperTests
 {
+    /// <summary>Fixture value for HttpsExampleACs.</summary>
+    private const string HttpsExampleACs = "https://example/a.cs";
+
+    /// <summary>Expected fixture value used by CollectSourceLinksCapturesTypeLevelUrls.</summary>
+    private const int CollectSourceLinksCapturesTypeLevelUrlsExpectedValue = 2;
+
+    /// <summary>Expected fixture value used by CollectSourceLinksCapturesMemberLevelUrls.</summary>
+    private const int CollectSourceLinksCapturesMemberLevelUrlsExpectedValue = 3;
+
     /// <summary>An empty type array yields no entries.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -37,16 +47,16 @@ public class MetadataPipelineHelperTests
     {
         ApiType[] types =
         [
-            TestData.ObjectType("T:A", ApiObjectKind.Class, "Asm", "https://example/a.cs"),
+            TestData.ObjectType("T:A", ApiObjectKind.Class, "Asm", HttpsExampleACs),
             TestData.ObjectType("T:B", ApiObjectKind.Class, "Asm", null),
             TestData.ObjectType("T:C", ApiObjectKind.Class, "Asm", "https://example/c.cs"),
         ];
 
         var entries = MetadataSourceLinkHelper.CollectSourceLinks(types);
 
-        await Assert.That(entries.Length).IsEqualTo(2);
+        await Assert.That(entries.Length).IsEqualTo(CollectSourceLinksCapturesTypeLevelUrlsExpectedValue);
         await Assert.That(entries[0].Uid).IsEqualTo("T:A");
-        await Assert.That(entries[0].Url).IsEqualTo("https://example/a.cs");
+        await Assert.That(entries[0].Url).IsEqualTo(HttpsExampleACs);
         await Assert.That(entries[1].Uid).IsEqualTo("T:C");
         await Assert.That(entries[1].Url).IsEqualTo("https://example/c.cs");
     }
@@ -56,7 +66,7 @@ public class MetadataPipelineHelperTests
     [Test]
     public async Task CollectSourceLinksCapturesMemberLevelUrls()
     {
-        var withMember = TestData.ObjectType("T:A", ApiObjectKind.Class, "Asm", "https://example/a.cs") with
+        var withMember = TestData.ObjectType("T:A", ApiObjectKind.Class, "Asm", HttpsExampleACs) with
         {
             Members =
             [
@@ -68,11 +78,11 @@ public class MetadataPipelineHelperTests
 
         var entries = MetadataSourceLinkHelper.CollectSourceLinks([withMember]);
 
-        await Assert.That(entries.Length).IsEqualTo(3);
+        await Assert.That(entries.Length).IsEqualTo(CollectSourceLinksCapturesMemberLevelUrlsExpectedValue);
         await Assert.That(entries[0].Uid).IsEqualTo("T:A");
         await Assert.That(entries[1].Uid).IsEqualTo("M:A.Foo");
         await Assert.That(entries[1].Url).IsEqualTo("https://example/a.cs#L10");
-        await Assert.That(entries[2].Uid).IsEqualTo("M:A.Baz");
+        await Assert.That(entries[CollectSourceLinksCapturesTypeLevelUrlsExpectedValue].Uid).IsEqualTo("M:A.Baz");
     }
 
     /// <summary>Empty-string URLs are treated as missing and skipped.</summary>
@@ -92,21 +102,21 @@ public class MetadataPipelineHelperTests
         var ctx = BuildContext();
         var groups = new List<TfmGroup>
         {
-            new(new("net9.0", ["/a/A.dll", "/a/B.dll"], []), new RecordingLoader(), totalWalks: 2),
+            new(new("net9.0", ["/a/A.dll", "/a/B.dll"], []), new RecordingLoader(), totalWalks: CollectSourceLinksCapturesTypeLevelUrlsExpectedValue),
             new(new("net10.0", ["/b/C.dll"], []), new RecordingLoader(), totalWalks: 1),
         };
 
         var items = MetadataWalkerHelper.BuildAssemblyWorkItems(groups, ctx);
 
-        await Assert.That(items.Count).IsEqualTo(3);
+        await Assert.That(items.Count).IsEqualTo(CollectSourceLinksCapturesMemberLevelUrlsExpectedValue);
         await Assert.That(items[0].AssemblyPath).IsEqualTo("/a/A.dll");
         await Assert.That(items[0].Owner).IsSameReferenceAs(groups[0]);
         await Assert.That(items[1].AssemblyPath).IsEqualTo("/a/B.dll");
         await Assert.That(items[1].Owner).IsSameReferenceAs(groups[0]);
-        await Assert.That(items[2].AssemblyPath).IsEqualTo("/b/C.dll");
-        await Assert.That(items[2].Owner).IsSameReferenceAs(groups[1]);
+        await Assert.That(items[CollectSourceLinksCapturesTypeLevelUrlsExpectedValue].AssemblyPath).IsEqualTo("/b/C.dll");
+        await Assert.That(items[CollectSourceLinksCapturesTypeLevelUrlsExpectedValue].Owner).IsSameReferenceAs(groups[1]);
         await Assert.That(items[0].Context).IsSameReferenceAs(ctx);
-        await Assert.That(items[2].Context).IsSameReferenceAs(ctx);
+        await Assert.That(items[CollectSourceLinksCapturesTypeLevelUrlsExpectedValue].Context).IsSameReferenceAs(ctx);
     }
 
     /// <summary>An empty group list flattens to an empty work-item list.</summary>
@@ -144,7 +154,7 @@ public class MetadataPipelineHelperTests
     public async Task PrepareOutputDirectoryClearsExistingDirectory()
     {
         var path = Path.Combine(Path.GetTempPath(), $"sdp-prep-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(path);
+        _ = Directory.CreateDirectory(path);
         var staleFile = Path.Combine(path, "stale.txt");
         await File.WriteAllTextAsync(staleFile, "leftover");
 
@@ -216,6 +226,7 @@ public class MetadataPipelineHelperTests
     private sealed class NullSourceLinkResolver : ISourceLinkResolver
     {
         /// <inheritdoc />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public string? Resolve(ISymbol symbol) => null;
 
         /// <inheritdoc />
@@ -228,6 +239,7 @@ public class MetadataPipelineHelperTests
     private sealed class RecordingLoader : ICompilationLoader
     {
         /// <inheritdoc />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public (CSharpCompilation Compilation, IAssemblySymbol Assembly) Load(string assemblyPath, Dictionary<string, string> fallbackReferences) =>
             Load(assemblyPath, fallbackReferences, includePrivateMembers: false);
 

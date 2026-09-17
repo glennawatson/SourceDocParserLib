@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -19,10 +19,13 @@ namespace SourceDocParser.Tests;
 /// </summary>
 public class DocResolverTests
 {
-    /// <summary>
-    /// A symbol with a plain <c>summary</c> resolves to a
-    /// non-empty <see cref="ApiDocumentation"/>.
-    /// </summary>
+    /// <summary>Fixture value for FooBar.</summary>
+    private const string FooBar = "Foo.Bar";
+
+    /// <summary>Expected fixture value used by Resolve_DeepInheritance_MemoisesEverySymbol.</summary>
+    private const int Resolve_DeepInheritance_MemoisesEverySymbolValue = 8;
+
+    /// <summary>A symbol with a plain <c>summary</c> resolves to a non-empty <see cref="ApiDocumentation"/>.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ResolveReturnsParsedSummary()
@@ -36,16 +39,14 @@ public class DocResolverTests
             }
             """);
         var resolver = new DocResolver(compilation);
-        var symbol = compilation.GetTypeByMetadataName("Foo.Bar")!;
+        var symbol = compilation.GetTypeByMetadataName(FooBar)!;
 
         var doc = resolver.Resolve(symbol);
 
         await Assert.That(doc.Summary).Contains("The bar.");
     }
 
-    /// <summary>
-    /// A symbol with no XML doc resolves to <see cref="ApiDocumentation.Empty"/>.
-    /// </summary>
+    /// <summary>A symbol with no XML doc resolves to <see cref="ApiDocumentation.Empty"/>.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ResolveReturnsEmptyForUndocumentedSymbol()
@@ -56,7 +57,7 @@ public class DocResolverTests
         // natural source so the resolver legitimately returns Empty.
         var compilation = BuildCompilation("namespace Foo { public class Bare { public void Op() { } } }");
         var resolver = new DocResolver(compilation);
-        var symbol = compilation.GetTypeByMetadataName("Foo.Bare")!.GetMembers("Op").OfType<IMethodSymbol>().Single();
+        var symbol = ((IMethodSymbol)(await Assert.That(compilation.GetTypeByMetadataName("Foo.Bare")!.GetMembers("Op")).HasSingleItem(static item => item is IMethodSymbol)));
 
         var doc = resolver.Resolve(symbol);
 
@@ -68,10 +69,7 @@ public class DocResolverTests
         await Assert.That(doc.InheritedFrom).IsNull();
     }
 
-    /// <summary>
-    /// Resolving the same symbol twice returns the cached instance
-    /// reference -- proves the per-resolver memoisation works.
-    /// </summary>
+    /// <summary>Resolving the same symbol twice returns the cached instance reference -- proves the per-resolver memoisation works.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ResolveMemoisesPerSymbol()
@@ -85,7 +83,7 @@ public class DocResolverTests
             }
             """);
         var resolver = new DocResolver(compilation);
-        var symbol = compilation.GetTypeByMetadataName("Foo.Bar")!;
+        var symbol = compilation.GetTypeByMetadataName(FooBar)!;
 
         var first = resolver.Resolve(symbol);
         var second = resolver.Resolve(symbol);
@@ -93,9 +91,87 @@ public class DocResolverTests
         await Assert.That(ReferenceEquals(first, second)).IsTrue();
     }
 
-    /// <summary>
-    /// An override with no docs of its own auto-inherits from the base.
-    /// </summary>
+    /// <summary>Recursive inheritance preserves cached results across dictionary growth.</summary>
+    /// <param name="inheritDoc">Documentation on each override.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("")]
+    [Arguments("/// <inheritdoc/>")]
+    public async Task Resolve_DeepInheritance_MemoisesEverySymbol(string inheritDoc)
+    {
+        var declarations = new List<string>
+        {
+            """
+            public class Level0
+            {
+                /// <summary>Root documentation.</summary>
+                public virtual void Run() { }
+            }
+            """,
+        };
+        for (var level = 1; level <= Resolve_DeepInheritance_MemoisesEverySymbolValue; level++)
+        {
+            declarations.Add($$"""
+                public class Level{{level}} : Level{{level - 1}}
+                {
+                    {{inheritDoc}}
+                    public override void Run() { }
+                }
+                """);
+        }
+
+        var compilation = BuildCompilation(string.Join(Environment.NewLine, declarations));
+        var resolver = new DocResolver(compilation);
+        var leaf = (await Assert.That(compilation.GetTypeByMetadataName("Level8")!.GetMembers("Run")).HasSingleItem());
+        var first = resolver.Resolve(leaf);
+
+        await Assert.That(first.Summary).Contains("Root documentation.");
+        await Assert.That(ReferenceEquals(first, resolver.Resolve(leaf))).IsTrue();
+        for (var level = 0; level <= Resolve_DeepInheritance_MemoisesEverySymbolValue; level++)
+        {
+            var symbol = (await Assert.That(compilation.GetTypeByMetadataName($"Level{level}")!.GetMembers("Run")).HasSingleItem());
+            var doc = resolver.Resolve(symbol);
+            await Assert.That(doc).IsNotNull();
+            await Assert.That(doc.Summary).Contains("Root documentation.");
+            await Assert.That(ReferenceEquals(doc, resolver.Resolve(symbol))).IsTrue();
+        }
+    }
+
+    /// <summary>Cyclic inheritance terminates and retains each member's own documentation.</summary>
+    /// <param name="target">The inheritdoc target that closes the cycle.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("First")]
+    [Arguments("Second")]
+    public async Task Resolve_CyclicInheritDoc_PreservesOwnDocumentation(string target)
+    {
+        var compilation = BuildCompilation($$"""
+            public class Example
+            {
+                /// <summary>First documentation.</summary>
+                /// <inheritdoc cref="{{target}}"/>
+                public void First() { }
+
+                /// <summary>Second documentation.</summary>
+                /// <inheritdoc cref="First"/>
+                public void Second() { }
+            }
+            """);
+        var resolver = new DocResolver(compilation);
+        var type = compilation.GetTypeByMetadataName("Example")!;
+        var first = (await Assert.That(type.GetMembers("First")).HasSingleItem());
+        var second = (await Assert.That(type.GetMembers("Second")).HasSingleItem());
+
+        var firstDoc = resolver.Resolve(first);
+        var secondDoc = resolver.Resolve(second);
+
+        await Assert.That(firstDoc.Summary).Contains("First documentation.");
+        await Assert.That(secondDoc.Summary).Contains("Second documentation.");
+        await Assert.That(ReferenceEquals(firstDoc, resolver.Resolve(first))).IsTrue();
+        await Assert.That(ReferenceEquals(secondDoc, resolver.Resolve(second))).IsTrue();
+    }
+
+    /// <summary>An override with no docs of its own auto-inherits from the base.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ResolveAutoInheritsFromBase()
@@ -117,7 +193,7 @@ public class DocResolverTests
             """);
         var resolver = new DocResolver(compilation);
         var derived = compilation.GetTypeByMetadataName("Foo.Derived")!;
-        var run = derived.GetMembers("Run").OfType<IMethodSymbol>().Single();
+        var run = ((IMethodSymbol)(await Assert.That(derived.GetMembers("Run")).HasSingleItem(static item => item is IMethodSymbol)));
 
         var doc = resolver.Resolve(run);
 
@@ -125,9 +201,7 @@ public class DocResolverTests
         await Assert.That(doc.InheritedFrom).IsNotNull();
     }
 
-    /// <summary>
-    /// Explicit <c>inheritdoc/</c> walks to the base.
-    /// </summary>
+    /// <summary>Explicit <c>inheritdoc/</c> walks to the base.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ResolveHonoursExplicitInheritDoc()
@@ -150,7 +224,7 @@ public class DocResolverTests
             """);
         var resolver = new DocResolver(compilation);
         var derived = compilation.GetTypeByMetadataName("Foo.Derived")!;
-        var run = derived.GetMembers("Run").OfType<IMethodSymbol>().Single();
+        var run = ((IMethodSymbol)(await Assert.That(derived.GetMembers("Run")).HasSingleItem(static item => item is IMethodSymbol)));
 
         var doc = resolver.Resolve(run);
 
@@ -176,7 +250,7 @@ public class DocResolverTests
             }
             """);
         var resolver = new DocResolver(compilation);
-        var symbol = compilation.GetTypeByMetadataName("Foo.Bar")!;
+        var symbol = compilation.GetTypeByMetadataName(FooBar)!;
 
         var doc = resolver.Resolve(symbol);
 
@@ -189,11 +263,7 @@ public class DocResolverTests
     [Test]
     public async Task ConstructorValidatesCompilation() => await Assert.That(static () => new DocResolver(null!)).Throws<ArgumentNullException>();
 
-    /// <summary>
-    /// Builds an in-memory <see cref="CSharpCompilation"/> from
-    /// <paramref name="source"/> with XML doc parsing on so symbols
-    /// carry their associated <c>summary</c> etc.
-    /// </summary>
+    /// <summary>Builds an in-memory <see cref="CSharpCompilation"/> from <paramref name="source"/> with XML doc parsing on so symbols carry their associated <c>summary</c> etc.</summary>
     /// <param name="source">C# source text to compile.</param>
     /// <returns>The compiled (but not emitted) compilation.</returns>
     private static CSharpCompilation BuildCompilation(string source)
@@ -203,9 +273,7 @@ public class DocResolverTests
             new(documentationMode: DocumentationMode.Parse));
         List<MetadataReference> references =
         [
-            .. AppDomain.CurrentDomain.GetAssemblies()
-                .Where(static a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-                .Select(static a => MetadataReference.CreateFromFile(a.Location)),
+            .. WalkerTestFixtures.GetRuntimeReferences(),
         ];
         return CSharpCompilation.Create(
             "DocTest",

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,8 +16,18 @@ namespace SourceDocParser.Tests;
 /// (member array, value array, type rebuild) and the null-guard
 /// argument validation paths.
 /// </summary>
+[System.Diagnostics.DebuggerDisplay("RenderedTypeFactoryTests: {_converter}")]
 public class RenderedTypeFactoryTests
 {
+    /// <summary>Fixture value for TFoo.</summary>
+    private const string TFoo = "T:Foo";
+
+    /// <summary>Fixture value for MFooBar.</summary>
+    private const string MFooBar = "M:Foo.Bar";
+
+    /// <summary>Fixture value for First.</summary>
+    private const string First = "first";
+
     /// <summary>Shared converter -- the conversion logic is exercised in <see cref="XmlDocToMarkdownTests"/>; here we just need a working instance.</summary>
     private readonly XmlDocToMarkdown _converter = new();
 
@@ -26,7 +36,7 @@ public class RenderedTypeFactoryTests
     [Test]
     public async Task RenderObjectTypeReturnsSameInstanceWhenNothingChanged()
     {
-        var input = TestData.ObjectType("T:Foo");
+        var input = TestData.ObjectType(TFoo);
 
         var output = RenderedTypeFactory.Render(input, _converter);
 
@@ -38,7 +48,7 @@ public class RenderedTypeFactoryTests
     [Test]
     public async Task RenderObjectTypeRebuildsWhenDocChanges()
     {
-        var input = TestData.ObjectType("T:Foo") with
+        var input = TestData.ObjectType(TFoo) with
         {
             Documentation = ApiDocumentation.Empty with { Summary = "hello" },
         };
@@ -55,9 +65,9 @@ public class RenderedTypeFactoryTests
     [Test]
     public async Task RenderObjectTypeRebuildsMembersArrayWhenMemberChanges()
     {
-        var member = MakeMember("M:Foo.Bar", summary: "real");
+        var member = MakeMember(MFooBar, summary: "real");
         var unchanged = MakeMember("M:Foo.Baz", summary: string.Empty);
-        var input = TestData.ObjectType("T:Foo") with { Members = [unchanged, member] };
+        var input = TestData.ObjectType(TFoo) with { Members = [unchanged, member] };
 
         var output = (ApiObjectType)RenderedTypeFactory.Render(input, _converter);
 
@@ -175,7 +185,7 @@ public class RenderedTypeFactoryTests
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task RenderTypeRejectsNullConverter() =>
-        await Assert.That(() => RenderedTypeFactory.Render(TestData.ObjectType("T:X"), null!))
+        await Assert.That(static () => RenderedTypeFactory.Render(TestData.ObjectType("T:X"), null!))
             .Throws<ArgumentNullException>();
 
     /// <summary>Member with empty docs returns the same instance.</summary>
@@ -183,7 +193,7 @@ public class RenderedTypeFactoryTests
     [Test]
     public async Task RenderMemberReturnsSameInstanceWhenDocUnchanged()
     {
-        var member = MakeMember("M:Foo.Bar", summary: string.Empty);
+        var member = MakeMember(MFooBar, summary: string.Empty);
 
         var output = RenderedTypeFactory.Render(member, _converter);
 
@@ -195,7 +205,7 @@ public class RenderedTypeFactoryTests
     [Test]
     public async Task RenderMemberRebuildsWhenDocChanges()
     {
-        var member = MakeMember("M:Foo.Bar", summary: "does the thing");
+        var member = MakeMember(MFooBar, summary: "does the thing");
 
         var output = RenderedTypeFactory.Render(member, _converter);
 
@@ -214,7 +224,7 @@ public class RenderedTypeFactoryTests
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task RenderMemberRejectsNullConverter() =>
-        await Assert.That(() => RenderedTypeFactory.Render(MakeMember("M:Foo.Bar", string.Empty), null!))
+        await Assert.That(static () => RenderedTypeFactory.Render(MakeMember(MFooBar, string.Empty), null!))
             .Throws<ArgumentNullException>();
 
     /// <summary>Object type with an empty Members array still returns the same instance (the Length-zero short-circuit in RenderMembers).</summary>
@@ -248,7 +258,7 @@ public class RenderedTypeFactoryTests
     {
         var m1 = MakeMember("M:Foo.A", summary: string.Empty);
         var m2 = MakeMember("M:Foo.B", summary: string.Empty);
-        var input = TestData.ObjectType("T:Foo") with { Members = [m1, m2] };
+        var input = TestData.ObjectType(TFoo) with { Members = [m1, m2] };
 
         var output = RenderedTypeFactory.Render(input, _converter);
 
@@ -274,7 +284,7 @@ public class RenderedTypeFactoryTests
     [Test]
     public async Task RenderUnionTypeRebuildsMembersWhenFirstMemberChanges()
     {
-        var first = MakeMember("M:U.A", summary: "first");
+        var first = MakeMember("M:U.A", summary: First);
         var second = MakeMember("M:U.B", summary: string.Empty);
         var input = ApiUnionType.Empty with { Members = [first, second] };
 
@@ -282,7 +292,7 @@ public class RenderedTypeFactoryTests
 
         await Assert.That(output.Members).IsNotSameReferenceAs(input.Members);
         await Assert.That(output.Members[0]).IsNotSameReferenceAs(first);
-        await Assert.That(output.Members[0].Documentation.Summary).IsEqualTo("first");
+        await Assert.That(output.Members[0].Documentation.Summary).IsEqualTo(First);
         await Assert.That(output.Members[1]).IsSameReferenceAs(second);
     }
 
@@ -295,7 +305,7 @@ public class RenderedTypeFactoryTests
             "A",
             "F:E.A",
             "0",
-            ApiDocumentation.Empty with { Summary = "first" },
+            ApiDocumentation.Empty with { Summary = First },
             null);
         var second = new ApiEnumValue("B", "F:E.B", "1", ApiDocumentation.Empty, null);
         var input = TestData.EnumType("T:E") with { Values = [first, second] };
@@ -304,7 +314,7 @@ public class RenderedTypeFactoryTests
 
         await Assert.That(output.Values).IsNotSameReferenceAs(input.Values);
         await Assert.That(output.Values[0]).IsNotSameReferenceAs(first);
-        await Assert.That(output.Values[0].Documentation.Summary).IsEqualTo("first");
+        await Assert.That(output.Values[0].Documentation.Summary).IsEqualTo(First);
         await Assert.That(output.Values[1]).IsSameReferenceAs(second);
     }
 
@@ -328,11 +338,11 @@ public class RenderedTypeFactoryTests
             IsOverride: false,
             IsAbstract: false,
             IsSealed: false,
-            Signature: "void " + uid + "()",
+            Signature: $"void {uid}()",
             Parameters: [],
             TypeParameters: [],
             ReturnType: null,
-            ContainingTypeUid: "T:Foo",
+            ContainingTypeUid: TFoo,
             ContainingTypeName: "Foo",
             SourceUrl: null,
             Documentation: documentation,

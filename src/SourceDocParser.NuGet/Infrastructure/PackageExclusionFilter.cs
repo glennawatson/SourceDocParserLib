@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -22,15 +22,12 @@ internal static class PackageExclusionFilter
     /// <summary>ASCII bit used to fold upper-case letters to lower-case without allocations.</summary>
     private const int AsciiLowercaseBit = 0x20;
 
-    /// <summary>
-    /// Returns <see langword="true"/> when the package id matches the
-    /// user's configured exclude list (exact id or prefix).
-    /// </summary>
+    /// <summary>Returns <see langword="true"/> when the package id matches the user's configured exclude list (exact id or prefix).</summary>
     /// <param name="id">Package identifier to test.</param>
     /// <param name="excludeIds">Exact-match exclude IDs (linear scan; expected single-digit size).</param>
     /// <param name="excludePrefixes">Prefix-match excludes, OrdinalIgnoreCase.</param>
     /// <returns><see langword="true"/> if the package should be skipped; otherwise, <see langword="false"/>.</returns>
-    public static bool IsExcludedByUser(string id, string[] excludeIds, string[] excludePrefixes)
+    internal static bool IsExcludedByUser(string id, string[] excludeIds, string[] excludePrefixes)
     {
         for (var i = 0; i < excludeIds.Length; i++)
         {
@@ -60,7 +57,7 @@ internal static class PackageExclusionFilter
     /// </summary>
     /// <param name="id">Discovered transitive package ID.</param>
     /// <returns>True when the package should be skipped on transitive discovery.</returns>
-    public static bool IsDefaultTransitiveSkip(string id)
+    internal static bool IsDefaultTransitiveSkip(string id)
     {
         ArgumentNullException.ThrowIfNull(id);
 
@@ -84,7 +81,7 @@ internal static class PackageExclusionFilter
     /// </summary>
     /// <param name="s">The span of characters representing the identifier to evaluate.</param>
     /// <returns>True when the identifier matches one of the Microsoft default-skip patterns.</returns>
-    public static bool IsMicrosoftDefaultTransitiveSkip(ReadOnlySpan<char> s)
+    internal static bool IsMicrosoftDefaultTransitiveSkip(ReadOnlySpan<char> s)
     {
         if (!s.StartsWith(MicrosoftNetPrefix, StringComparison.OrdinalIgnoreCase))
         {

@@ -1,8 +1,9 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 using SourceDocParser.Common;
 
@@ -18,15 +19,19 @@ namespace SourceDocParser.Docfx.Yaml;
 /// </summary>
 internal static class UidNormalization
 {
+    /// <summary>Capacity reserved for separators in a generic display name.</summary>
+    private const int GenericSeparatorCapacity = 8;
+
     /// <summary>Strips the leading <c>T:</c> / <c>M:</c> / etc. prefix from a UID.</summary>
     /// <param name="uid">The full UID.</param>
     /// <returns>The bare name, without any single-letter prefix.</returns>
-    public static string StripPrefix(string uid) => CommentIdPrefix.Strip(uid);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string StripPrefix(string uid) => CommentIdPrefix.Strip(uid);
 
     /// <summary>Strips the trailing <c>`N</c> arity suffix from a bare type-name segment.</summary>
     /// <param name="head">Bare type-name segment (may end in arity backtick).</param>
     /// <returns>The name with the suffix removed when present.</returns>
-    public static string StripArityBacktick(string head)
+    internal static string StripArityBacktick(string head)
     {
         var tickIdx = head.LastIndexOf('`');
         return tickIdx > 0 ? head[..tickIdx] : head;
@@ -35,7 +40,7 @@ internal static class UidNormalization
     /// <summary>Strips the namespace from a bare type name to get its parent (namespace) part.</summary>
     /// <param name="bareName">The bare type name.</param>
     /// <returns>The parent namespace, or an empty string when the name is unqualified.</returns>
-    public static string ParentOf(string bareName)
+    internal static string ParentOf(string bareName)
     {
         var lastDot = bareName.LastIndexOf('.');
         if (lastDot < 0)
@@ -66,7 +71,7 @@ internal static class UidNormalization
     /// </summary>
     /// <param name="uid">The reference UID.</param>
     /// <returns>The open-generic UID; the input unchanged when not generic.</returns>
-    public static string ToOpenGenericUid(string uid)
+    internal static string ToOpenGenericUid(string uid)
     {
         var braceIdx = uid.IndexOf('{', StringComparison.Ordinal);
         if (braceIdx < 0)
@@ -81,7 +86,7 @@ internal static class UidNormalization
         }
 
         var arity = CountTopLevelArgsInUidBraces(uid, braceIdx);
-        return bareHead + "`" + arity.ToString(CultureInfo.InvariantCulture);
+        return $"{bareHead}`{arity.ToString(CultureInfo.InvariantCulture)}";
     }
 
     /// <summary>
@@ -95,7 +100,7 @@ internal static class UidNormalization
     /// </summary>
     /// <param name="bareName">UID with the <c>T:</c> prefix already stripped.</param>
     /// <returns>The fully-qualified docfx-style name.</returns>
-    public static string SynthesiseFullName(string bareName)
+    internal static string SynthesiseFullName(string bareName)
     {
         var braceIdx = bareName.IndexOf('{', StringComparison.Ordinal);
         if (braceIdx < 0)
@@ -107,17 +112,17 @@ internal static class UidNormalization
         var argRegion = bareName[(braceIdx + 1)..^1];
         var baseName = StripArityBacktick(head);
 
-        var sb = new StringBuilder(bareName.Length + 8);
-        sb.Append(BclTypeAliases.ToKeyword(baseName, baseName)).Append('<');
+        var sb = new StringBuilder(bareName.Length + GenericSeparatorCapacity);
+        _ = sb.Append(BclTypeAliases.ToKeyword(baseName, baseName)).Append('<');
         var argSegments = SplitTopLevelArgs(argRegion, '{', '}');
         for (var i = 0; i < argSegments.Count; i++)
         {
             if (i > 0)
             {
-                sb.Append(", ");
+                _ = sb.Append(", ");
             }
 
-            sb.Append(SynthesiseFullName(argSegments[i].Trim()));
+            _ = sb.Append(SynthesiseFullName(argSegments[i].Trim()));
         }
 
         return sb.Append('>').ToString();
@@ -127,7 +132,7 @@ internal static class UidNormalization
     /// <param name="uid">The full UID containing a brace region.</param>
     /// <param name="openBraceIdx">Index of the opening brace.</param>
     /// <returns>The number of top-level commas inside the braces, plus one.</returns>
-    public static int CountTopLevelArgsInUidBraces(string uid, int openBraceIdx)
+    internal static int CountTopLevelArgsInUidBraces(string uid, int openBraceIdx)
     {
         var depth = 0;
         var count = 1;
@@ -160,7 +165,7 @@ internal static class UidNormalization
     /// <param name="open">Opening bracket character (<c>&lt;</c> for display names, <c>{</c> for UIDs).</param>
     /// <param name="close">Closing bracket character.</param>
     /// <returns>The pieces in source order.</returns>
-    public static List<string> SplitTopLevelArgs(string region, char open, char close)
+    internal static List<string> SplitTopLevelArgs(string region, char open, char close)
     {
         var depth = 0;
         var start = 0;
@@ -192,7 +197,7 @@ internal static class UidNormalization
     /// <param name="open">Opening bracket character.</param>
     /// <param name="close">Closing bracket character.</param>
     /// <returns>The number of top-level commas plus one.</returns>
-    public static int CountTopLevelArgs(string region, char open, char close)
+    internal static int CountTopLevelArgs(string region, char open, char close)
     {
         var depth = 0;
         var count = 1;

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -19,6 +19,21 @@ namespace SourceDocParser.NuGet.Tests;
 /// </summary>
 public class NuGetFetcherInternalsTests
 {
+    /// <summary>Fixture value for ReactiveUI.</summary>
+    private const string ReactiveUI = "ReactiveUI";
+
+    /// <summary>Fixture value for FreshPkg.</summary>
+    private const string FreshPkg = "Fresh.Pkg";
+
+    /// <summary>Fixture value for AnotherPkg.</summary>
+    private const string AnotherPkg = "Another.Pkg";
+
+    /// <summary>Fixture value for PkgA.</summary>
+    private const string PkgA = "Pkg.A";
+
+    /// <summary>Expected fixture value used by AddEligibleDependencyIdsAccumulatesNewIdsAndUpdatesSeen.</summary>
+    private const int AddEligibleDependencyIdsAccumulatesNewIdsAndUpdatesSeenExpectedValue = 2;
+
     /// <summary>A user-excluded ID is rejected by the transitive-dependency filter.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -52,7 +67,7 @@ public class NuGetFetcherInternalsTests
     public async Task ShouldIncludeTransitiveDependencyAcceptsOrdinaryId()
     {
         var request = BuildRequest();
-        await Assert.That(NuGetFetcher.ShouldIncludeTransitiveDependency("ReactiveUI", request)).IsTrue();
+        await Assert.That(NuGetFetcher.ShouldIncludeTransitiveDependency(ReactiveUI, request)).IsTrue();
     }
 
     /// <summary>Includes that pass the filter accumulate into <see cref="HashSet{T}"/> and seed the seen-set.</summary>
@@ -65,15 +80,15 @@ public class NuGetFetcherInternalsTests
         var newIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         NuGetFetcher.AddEligibleDependencyIds(
-            ["Already.Seen", "Excluded.Pkg", "runtime.foo", "Fresh.Pkg", "Another.Pkg"],
+            ["Already.Seen", "Excluded.Pkg", "runtime.foo", FreshPkg, AnotherPkg],
             request,
             newIds);
 
-        await Assert.That(newIds.Contains("Fresh.Pkg")).IsTrue();
-        await Assert.That(newIds.Contains("Another.Pkg")).IsTrue();
-        await Assert.That(newIds.Count).IsEqualTo(2);
-        await Assert.That(seen.Contains("Fresh.Pkg")).IsTrue();
-        await Assert.That(seen.Contains("Another.Pkg")).IsTrue();
+        await Assert.That(newIds.Contains(FreshPkg)).IsTrue();
+        await Assert.That(newIds.Contains(AnotherPkg)).IsTrue();
+        await Assert.That(newIds.Count).IsEqualTo(AddEligibleDependencyIdsAccumulatesNewIdsAndUpdatesSeenExpectedValue);
+        await Assert.That(seen.Contains(FreshPkg)).IsTrue();
+        await Assert.That(seen.Contains(AnotherPkg)).IsTrue();
     }
 
     /// <summary>The owner search URI carries owner, paging, and the SemVer level.</summary>
@@ -160,7 +175,7 @@ public class NuGetFetcherInternalsTests
 
         NuGetFetcher.AddEligibleOwnerPackageIds(doc.RootElement, ids);
 
-        await Assert.That(ids.Count).IsEqualTo(2);
+        await Assert.That(ids.Count).IsEqualTo(AddEligibleDependencyIdsAccumulatesNewIdsAndUpdatesSeenExpectedValue);
         await Assert.That(ids[0]).IsEqualTo("Clean.A");
         await Assert.That(ids[1]).IsEqualTo("Clean.D");
     }
@@ -223,19 +238,21 @@ public class NuGetFetcherInternalsTests
     [Test]
     public async Task BuildTransitivePackageBatchAppliesTfmOverrides()
     {
-        var newIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Pkg.A", "Pkg.B" };
-        var overrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Pkg.A"] = "net9.0",
-        };
+        var newIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { PkgA, "Pkg.B" };
+        var overrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [PkgA] = "net9.0", };
 
         var batch = NuGetFetcher.BuildTransitivePackageBatch(newIds, overrides);
 
-        await Assert.That(batch.Length).IsEqualTo(2);
-        var byId = batch.ToDictionary(static p => p.Id, StringComparer.Ordinal);
-        await Assert.That(byId["Pkg.A"].Tfm).IsEqualTo("net9.0");
+        await Assert.That(batch.Length).IsEqualTo(AddEligibleDependencyIdsAccumulatesNewIdsAndUpdatesSeenExpectedValue);
+        var byId = new Dictionary<string, (string Id, string? Version, string? Tfm)>(StringComparer.Ordinal);
+        foreach (var package in batch)
+        {
+            byId.Add(package.Id, package);
+        }
+
+        await Assert.That(byId[PkgA].Tfm).IsEqualTo("net9.0");
         await Assert.That(byId["Pkg.B"].Tfm).IsNull();
-        await Assert.That(byId["Pkg.A"].Version).IsNull();
+        await Assert.That(byId[PkgA].Version).IsNull();
     }
 
     /// <summary>An empty new-id set produces an empty batch.</summary>
@@ -258,12 +275,12 @@ public class NuGetFetcherInternalsTests
     public async Task WritePrimaryPackagesSidecarPersistsIdsInOrder()
     {
         var apiPath = Path.Combine(Path.GetTempPath(), $"fetcher-sidecar-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(apiPath);
+        _ = Directory.CreateDirectory(apiPath);
         try
         {
             (string Id, string? Version, string? Tfm)[] packages =
             [
-                ("ReactiveUI", null, null),
+                (ReactiveUI, null, null),
                 ("Splat", "15.0.0", null),
                 ("DynamicData", null, "net10.0"),
             ];
@@ -273,7 +290,7 @@ public class NuGetFetcherInternalsTests
             var sidecar = Path.Combine(apiPath, NuGetAssemblySource.PrimaryPackagesFileName);
             var ids = NuGetAssemblySource.ReadPrimaryIdsSidecar(sidecar);
 
-            await Assert.That(ids).IsEquivalentTo((string[])["ReactiveUI", "Splat", "DynamicData"]);
+            await Assert.That(ids).IsEquivalentTo((string[])[ReactiveUI, "Splat", "DynamicData"]);
         }
         finally
         {
@@ -291,7 +308,7 @@ public class NuGetFetcherInternalsTests
     public async Task WritePrimaryPackagesSidecarTruncatesOnEmptyFetch()
     {
         var apiPath = Path.Combine(Path.GetTempPath(), $"fetcher-sidecar-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(apiPath);
+        _ = Directory.CreateDirectory(apiPath);
         var sidecar = Path.Combine(apiPath, NuGetAssemblySource.PrimaryPackagesFileName);
         await File.WriteAllTextAsync(sidecar, "Stale.Package\n");
         try
@@ -323,7 +340,7 @@ public class NuGetFetcherInternalsTests
             SeenIds: seen ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase),
             ExcludeIds: excludeIds ?? [],
             ExcludePrefixes: excludePrefixes ?? [],
-            TfmOverrides: new(StringComparer.OrdinalIgnoreCase),
+            TfmOverrides: [with(StringComparer.OrdinalIgnoreCase)],
             TfmPreference: [],
             Logger: NullLogger.Instance,
             CancellationToken: CancellationToken.None);

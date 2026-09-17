@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,14 +16,20 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 /// </summary>
 public class UidNormalizationTests
 {
+    /// <summary>Namespace-qualified name used by the fixture.</summary>
+    private const string QualifiedTypeName = "Foo.Bar";
+
+    /// <summary>Fully qualified name of the action delegate.</summary>
+    private const string ActionTypeName = "System.Action";
+
     /// <summary>StripPrefix removes the two-character Roslyn prefix.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task StripPrefixRemovesRoslynPrefix()
     {
-        await Assert.That(UidNormalization.StripPrefix("T:Foo.Bar")).IsEqualTo("Foo.Bar");
+        await Assert.That(UidNormalization.StripPrefix("T:Foo.Bar")).IsEqualTo(QualifiedTypeName);
         await Assert.That(UidNormalization.StripPrefix("M:Foo.Run(System.Int32)")).IsEqualTo("Foo.Run(System.Int32)");
-        await Assert.That(UidNormalization.StripPrefix("Foo.Bar")).IsEqualTo("Foo.Bar");
+        await Assert.That(UidNormalization.StripPrefix(QualifiedTypeName)).IsEqualTo(QualifiedTypeName);
     }
 
     /// <summary>StripArityBacktick drops the trailing <c>`N</c>.</summary>
@@ -31,8 +37,8 @@ public class UidNormalizationTests
     [Test]
     public async Task StripArityBacktickRemovesArityWhenPresent()
     {
-        await Assert.That(UidNormalization.StripArityBacktick("System.Action`1")).IsEqualTo("System.Action");
-        await Assert.That(UidNormalization.StripArityBacktick("System.Action")).IsEqualTo("System.Action");
+        await Assert.That(UidNormalization.StripArityBacktick("System.Action`1")).IsEqualTo(ActionTypeName);
+        await Assert.That(UidNormalization.StripArityBacktick(ActionTypeName)).IsEqualTo(ActionTypeName);
         await Assert.That(UidNormalization.StripArityBacktick("Foo`12")).IsEqualTo("Foo");
     }
 
@@ -49,7 +55,6 @@ public class UidNormalizationTests
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ParentOfRespectsBraceBoundary() =>
-
         // Foo.Bar`1{Baz.Qux} -- the dot inside the brace region must
         // not be picked as the namespace boundary.
         await Assert.That(UidNormalization.ParentOf("My.Sub.Foo`1{Baz.Qux}")).IsEqualTo("My.Sub");
@@ -74,7 +79,6 @@ public class UidNormalizationTests
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ToOpenGenericUidPreservesExistingBacktick() =>
-
         // When the head already carries `1, the helper returns the bare
         // head without re-counting (avoids double-counting when the
         // walker pre-populates the arity).
@@ -126,14 +130,15 @@ public class UidNormalizationTests
     }
 
     /// <summary>CountTopLevelArgs counts top-level commas plus one.</summary>
+    /// <param name="arguments">Generic argument list with nested delimiters.</param>
+    /// <param name="expected">Expected number of top-level arguments.</param>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task CountTopLevelArgsCountsCommasPlusOne()
-    {
-        await Assert.That(UidNormalization.CountTopLevelArgs("A", '{', '}')).IsEqualTo(1);
-        await Assert.That(UidNormalization.CountTopLevelArgs("A,B", '{', '}')).IsEqualTo(2);
-        await Assert.That(UidNormalization.CountTopLevelArgs("A,Foo{X,Y},B", '{', '}')).IsEqualTo(3);
-    }
+    [Arguments("A", 1)]
+    [Arguments("A,B", 2)]
+    [Arguments("A,Foo{X,Y},B", 3)]
+    public async Task CountTopLevelArgsCountsCommasPlusOne(string arguments, int expected) =>
+        await Assert.That(UidNormalization.CountTopLevelArgs(arguments, '{', '}')).IsEqualTo(expected);
 
     /// <summary>CountTopLevelArgsInUidBraces stops at the matching close brace.</summary>
     /// <returns>A task representing the test execution.</returns>
@@ -141,8 +146,9 @@ public class UidNormalizationTests
     public async Task CountTopLevelArgsInUidBracesStopsAtMatchingBrace()
     {
         const string uid = "T:Foo{A,B,C}.Bar";
+        const int argumentCount = 3;
         var openIdx = uid.IndexOf('{', StringComparison.Ordinal);
 
-        await Assert.That(UidNormalization.CountTopLevelArgsInUidBraces(uid, openIdx)).IsEqualTo(3);
+        await Assert.That(UidNormalization.CountTopLevelArgsInUidBraces(uid, openIdx)).IsEqualTo(argumentCount);
     }
 }

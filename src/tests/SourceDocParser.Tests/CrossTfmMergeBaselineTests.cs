@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using SourceDocParser.Merge;
@@ -24,22 +25,31 @@ namespace SourceDocParser.Tests;
 /// </summary>
 public class CrossTfmMergeBaselineTests
 {
-    /// <summary>
-    /// Type present in two TFMs surfaces once with both TFMs in
-    /// <see cref="ApiType.AppliesTo"/> -- highest rank first.
-    /// </summary>
+    /// <summary>Fixture value for Net80.</summary>
+    private const string Net80 = "net8.0";
+
+    /// <summary>Fixture value for Net100.</summary>
+    private const string Net100 = "net10.0";
+
+    /// <summary>Expected fixture value used by TypePresentOnlyOnNonCanonicalTfmIsStillSurfaced.</summary>
+    private const int TypePresentOnlyOnNonCanonicalTfmIsStillSurfacedExpectedValue = 2;
+
+    /// <summary>Expected fixture value used by AppliesToAggregatesAcrossThreeTfmsInRankOrder.</summary>
+    private const int AppliesToAggregatesAcrossThreeTfmsInRankOrderExpectedValue = 3;
+
+    /// <summary>Type present in two TFMs surfaces once with both TFMs in <see cref="ApiType.AppliesTo"/> -- highest rank first.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task TypeOnTwoTfmsIsMergedAndAppliesToListsBoth()
     {
-        var net8 = TestData.Catalog("net8.0", TestData.Type("Foo"));
-        var net10 = TestData.Catalog("net10.0", TestData.Type("Foo"));
+        var net8 = TestData.Catalog(Net80, TestData.Type("Foo"));
+        var net10 = TestData.Catalog(Net100, TestData.Type("Foo"));
 
         var merged = TypeMerger.Merge([net8, net10]);
 
         await Assert.That(merged.Length).IsEqualTo(1);
-        await Assert.That(merged[0].AppliesTo[0]).IsEqualTo("net10.0");
-        await Assert.That(merged[0].AppliesTo).Contains("net8.0");
+        await Assert.That(merged[0].AppliesTo[0]).IsEqualTo(Net100);
+        await Assert.That(merged[0].AppliesTo).Contains(Net80);
     }
 
     /// <summary>
@@ -52,15 +62,15 @@ public class CrossTfmMergeBaselineTests
     [Test]
     public async Task TypePresentOnlyOnNonCanonicalTfmIsStillSurfaced()
     {
-        var net8 = TestData.Catalog("net8.0", TestData.Type("RemovedInTen"));
-        var net10 = TestData.Catalog("net10.0", TestData.Type("StillThere"));
+        var net8 = TestData.Catalog(Net80, TestData.Type("RemovedInTen"));
+        var net10 = TestData.Catalog(Net100, TestData.Type("StillThere"));
 
         var merged = TypeMerger.Merge([net8, net10]);
 
-        await Assert.That(merged.Length).IsEqualTo(2);
-        var removed = Array.Find(merged, t => t.FullName == "RemovedInTen");
+        await Assert.That(merged.Length).IsEqualTo(TypePresentOnlyOnNonCanonicalTfmIsStillSurfacedExpectedValue);
+        var removed = Array.Find(merged, static t => t.FullName == "RemovedInTen");
         await Assert.That(removed).IsNotNull();
-        await Assert.That(removed!.AppliesTo).IsEquivalentTo((string[])["net8.0"]);
+        await Assert.That(removed!.AppliesTo).IsEquivalentTo((string[])[Net80]);
     }
 
     /// <summary>
@@ -77,8 +87,8 @@ public class CrossTfmMergeBaselineTests
         var net10Foo = TestData.ObjectType("Foo") with { Members = [Method("Modern")] };
 
         var merged = TypeMerger.Merge([
-            TestData.Catalog("net8.0", net8Foo),
-            TestData.Catalog("net10.0", net10Foo),
+            TestData.Catalog(Net80, net8Foo),
+            TestData.Catalog(Net100, net10Foo),
         ]);
 
         var foo = (ApiObjectType)GetOnlyType(merged);
@@ -105,8 +115,8 @@ public class CrossTfmMergeBaselineTests
         };
 
         var merged = TypeMerger.Merge([
-            TestData.Catalog("net8.0", net8Foo),
-            TestData.Catalog("net10.0", net10Foo),
+            TestData.Catalog(Net80, net8Foo),
+            TestData.Catalog(Net100, net10Foo),
         ]);
 
         await Assert.That(GetOnlyType(merged).Documentation.Summary).IsEqualTo("net10 summary");
@@ -122,8 +132,8 @@ public class CrossTfmMergeBaselineTests
     [Test]
     public async Task SourceUrlFillsFromAnyVariantWhenCanonicalLacksOne()
     {
-        var net10 = TestData.Catalog("net10.0", TestData.Type("Foo", "Test", null));
-        var net8 = TestData.Catalog("net8.0", TestData.Type("Foo", "Test", "https://example.test/Foo.cs#L1"));
+        var net10 = TestData.Catalog(Net100, TestData.Type("Foo", nameof(Test), null));
+        var net8 = TestData.Catalog(Net80, TestData.Type("Foo", nameof(Test), "https://example.test/Foo.cs#L1"));
 
         var merged = TypeMerger.Merge([net10, net8]);
 
@@ -165,7 +175,7 @@ public class CrossTfmMergeBaselineTests
 
         var walker = new SymbolWalker();
         using ISourceLinkResolver resolver = new NullSourceLinkResolver();
-        var catalog = walker.Walk("net10.0", compilation.Assembly, compilation, resolver);
+        var catalog = walker.Walk(Net100, compilation.Assembly, compilation, resolver);
 
         var derived = GetObjectType(catalog.Types, "Foo.Derived");
         var run = GetMember(derived.Members, "Run");
@@ -183,14 +193,14 @@ public class CrossTfmMergeBaselineTests
     {
         var merged = TypeMerger.Merge([
             TestData.Catalog("netstandard2.0", TestData.Type("Foo")),
-            TestData.Catalog("net10.0", TestData.Type("Foo")),
-            TestData.Catalog("net8.0", TestData.Type("Foo")),
+            TestData.Catalog(Net100, TestData.Type("Foo")),
+            TestData.Catalog(Net80, TestData.Type("Foo")),
         ]);
 
         var foo = GetOnlyType(merged);
-        await Assert.That(foo.AppliesTo.Length).IsEqualTo(3);
-        await Assert.That(foo.AppliesTo[0]).IsEqualTo("net10.0");
-        await Assert.That(Contains(foo.AppliesTo, "net8.0")).IsTrue();
+        await Assert.That(foo.AppliesTo.Length).IsEqualTo(AppliesToAggregatesAcrossThreeTfmsInRankOrderExpectedValue);
+        await Assert.That(foo.AppliesTo[0]).IsEqualTo(Net100);
+        await Assert.That(Contains(foo.AppliesTo, Net80)).IsTrue();
         await Assert.That(Contains(foo.AppliesTo, "netstandard2.0")).IsTrue();
     }
 
@@ -270,6 +280,7 @@ public class CrossTfmMergeBaselineTests
     /// <summary>Returns the only type in <paramref name="types"/>, or throws if the baseline shape changed.</summary>
     /// <param name="types">Merged type array.</param>
     /// <returns>The single merged type.</returns>
+    /// <exception cref="InvalidOperationException">The catalog does not contain exactly one type.</exception>
     private static ApiType GetOnlyType(ApiType[] types) =>
         types is [var only]
             ? only
@@ -279,6 +290,7 @@ public class CrossTfmMergeBaselineTests
     /// <param name="types">Catalog types to scan.</param>
     /// <param name="fullName">Fully qualified type name.</param>
     /// <returns>The matching object type.</returns>
+    /// <exception cref="InvalidOperationException">The requested object type is absent.</exception>
     private static ApiObjectType GetObjectType(ApiType[] types, string fullName)
     {
         for (var i = 0; i < types.Length; i++)
@@ -296,6 +308,7 @@ public class CrossTfmMergeBaselineTests
     /// <param name="members">Members to scan.</param>
     /// <param name="name">Member name to find.</param>
     /// <returns>The matching member.</returns>
+    /// <exception cref="InvalidOperationException">The requested member is absent.</exception>
     private static ApiMember GetMember(ApiMember[] members, string name)
     {
         for (var i = 0; i < members.Length; i++)
@@ -330,6 +343,7 @@ public class CrossTfmMergeBaselineTests
     private sealed class NullSourceLinkResolver : ISourceLinkResolver
     {
         /// <inheritdoc />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public string? Resolve(ISymbol symbol) => null;
 
         /// <inheritdoc />

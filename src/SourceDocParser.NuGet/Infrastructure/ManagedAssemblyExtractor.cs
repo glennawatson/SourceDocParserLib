@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -7,9 +7,7 @@ using System.Reflection.PortableExecutable;
 
 namespace SourceDocParser.NuGet.Infrastructure;
 
-/// <summary>
-/// Extracts managed-only DLL entries from a NuGet package.
-/// </summary>
+/// <summary>Extracts managed-only DLL entries from a NuGet package.</summary>
 /// <remarks>
 /// This helper identifies IL-only assemblies within a .nupkg archive,
 /// typically under the ref/ directory. It uses PEReader to verify that
@@ -24,13 +22,13 @@ internal static class ManagedAssemblyExtractor
     /// </summary>
     /// <param name="stream">Stream positioned at the start of a candidate PE file.</param>
     /// <returns>True when the assembly is managed and IL-only; otherwise false.</returns>
-    public static bool IsManagedAssembly(Stream stream)
+    internal static bool IsManagedAssembly(Stream stream)
     {
         try
         {
-            using var peReader = new PEReader(stream, PEStreamOptions.LeaveOpen);
-            return peReader is { HasMetadata: true, PEHeaders.CorHeader.Flags: var flags }
-                   && flags.HasFlag(CorFlags.ILOnly);
+            using var assemblyReader = new PEReader(stream, PEStreamOptions.LeaveOpen);
+            return assemblyReader is { HasMetadata: true, PEHeaders.CorHeader.Flags: var flags }
+                   && ((flags & CorFlags.ILOnly) == CorFlags.ILOnly);
         }
         catch (BadImageFormatException)
         {
@@ -45,7 +43,7 @@ internal static class ManagedAssemblyExtractor
     /// <param name="entry">ZIP archive entry under inspection.</param>
     /// <param name="prefix">Path prefix; must already end with /.</param>
     /// <returns>True when the entry is a DLL under the requested prefix.</returns>
-    public static bool IsCandidateDllEntry(ZipArchiveEntry entry, string prefix)
+    internal static bool IsCandidateDllEntry(ZipArchiveEntry entry, string prefix)
     {
         ArgumentNullException.ThrowIfNull(entry);
 
@@ -69,7 +67,7 @@ internal static class ManagedAssemblyExtractor
     /// <param name="archive">Open the NuGet package archive.</param>
     /// <param name="pathPrefix">Path prefix inside the archive; trailing slash optional.</param>
     /// <returns>Lazy enumeration of matching entries.</returns>
-    public static IEnumerable<ZipArchiveEntry> SelectAssemblyEntries(ZipArchive archive, string pathPrefix)
+    internal static IEnumerable<ZipArchiveEntry> SelectAssemblyEntries(ZipArchive archive, string pathPrefix)
     {
         ArgumentNullException.ThrowIfNull(archive);
         ArgumentException.ThrowIfNullOrWhiteSpace(pathPrefix);
@@ -78,9 +76,7 @@ internal static class ManagedAssemblyExtractor
         return SelectAssemblyEntriesIterator(archive, prefix);
     }
 
-    /// <summary>
-    /// Implementation of <see cref="SelectAssemblyEntries"/>.
-    /// </summary>
+    /// <summary>Implementation of <see cref="SelectAssemblyEntries"/>.</summary>
     /// <param name="archive">Open the NuGet package archive.</param>
     /// <param name="prefix">Path prefix inside the archive.</param>
     /// <returns>Lazy enumeration of matching entries.</returns>

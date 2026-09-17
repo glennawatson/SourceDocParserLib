@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -15,6 +15,21 @@ namespace SourceDocParser.NuGet.Tests;
 /// </summary>
 public class NuGetConfigPathsResolverTests
 {
+    /// <summary>Fixture value for NuGet.</summary>
+    private const string NuGet = "NuGet";
+
+    /// <summary>Fixture value for NuGetConfig.</summary>
+    private const string NuGetConfig = "NuGet.Config";
+
+    /// <summary>Fixture value for HomeU.</summary>
+    private const string HomeU = "/home/u";
+
+    /// <summary>Expected fixture value used by GetUserPathsReturnsBothUnixCandidates.</summary>
+    private const int GetUserPathsReturnsBothUnixCandidatesExpectedValue = 2;
+
+    /// <summary>Expected fixture value used by GetMachinePathsReturnsSortedConfigFiles.</summary>
+    private const int GetMachinePathsReturnsSortedConfigFilesExpectedValue = 3;
+
     /// <summary>Windows path pulls from <c>%AppData%\NuGet\NuGet.Config</c>.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -23,7 +38,7 @@ public class NuGetConfigPathsResolverTests
         var paths = NuGetConfigPathsResolver.GetUserPaths(isWindows: true, appData: "/Users/u/AppData/Roaming", userProfile: null);
 
         await Assert.That(paths.Length).IsEqualTo(1);
-        await Assert.That(paths[0]).EndsWith(Path.Combine("NuGet", "NuGet.Config"));
+        await Assert.That(paths[0]).EndsWith(Path.Combine(NuGet, NuGetConfig));
         await Assert.That(paths[0]).StartsWith("/Users/u/AppData/Roaming");
     }
 
@@ -32,7 +47,7 @@ public class NuGetConfigPathsResolverTests
     [Test]
     public async Task GetUserPathsReturnsEmptyWhenWindowsAppDataMissing()
     {
-        var paths = NuGetConfigPathsResolver.GetUserPaths(isWindows: true, appData: null, userProfile: "/home/u");
+        var paths = NuGetConfigPathsResolver.GetUserPaths(isWindows: true, appData: null, userProfile: HomeU);
 
         await Assert.That(paths).IsEmpty();
     }
@@ -42,11 +57,11 @@ public class NuGetConfigPathsResolverTests
     [Test]
     public async Task GetUserPathsReturnsBothUnixCandidates()
     {
-        var paths = NuGetConfigPathsResolver.GetUserPaths(isWindows: false, appData: null, userProfile: "/home/u");
+        var paths = NuGetConfigPathsResolver.GetUserPaths(isWindows: false, appData: null, userProfile: HomeU);
 
-        await Assert.That(paths.Length).IsEqualTo(2);
-        await Assert.That(paths[0]).EndsWith(Path.Combine(".nuget", "NuGet", "NuGet.Config"));
-        await Assert.That(paths[1]).EndsWith(Path.Combine(".config", "NuGet", "NuGet.Config"));
+        await Assert.That(paths.Length).IsEqualTo(GetUserPathsReturnsBothUnixCandidatesExpectedValue);
+        await Assert.That(paths[0]).EndsWith(Path.Combine(".nuget", NuGet, NuGetConfig));
+        await Assert.That(paths[1]).EndsWith(Path.Combine(".config", NuGet, NuGetConfig));
     }
 
     /// <summary>Unix + missing user profile yields an empty array.</summary>
@@ -86,8 +101,8 @@ public class NuGetConfigPathsResolverTests
         var root = Path.Combine(Path.GetTempPath(), $"sdp-machine-cfg-{Guid.NewGuid():N}");
         try
         {
-            Directory.CreateDirectory(root);
-            Directory.CreateDirectory(Path.Combine(root, "sub"));
+            _ = Directory.CreateDirectory(root);
+            _ = Directory.CreateDirectory(Path.Combine(root, "sub"));
             await File.WriteAllTextAsync(Path.Combine(root, "Z.config"), string.Empty);
             await File.WriteAllTextAsync(Path.Combine(root, "A.config"), string.Empty);
             await File.WriteAllTextAsync(Path.Combine(root, "sub", "M.config"), string.Empty);
@@ -95,7 +110,7 @@ public class NuGetConfigPathsResolverTests
 
             var paths = NuGetConfigPathsResolver.GetMachinePaths(root);
 
-            await Assert.That(paths.Length).IsEqualTo(3);
+            await Assert.That(paths.Length).IsEqualTo(GetMachinePathsReturnsSortedConfigFilesExpectedValue);
             for (var i = 1; i < paths.Length; i++)
             {
                 await Assert.That(StringComparer.Ordinal.Compare(paths[i - 1], paths[i])).IsLessThan(0);
@@ -115,9 +130,9 @@ public class NuGetConfigPathsResolverTests
     [Test]
     public async Task GetDefaultGlobalPackagesFolderUsesUserProfile()
     {
-        var path = NuGetConfigPathsResolver.GetDefaultGlobalPackagesFolder("/home/u");
+        var path = NuGetConfigPathsResolver.GetDefaultGlobalPackagesFolder(HomeU);
 
-        await Assert.That(path).IsEqualTo(Path.Combine("/home/u", PathSeparatorHelpers.ToPlatformPath(".nuget/packages")));
+        await Assert.That(path).IsEqualTo(Path.Combine(HomeU, PathSeparatorHelpers.ToPlatformPath(".nuget/packages")));
     }
 
     /// <summary>The default global packages folder falls back to cwd when the profile is blank.</summary>

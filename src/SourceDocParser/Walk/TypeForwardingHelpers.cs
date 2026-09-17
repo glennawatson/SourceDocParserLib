@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -26,7 +26,7 @@ internal static class TypeForwardingHelpers
     /// </summary>
     /// <param name="assembly">Assembly whose forward attributes to read.</param>
     /// <returns>The forwarded type array -- possibly empty, never default.</returns>
-    public static ImmutableArray<INamedTypeSymbol> GetForwardedTypes(IAssemblySymbol assembly)
+    internal static ImmutableArray<INamedTypeSymbol> GetForwardedTypes(IAssemblySymbol assembly)
     {
         ArgumentNullException.ThrowIfNull(assembly);
         var forwarded = assembly.GetForwardedTypes();
@@ -44,7 +44,7 @@ internal static class TypeForwardingHelpers
     /// </summary>
     /// <param name="forwarded">Forwarded target symbol.</param>
     /// <returns>True when the target resolves to a non-error definition.</returns>
-    public static bool IsResolvable(INamedTypeSymbol forwarded)
+    internal static bool IsResolvable(INamedTypeSymbol forwarded)
     {
         ArgumentNullException.ThrowIfNull(forwarded);
         return forwarded.TypeKind != TypeKind.Error;
@@ -60,7 +60,7 @@ internal static class TypeForwardingHelpers
     /// <param name="forwarded">Forwarded type to check.</param>
     /// <param name="seenTypeUids">UIDs already collected by the walker.</param>
     /// <returns>True when the type is already represented.</returns>
-    public static bool IsAlreadyCollected(INamedTypeSymbol forwarded, HashSet<string> seenTypeUids)
+    internal static bool IsAlreadyCollected(INamedTypeSymbol forwarded, HashSet<string> seenTypeUids)
     {
         ArgumentNullException.ThrowIfNull(forwarded);
         ArgumentNullException.ThrowIfNull(seenTypeUids);
@@ -78,7 +78,7 @@ internal static class TypeForwardingHelpers
     /// <param name="assembly">Assembly whose forwards to seed from.</param>
     /// <param name="pending">Pre-allocated stack to push into.</param>
     /// <returns>The number of types pushed.</returns>
-    public static int SeedPending(IAssemblySymbol assembly, Stack<INamedTypeSymbol> pending)
+    internal static int SeedPending(IAssemblySymbol assembly, Stack<INamedTypeSymbol> pending)
     {
         ArgumentNullException.ThrowIfNull(assembly);
         ArgumentNullException.ThrowIfNull(pending);
@@ -101,7 +101,7 @@ internal static class TypeForwardingHelpers
     /// <param name="parent">Type whose nested types to enqueue.</param>
     /// <param name="pending">Pre-allocated stack to push into.</param>
     /// <returns>The number of nested types pushed.</returns>
-    public static int PushNested(INamedTypeSymbol parent, Stack<INamedTypeSymbol> pending)
+    internal static int PushNested(INamedTypeSymbol parent, Stack<INamedTypeSymbol> pending)
     {
         ArgumentNullException.ThrowIfNull(parent);
         ArgumentNullException.ThrowIfNull(pending);

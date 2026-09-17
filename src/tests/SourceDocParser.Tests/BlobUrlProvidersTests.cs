@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -15,12 +15,18 @@ namespace SourceDocParser.Tests;
 /// </summary>
 public class BlobUrlProvidersTests
 {
+    /// <summary>Fixture value for HttpsExampleOrgFooCs.</summary>
+    private const string HttpsExampleOrgFooCs = "https://example.org/foo.cs";
+
+    /// <summary>Expected fixture value used by DefaultAnchorAppendedForPositiveLine.</summary>
+    private const int DefaultAnchorAppendedForPositiveLineAppendDefaultAnchor = 42;
+
     /// <summary>GitHub provider returns null for non-GitHub URLs.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task GitHubReturnsNullForNonGitHubUrl()
     {
-        await Assert.That(BlobUrlProviders.TryRewriteGitHub("https://example.org/foo.cs", 1)).IsNull();
+        await Assert.That(BlobUrlProviders.TryRewriteGitHub(HttpsExampleOrgFooCs, 1)).IsNull();
         await Assert.That(BlobUrlProviders.TryRewriteGitHub("https://gitlab.com/x/y/-/raw/main/a.cs", 1)).IsNull();
     }
 
@@ -42,7 +48,7 @@ public class BlobUrlProvidersTests
     /// <summary>Azure DevOps provider returns null when the URL doesn't match the dev.azure.com prefix.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task AzureDevOpsReturnsNullForNonAzureUrl() => await Assert.That(BlobUrlProviders.TryRewriteAzureDevOps("https://example.org/foo.cs", 1)).IsNull();
+    public async Task AzureDevOpsReturnsNullForNonAzureUrl() => await Assert.That(BlobUrlProviders.TryRewriteAzureDevOps(HttpsExampleOrgFooCs, 1)).IsNull();
 
     /// <summary>Azure DevOps provider returns null when the URL has the prefix but no <c>_apis/git/repositories/</c> segment.</summary>
     /// <returns>A task representing the test execution.</returns>
@@ -54,7 +60,7 @@ public class BlobUrlProvidersTests
     [Test]
     public async Task DefaultAnchorOmittedForZeroLine()
     {
-        const string url = "https://example.org/foo.cs";
+        const string url = HttpsExampleOrgFooCs;
         await Assert.That(BlobUrlProviders.AppendDefaultAnchor(url, 0)).IsEqualTo(url);
     }
 
@@ -62,6 +68,6 @@ public class BlobUrlProvidersTests
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task DefaultAnchorAppendedForPositiveLine() =>
-        await Assert.That(BlobUrlProviders.AppendDefaultAnchor("https://example.org/foo.cs", 42))
+        await Assert.That(BlobUrlProviders.AppendDefaultAnchor(HttpsExampleOrgFooCs, DefaultAnchorAppendedForPositiveLineAppendDefaultAnchor))
             .IsEqualTo("https://example.org/foo.cs#L42");
 }

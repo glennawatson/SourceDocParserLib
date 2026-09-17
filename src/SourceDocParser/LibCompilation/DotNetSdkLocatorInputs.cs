@@ -1,6 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
+
+using System.Runtime.CompilerServices;
 
 namespace SourceDocParser.LibCompilation;
 
@@ -49,7 +51,7 @@ internal readonly record struct DotNetSdkLocatorInputs(
     /// foreign caller mutates env vars at the same time.
     /// </summary>
     /// <returns>The frozen snapshot.</returns>
-    public static DotNetSdkLocatorInputs Snapshot()
+    internal static DotNetSdkLocatorInputs Snapshot()
     {
         // .NET's env-var reads are themselves atomic, but we still
         // serialise the multi-read sequence so the FOUR strings we
@@ -78,6 +80,7 @@ internal readonly record struct DotNetSdkLocatorInputs(
     /// <summary>Reads an env var and normalises empty/missing to null.</summary>
     /// <param name="name">Env var name.</param>
     /// <returns>The value, or null when unset/blank.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string? ReadEnv(string name) => NullIfBlank(Environment.GetEnvironmentVariable(name));
 
     /// <summary>Coerces empty / null strings to null, otherwise returns the value as-is.</summary>

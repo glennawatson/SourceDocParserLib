@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,6 +16,12 @@ namespace SourceDocParser.Tests.SourceLink;
 /// </summary>
 public class StandalonePdbOpenerTests
 {
+    /// <summary>Expected fixture value used by ExtractEmbeddedPdbBytes.</summary>
+    private const int ExtractEmbeddedPdbBytesSlice = 4;
+
+    /// <summary>Expected fixture value used by ExtractEmbeddedPdbBytes.</summary>
+    private const int ExtractEmbeddedPdbBytesValue = 8;
+
     /// <summary>A path that doesn't exist returns false with null outs.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -69,7 +75,7 @@ public class StandalonePdbOpenerTests
         {
             // Materialise the assembly's embedded PDB blob to disk so
             // the standalone opener has a real file to consume.
-            byte[] pdbBytes = ExtractEmbeddedPdbBytes(assemblyPath);
+            var pdbBytes = ExtractEmbeddedPdbBytes(assemblyPath);
             await File.WriteAllBytesAsync(tempPdb, pdbBytes);
 
             var ok = StandalonePdbOpener.TryOpen(tempPdb, out var providerOut, out var readerOut);
@@ -100,28 +106,25 @@ public class StandalonePdbOpenerTests
     /// <returns>The PDB stream bytes, ready to write to disk as a standalone .pdb.</returns>
     private static byte[] ExtractEmbeddedPdbBytes(string assemblyPath)
     {
-        using var peStream = File.OpenRead(assemblyPath);
-        using var peReader = new PEReader(peStream);
-        var entry = peReader.ReadDebugDirectory()
+        using var assemblyStream = File.OpenRead(assemblyPath);
+        using var assemblyReader = new PEReader(assemblyStream);
+        var entry = assemblyReader.ReadDebugDirectory()
             .First(static e => e.Type == DebugDirectoryEntryType.EmbeddedPortablePdb);
-        var rawSpan = peReader.GetSectionData(entry.DataRelativeVirtualAddress).GetContent(0, entry.DataSize).AsSpan();
+        var rawSpan = assemblyReader.GetSectionData(entry.DataRelativeVirtualAddress).GetContent(0, entry.DataSize).AsSpan();
 
         // Strip the 4-byte "MPDB" signature + 4-byte uncompressed length, decompress the rest.
-        var uncompressedLength = BitConverter.ToInt32(rawSpan.Slice(4, 4));
-        var compressed = rawSpan[8..];
+        var uncompressedLength = BitConverter.ToInt32(rawSpan.Slice(ExtractEmbeddedPdbBytesSlice, ExtractEmbeddedPdbBytesSlice));
+        var compressed = rawSpan[ExtractEmbeddedPdbBytesValue..];
         var output = new byte[uncompressedLength];
         using var ms = new MemoryStream(compressed.ToArray());
         using var deflate = new DeflateStream(ms, CompressionMode.Decompress);
-        var read = 0;
-        while (read < uncompressedLength)
+        for (int read = 0, count = 0; read < uncompressedLength; read += count)
         {
-            var n = deflate.Read(output, read, uncompressedLength - read);
-            if (n <= 0)
+            count = deflate.Read(output, read, uncompressedLength - read);
+            if (count <= 0)
             {
                 break;
             }
-
-            read += n;
         }
 
         return output;

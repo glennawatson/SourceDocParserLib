@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,12 +16,15 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 /// </summary>
 public class DocfxMemberDisplayNameTests
 {
+    /// <summary>Metadata name of an instance constructor.</summary>
+    private const string ConstructorName = ".ctor";
+
     /// <summary>Constructors render with the containing type name + parens.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ConstructorRendersAsTypeNameWithParens()
     {
-        var ctor = NewMember("ctor", ".ctor", ApiMemberKind.Constructor);
+        var ctor = NewMember("ctor", ConstructorName, ApiMemberKind.Constructor);
 
         var name = DocfxMemberDisplayName.Unqualified(ctor, TestData.ObjectType("ReactiveObject"));
 
@@ -35,7 +38,7 @@ public class DocfxMemberDisplayNameTests
     {
         var ctor = NewMember(
             "ctor",
-            ".ctor",
+            ConstructorName,
             ApiMemberKind.Constructor,
             new ApiParameter("first", new("int", "T:System.Int32"), false, false, false, false, false, null),
             new ApiParameter("second", new("string", "T:System.String"), false, false, false, false, false, null));
@@ -99,7 +102,7 @@ public class DocfxMemberDisplayNameTests
     /// <param name="parameters">Optional parameter list.</param>
     /// <returns>The constructed member.</returns>
     private static ApiMember NewMember(string name, string uid, ApiMemberKind kind, params ApiParameter[] parameters) => new(
-        Name: name == "ctor" ? ".ctor" : name,
+        Name: name == "ctor" ? ConstructorName : name,
         Uid: uid,
         Kind: kind,
         IsStatic: false,

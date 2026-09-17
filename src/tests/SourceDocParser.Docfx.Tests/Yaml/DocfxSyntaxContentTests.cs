@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -19,6 +19,9 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 /// </summary>
 public class DocfxSyntaxContentTests
 {
+    /// <summary>Declaration of the parameterless method fixture.</summary>
+    private const string RunMethodSignature = "public void Run()";
+
     /// <summary>No surviving attributes => legacy short-scalar form, byte-identical to the pre-tier-1c output.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -26,7 +29,7 @@ public class DocfxSyntaxContentTests
     {
         var sb = new StringBuilder();
 
-        sb.AppendSyntaxContent([], "public void Run()", indent: "    ");
+        _ = sb.AppendSyntaxContent([], RunMethodSignature, indent: "    ");
 
         await Assert.That(sb.ToString().Lf()).IsEqualTo("    content: public void Run()\n");
     }
@@ -42,7 +45,7 @@ public class DocfxSyntaxContentTests
             new("NullableContext", "T:System.Runtime.CompilerServices.NullableContextAttribute", string.Empty, []),
         ];
 
-        sb.AppendSyntaxContent(attrs, "public void Run()", indent: "    ");
+        _ = sb.AppendSyntaxContent(attrs, RunMethodSignature, indent: "    ");
 
         await Assert.That(sb.ToString().Lf()).IsEqualTo("    content: public void Run()\n");
     }
@@ -58,7 +61,7 @@ public class DocfxSyntaxContentTests
             new("Serializable", "T:System.SerializableAttribute", string.Empty, []),
         ];
 
-        sb.AppendSyntaxContent(attrs, "public class Foo", indent: "    ");
+        _ = sb.AppendSyntaxContent(attrs, "public class Foo", indent: "    ");
 
         await Assert.That(sb.ToString().Lf()).IsEqualTo("    content: >-\n    [Serializable]\n    \n    public class Foo\n");
     }
@@ -79,7 +82,7 @@ public class DocfxSyntaxContentTests
             IsOverride: false,
             IsAbstract: false,
             IsSealed: false,
-            Signature: "public void Run()",
+            Signature: RunMethodSignature,
             Parameters: [],
             TypeParameters: [],
             ReturnType: null,

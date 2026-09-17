@@ -1,10 +1,11 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 using System.Reflection;
 using System.Reflection.Metadata;
 using System.Reflection.PortableExecutable;
+using System.Runtime.CompilerServices;
 
 namespace SourceDocParser;
 
@@ -29,7 +30,7 @@ internal static class PublicSurfaceProbe
     /// </summary>
     /// <param name="dllPaths">Absolute paths to the DLLs to probe.</param>
     /// <returns>The probed UID set keyed on Roslyn-style <c>T:</c> commentIds.</returns>
-    public static HashSet<string> ProbePublicTypeUids(IReadOnlyList<string> dllPaths)
+    internal static HashSet<string> ProbePublicTypeUids(IReadOnlyList<string> dllPaths)
     {
         ArgumentNullException.ThrowIfNull(dllPaths);
         var uids = new HashSet<string>(StringComparer.Ordinal);
@@ -90,7 +91,7 @@ internal static class PublicSurfaceProbe
             return;
         }
 
-        uids.Add(BuildTypeUid(reader, type));
+        _ = uids.Add(BuildTypeUid(reader, type));
     }
 
     /// <summary>Returns true when <paramref name="type"/> resolves to public visibility through every enclosing scope.</summary>
@@ -119,6 +120,7 @@ internal static class PublicSurfaceProbe
     /// <param name="reader">Metadata reader scoped to the DLL.</param>
     /// <param name="type">Type definition row.</param>
     /// <returns>The complete type UID.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string BuildTypeUid(MetadataReader reader, TypeDefinition type) =>
         string.Create(
             TypeCommentIdPrefix.Length + GetFullNameLength(reader, type),
@@ -126,7 +128,7 @@ internal static class PublicSurfaceProbe
             static (dest, state) =>
             {
                 TypeCommentIdPrefix.AsSpan().CopyTo(dest);
-                WriteFullName(dest[TypeCommentIdPrefix.Length..], state.Reader, state.Type);
+                _ = WriteFullName(dest[TypeCommentIdPrefix.Length..], state.Reader, state.Type);
             });
 
     /// <summary>Returns the character count of the dotted full name (Roslyn commentId form) for <paramref name="type"/>.</summary>
@@ -147,10 +149,7 @@ internal static class PublicSurfaceProbe
             : nameLength;
     }
 
-    /// <summary>
-    /// Composes the dotted full name (Roslyn commentId form) for
-    /// <paramref name="type"/> by walking its declaring chain.
-    /// </summary>
+    /// <summary>Composes the dotted full name (Roslyn commentId form) for <paramref name="type"/> by walking its declaring chain.</summary>
     /// <param name="destination">Destination span receiving the dotted full name.</param>
     /// <param name="reader">Metadata reader scoped to the DLL.</param>
     /// <param name="type">Type definition row.</param>
@@ -162,13 +161,15 @@ internal static class PublicSurfaceProbe
         if (!declaringTypeHandle.IsNil)
         {
             position = WriteFullName(destination, reader, reader.GetTypeDefinition(declaringTypeHandle));
-            destination[position++] = '.';
+            destination[position] = '.';
+            position++;
         }
         else if (reader.GetString(type.Namespace) is [_, ..] ns)
         {
             ns.AsSpan().CopyTo(destination);
             position = ns.Length;
-            destination[position++] = '.';
+            destination[position] = '.';
+            position++;
         }
 
         var name = reader.GetString(type.Name);

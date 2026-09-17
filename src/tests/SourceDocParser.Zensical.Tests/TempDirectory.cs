@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -12,8 +12,8 @@ internal sealed class TempDirectory : IDisposable
     /// <summary>Initializes a new instance of the <see cref="TempDirectory"/> class.</summary>
     public TempDirectory()
     {
-        Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "sdp-zensical-" + Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture));
-        Directory.CreateDirectory(Path);
+        Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"sdp-zensical-{Guid.NewGuid().ToString("N", CultureInfo.InvariantCulture)}");
+        _ = Directory.CreateDirectory(Path);
     }
 
     /// <summary>Gets the absolute path of the temporary directory.</summary>

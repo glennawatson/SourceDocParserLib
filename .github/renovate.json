@@ -1,0 +1,101 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:best-practices",
+    ":separateMajorReleases",
+    ":combinePatchMinorReleases",
+    "group:dotnetMonorepo",
+    "group:nugetMonorepo",
+    "security:openssf-scorecard"
+  ],
+  "mode": "full",
+  "timezone": "Australia/Melbourne",
+  "prConcurrentLimit": 10,
+  "prHourlyLimit": 10,
+  "labels": ["dependencies"],
+  "recreateWhen": "auto",
+  "semanticCommits": "enabled",
+  "semanticCommitType": "build",
+  "semanticCommitScope": "deps",
+  "commitMessageAction": "bump",
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "schedule": ["at any time"],
+    "labels": ["dependencies", "security"]
+  },
+  "packageRules": [
+    {
+      "description": "The Docfx comparison requires its matching compiler, decompiler, and benchmark runner versions.",
+      "matchFileNames": ["src/benchmarks/Docfx.StandaloneBenchmarks/Docfx.StandaloneBenchmarks.csproj"],
+      "matchPackageNames": ["BenchmarkDotNet", "Microsoft.CodeAnalysis.CSharp", "ICSharpCode.Decompiler", "YamlDotNet"],
+      "enabled": false
+    },
+    {
+      "matchManagers": ["nuget"],
+      "matchPackageNames": ["/^Microsoft\\.CodeAnalysis(\\.|$)/"],
+      "groupName": "Roslyn"
+    },
+    {
+      "matchManagers": ["nuget"],
+      "matchPackageNames": ["/^TUnit(\\.|$)/", "/^Microsoft\\.Testing\\./"],
+      "groupName": "test runner"
+    },
+    {
+      "matchManagers": ["nuget"],
+      "matchPackageNames": ["/^StyleSharp\\./", "/^PerformanceSharp\\./", "/^SecuritySharp\\./"],
+      "groupName": "analyzers",
+      "labels": ["dependencies", "build-gate"]
+    },
+    {
+      "matchManagers": ["nuget"],
+      "matchPackageNames": ["System.Threading.RateLimiting", "Microsoft.Extensions.Logging.Abstractions", "System.Security.Cryptography.Xml"],
+      "matchCurrentVersion": ">=10.0.0 <11.0.0-0",
+      "allowedVersions": ">=10.0.0 <11.0.0-0",
+      "groupName": ".NET 10 libraries"
+    },
+    {
+      "matchManagers": ["nuget"],
+      "matchPackageNames": ["System.Threading.RateLimiting", "Microsoft.Extensions.Logging.Abstractions", "System.Security.Cryptography.Xml"],
+      "matchCurrentVersion": ">=11.0.0-0 <12.0.0-0",
+      "allowedVersions": ">=11.0.0-0 <12.0.0-0",
+      "ignoreUnstable": false,
+      "groupName": ".NET 11 libraries"
+    },
+    {
+      "matchManagers": ["nuget"],
+      "matchPackageNames": ["BenchmarkDotNet"],
+      "ignoreUnstable": false
+    },
+    {
+      "matchManagers": ["nuget"],
+      "matchPackageNames": ["MinVer"],
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions"
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["pin", "pinDigest"],
+      "group": { "commitMessageTopic": "GitHub Actions digests" }
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["/^actions\\//", "/^github\\//", "/^microsoft\\//"],
+      "matchUpdateTypes": ["minor", "patch", "digest", "pin", "pinDigest"],
+      "automerge": true
+    },
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["/^mcr\\.microsoft\\.com\\//", "/^ghcr\\.io\\/reactiveui\\//", "docker/dockerfile"],
+      "matchUpdateTypes": ["digest", "pin", "pinDigest"],
+      "automerge": true
+    },
+    {
+      "matchManagers": ["pip_requirements"],
+      "groupName": "documentation tools"
+    }
+  ]
+}

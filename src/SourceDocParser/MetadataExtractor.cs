@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -20,6 +20,7 @@ namespace SourceDocParser;
 /// <see cref="ApiCatalog"/>, merges duplicates across TFMs, and hands
 /// the merged catalog to an <see cref="IDocumentationEmitter"/>.
 /// </summary>
+[System.Diagnostics.DebuggerDisplay("MetadataExtractor: {_symbolWalker}")]
 public sealed class MetadataExtractor : IMetadataExtractor
 {
     /// <summary>
@@ -38,29 +39,20 @@ public sealed class MetadataExtractor : IMetadataExtractor
     /// <summary>Factory invoked once per assembly to create its scoped source-link resolver.</summary>
     private readonly Func<string, ISourceLinkResolver> _sourceLinkResolverFactory;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="MetadataExtractor"/> class
-    /// with the default production collaborators.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="MetadataExtractor"/> class with the default production collaborators.</summary>
     public MetadataExtractor()
         : this(null, null, null)
     {
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="MetadataExtractor"/> class
-    /// with the supplied walker and default loader / source-link collaborators.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="MetadataExtractor"/> class with the supplied walker and default loader / source-link collaborators.</summary>
     /// <param name="symbolWalker">Walker invoked for each loaded assembly.</param>
     public MetadataExtractor(ISymbolWalker? symbolWalker)
         : this(symbolWalker, null, null)
     {
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="MetadataExtractor"/> class
-    /// with the supplied walker and loader factory.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="MetadataExtractor"/> class with the supplied walker and loader factory.</summary>
     /// <param name="symbolWalker">Walker invoked for each loaded assembly.</param>
     /// <param name="loaderFactory">Factory invoked once per TFM group to create the loader for that group.</param>
     public MetadataExtractor(ISymbolWalker? symbolWalker, Func<ILogger, ICompilationLoader>? loaderFactory)
@@ -68,9 +60,7 @@ public sealed class MetadataExtractor : IMetadataExtractor
     {
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="MetadataExtractor"/> class.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="MetadataExtractor"/> class.</summary>
     /// <param name="symbolWalker">Walker invoked for each loaded assembly.</param>
     /// <param name="loaderFactory">Factory invoked once per TFM group to create the loader for that group.</param>
     /// <param name="sourceLinkResolverFactory">Factory invoked once per assembly to create its scoped source-link resolver.</param>
@@ -85,6 +75,7 @@ public sealed class MetadataExtractor : IMetadataExtractor
     }
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Task<ExtractionResult> RunAsync(
         IAssemblySource source,
         IPageSink sink,
@@ -92,6 +83,7 @@ public sealed class MetadataExtractor : IMetadataExtractor
         RunAsync(source, sink, emitter, null, CancellationToken.None);
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Task<ExtractionResult> RunAsync(
         IAssemblySource source,
         IPageSink sink,
@@ -117,10 +109,12 @@ public sealed class MetadataExtractor : IMetadataExtractor
     }
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Task<DirectExtractionResult> ExtractAsync(IAssemblySource source) =>
         ExtractAsync(source, null, CancellationToken.None);
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Task<DirectExtractionResult> ExtractAsync(IAssemblySource source, ILogger? logger) =>
         ExtractAsync(source, logger, CancellationToken.None);
 
@@ -195,9 +189,7 @@ public sealed class MetadataExtractor : IMetadataExtractor
         return flat;
     }
 
-    /// <summary>
-    /// Internal implementation of the documentation pipeline.
-    /// </summary>
+    /// <summary>Internal implementation of the documentation pipeline.</summary>
     /// <param name="source">The assembly source.</param>
     /// <param name="sink">Destination sink the emitter writes pages through.</param>
     /// <param name="emitter">The documentation emitter.</param>

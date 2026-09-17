@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,6 +16,9 @@ namespace SourceDocParser.Tests;
 /// </summary>
 public class ExtensionBlockBuilderTests
 {
+    /// <summary>Expected fixture value used by BuildSurfacesEachExtensionBlock.</summary>
+    private const int BuildSurfacesEachExtensionBlockExpectedValue = 2;
+
     /// <summary>Build returns one block per extension declaration on the host type.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -29,13 +32,13 @@ public class ExtensionBlockBuilderTests
                 extension(int value) { public int Doubled => value * 2; }
             }
             """);
-        var helpers = (INamedTypeSymbol)compilation.GetSymbolsWithName("Helpers").Single();
+        var helpers = (INamedTypeSymbol)(await Assert.That(compilation.GetSymbolsWithName("Helpers")).HasSingleItem());
         var context = WalkerTestFixtures.NewContext(compilation);
 
         var blocks = ExtensionBlockBuilder.Build(helpers, context);
 
-        await Assert.That(blocks.Length).IsEqualTo(2);
-        var receiverNames = blocks.Select(b => b.ReceiverName).ToHashSet();
+        await Assert.That(blocks.Length).IsEqualTo(BuildSurfacesEachExtensionBlockExpectedValue);
+        var receiverNames = Array.ConvertAll(blocks, static block => block.ReceiverName);
         await Assert.That(receiverNames).Contains("source");
         await Assert.That(receiverNames).Contains("value");
     }
@@ -49,7 +52,7 @@ public class ExtensionBlockBuilderTests
             """
             public class Foo { public void Run() { } }
             """);
-        var foo = (INamedTypeSymbol)compilation.GetSymbolsWithName("Foo").Single();
+        var foo = (INamedTypeSymbol)(await Assert.That(compilation.GetSymbolsWithName("Foo")).HasSingleItem());
         var context = WalkerTestFixtures.NewContext(compilation);
 
         var blocks = ExtensionBlockBuilder.Build(foo, context);
@@ -66,8 +69,8 @@ public class ExtensionBlockBuilderTests
             """
             public class Outer { public class Inner { } }
             """);
-        var outer = (INamedTypeSymbol)compilation.GetSymbolsWithName("Outer").Single();
-        var inner = outer.GetTypeMembers("Inner").Single();
+        var outer = (INamedTypeSymbol)(await Assert.That(compilation.GetSymbolsWithName("Outer")).HasSingleItem());
+        var inner = (await Assert.That(outer.GetTypeMembers("Inner")).HasSingleItem());
         var context = WalkerTestFixtures.NewContext(compilation);
 
         var block = ExtensionBlockBuilder.TryBuildBlock(inner, context);

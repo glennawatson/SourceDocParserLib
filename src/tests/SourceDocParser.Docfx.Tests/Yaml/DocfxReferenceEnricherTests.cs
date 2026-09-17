@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -18,12 +18,15 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 /// </summary>
 public class DocfxReferenceEnricherTests
 {
+    /// <summary>YAML field introducing C# reference components.</summary>
+    private const string CSharpSpecHeader = "spec.csharp:";
+
     /// <summary>BCL primitive class refs lower to their C# keyword form on the rendered name fields.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task BclPrimitiveClassReferenceLowersToKeyword()
     {
-        var page = RenderPageWithReference(new("Object", "T:System.Object"), internalUids: []);
+        var page = RenderPageWithReference(new(nameof(Object), "T:System.Object"), internalUids: []);
 
         await Assert.That(page).Contains("  name: object");
         await Assert.That(page).Contains("  nameWithType: object");
@@ -35,7 +38,7 @@ public class DocfxReferenceEnricherTests
     [Test]
     public async Task BclReferenceRoutesToMicrosoftLearn()
     {
-        var page = RenderPageWithReference(new("Object", "T:System.Object"), internalUids: []);
+        var page = RenderPageWithReference(new(nameof(Object), "T:System.Object"), internalUids: []);
 
         await Assert.That(page).Contains("- uid: System.Object");
         await Assert.That(page).Contains("  parent: System");
@@ -57,7 +60,7 @@ public class DocfxReferenceEnricherTests
         await Assert.That(page).DoesNotContain("isExternal: true\n  parent: My");
     }
 
-    /// <summary>spec.csharp components always carry <c>isExternal: true</c>, even when the open-generic target is in our walk set.</summary>
+    /// <summary>Spec.csharp components always carry <c>isExternal: true</c>, even when the open-generic target is in our walk set.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task SpecCsharpComponentsAlwaysCarryIsExternal()
@@ -69,11 +72,11 @@ public class DocfxReferenceEnricherTests
             new("IFoo<int>", "T:My.IFoo{System.Int32}"),
             internalUids: ["T:My.IFoo`1"]);
 
-        await Assert.That(page).Contains("spec.csharp:");
+        await Assert.That(page).Contains(CSharpSpecHeader);
         await Assert.That(page).Contains("  - uid: My.IFoo`1");
 
         // Pin the field appears under the open-generic spec entry.
-        var specBlockStart = page.IndexOf("spec.csharp:", StringComparison.Ordinal);
+        var specBlockStart = page.IndexOf(CSharpSpecHeader, StringComparison.Ordinal);
         var afterOpen = page.IndexOf("  - uid: My.IFoo`1", specBlockStart, StringComparison.Ordinal);
         var afterIsExternal = page.IndexOf("isExternal: true", afterOpen, StringComparison.Ordinal);
         var nextSpecEntry = page.IndexOf("\n  - ", afterOpen + 1, StringComparison.Ordinal);
@@ -92,7 +95,7 @@ public class DocfxReferenceEnricherTests
             internalUids: []);
 
         await Assert.That(page).Contains("definition: System.IObservable`1");
-        await Assert.That(page).Contains("spec.csharp:");
+        await Assert.That(page).Contains(CSharpSpecHeader);
         await Assert.That(page).Contains("  - uid: System.IObservable`1");
         await Assert.That(page).Contains("  - name: <");
         await Assert.That(page).Contains("  - name: '>'");
@@ -107,7 +110,7 @@ public class DocfxReferenceEnricherTests
             new("Dictionary<List<int>, string>", "T:System.Collections.Generic.Dictionary{System.Collections.Generic.List{System.Int32},System.String}"),
             internalUids: []);
 
-        await Assert.That(page).Contains("spec.csharp:");
+        await Assert.That(page).Contains(CSharpSpecHeader);
         await Assert.That(page).Contains("  - uid: System.Collections.Generic.Dictionary`2");
         await Assert.That(page).Contains("  - uid: System.Collections.Generic.List`1");
         await Assert.That(page).Contains("  - uid: System.Int32");
@@ -116,17 +119,14 @@ public class DocfxReferenceEnricherTests
         await Assert.That(page).Contains("  - name: '>'");
     }
 
-    /// <summary>
-    /// Convenience: render a Foo type whose only reference is
-    /// <paramref name="reference"/>, then return the YAML page.
-    /// </summary>
+    /// <summary>Convenience: render a Foo type whose only reference is <paramref name="reference"/>, then return the YAML page.</summary>
     /// <param name="reference">Reference to enrich.</param>
     /// <param name="internalUids">UIDs treated as internal.</param>
     /// <returns>The full YAML page text.</returns>
     private static string RenderPageWithReference(ApiTypeReference reference, HashSet<string> internalUids)
     {
         var sb = new StringBuilder();
-        DocfxReferenceEnricher.AppendEnrichedReference(sb, reference, internalUids);
+        _ = DocfxReferenceEnricher.AppendEnrichedReference(sb, reference, internalUids);
         return sb.ToString().Lf();
     }
 }

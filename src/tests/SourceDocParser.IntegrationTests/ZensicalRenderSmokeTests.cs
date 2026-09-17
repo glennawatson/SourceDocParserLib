@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -87,8 +87,12 @@ public class ZensicalRenderSmokeTests
                 return false;
             }
 
+#if NET11_0_OR_GREATER
+            return process.WaitForExitStatus() is { Signal: null, ExitCode: 0 };
+#else
             process.WaitForExit();
             return process.ExitCode == 0;
+#endif
         }
         catch
         {
@@ -145,6 +149,7 @@ public class ZensicalRenderSmokeTests
     /// <param name="venvDir">Absolute path to the venv root.</param>
     /// <param name="requirements">Absolute path to the pip requirements file.</param>
     /// <returns>A task representing the asynchronous bootstrap.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when <c>exit != 0</c>.</exception>
     private static async Task EnsureVenvAsync(string venvDir, string requirements)
     {
         if (!Directory.Exists(venvDir))
@@ -175,25 +180,15 @@ public class ZensicalRenderSmokeTests
         await File.WriteAllTextAsync(marker, requirementsStamp.ToString("O", CultureInfo.InvariantCulture));
     }
 
-    /// <summary>
-    /// Spawns <paramref name="tool"/> with <paramref name="args"/> in
-    /// <paramref name="workingDirectory"/> and captures stdout / stderr
-    /// for any failure message.
-    /// </summary>
+    /// <summary>Spawns <paramref name="tool"/> with <paramref name="args"/> in <paramref name="workingDirectory"/> and captures stdout / stderr for any failure message.</summary>
     /// <param name="tool">Executable.</param>
     /// <param name="args">Arguments.</param>
     /// <param name="workingDirectory">Working directory; <see langword="null"/> inherits the current process directory.</param>
     /// <returns>The exit code plus captured streams.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when <c>Process.Start(startInfo)</c> is <see langword="null"/>.</exception>
     private static async Task<(int ExitCode, string Stdout, string Stderr)> RunAsync(string tool, string[] args, string? workingDirectory)
     {
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = tool,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
+        var startInfo = new ProcessStartInfo { FileName = tool, RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true, };
 
         if (workingDirectory is not null)
         {
@@ -210,7 +205,13 @@ public class ZensicalRenderSmokeTests
 
         var stdoutTask = process.StandardOutput.ReadToEndAsync();
         var stderrTask = process.StandardError.ReadToEndAsync();
+#if NET11_0_OR_GREATER
+        var status = await process.WaitForExitStatusAsync();
+        var exitCode = status.Signal is null ? status.ExitCode : -1;
+#else
         await process.WaitForExitAsync();
-        return (process.ExitCode, await stdoutTask, await stderrTask);
+        var exitCode = process.ExitCode;
+#endif
+        return (exitCode, await stdoutTask, await stderrTask);
     }
 }

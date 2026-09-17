@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,13 +16,25 @@ namespace SourceDocParser.Tests.Walk;
 /// </summary>
 public class AttributeExtractorHelperTests
 {
+    /// <summary>Expected fixture value used by FormatPrimitiveRoutesNumbersThroughInvariantCulture.</summary>
+    private const int FormatPrimitiveRoutesNumbersThroughInvariantCultureFormatPrimitive = 42;
+
+    /// <summary>Expected fixture value used by FormatPrimitiveRoutesNumbersThroughInvariantCulture.</summary>
+    private const double FormatPrimitiveRoutesNumbersThroughInvariantCultureFormatPrimitive2 = 3.14;
+
+    /// <summary>Expected fixture value used by CountEscapesCountsBackslashAndQuote.</summary>
+    private const int CountEscapesCountsBackslashAndQuoteExpectedValue = 2;
+
+    /// <summary>Expected fixture value used by CountEscapesCountsBackslashAndQuote.</summary>
+    private const int CountEscapesCountsBackslashAndQuoteExpectedValue2 = 4;
+
     /// <summary>Names ending in <c>Attribute</c> get the suffix stripped.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task StripAttributeSuffixDropsSuffixWhenPresent()
     {
-        await Assert.That(AttributeExtractor.StripAttributeSuffix("ObsoleteAttribute")).IsEqualTo("Obsolete");
-        await Assert.That(AttributeExtractor.StripAttributeSuffix("FlagsAttribute")).IsEqualTo("Flags");
+        await Assert.That(AttributeExtractor.StripAttributeSuffix(nameof(ObsoleteAttribute))).IsEqualTo("Obsolete");
+        await Assert.That(AttributeExtractor.StripAttributeSuffix(nameof(FlagsAttribute))).IsEqualTo("Flags");
     }
 
     /// <summary>Names that don't end in <c>Attribute</c> pass through unchanged.</summary>
@@ -37,7 +49,7 @@ public class AttributeExtractorHelperTests
     /// <summary>The exact string <c>Attribute</c> stays as-is -- stripping it would leave an empty name.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task StripAttributeSuffixKeepsBareAttribute() => await Assert.That(AttributeExtractor.StripAttributeSuffix("Attribute")).IsEqualTo("Attribute");
+    public async Task StripAttributeSuffixKeepsBareAttribute() => await Assert.That(AttributeExtractor.StripAttributeSuffix(nameof(Attribute))).IsEqualTo("Attribute");
 
     /// <summary>QuoteStringLiteral wraps a no-escape string in double quotes via the fast path.</summary>
     /// <returns>A task representing the test execution.</returns>
@@ -92,8 +104,8 @@ public class AttributeExtractorHelperTests
     [Test]
     public async Task FormatPrimitiveRoutesNumbersThroughInvariantCulture()
     {
-        await Assert.That(AttributeExtractor.FormatPrimitive(42)).IsEqualTo("42");
-        await Assert.That(AttributeExtractor.FormatPrimitive(3.14)).IsEqualTo("3.14");
+        await Assert.That(AttributeExtractor.FormatPrimitive(FormatPrimitiveRoutesNumbersThroughInvariantCultureFormatPrimitive)).IsEqualTo("42");
+        await Assert.That(AttributeExtractor.FormatPrimitive(FormatPrimitiveRoutesNumbersThroughInvariantCultureFormatPrimitive2)).IsEqualTo("3.14");
         await Assert.That(AttributeExtractor.FormatPrimitive(0L)).IsEqualTo("0");
     }
 
@@ -115,8 +127,8 @@ public class AttributeExtractorHelperTests
         await Assert.That(AttributeExtractor.CountEscapes("plain".AsSpan())).IsEqualTo(0);
         await Assert.That(AttributeExtractor.CountEscapes("a\\b".AsSpan())).IsEqualTo(1);
         await Assert.That(AttributeExtractor.CountEscapes("a\"b".AsSpan())).IsEqualTo(1);
-        await Assert.That(AttributeExtractor.CountEscapes("\\\"".AsSpan())).IsEqualTo(2);
-        await Assert.That(AttributeExtractor.CountEscapes("\\\\\"\"".AsSpan())).IsEqualTo(4);
+        await Assert.That(AttributeExtractor.CountEscapes("\\\"".AsSpan())).IsEqualTo(CountEscapesCountsBackslashAndQuoteExpectedValue);
+        await Assert.That(AttributeExtractor.CountEscapes("\\\\\"\"".AsSpan())).IsEqualTo(CountEscapesCountsBackslashAndQuoteExpectedValue2);
     }
 
     /// <summary>The <c>ObsoleteAttributeFullName</c> constant matches the actual <see cref="ObsoleteAttribute"/> fully-qualified name.</summary>

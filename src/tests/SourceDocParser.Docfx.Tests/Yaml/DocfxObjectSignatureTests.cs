@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -168,7 +168,7 @@ public class DocfxObjectSignatureTests
     {
         var type = TestData.ObjectType("Foo") with
         {
-            BaseType = new("Object", "T:System.Object"),
+            BaseType = new(nameof(Object), "T:System.Object"),
         };
 
         var sig = DocfxObjectSignature.Synthesise(type);

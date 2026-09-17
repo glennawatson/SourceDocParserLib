@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -8,24 +8,20 @@ using SourceDocParser.TestHelpers;
 
 namespace SourceDocParser.Tests.LibCompilation;
 
-/// <summary>
-/// Pins <see cref="AssemblyResolution.BuildFallbackIndex"/> -- the
-/// missing-directory skip, the duplicate-name log path, and the
-/// happy-path index shape.
-/// </summary>
+/// <summary>Pins <see cref="AssemblyResolution.BuildFallbackIndex"/> -- the missing-directory skip, the duplicate-name log path, and the happy-path index shape.</summary>
 public class AssemblyResolutionTests
 {
     /// <summary>A null directory list is rejected.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task BuildFallbackIndexRejectsNullDirectories() =>
-        await Assert.That(() => AssemblyResolution.BuildFallbackIndex(null!, NullLogger.Instance)).Throws<ArgumentNullException>();
+        await Assert.That(static () => AssemblyResolution.BuildFallbackIndex(null!, NullLogger.Instance)).Throws<ArgumentNullException>();
 
     /// <summary>A null logger is rejected.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task BuildFallbackIndexRejectsNullLogger() =>
-        await Assert.That(() => AssemblyResolution.BuildFallbackIndex([], null!)).Throws<ArgumentNullException>();
+        await Assert.That(static () => AssemblyResolution.BuildFallbackIndex([], null!)).Throws<ArgumentNullException>();
 
     /// <summary>Directories that don't exist are silently skipped.</summary>
     /// <returns>A task representing the test execution.</returns>

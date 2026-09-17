@@ -1,8 +1,10 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Jobs;
 using SourceDocParser.Docfx.Yaml;
 using SourceDocParser.Model;
 using SourceDocParser.NuGet.Infrastructure;
@@ -16,6 +18,9 @@ namespace SourceDocParser.Docfx.StandaloneBenchmarks.Benchmarks;
 /// to a single framework slice so the side-by-side comparison runs on
 /// the same physical assemblies on both sides.
 /// </summary>
+[System.Diagnostics.DebuggerDisplay("SourceDocParserDocfxLibraryBenchmark: {Tfm}")]
+[SimpleJob(RuntimeMoniker.Net10_0)]
+[SimpleJob(RuntimeMoniker.Net11_0)]
 [MemoryDiagnoser]
 public class SourceDocParserDocfxLibraryBenchmark
 {
@@ -23,7 +28,7 @@ public class SourceDocParserDocfxLibraryBenchmark
     private string _scratchRoot = string.Empty;
 
     /// <summary>Per-TFM configured assembly source -- populated in GlobalSetup, indexed by short TFM.</summary>
-    private Dictionary<string, NuGetAssemblySource> _sourcePerTfm = new(StringComparer.Ordinal);
+    private Dictionary<string, NuGetAssemblySource> _sourcePerTfm = [with(StringComparer.Ordinal)];
 
     /// <summary>Per-iteration output directory.</summary>
     private string _outputRoot = string.Empty;
@@ -50,25 +55,25 @@ public class SourceDocParserDocfxLibraryBenchmark
     public async Task GlobalSetupAsync()
     {
         _scratchRoot = Path.Combine(Path.GetTempPath(), $"sdp-docfx-ours-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(_scratchRoot);
+        _ = Directory.CreateDirectory(_scratchRoot);
 
         _emitter = new();
         _extractor = new();
-        _sourcePerTfm = new(StringComparer.Ordinal);
+        _sourcePerTfm = [with(StringComparer.Ordinal)];
 
         string[] tfms = ["net8.0", "net9.0", "net10.0", "net472"];
         for (var i = 0; i < tfms.Length; i++)
         {
             var tfm = tfms[i];
             var tfmRoot = Path.Combine(_scratchRoot, tfm);
-            Directory.CreateDirectory(tfmRoot);
+            _ = Directory.CreateDirectory(tfmRoot);
 
             await File.WriteAllTextAsync(
                 Path.Combine(tfmRoot, "nuget-packages.json"),
                 BuildFixtureConfig(tfm)).ConfigureAwait(false);
 
             var apiPath = Path.Combine(tfmRoot, "api");
-            Directory.CreateDirectory(apiPath);
+            _ = Directory.CreateDirectory(apiPath);
 
             var source = new NuGetAssemblySource(tfmRoot, apiPath);
             _sourcePerTfm[tfm] = source;
@@ -86,7 +91,7 @@ public class SourceDocParserDocfxLibraryBenchmark
         _outputRoot = Path.Combine(_scratchRoot, Tfm, $"iter-{Guid.NewGuid():N}");
     }
 
-    /// <summary>Per-iteration cleanup. Drops output tree and forces GC.</summary>
+    /// <summary>Removes the output tree before the next measurement.</summary>
     [IterationCleanup]
     public void IterationCleanup()
     {
@@ -94,10 +99,6 @@ public class SourceDocParserDocfxLibraryBenchmark
         {
             Directory.Delete(_outputRoot, recursive: true);
         }
-
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-        GC.Collect();
     }
 
     /// <summary>Removes the entire scratch directory after the benchmark series completes.</summary>
@@ -113,7 +114,11 @@ public class SourceDocParserDocfxLibraryBenchmark
         {
             Directory.Delete(_scratchRoot, recursive: true);
         }
-        catch
+        catch (IOException)
+        {
+            // Best-effort cleanup of files held by the extractor.
+        }
+        catch (UnauthorizedAccessException)
         {
             // Best-effort cleanup.
         }
@@ -121,6 +126,7 @@ public class SourceDocParserDocfxLibraryBenchmark
 
     /// <summary>Times one full pipeline pass for the chosen TFM: discover, walk, merge, emit docfx YAML.</summary>
     /// <returns>The extraction result (returned so BDN doesn't elide the call).</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<ExtractionResult> RunAsync() =>
         _extractor.RunAsync(_source, new FilePageSink(_outputRoot), _emitter);
@@ -128,6 +134,7 @@ public class SourceDocParserDocfxLibraryBenchmark
     /// <summary>Builds a single-TFM nuget-packages.json. Drops every other TFM so the walk is scoped to one slice.</summary>
     /// <param name="tfm">Short TFM identifier (net8.0, net472, ...).</param>
     /// <returns>The JSON config text.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The framework is outside the benchmark fixture matrix.</exception>
     private static string BuildFixtureConfig(string tfm)
     {
         var refPackages = tfm switch

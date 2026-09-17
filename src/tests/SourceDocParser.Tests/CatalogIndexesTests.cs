@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,6 +16,27 @@ namespace SourceDocParser.Tests;
 /// </summary>
 public class CatalogIndexesTests
 {
+    /// <summary>Fixture value for TMissing.</summary>
+    private const string TMissing = "T:Missing";
+
+    /// <summary>Fixture value for TFooReceiver.</summary>
+    private const string TFooReceiver = "T:Foo.Receiver";
+
+    /// <summary>Fixture value for TBase.</summary>
+    private const string TBase = "T:Base";
+
+    /// <summary>Fixture value for MSystemObjectToString.</summary>
+    private const string MSystemObjectToString = "M:System.Object.ToString";
+
+    /// <summary>Fixture value for TFoo.</summary>
+    private const string TFoo = "T:Foo";
+
+    /// <summary>Expected fixture value used by DerivedLookupBucketsBySubclassByBaseUid.</summary>
+    private const int DerivedLookupBucketsBySubclassByBaseUidExpectedValue = 2;
+
+    /// <summary>Expected fixture value used by InheritedLookupFoldsBaseMembersThenBaseline.</summary>
+    private const int InheritedLookupFoldsBaseMembersThenBaselineExpectedValue = 3;
+
     /// <summary>Stand-in System.Object baseline used when the test doesn't care about its content.</summary>
     private static readonly string[] _emptyBaseline = [];
 
@@ -36,9 +57,9 @@ public class CatalogIndexesTests
     {
         var indexes = CatalogIndexes.Empty;
 
-        await Assert.That(indexes.GetDerived("T:Missing")).IsEmpty();
-        await Assert.That(indexes.GetExtensions("T:Missing")).IsEmpty();
-        await Assert.That(indexes.GetInherited("T:Missing")).IsEmpty();
+        await Assert.That(indexes.GetDerived(TMissing)).IsEmpty();
+        await Assert.That(indexes.GetExtensions(TMissing)).IsEmpty();
+        await Assert.That(indexes.GetInherited(TMissing)).IsEmpty();
     }
 
     /// <summary>Each subclass is bucketed under its base type UID, in encounter order.</summary>
@@ -53,7 +74,7 @@ public class CatalogIndexesTests
         var indexes = CatalogIndexes.Build([baseType, subA, subB], _emptyBaseline);
         var derived = indexes.GetDerived("Base");
 
-        await Assert.That(derived.Length).IsEqualTo(2);
+        await Assert.That(derived.Length).IsEqualTo(DerivedLookupBucketsBySubclassByBaseUidExpectedValue);
         await Assert.That(derived[0].Uid).IsEqualTo("DerivedA");
         await Assert.That(derived[1].Uid).IsEqualTo("DerivedB");
     }
@@ -79,21 +100,21 @@ public class CatalogIndexesTests
     [Test]
     public async Task ExtensionLookupBucketsByExtendedTypeUid()
     {
-        var receiver = TestData.ObjectType("T:Foo.Receiver");
+        var receiver = TestData.ObjectType(TFooReceiver);
         var staticHost = TestData.ObjectType("T:Foo.Extensions", ApiObjectKind.Class) with
         {
             IsStatic = true,
             Members =
             [
-                BuildExtensionMember("Bar", receiverUid: "T:Foo.Receiver"),
-                BuildExtensionMember("Baz", receiverUid: "T:Foo.Receiver"),
+                BuildExtensionMember("Bar", receiverUid: TFooReceiver),
+                BuildExtensionMember("Baz", receiverUid: TFooReceiver),
             ],
         };
 
         var indexes = CatalogIndexes.Build([receiver, staticHost], _emptyBaseline);
-        var extensions = indexes.GetExtensions("T:Foo.Receiver");
+        var extensions = indexes.GetExtensions(TFooReceiver);
 
-        await Assert.That(extensions.Length).IsEqualTo(2);
+        await Assert.That(extensions.Length).IsEqualTo(DerivedLookupBucketsBySubclassByBaseUidExpectedValue);
         await Assert.That(extensions[0].Name).IsEqualTo("Bar");
         await Assert.That(extensions[1].Name).IsEqualTo("Baz");
     }
@@ -103,16 +124,16 @@ public class CatalogIndexesTests
     [Test]
     public async Task ExtensionLookupSkipsNonStaticHosts()
     {
-        var receiver = TestData.ObjectType("T:Foo.Receiver");
+        var receiver = TestData.ObjectType(TFooReceiver);
         var instanceHost = TestData.ObjectType("T:Foo.NotStatic", ApiObjectKind.Class) with
         {
             IsStatic = false,
-            Members = [BuildExtensionMember("Bar", receiverUid: "T:Foo.Receiver")],
+            Members = [BuildExtensionMember("Bar", receiverUid: TFooReceiver)],
         };
 
         var indexes = CatalogIndexes.Build([receiver, instanceHost], _emptyBaseline);
 
-        await Assert.That(indexes.GetExtensions("T:Foo.Receiver")).IsEmpty();
+        await Assert.That(indexes.GetExtensions(TFooReceiver)).IsEmpty();
     }
 
     /// <summary>Inherited list folds in the immediate-base members when the base lives in the walked set, then appends the supplied baseline.</summary>
@@ -120,20 +141,20 @@ public class CatalogIndexesTests
     [Test]
     public async Task InheritedLookupFoldsBaseMembersThenBaseline()
     {
-        var baseType = TestData.ObjectType("T:Base") with
+        var baseType = TestData.ObjectType(TBase) with
         {
             Members = [BuildMethod("M:Base.Inherited"), BuildMethod("M:Base.AlsoInherited")],
         };
-        var derived = TestData.ObjectType("T:Derived") with { BaseType = new("Base", "T:Base") };
-        string[] baseline = ["M:System.Object.ToString"];
+        var derived = TestData.ObjectType("T:Derived") with { BaseType = new("Base", TBase) };
+        string[] baseline = [MSystemObjectToString];
 
         var indexes = CatalogIndexes.Build([baseType, derived], baseline);
         var inherited = indexes.GetInherited("T:Derived");
 
-        await Assert.That(inherited.Length).IsEqualTo(3);
+        await Assert.That(inherited.Length).IsEqualTo(InheritedLookupFoldsBaseMembersThenBaselineExpectedValue);
         await Assert.That(inherited[0]).IsEqualTo("M:Base.Inherited");
         await Assert.That(inherited[1]).IsEqualTo("M:Base.AlsoInherited");
-        await Assert.That(inherited[2]).IsEqualTo("M:System.Object.ToString");
+        await Assert.That(inherited[DerivedLookupBucketsBySubclassByBaseUidExpectedValue]).IsEqualTo(MSystemObjectToString);
     }
 
     /// <summary>Inherited list still surfaces the baseline when the immediate base isn't walked.</summary>
@@ -142,7 +163,7 @@ public class CatalogIndexesTests
     public async Task InheritedLookupAppendsBaselineEvenWithoutBase()
     {
         var orphan = TestData.ObjectType("T:Orphan");
-        string[] baseline = ["M:System.Object.GetHashCode", "M:System.Object.ToString"];
+        string[] baseline = ["M:System.Object.GetHashCode", MSystemObjectToString];
 
         var indexes = CatalogIndexes.Build([orphan], baseline);
         var inherited = indexes.GetInherited("T:Orphan");
@@ -157,7 +178,7 @@ public class CatalogIndexesTests
     {
         var iface = TestData.ObjectType("T:IFoo", ApiObjectKind.Interface);
         var @struct = TestData.ObjectType("T:Bar", ApiObjectKind.Struct);
-        string[] baseline = ["M:System.Object.ToString"];
+        string[] baseline = [MSystemObjectToString];
 
         var indexes = CatalogIndexes.Build([iface, @struct], baseline);
 
@@ -171,7 +192,7 @@ public class CatalogIndexesTests
     public async Task InheritedLookupIncludesRecordKind()
     {
         var rec = TestData.ObjectType("T:Rec", ApiObjectKind.Record);
-        string[] baseline = ["M:System.Object.ToString"];
+        string[] baseline = [MSystemObjectToString];
 
         var indexes = CatalogIndexes.Build([rec], baseline);
 
@@ -183,12 +204,12 @@ public class CatalogIndexesTests
     [Test]
     public async Task InheritedLookupPreservesZensicalBaselineFormat()
     {
-        var cls = TestData.ObjectType("T:Foo");
-        string[] baseline = ["M:System.Object.ToString", "M:System.Object.GetHashCode"];
+        var cls = TestData.ObjectType(TFoo);
+        string[] baseline = [MSystemObjectToString, "M:System.Object.GetHashCode"];
 
         var indexes = CatalogIndexes.Build([cls], baseline);
 
-        await Assert.That(indexes.GetInherited("T:Foo")).IsEquivalentTo(baseline);
+        await Assert.That(indexes.GetInherited(TFoo)).IsEquivalentTo(baseline);
     }
 
     /// <summary>Docfx's bare-name baseline flows through verbatim -- emitter-specific format is just opaque data.</summary>
@@ -196,12 +217,12 @@ public class CatalogIndexesTests
     [Test]
     public async Task InheritedLookupPreservesDocfxBaselineFormat()
     {
-        var cls = TestData.ObjectType("T:Foo");
+        var cls = TestData.ObjectType(TFoo);
         string[] baseline = ["System.Object.ToString", "System.Object.GetHashCode"];
 
         var indexes = CatalogIndexes.Build([cls], baseline);
 
-        await Assert.That(indexes.GetInherited("T:Foo")).IsEquivalentTo(baseline);
+        await Assert.That(indexes.GetInherited(TFoo)).IsEquivalentTo(baseline);
     }
 
     /// <summary>Null arguments are rejected up front.</summary>
@@ -209,8 +230,8 @@ public class CatalogIndexesTests
     [Test]
     public async Task BuildRejectsNullArguments()
     {
-        await Assert.That(() => CatalogIndexes.Build(null!, _emptyBaseline)).Throws<ArgumentNullException>();
-        await Assert.That(() => CatalogIndexes.Build([], null!)).Throws<ArgumentNullException>();
+        await Assert.That(static () => CatalogIndexes.Build(null!, _emptyBaseline)).Throws<ArgumentNullException>();
+        await Assert.That(static () => CatalogIndexes.Build([], null!)).Throws<ArgumentNullException>();
     }
 
     /// <summary>Builds an extension member whose first parameter targets <paramref name="receiverUid"/>.</summary>
@@ -260,7 +281,7 @@ public class CatalogIndexesTests
             Parameters: [],
             TypeParameters: [],
             ReturnType: null,
-            ContainingTypeUid: "T:Base",
+            ContainingTypeUid: TBase,
             ContainingTypeName: "Base",
             SourceUrl: null,
             Documentation: ApiDocumentation.Empty,

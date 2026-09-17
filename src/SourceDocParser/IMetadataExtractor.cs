@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -14,9 +14,7 @@ namespace SourceDocParser;
 /// </summary>
 public interface IMetadataExtractor
 {
-    /// <summary>
-    /// Runs the extraction pipeline end-to-end using default logging and cancellation settings.
-    /// </summary>
+    /// <summary>Runs the extraction pipeline end-to-end using default logging and cancellation settings.</summary>
     /// <param name="source">Provides the per-TFM assemblies to walk.</param>
     /// <param name="sink">Destination sink the emitter writes pages through.</param>
     /// <param name="emitter">Format-specific page emitter.</param>
@@ -26,9 +24,7 @@ public interface IMetadataExtractor
         IPageSink sink,
         IDocumentationEmitter emitter);
 
-    /// <summary>
-    /// Runs the extraction pipeline end-to-end using the supplied logger.
-    /// </summary>
+    /// <summary>Runs the extraction pipeline end-to-end using the supplied logger.</summary>
     /// <param name="source">Provides the per-TFM assemblies to walk.</param>
     /// <param name="sink">Destination sink the emitter writes pages through.</param>
     /// <param name="emitter">Format-specific page emitter.</param>
@@ -40,9 +36,7 @@ public interface IMetadataExtractor
         IDocumentationEmitter emitter,
         ILogger? logger);
 
-    /// <summary>
-    /// Runs the extraction pipeline end-to-end.
-    /// </summary>
+    /// <summary>Runs the extraction pipeline end-to-end.</summary>
     /// <param name="source">Provides the per-TFM assemblies to walk.</param>
     /// <param name="sink">Destination sink the emitter writes pages through.</param>
     /// <param name="emitter">Format-specific page emitter.</param>

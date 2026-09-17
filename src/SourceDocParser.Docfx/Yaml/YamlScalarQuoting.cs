@@ -1,6 +1,9 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
+
+using System.Collections.Frozen;
+using System.Runtime.CompilerServices;
 
 namespace SourceDocParser.Docfx.Yaml;
 
@@ -18,7 +21,7 @@ internal static class YamlScalarQuoting
     private const string ReservedLeadingIndicators = " \t-?:,[]{}#&*!|>'\"%@`";
 
     /// <summary>Reserved YAML 1.1 boolean and null tokens that must stay quoted to round-trip as strings.</summary>
-    private static readonly HashSet<string> _reservedYamlTokens =
+    private static readonly FrozenSet<string> _reservedYamlTokens = FrozenSet.ToFrozenSet(
     [
         "true",
         "false",
@@ -32,15 +35,12 @@ internal static class YamlScalarQuoting
         "~",
         "yes",
         "no",
-    ];
+    ], StringComparer.Ordinal);
 
-    /// <summary>
-    /// Returns <see langword="true"/> when <paramref name="value"/> would be
-    /// misparsed by a YAML reader without quoting.
-    /// </summary>
+    /// <summary>Returns <see langword="true"/> when <paramref name="value"/> would be misparsed by a YAML reader without quoting.</summary>
     /// <param name="value">Scalar to inspect (must be non-empty).</param>
     /// <returns><see langword="true"/> when the scalar must be quoted.</returns>
-    public static bool NeedsQuoting(string value) =>
+    internal static bool NeedsQuoting(string value) =>
         HasReservedLeadingIndicator(value[0])
         || IsReservedYamlToken(value)
         || ScanForTerminators(value.AsSpan(), prev: '\0', next: '\0');
@@ -57,19 +57,16 @@ internal static class YamlScalarQuoting
     /// <param name="separator">Joining character.</param>
     /// <param name="right">Right half of the composite (must be non-empty).</param>
     /// <returns><see langword="true"/> when the composite scalar must be quoted.</returns>
-    public static bool CompositeNeedsQuoting(string left, char separator, string right) =>
+    internal static bool CompositeNeedsQuoting(string left, char separator, string right) =>
         HasReservedLeadingIndicator(left[0])
         || ScanForTerminators(left.AsSpan(), prev: '\0', next: separator)
         || ScanForTerminators(right.AsSpan(), prev: separator, next: '\0');
 
-    /// <summary>
-    /// Returns <see langword="true"/> when <paramref name="first"/> is one of the
-    /// YAML reserved leading indicators that force quoting on a plain
-    /// scalar.
-    /// </summary>
+    /// <summary>Returns <see langword="true"/> when <paramref name="first"/> is one of the YAML reserved leading indicators that force quoting on a plain scalar.</summary>
     /// <param name="first">First character of the scalar.</param>
     /// <returns><see langword="true"/> when the character is reserved.</returns>
-    public static bool HasReservedLeadingIndicator(char first) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool HasReservedLeadingIndicator(char first) =>
         ReservedLeadingIndicators.AsSpan().Contains(first);
 
     /// <summary>
@@ -79,7 +76,8 @@ internal static class YamlScalarQuoting
     /// </summary>
     /// <param name="value">Scalar to test.</param>
     /// <returns><see langword="true"/> when the scalar matches a reserved token.</returns>
-    public static bool IsReservedYamlToken(string value) => _reservedYamlTokens.Contains(value);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsReservedYamlToken(string value) => _reservedYamlTokens.Contains(value);
 
     /// <summary>
     /// Walks <paramref name="value"/> once looking for any character
@@ -93,7 +91,7 @@ internal static class YamlScalarQuoting
     /// <param name="prev">Character immediately before the segment, or <c>'\0'</c> for "none".</param>
     /// <param name="next">Character immediately after the segment, or <c>'\0'</c> for "none".</param>
     /// <returns><see langword="true"/> when the segment contains a terminator.</returns>
-    public static bool ScanForTerminators(in ReadOnlySpan<char> value, char prev, char next)
+    internal static bool ScanForTerminators(in ReadOnlySpan<char> value, char prev, char next)
     {
         for (var i = 0; i < value.Length; i++)
         {
@@ -117,16 +115,12 @@ internal static class YamlScalarQuoting
         return false;
     }
 
-    /// <summary>
-    /// Returns whether a character is always invalid inside an unquoted YAML plain scalar.
-    /// </summary>
+    /// <summary>Returns whether a character is always invalid inside an unquoted YAML plain scalar.</summary>
     /// <param name="value">Character to inspect.</param>
     /// <returns><see langword="true"/> when the character forces quoting.</returns>
     private static bool TerminatesPlainScalar(char value) => value is < ' ' or '"' or '\\';
 
-    /// <summary>
-    /// Returns whether a colon is followed by whitespace or end-of-segment, terminating a plain scalar.
-    /// </summary>
+    /// <summary>Returns whether a colon is followed by whitespace or end-of-segment, terminating a plain scalar.</summary>
     /// <param name="value">Segment being scanned.</param>
     /// <param name="index">Index of the colon within the segment.</param>
     /// <param name="next">Character immediately after the segment, or <c>'\0'</c>.</param>
@@ -137,9 +131,7 @@ internal static class YamlScalarQuoting
         return following is ' ' or '\t' or '\0';
     }
 
-    /// <summary>
-    /// Returns whether a hash sign is preceded by whitespace, starting a YAML comment.
-    /// </summary>
+    /// <summary>Returns whether a hash sign is preceded by whitespace, starting a YAML comment.</summary>
     /// <param name="value">Segment being scanned.</param>
     /// <param name="index">Index of the hash sign within the segment.</param>
     /// <param name="prev">Character immediately before the segment, or <c>'\0'</c>.</param>

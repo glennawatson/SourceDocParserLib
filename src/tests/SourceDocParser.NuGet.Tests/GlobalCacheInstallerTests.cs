@@ -1,9 +1,9 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 using System.IO.Compression;
-using System.Text;
+using System.Runtime.CompilerServices;
 using SourceDocParser.NuGet.Infrastructure;
 using SourceDocParser.NuGet.Models;
 
@@ -15,13 +15,25 @@ namespace SourceDocParser.NuGet.Tests;
 /// </summary>
 public class GlobalCacheInstallerTests
 {
+    /// <summary>Fixture value for Version100.</summary>
+    private const string Version100 = "1.0.0";
+
+    /// <summary>Fixture value for NugetFlatContainerOverride.</summary>
+    private const string NugetFlatContainerOverride = "NUGET_FLAT_CONTAINER_OVERRIDE";
+
+    /// <summary>Expected fixture value used by InitializeAsyncResolvesFromFixture.</summary>
+    private const int InitializeAsyncResolvesFromFixtureIsGreaterThanOrEqualTo = 2;
+
+    /// <summary>Caller-owned client reused by constructor injection checks.</summary>
+    private static readonly HttpClient SharedHttpClient = new();
+
     /// <summary>Constructor rejects a null/blank working folder.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ConstructorRejectsBlankWorkingFolder()
     {
-        await Assert.That(() => new GlobalCacheInstaller(string.Empty)).Throws<ArgumentException>();
-        await Assert.That(() => new GlobalCacheInstaller("   ")).Throws<ArgumentException>();
+        await Assert.That(static () => new GlobalCacheInstaller(string.Empty)).Throws<ArgumentException>();
+        await Assert.That(static () => new GlobalCacheInstaller("   ")).Throws<ArgumentException>();
     }
 
     /// <summary>The <c>GlobalPackagesFolder</c> property throws until <c>InitializeAsync</c> has run.</summary>
@@ -53,7 +65,7 @@ public class GlobalCacheInstallerTests
         static async Task Act()
         {
             using var installer = new GlobalCacheInstaller(AppContext.BaseDirectory);
-            await installer.InstallAsync("Foo", "1.0.0");
+            await installer.InstallAsync("Foo", Version100);
         }
     }
 
@@ -68,7 +80,7 @@ public class GlobalCacheInstallerTests
         {
             using var installer = new GlobalCacheInstaller(AppContext.BaseDirectory);
 
-            await installer.InstallAsync(string.Empty, "1.0.0");
+            await installer.InstallAsync(string.Empty, Version100);
         }
 
         static async Task BlankVersion()
@@ -97,7 +109,7 @@ public class GlobalCacheInstallerTests
 
         // The fixture is one of the existing NuGetConfigDiscoveryTests
         // fixtures and declares two sources without a <clear/>.
-        await Assert.That(installer.EnabledSources.Count).IsGreaterThanOrEqualTo(2);
+        await Assert.That(installer.EnabledSources.Count).IsGreaterThanOrEqualTo(InitializeAsyncResolvesFromFixtureIsGreaterThanOrEqualTo);
         await Assert.That(installer.GlobalPackagesFolder).IsNotEmpty();
     }
 
@@ -105,14 +117,14 @@ public class GlobalCacheInstallerTests
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task InternalConstructorRejectsNullFeed() =>
-        await Assert.That(() => new GlobalCacheInstaller(AppContext.BaseDirectory, logger: null, feedHttp: null!))
+        await Assert.That(static () => new GlobalCacheInstaller(AppContext.BaseDirectory, logger: null, feedHttp: null!))
             .Throws<ArgumentNullException>();
 
     /// <summary>The internal constructor rejects a blank working folder.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task InternalConstructorRejectsBlankWorkingFolder() =>
-        await Assert.That(() => new GlobalCacheInstaller(string.Empty, logger: null, new FakeFeed()))
+        await Assert.That(static () => new GlobalCacheInstaller(string.Empty, logger: null, new FakeFeed()))
             .Throws<ArgumentException>();
 
     /// <summary>The public constructor accepts a caller-owned <see cref="HttpClient"/> without throwing.</summary>
@@ -120,8 +132,7 @@ public class GlobalCacheInstallerTests
     [Test]
     public async Task PublicConstructorAcceptsExplicitHttpClient()
     {
-        using var http = new HttpClient();
-        using var installer = new GlobalCacheInstaller(AppContext.BaseDirectory, logger: null, http);
+        using var installer = new GlobalCacheInstaller(AppContext.BaseDirectory, logger: null, SharedHttpClient);
 
         await Assert.That(() => installer.GlobalPackagesFolder).Throws<InvalidOperationException>();
     }
@@ -145,13 +156,13 @@ public class GlobalCacheInstallerTests
     public async Task InstallAsyncShortCircuitsOnCacheHit()
     {
         using var fixture = new InstallerFixture();
-        var pkgFolder = fixture.PrePopulateGlobalPackage("Foo", "1.0.0");
+        var pkgFolder = fixture.PrePopulateGlobalPackage("Foo", Version100);
 
         var fake = new FakeFeed();
         using var installer = new GlobalCacheInstaller(fixture.WorkingFolder, logger: null, fake);
         await installer.InitializeAsync();
 
-        var result = await installer.InstallAsync("Foo", "1.0.0");
+        var result = await installer.InstallAsync("Foo", Version100);
 
         await Assert.That(result).IsEqualTo(pkgFolder);
         await Assert.That(fake.NupkgCalls).IsEqualTo(0);
@@ -163,13 +174,13 @@ public class GlobalCacheInstallerTests
     public async Task InstallAsyncReturnsFallbackHit()
     {
         using var fixture = new InstallerFixture();
-        var fallback = fixture.PrePopulateFallbackPackage("Foo", "1.0.0");
+        var fallback = fixture.PrePopulateFallbackPackage("Foo", Version100);
 
         var fake = new FakeFeed();
         using var installer = new GlobalCacheInstaller(fixture.WorkingFolder, logger: null, fake);
         await installer.InitializeAsync();
 
-        var result = await installer.InstallAsync("Foo", "1.0.0");
+        var result = await installer.InstallAsync("Foo", Version100);
 
         await Assert.That(result).IsEqualTo(fallback);
         await Assert.That(fake.NupkgCalls).IsEqualTo(0);
@@ -180,17 +191,17 @@ public class GlobalCacheInstallerTests
     [Test]
     public async Task InstallAsyncDownloadsAndExtracts()
     {
-        var prior = Environment.GetEnvironmentVariable("NUGET_FLAT_CONTAINER_OVERRIDE");
+        var prior = Environment.GetEnvironmentVariable(NugetFlatContainerOverride);
         try
         {
-            Environment.SetEnvironmentVariable("NUGET_FLAT_CONTAINER_OVERRIDE", "https://flat.example/");
+            Environment.SetEnvironmentVariable(NugetFlatContainerOverride, "https://flat.example/");
             using var fixture = new InstallerFixture();
             var fake = new FakeFeed { NupkgResponse = BuildFakeNupkg() };
 
             using var installer = new GlobalCacheInstaller(fixture.WorkingFolder, logger: null, fake);
             await installer.InitializeAsync();
 
-            var result = await installer.InstallAsync("Foo", "1.0.0");
+            var result = await installer.InstallAsync("Foo", Version100);
 
             await Assert.That(File.Exists(Path.Combine(result, ".nupkg.metadata"))).IsTrue();
             await Assert.That(File.Exists(Path.Combine(result, "lib", "net8.0", "Foo.dll"))).IsTrue();
@@ -198,7 +209,7 @@ public class GlobalCacheInstallerTests
         }
         finally
         {
-            Environment.SetEnvironmentVariable("NUGET_FLAT_CONTAINER_OVERRIDE", prior);
+            Environment.SetEnvironmentVariable(NugetFlatContainerOverride, prior);
         }
     }
 
@@ -227,13 +238,13 @@ public class GlobalCacheInstallerTests
         public InstallerFixture()
         {
             _root = Path.Combine(Path.GetTempPath(), $"sdp-installer-{Guid.NewGuid():N}");
-            Directory.CreateDirectory(_root);
+            _ = Directory.CreateDirectory(_root);
             WorkingFolder = Path.Combine(_root, "work");
             GlobalFolder = Path.Combine(_root, "global");
             FallbackFolder = Path.Combine(_root, "fallback");
-            Directory.CreateDirectory(WorkingFolder);
-            Directory.CreateDirectory(GlobalFolder);
-            Directory.CreateDirectory(FallbackFolder);
+            _ = Directory.CreateDirectory(WorkingFolder);
+            _ = Directory.CreateDirectory(GlobalFolder);
+            _ = Directory.CreateDirectory(FallbackFolder);
 
             var config = $"""
                 <?xml version="1.0" encoding="utf-8"?>
@@ -267,6 +278,7 @@ public class GlobalCacheInstallerTests
         /// <param name="id">Package id.</param>
         /// <param name="version">Package version.</param>
         /// <returns>The install path under the global folder.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public string PrePopulateGlobalPackage(string id, string version) =>
             CreateInstalledPackage(GlobalFolder, id, version);
 
@@ -274,6 +286,7 @@ public class GlobalCacheInstallerTests
         /// <param name="id">Package id.</param>
         /// <param name="version">Package version.</param>
         /// <returns>The install path under the fallback folder.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public string PrePopulateFallbackPackage(string id, string version) =>
             CreateInstalledPackage(FallbackFolder, id, version);
 
@@ -296,7 +309,7 @@ public class GlobalCacheInstallerTests
         private static string CreateInstalledPackage(string root, string id, string version)
         {
             var path = NuGetGlobalCache.GetPackageInstallPath(root, id, version);
-            Directory.CreateDirectory(path);
+            _ = Directory.CreateDirectory(path);
             File.WriteAllText(Path.Combine(path, ".nupkg.metadata"), "{}");
             return path;
         }
@@ -306,7 +319,7 @@ public class GlobalCacheInstallerTests
     private sealed class FakeFeed : INuGetFeedHttpClient
     {
         /// <summary>Gets or sets the bytes returned by nupkg downloads; null forces a 404.</summary>
-        public byte[]? NupkgResponse { get; set; }
+        public byte[]? NupkgResponse { get; init; }
 
         /// <summary>Gets the count of nupkg download attempts invoked.</summary>
         public int NupkgCalls { get; private set; }
@@ -315,8 +328,9 @@ public class GlobalCacheInstallerTests
         public bool Disposed { get; private set; }
 
         /// <inheritdoc />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Task<Stream> ReadServiceIndexAsync(string url, PackageSourceCredential? credential, CancellationToken cancellationToken) =>
-            Task.FromResult<Stream>(new MemoryStream(Encoding.UTF8.GetBytes("""{"version":"3.0.0","resources":[{"@id":"https://flat.example/","@type":"PackageBaseAddress/3.0.0"}]}""")));
+            Task.FromResult<Stream>(new MemoryStream("{\"version\":\"3.0.0\",\"resources\":[{\"@id\":\"https://flat.example/\",\"@type\":\"PackageBaseAddress/3.0.0\"}]}"u8.ToArray()));
 
         /// <inheritdoc />
         public Task<Stream?> TryDownloadNupkgAsync(string url, PackageSourceCredential? credential, CancellationToken cancellationToken)

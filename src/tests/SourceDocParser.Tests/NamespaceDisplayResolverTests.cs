@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -7,11 +7,7 @@ using SourceDocParser.Walk;
 
 namespace SourceDocParser.Tests;
 
-/// <summary>
-/// Pins <see cref="NamespaceDisplayResolver.Resolve"/> on the
-/// global-namespace short-circuit and the per-walk cache that keeps
-/// repeated lookups allocation-free.
-/// </summary>
+/// <summary>Pins <see cref="NamespaceDisplayResolver.Resolve"/> on the global-namespace short-circuit and the per-walk cache that keeps repeated lookups allocation-free.</summary>
 public class NamespaceDisplayResolverTests
 {
     /// <summary>Global namespace folds to the empty string.</summary>
@@ -46,7 +42,7 @@ public class NamespaceDisplayResolverTests
     public async Task NonGlobalNamespaceCachesDisplayName()
     {
         var compilation = WalkerTestFixtures.Compile("namespace My.Lib { public class Foo { } }");
-        var fooSymbol = (INamedTypeSymbol)compilation.GetSymbolsWithName("Foo").Single();
+        var fooSymbol = (INamedTypeSymbol)(await Assert.That(compilation.GetSymbolsWithName("Foo")).HasSingleItem());
         var context = WalkerTestFixtures.NewContext(compilation);
 
         var first = NamespaceDisplayResolver.Resolve(context, fooSymbol.ContainingNamespace);

@@ -1,8 +1,10 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Jobs;
 using SourceDocParser.XmlDoc;
 
 namespace SourceDocParser.Benchmarks;
@@ -12,6 +14,9 @@ namespace SourceDocParser.Benchmarks;
 /// conversion runs once per documented symbol, so it sits on the hot
 /// path for thousands of pages per build.
 /// </summary>
+[System.Diagnostics.DebuggerDisplay("XmlDocToMarkdownBenchmarks: {_converter}")]
+[SimpleJob(RuntimeMoniker.Net10_0)]
+[SimpleJob(RuntimeMoniker.Net11_0)]
 [MemoryDiagnoser]
 public class XmlDocToMarkdownBenchmarks
 {
@@ -20,8 +25,8 @@ public class XmlDocToMarkdownBenchmarks
 
     /// <summary>A typical method summary with see/paramref/c markup.</summary>
     private const string TaggedSummary =
-        "When <paramref name=\"value\"/> is <see langword=\"null\"/> the call delegates to " +
-        "<see cref=\"M:System.String.Empty\"/> via <c>Foo()</c> and falls back to <see href=\"https://example.com\">the docs</see>.";
+        "When <paramref name=\"value\"/> is <see langword=\"null\"/> the call delegates to "
+        + "<see cref=\"M:System.String.Empty\"/> via <c>Foo()</c> and falls back to <see href=\"https://example.com\">the docs</see>.";
 
     /// <summary>A summary containing a fenced code block plus a bullet list.</summary>
     private const string CodeAndListSummary = """
@@ -40,16 +45,19 @@ public class XmlDocToMarkdownBenchmarks
 
     /// <summary>Conversion of a plain summary fragment with no markup.</summary>
     /// <returns>The converted markdown.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark(Baseline = true)]
     public string ConvertPlainSummary() => _converter.Convert(PlainSummary);
 
     /// <summary>Conversion of a typical method summary with see / paramref / c markup.</summary>
     /// <returns>The converted markdown.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public string ConvertTaggedSummary() => _converter.Convert(TaggedSummary);
 
     /// <summary>Conversion of a summary containing a fenced code block + bullet list.</summary>
     /// <returns>The converted markdown.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public string ConvertCodeAndListSummary() => _converter.Convert(CodeAndListSummary);
 }

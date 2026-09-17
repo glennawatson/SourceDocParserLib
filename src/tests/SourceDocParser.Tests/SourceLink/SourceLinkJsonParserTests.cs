@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -18,6 +18,9 @@ namespace SourceDocParser.Tests.SourceLink;
 /// </summary>
 public class SourceLinkJsonParserTests
 {
+    /// <summary>Expected fixture value used by EntriesPreserveDeclarationOrder.</summary>
+    private const int EntriesPreserveDeclarationOrderExpectedValue = 3;
+
     /// <summary>A wildcard pattern (both sides end in <c>*</c>) emits a wildcard entry with the asterisks stripped.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -76,7 +79,7 @@ public class SourceLinkJsonParserTests
             }
             """);
 
-        await Assert.That(entries.Count).IsEqualTo(3);
+        await Assert.That(entries.Count).IsEqualTo(EntriesPreserveDeclarationOrderExpectedValue);
         await Assert.That(entries[0].LocalPrefix).IsEqualTo("/a/");
         await Assert.That(entries[1].LocalPrefix).IsEqualTo("/b/");
         await Assert.That(entries[2].LocalPrefix).IsEqualTo("/c/");

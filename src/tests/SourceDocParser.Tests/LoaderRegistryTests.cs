@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using SourceDocParser.LibCompilation;
@@ -39,8 +40,8 @@ public class LoaderRegistryTests
         var second = new RecordingLoader();
         var registry = new LoaderRegistry();
 
-        registry.Track(first);
-        registry.Track(second);
+        _ = registry.Track(first);
+        _ = registry.Track(second);
         registry.Dispose();
 
         await Assert.That(first.DisposeCount).IsEqualTo(1);
@@ -54,7 +55,7 @@ public class LoaderRegistryTests
     {
         var loader = new RecordingLoader();
         var registry = new LoaderRegistry();
-        registry.Track(loader);
+        _ = registry.Track(loader);
 
         registry.Dispose();
         registry.Dispose();
@@ -78,6 +79,7 @@ public class LoaderRegistryTests
         public int DisposeCount { get; private set; }
 
         /// <inheritdoc />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public (CSharpCompilation Compilation, IAssemblySymbol Assembly) Load(string assemblyPath, Dictionary<string, string> fallbackReferences) =>
             Load(assemblyPath, fallbackReferences, includePrivateMembers: false);
 

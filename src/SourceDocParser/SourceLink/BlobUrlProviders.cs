@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -15,6 +15,9 @@ namespace SourceDocParser.SourceLink;
 /// </summary>
 internal static class BlobUrlProviders
 {
+    /// <summary>The owner, repository, and revision segments preceding a GitHub source path.</summary>
+    private const int GitHubMetadataSegments = 3;
+
     /// <summary>The URL prefix for raw GitHub content.</summary>
     private const string GitHubRawUrlPrefix = "https://raw.githubusercontent.com/";
 
@@ -77,7 +80,7 @@ internal static class BlobUrlProviders
     /// <param name="rawUrl">Raw URL from SourceLinkMap.</param>
     /// <param name="line">First executable source line for the symbol; 0 omits the anchor.</param>
     /// <returns>The blob URL, or <see langword="null"/> when the URL doesn't match this provider.</returns>
-    public static string? TryRewriteGitHub(string rawUrl, int line)
+    internal static string? TryRewriteGitHub(string rawUrl, int line)
     {
         var urlSpan = rawUrl.AsSpan();
         if (!urlSpan.StartsWith(GitHubRawUrlPrefix, StringComparison.OrdinalIgnoreCase))
@@ -86,7 +89,7 @@ internal static class BlobUrlProviders
         }
 
         var afterHost = urlSpan[GitHubRawUrlPrefix.Length..];
-        var slashAfterRepo = SkipPathSegments(afterHost, 3);
+        var slashAfterRepo = SkipPathSegments(afterHost, GitHubMetadataSegments);
         if (slashAfterRepo <= 0)
         {
             return null;
@@ -110,15 +113,11 @@ internal static class BlobUrlProviders
             : $"{GitHubBlobUrlPrefix}{owner}/{repo}{GitHubBlobSegment}{sha}/{path}";
     }
 
-    /// <summary>
-    /// Attempts to rewrite a GitLab <c>/-/raw/</c> URL into the
-    /// matching <c>/-/blob/</c> URL. Returns <see langword="null"/>
-    /// when the raw segment is absent.
-    /// </summary>
+    /// <summary>Attempts to rewrite a GitLab <c>/-/raw/</c> URL into the matching <c>/-/blob/</c> URL. Returns <see langword="null"/> when the raw segment is absent.</summary>
     /// <param name="rawUrl">Raw URL.</param>
     /// <param name="line">Source line; 0 omits the anchor.</param>
     /// <returns>The blob URL, or <see langword="null"/> when the URL doesn't match this provider.</returns>
-    public static string? TryRewriteGitLab(string rawUrl, int line)
+    internal static string? TryRewriteGitLab(string rawUrl, int line)
     {
         if (!rawUrl.Contains(GitLabRawSegment, StringComparison.OrdinalIgnoreCase))
         {
@@ -137,7 +136,7 @@ internal static class BlobUrlProviders
     /// <param name="rawUrl">Raw URL.</param>
     /// <param name="line">Source line; 0 omits the anchor.</param>
     /// <returns>The blob URL, or <see langword="null"/> when the URL doesn't match this provider.</returns>
-    public static string? TryRewriteBitbucket(string rawUrl, int line)
+    internal static string? TryRewriteBitbucket(string rawUrl, int line)
     {
         var urlSpan = rawUrl.AsSpan();
         if (!urlSpan.StartsWith(BitbucketApiUrlPrefix, StringComparison.OrdinalIgnoreCase))
@@ -161,7 +160,7 @@ internal static class BlobUrlProviders
     /// <param name="rawUrl">Raw URL.</param>
     /// <param name="line">Source line; 0 omits the line query.</param>
     /// <returns>The blob URL, or <see langword="null"/> when the URL doesn't match this provider.</returns>
-    public static string? TryRewriteAzureDevOps(string rawUrl, int line)
+    internal static string? TryRewriteAzureDevOps(string rawUrl, int line)
     {
         if (!rawUrl.AsSpan().StartsWith(AzureDevOpsUrlPrefix, StringComparison.OrdinalIgnoreCase))
         {
@@ -197,9 +196,9 @@ internal static class BlobUrlProviders
             return null;
         }
 
-        var built = $"{orgProject}{AzureDevOpsGitSegment}{repo}" +
-                    $"{QuerySeparator}{AzureDevOpsPathQueryParam}{ValueSeparator}{path}" +
-                    $"{PairSeparator}{AzureDevOpsVersionQueryParam}{ValueSeparator}GC{version}";
+        var built = $"{orgProject}{AzureDevOpsGitSegment}{repo}"
+                    + $"{QuerySeparator}{AzureDevOpsPathQueryParam}{ValueSeparator}{path}"
+                    + $"{PairSeparator}{AzureDevOpsVersionQueryParam}{ValueSeparator}GC{version}";
         return line > 0 ? $"{built}{PairSeparator}line{ValueSeparator}{line}" : built;
     }
 
@@ -212,7 +211,7 @@ internal static class BlobUrlProviders
     /// <param name="rawUrl">URL to anchor.</param>
     /// <param name="line">Source line; 0 returns the URL unchanged.</param>
     /// <returns>The anchored URL.</returns>
-    public static string AppendDefaultAnchor(string rawUrl, int line) =>
+    internal static string AppendDefaultAnchor(string rawUrl, int line) =>
         line > 0 ? $"{rawUrl}{LineAnchorPrefix}{line}" : rawUrl;
 
     /// <summary>Skips a specific number of path segments in a span.</summary>

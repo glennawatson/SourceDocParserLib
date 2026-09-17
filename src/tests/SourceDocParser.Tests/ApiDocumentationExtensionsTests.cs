@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -17,6 +17,12 @@ namespace SourceDocParser.Tests;
 /// </summary>
 public class ApiDocumentationExtensionsTests
 {
+    /// <summary>Fixture value for ObjectToString.</summary>
+    private const string ObjectToString = "Object.ToString";
+
+    /// <summary>Expected fixture value used by RenderWithConvertsEachExampleFragment.</summary>
+    private const int RenderWithConvertsEachExampleFragmentExpectedValue = 2;
+
     /// <summary>Null doc throws ArgumentNullException.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -31,7 +37,7 @@ public class ApiDocumentationExtensionsTests
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task RenderWithThrowsWhenConverterIsNull() =>
-        await Assert.That(() => ApiDocumentation.Empty.RenderWith(null!))
+        await Assert.That(static () => ApiDocumentation.Empty.RenderWith(null!))
             .Throws<ArgumentNullException>();
 
     /// <summary>The shared <see cref="ApiDocumentation.Empty"/> singleton short-circuits and is returned by reference.</summary>
@@ -59,7 +65,7 @@ public class ApiDocumentationExtensionsTests
             TypeParameters: [],
             Exceptions: [],
             SeeAlso: ["T:System.String"],
-            InheritedFrom: "Object.ToString");
+            InheritedFrom: ObjectToString);
         var converter = new XmlDocToMarkdown();
 
         var result = blank.RenderWith(converter);
@@ -164,7 +170,7 @@ public class ApiDocumentationExtensionsTests
         var result = doc.RenderWith(converter);
 
         await Assert.That(result.Examples).IsNotSameReferenceAs(doc.Examples);
-        await Assert.That(result.Examples.Length).IsEqualTo(2);
+        await Assert.That(result.Examples.Length).IsEqualTo(RenderWithConvertsEachExampleFragmentExpectedValue);
         await Assert.That(result.Examples[0]).IsEqualTo("first & example");
         await Assert.That(result.Examples[1]).IsEqualTo("second example");
     }
@@ -195,7 +201,7 @@ public class ApiDocumentationExtensionsTests
         var result = doc.RenderWith(converter);
 
         await Assert.That(result.Parameters).IsNotSameReferenceAs(doc.Parameters);
-        await Assert.That(result.Parameters.Length).IsEqualTo(2);
+        await Assert.That(result.Parameters.Length).IsEqualTo(RenderWithConvertsEachExampleFragmentExpectedValue);
         await Assert.That(result.Parameters[0].Name).IsEqualTo("first");
         await Assert.That(result.Parameters[0].Value).IsEqualTo("first & description");
         await Assert.That(result.Parameters[1].Name).IsEqualTo("second");
@@ -246,12 +252,12 @@ public class ApiDocumentationExtensionsTests
             TypeParameters: [],
             Exceptions: [],
             SeeAlso: seeAlso,
-            InheritedFrom: "Object.ToString");
+            InheritedFrom: ObjectToString);
         var converter = new XmlDocToMarkdown();
 
         var result = doc.RenderWith(converter);
 
         await Assert.That(result.SeeAlso).IsSameReferenceAs(seeAlso);
-        await Assert.That(result.InheritedFrom).IsEqualTo("Object.ToString");
+        await Assert.That(result.InheritedFrom).IsEqualTo(ObjectToString);
     }
 }

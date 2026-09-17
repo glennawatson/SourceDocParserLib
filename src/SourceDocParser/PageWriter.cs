@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -18,13 +18,10 @@ internal static class PageWriter
     /// <summary>Page-level encoder; reused across writes to avoid per-call setup.</summary>
     private static readonly Encoding Utf8NoBom = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
-    /// <summary>
-    /// Writes <paramref name="sb"/> to <paramref name="path"/> as UTF-8.
-    /// Creates the destination directory when missing.
-    /// </summary>
+    /// <summary>Writes <paramref name="sb"/> to <paramref name="path"/> as UTF-8. Creates the destination directory when missing.</summary>
     /// <param name="path">Destination path.</param>
     /// <param name="sb">Page contents.</param>
-    public static void WriteUtf8(string path, StringBuilder sb)
+    internal static void WriteUtf8(string path, StringBuilder sb)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentNullException.ThrowIfNull(sb);
@@ -34,15 +31,12 @@ internal static class PageWriter
         WriteChunks(stream, sb);
     }
 
-    /// <summary>
-    /// Async variant of <see cref="WriteUtf8(string, StringBuilder)"/>
-    /// for emit pipelines that already run inside a Task chain.
-    /// </summary>
+    /// <summary>Async variant of <see cref="WriteUtf8(string, StringBuilder)"/> for emit pipelines that already run inside a Task chain.</summary>
     /// <param name="path">Destination path.</param>
     /// <param name="sb">Page contents.</param>
     /// <param name="cancellationToken">Honoured between chunk writes.</param>
     /// <returns>A task representing the asynchronous write.</returns>
-    public static async Task WriteUtf8Async(string path, StringBuilder sb, CancellationToken cancellationToken)
+    internal static async Task WriteUtf8Async(string path, StringBuilder sb, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentNullException.ThrowIfNull(sb);
@@ -61,7 +55,7 @@ internal static class PageWriter
             return;
         }
 
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
     }
 
     /// <summary>Opens an unbuffered file stream so the only allocations are the OS handle plus the bytes we explicitly write.</summary>

@@ -1,8 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using Microsoft.CodeAnalysis.CSharp;
+using System.Runtime.CompilerServices;
 using SourceDocParser.XmlDoc;
 
 namespace SourceDocParser.Tests.XmlDoc;
@@ -10,13 +10,16 @@ namespace SourceDocParser.Tests.XmlDoc;
 /// <summary>
 /// Direct coverage of <see cref="DocXmlParser"/>: parses one
 /// member-level XML doc fragment into a
-/// <see cref="SourceDocParser.Model.RawDocumentation"/>. Walks each
+/// <see cref="Model.RawDocumentation"/>. Walks each
 /// top-level handler -- common single-value tags, multi-value tags
 /// (param, typeparam, exception, example), seealso, and inheritdoc --
 /// plus the IsCommonTag classifier.
 /// </summary>
 public class DocXmlParserTests
 {
+    /// <summary>Expected fixture value used by ParseAccumulatesExamples.</summary>
+    private const int ParseAccumulatesExamplesExpectedValue = 2;
+
     /// <summary>The four single-value documentation tags are recognised as common.</summary>
     /// <param name="tag">Tag under test.</param>
     /// <returns>A task representing the test execution.</returns>
@@ -74,7 +77,7 @@ public class DocXmlParserTests
             </member>
             """);
 
-        await Assert.That(raw.Examples.Length).IsEqualTo(2);
+        await Assert.That(raw.Examples.Length).IsEqualTo(ParseAccumulatesExamplesExpectedValue);
         await Assert.That(raw.Examples[0]).IsEqualTo("first");
         await Assert.That(raw.Examples[1]).IsEqualTo("second");
     }
@@ -91,7 +94,7 @@ public class DocXmlParserTests
             </member>
             """);
 
-        await Assert.That(raw.Parameters.Length).IsEqualTo(2);
+        await Assert.That(raw.Parameters.Length).IsEqualTo(ParseAccumulatesExamplesExpectedValue);
         await Assert.That(raw.Parameters[0].Name).IsEqualTo("a");
         await Assert.That(raw.Parameters[0].Value).IsEqualTo("first");
         await Assert.That(raw.Parameters[1].Name).IsEqualTo("b");
@@ -157,7 +160,7 @@ public class DocXmlParserTests
             </member>
             """);
 
-        await Assert.That(raw.SeeAlso.Length).IsEqualTo(2);
+        await Assert.That(raw.SeeAlso.Length).IsEqualTo(ParseAccumulatesExamplesExpectedValue);
         await Assert.That(raw.SeeAlso[0]).IsEqualTo("T:Foo");
         await Assert.That(raw.SeeAlso[1]).IsEqualTo("T:Bar");
     }
@@ -199,15 +202,9 @@ public class DocXmlParserTests
         await Assert.That(raw.Summary).IsEqualTo("kept");
     }
 
-    /// <summary>Constructs a <see cref="DocResolveContext"/> backed by an
-    /// empty Roslyn compilation, then runs <see cref="DocXmlParser.Parse"/>.
-    /// The parser captures raw inner XML; conversion happens at emit time.</summary>
+    /// <summary>Parses member XML into unrendered documentation fields.</summary>
     /// <param name="memberXml">Raw member XML to parse.</param>
     /// <returns>The parsed raw documentation.</returns>
-    private static Model.RawDocumentation Parse(string memberXml)
-    {
-        var compilation = CSharpCompilation.Create("Probe");
-        var context = new DocResolveContext(compilation, new());
-        return DocXmlParser.Parse(memberXml, context);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Model.RawDocumentation Parse(string memberXml) => DocXmlParser.Parse(memberXml);
 }

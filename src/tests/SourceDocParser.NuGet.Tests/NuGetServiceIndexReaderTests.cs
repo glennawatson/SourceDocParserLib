@@ -1,8 +1,7 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Text;
 using SourceDocParser.NuGet.Readers;
 
 namespace SourceDocParser.NuGet.Tests;
@@ -21,7 +20,7 @@ public class NuGetServiceIndexReaderTests
     [Test]
     public async Task ExtractsFlatContainerEndpoint()
     {
-        const string json = """
+        var json = """
             {
               "version": "3.0.0",
               "resources": [
@@ -35,9 +34,9 @@ public class NuGetServiceIndexReaderTests
                 }
               ]
             }
-            """;
+            """u8.ToArray();
 
-        var url = NuGetServiceIndexReader.ReadFlatContainerUrl(Encoding.UTF8.GetBytes(json));
+        var url = NuGetServiceIndexReader.ReadFlatContainerUrl(json);
 
         await Assert.That(url).IsEqualTo("https://api.nuget.org/v3-flatcontainer/");
     }
@@ -47,7 +46,7 @@ public class NuGetServiceIndexReaderTests
     [Test]
     public async Task AppendsTrailingSlashWhenMissing()
     {
-        const string json = """
+        var json = """
             {
               "resources": [
                 {
@@ -56,9 +55,9 @@ public class NuGetServiceIndexReaderTests
                 }
               ]
             }
-            """;
+            """u8.ToArray();
 
-        var url = NuGetServiceIndexReader.ReadFlatContainerUrl(Encoding.UTF8.GetBytes(json));
+        var url = NuGetServiceIndexReader.ReadFlatContainerUrl(json);
 
         await Assert.That(url).IsEqualTo("https://example.org/v3-flatcontainer/");
     }
@@ -68,15 +67,15 @@ public class NuGetServiceIndexReaderTests
     [Test]
     public async Task ReturnsNullWhenNoFlatContainer()
     {
-        const string json = """
+        var json = """
             {
               "resources": [
                 { "@id": "https://example.org/reg/", "@type": "RegistrationsBaseUrl/3.6.0" }
               ]
             }
-            """;
+            """u8.ToArray();
 
-        var url = NuGetServiceIndexReader.ReadFlatContainerUrl(Encoding.UTF8.GetBytes(json));
+        var url = NuGetServiceIndexReader.ReadFlatContainerUrl(json);
 
         await Assert.That(url).IsNull();
     }
@@ -86,9 +85,9 @@ public class NuGetServiceIndexReaderTests
     [Test]
     public async Task ReturnsNullWhenResourcesMissing()
     {
-        const string json = """{ "version": "3.0.0" }""";
+        var json = """{ "version": "3.0.0" }"""u8.ToArray();
 
-        var url = NuGetServiceIndexReader.ReadFlatContainerUrl(Encoding.UTF8.GetBytes(json));
+        var url = NuGetServiceIndexReader.ReadFlatContainerUrl(json);
 
         await Assert.That(url).IsNull();
     }
@@ -98,7 +97,7 @@ public class NuGetServiceIndexReaderTests
     [Test]
     public async Task SkipsMalformedResources()
     {
-        const string json = """
+        var json = """
             {
               "resources": [
                 { "@type": "PackageBaseAddress/3.0.0" },
@@ -107,9 +106,9 @@ public class NuGetServiceIndexReaderTests
                 { "@id": "https://later.example.org/flat/", "@type": "PackageBaseAddress/3.0.0" }
               ]
             }
-            """;
+            """u8.ToArray();
 
-        var url = NuGetServiceIndexReader.ReadFlatContainerUrl(Encoding.UTF8.GetBytes(json));
+        var url = NuGetServiceIndexReader.ReadFlatContainerUrl(json);
 
         await Assert.That(url).IsEqualTo("https://later.example.org/flat/");
     }
@@ -119,14 +118,14 @@ public class NuGetServiceIndexReaderTests
     [Test]
     public async Task AsyncStreamOverloadReturnsSameValue()
     {
-        const string json = """
+        var json = """
             {
               "resources": [
                 { "@id": "https://example.org/flat/", "@type": "PackageBaseAddress/3.0.0" }
               ]
             }
-            """;
-        await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
+            """u8.ToArray();
+        await using var stream = new MemoryStream(json);
 
         var url = await NuGetServiceIndexReader.ReadFlatContainerUrlAsync(stream);
 
@@ -137,6 +136,6 @@ public class NuGetServiceIndexReaderTests
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task AsyncStreamRejectsNull() =>
-        await Assert.That(() => NuGetServiceIndexReader.ReadFlatContainerUrlAsync(null!))
+        await Assert.That(static () => NuGetServiceIndexReader.ReadFlatContainerUrlAsync(null!))
             .Throws<ArgumentNullException>();
 }

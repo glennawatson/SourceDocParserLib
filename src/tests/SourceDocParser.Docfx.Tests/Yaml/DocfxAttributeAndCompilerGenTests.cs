@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -15,6 +15,9 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 /// </summary>
 public class DocfxAttributeAndCompilerGenTests
 {
+    /// <summary>One type page and one namespace page remain after filtering.</summary>
+    private const int VisiblePageCount = 2;
+
     /// <summary>Compiler-generated types never reach disk.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -27,7 +30,7 @@ public class DocfxAttributeAndCompilerGenTests
         var pages = await new DocfxYamlEmitter().EmitAsync([legitimate, displayClass], new FilePageSink(scratch.Path));
 
         // Foo.yml + My.yml namespace page = 2 pages; the display class is dropped.
-        await Assert.That(pages).IsEqualTo(2);
+        await Assert.That(pages).IsEqualTo(VisiblePageCount);
         await Assert.That(File.Exists(Path.Combine(scratch.Path, "Foo.yml"))).IsTrue();
     }
 

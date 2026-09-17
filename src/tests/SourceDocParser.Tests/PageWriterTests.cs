@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,6 +16,9 @@ namespace SourceDocParser.Tests;
 /// </summary>
 public class PageWriterTests
 {
+    /// <summary>Expected fixture value used by BuildMultiChunkBuilder.</summary>
+    private const int BuildMultiChunkBuilderValue = 2;
+
     /// <summary>Forces the StringBuilder to grow across multiple internal chunks.</summary>
     private const int MultiChunkAppendCount = 4096;
 
@@ -30,7 +33,7 @@ public class PageWriterTests
         using var temp = new TempDirectory();
         var path = Path.Combine(temp.Path, "empty.md");
 
-        PageWriter.WriteUtf8(path, new StringBuilder());
+        PageWriter.WriteUtf8(path, new());
 
         var bytes = await File.ReadAllBytesAsync(path);
         await Assert.That(bytes.Length).IsEqualTo(0);
@@ -64,7 +67,7 @@ public class PageWriterTests
         var nested = Path.Combine(temp.Path, "a", "b", "c");
         var path = Path.Combine(nested, "page.md");
 
-        PageWriter.WriteUtf8(path, new StringBuilder("hi"));
+        PageWriter.WriteUtf8(path, new("hi"));
 
         await Assert.That(Directory.Exists(nested)).IsTrue();
         await Assert.That(await File.ReadAllTextAsync(path)).IsEqualTo("hi");
@@ -76,12 +79,12 @@ public class PageWriterTests
     public async Task WriteUtf8WithoutDirectoryComponentSucceeds()
     {
         using var temp = new TempDirectory();
-        var fileName = "no-parent-" + Guid.NewGuid().ToString("N", System.Globalization.CultureInfo.InvariantCulture) + ".md";
+        var fileName = $"no-parent-{Guid.NewGuid().ToString("N", System.Globalization.CultureInfo.InvariantCulture)}.md";
         var original = Directory.GetCurrentDirectory();
         Directory.SetCurrentDirectory(temp.Path);
         try
         {
-            PageWriter.WriteUtf8(fileName, new StringBuilder("payload"));
+            PageWriter.WriteUtf8(fileName, new("payload"));
 
             var fullPath = Path.Combine(temp.Path, fileName);
             await Assert.That(File.Exists(fullPath)).IsTrue();
@@ -100,10 +103,7 @@ public class PageWriterTests
     [Arguments(null)]
     [Arguments("")]
     [Arguments("   ")]
-    public async Task WriteUtf8RejectsInvalidPath(string? path)
-    {
-        await Assert.That(() => PageWriter.WriteUtf8(path!, new StringBuilder())).Throws<ArgumentException>();
-    }
+    public async Task WriteUtf8RejectsInvalidPath(string? path) => await Assert.That(() => PageWriter.WriteUtf8(path!, new())).Throws<ArgumentException>();
 
     /// <summary><see cref="PageWriter.WriteUtf8(string, StringBuilder)"/> rejects a null builder.</summary>
     /// <returns>A task representing the test execution.</returns>
@@ -123,7 +123,7 @@ public class PageWriterTests
         using var temp = new TempDirectory();
         var path = Path.Combine(temp.Path, "empty-async.md");
 
-        await PageWriter.WriteUtf8Async(path, new StringBuilder(), CancellationToken.None);
+        await PageWriter.WriteUtf8Async(path, new(), CancellationToken.None);
 
         var bytes = await File.ReadAllBytesAsync(path);
         await Assert.That(bytes.Length).IsEqualTo(0);
@@ -157,7 +157,7 @@ public class PageWriterTests
         var nested = Path.Combine(temp.Path, "x", "y", "z");
         var path = Path.Combine(nested, "page.md");
 
-        await PageWriter.WriteUtf8Async(path, new StringBuilder("hi"), CancellationToken.None);
+        await PageWriter.WriteUtf8Async(path, new("hi"), CancellationToken.None);
 
         await Assert.That(Directory.Exists(nested)).IsTrue();
         await Assert.That(await File.ReadAllTextAsync(path)).IsEqualTo("hi");
@@ -185,11 +185,8 @@ public class PageWriterTests
     [Arguments(null)]
     [Arguments("")]
     [Arguments("   ")]
-    public async Task WriteUtf8AsyncRejectsInvalidPath(string? path)
-    {
-        await Assert.That(() => PageWriter.WriteUtf8Async(path!, new StringBuilder(), CancellationToken.None))
+    public async Task WriteUtf8AsyncRejectsInvalidPath(string? path) => await Assert.That(() => PageWriter.WriteUtf8Async(path!, new(), CancellationToken.None))
             .Throws<ArgumentException>();
-    }
 
     /// <summary><see cref="PageWriter.WriteUtf8Async(string, StringBuilder, CancellationToken)"/> rejects a null builder.</summary>
     /// <returns>A task representing the test execution.</returns>
@@ -204,12 +201,13 @@ public class PageWriterTests
 
     /// <summary>Builds a <see cref="StringBuilder"/> large enough to span more than one internal chunk.</summary>
     /// <returns>A populated <see cref="StringBuilder"/>.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when <c>chunkCount &lt; 2</c>.</exception>
     private static StringBuilder BuildMultiChunkBuilder()
     {
         var sb = new StringBuilder();
         for (var i = 0; i < MultiChunkAppendCount; i++)
         {
-            sb.Append(MultiChunkSegment);
+            _ = sb.Append(MultiChunkSegment);
         }
 
         // Sanity: the builder must actually carry more than one chunk so the
@@ -221,7 +219,7 @@ public class PageWriterTests
             chunkCount++;
         }
 
-        if (chunkCount < 2)
+        if (chunkCount < BuildMultiChunkBuilderValue)
         {
             throw new InvalidOperationException("Test fixture failed to produce multi-chunk StringBuilder.");
         }
@@ -239,7 +237,7 @@ public class PageWriterTests
             return;
         }
 
-        var hasBom = bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
+        var hasBom = bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[BuildMultiChunkBuilderValue] == 0xBF;
         await Assert.That(hasBom).IsFalse();
     }
 }

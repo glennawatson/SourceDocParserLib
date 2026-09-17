@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -59,7 +59,7 @@ public class CallbackPageSinkTests
         byte[]? capturedBytes = null;
         var sink = new CallbackPageSink((_, bytes) => capturedBytes = bytes);
 
-        sink.WritePage("p.md", new StringBuilder());
+        sink.WritePage("p.md", new());
 
         await Assert.That(capturedBytes).IsNotNull();
         await Assert.That(capturedBytes!.Length).IsEqualTo(0);
@@ -76,7 +76,7 @@ public class CallbackPageSinkTests
         var builder = new StringBuilder();
         for (var i = 0; i < MultiChunkAppendCount; i++)
         {
-            builder.Append(MultiChunkSegment);
+            _ = builder.Append(MultiChunkSegment);
         }
 
         sink.WritePage("big.md", builder);
@@ -96,7 +96,7 @@ public class CallbackPageSinkTests
     public async Task WritePageThrowsWhenRelativePathIsBlank(string relativePath)
     {
         var sink = new CallbackPageSink(static (_, _) => { });
-        await Assert.That(() => sink.WritePage(relativePath, new StringBuilder("x"))).Throws<ArgumentException>();
+        await Assert.That(() => sink.WritePage(relativePath, new("x"))).Throws<ArgumentException>();
     }
 
     /// <summary><c>WritePage</c> rejects a <see langword="null"/> builder.</summary>
@@ -116,7 +116,7 @@ public class CallbackPageSinkTests
         var invocations = 0;
         var sink = new CallbackPageSink((_, _) => invocations++);
 
-        var task = sink.WritePageAsync("p.md", new StringBuilder("x"), CancellationToken.None);
+        var task = sink.WritePageAsync("p.md", new("x"), CancellationToken.None);
 
         await Assert.That(task.IsCompletedSuccessfully).IsTrue();
         await Assert.That(invocations).IsEqualTo(1);
@@ -132,7 +132,7 @@ public class CallbackPageSinkTests
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 
-        await Assert.That(() => sink.WritePageAsync("p.md", new StringBuilder("x"), cts.Token)).Throws<OperationCanceledException>();
+        await Assert.That(() => sink.WritePageAsync("p.md", new("x"), cts.Token)).Throws<OperationCanceledException>();
         await Assert.That(invocations).IsEqualTo(0);
     }
 
@@ -145,7 +145,7 @@ public class CallbackPageSinkTests
     public async Task WritePageAsyncThrowsWhenRelativePathIsBlank(string relativePath)
     {
         var sink = new CallbackPageSink(static (_, _) => { });
-        await Assert.That(() => sink.WritePageAsync(relativePath, new StringBuilder("x"), CancellationToken.None)).Throws<ArgumentException>();
+        await Assert.That(() => sink.WritePageAsync(relativePath, new("x"), CancellationToken.None)).Throws<ArgumentException>();
     }
 
     /// <summary><c>WritePageAsync</c> rejects a <see langword="null"/> builder.</summary>

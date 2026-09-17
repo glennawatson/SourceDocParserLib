@@ -32,7 +32,7 @@ This repo uses **Microsoft Testing Platform (MTP)** with **TUnit** (not VSTest).
 
 - MTP is configured via `src/global.json` (`"runner": "Microsoft.Testing.Platform"`).
 - `TestingPlatformDotnetTestSupport` is enabled in `src/Directory.Build.props`.
-- `IsTestProject` is auto-detected via `$(MSBuildProjectName.Contains('Tests'))` in `Directory.Build.props`. Test projects automatically get `<OutputType>Exe</OutputType>`, the TUnit + Verify.TUnit packages, the implicit-usings switches, and `<NoWarn>$(NoWarn);CA1812</NoWarn>`.
+- `IsTestProject` is auto-detected via `$(MSBuildProjectName.Contains('Tests'))` in `Directory.Build.props`. Test projects automatically get `<OutputType>Exe</OutputType>`, the TUnit package, the implicit-usings switches, and `<NoWarn>$(NoWarn);CA1812</NoWarn>`.
 - `IsPackable=false` is set on each test project explicitly (defence-in-depth — Directory.Build.props sets it too).
 
 ### Test Commands (run from `./src`)
@@ -92,14 +92,16 @@ cat /tmp/sourcedocparser_coverage/Summary.txt
 
 `src/benchmarks/SourceDocParser.Benchmarks/` is a BenchmarkDotNet harness covering `MetadataExtractor.RunAsync` end-to-end against the slim debug NuGet fixture (3 owner-discovered packages, 19 TFM groups). The global setup runs one full fetch to warm the local NuGet cache, so per-iteration timings measure the walk + merge + emit pipeline without the network leg.
 
+The SourceDocParser benchmarks run paired .NET 10 and .NET 11 jobs using BenchmarkDotNet 0.16 preview. Both runtimes and a .NET 11 SDK must be installed. The external Docfx comparison uses an in-process job with BenchmarkDotNet 0.15.8 and compatible dependencies set through `VersionOverride` in its project file; select its runtime with `--framework net10.0` or `--framework net11.0`. Fixture TFM parameters describe the assemblies being parsed, independently of the runtime executing the parser. The standalone comparison runners use their single-pass output mode without arguments; pass `--filter '*'` to run their BenchmarkDotNet jobs.
+
 ```bash
 cd src
 
 # Run every benchmark in the assembly
-dotnet run --project benchmarks/SourceDocParser.Benchmarks/SourceDocParser.Benchmarks.csproj --configuration Release
+dotnet run --project benchmarks/SourceDocParser.Benchmarks/SourceDocParser.Benchmarks.csproj --configuration Release --framework net10.0 -- --filter '*'
 
 # Filter to a single benchmark via the BenchmarkDotNet switcher
-dotnet run --project benchmarks/SourceDocParser.Benchmarks/SourceDocParser.Benchmarks.csproj --configuration Release -- --filter '*RunAsync*'
+dotnet run --project benchmarks/SourceDocParser.Benchmarks/SourceDocParser.Benchmarks.csproj --configuration Release --framework net10.0 -- --filter '*RunAsync*'
 ```
 
 ### Zensical render-smoke
@@ -117,7 +119,7 @@ The venv lives under the project so it's isolated from the user's system Python 
 ## Code Style
 
 - `.editorconfig` at the repo root drives formatting + IDExxxx severities.
-- StyleCop, Roslynator, and Blazor.Common analyzers are active in every project (configured in `src/Directory.Build.props`).
+- StyleSharp, PerformanceSharp, and SecuritySharp analyzers are active in every project (configured in `src/Directory.Build.props`).
 - `EnforceCodeStyleInBuild=true` so editorconfig severities for IDExxxx rules fire at compile time.
 - File header copyright text comes from `stylecop.json` (`"companyName": "Glenn Watson and Contributors"`); SA1636 enforces every `.cs` file matches.
 - Public APIs require XML documentation (`<GenerateDocumentationFile>true</GenerateDocumentationFile>`); SA1600 / SA1611 / SA1615 catch missing element / parameter / return docs.
@@ -199,7 +201,7 @@ The order of preference is: **for-loop over array → for-loop over `List<T>` �
 
 ## Versioning
 
-`Nerdbank.GitVersioning` (`version.json` at the repo root) computes version on every build. Base is `0.1-alpha`. Public releases are gated on the `master`/`main` branch via `publicReleaseRefSpec`; off-branch builds get the height + commit suffix.
+MinVer computes versions from `v`-prefixed tags, with a `1.4` floor and `alpha.0` prerelease identifier. The shared GitHub Actions compute and stamp the version before building. The release workflow creates the tag at the tested commit after signing and publishing succeed.
 
 ## Acknowledgements
 

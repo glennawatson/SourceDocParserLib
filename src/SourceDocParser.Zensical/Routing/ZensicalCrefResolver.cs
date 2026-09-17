@@ -1,9 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Frozen;
-using System.Diagnostics.CodeAnalysis;
 using SourceDocParser.Zensical.Options;
 
 namespace SourceDocParser.Zensical.Routing;
@@ -28,8 +27,18 @@ namespace SourceDocParser.Zensical.Routing;
 /// </description></item>
 /// </list>
 /// </summary>
+[System.Diagnostics.DebuggerDisplay("ZensicalCrefResolver: {_emittedUids}")]
 public sealed class ZensicalCrefResolver : ICrefResolver
 {
+    /// <summary>Length of the kind prefix and colon in a documentation UID.</summary>
+    private const int CommentIdPrefixLength = 2;
+
+    /// <summary>Opening and closing delimiters around a Markdown link label and target.</summary>
+    private const int LinkDelimiterLength = 4;
+
+    /// <summary>Maximum link size buffered on the stack.</summary>
+    private const int StackBufferLength = 512;
+
     /// <summary>The two namespace prefixes that map to Microsoft Learn rather than autorefs.</summary>
     private static readonly string[] _bclNamespacePrefixes = ["System", "Microsoft"];
 
@@ -79,14 +88,7 @@ public sealed class ZensicalCrefResolver : ICrefResolver
             return $"[{shortName}][{UidNormaliser.ToAutorefId(canonicalUid)}]";
         }
 
-        if (TryFormatAsMicrosoftLearn(canonicalUid, shortName, out var learnLink))
-        {
-            return learnLink;
-        }
-
-        // Unknown UID and not BCL -- emit inline code so mkdocs-autorefs
-        // doesn't warn about an unresolvable reference target.
-        return $"`{shortName}`";
+        return TryFormatAsMicrosoftLearn(canonicalUid, shortName, out var learnLink) ? learnLink : $"`{shortName}`";
     }
 
     /// <summary>Returns true when <paramref name="bareName"/> starts with one of the BCL namespace prefixes.</summary>
@@ -118,23 +120,26 @@ public sealed class ZensicalCrefResolver : ICrefResolver
     /// <param name="baseUrl">Microsoft Learn URL prefix.</param>
     /// <param name="bareName">UID without the commentId prefix.</param>
     /// <returns>The Markdown link.</returns>
-    [SuppressMessage("Minor Code Smell", "S4040:Strings should be normalized to uppercase", Justification = "Microsoft Learn URLs are case-sensitive.")]
     private static string ComposeLearnLink(ReadOnlySpan<char> displayName, string baseUrl, ReadOnlySpan<char> bareName)
     {
-        var totalLen = 1 + displayName.Length + 2 + baseUrl.Length + bareName.Length + 1;
-        Span<char> dest = totalLen <= 512 ? stackalloc char[totalLen] : new char[totalLen];
+        var totalLen = displayName.Length + baseUrl.Length + bareName.Length + LinkDelimiterLength;
+        Span<char> dest = totalLen <= StackBufferLength ? stackalloc char[totalLen] : new char[totalLen];
         var pos = 0;
-        dest[pos++] = '[';
+        dest[pos] = '[';
+        pos++;
         displayName.CopyTo(dest[pos..]);
         pos += displayName.Length;
-        dest[pos++] = ']';
-        dest[pos++] = '(';
+        dest[pos] = ']';
+        pos++;
+        dest[pos] = '(';
+        pos++;
         baseUrl.AsSpan().CopyTo(dest[pos..]);
         pos += baseUrl.Length;
         for (var i = 0; i < bareName.Length; i++)
         {
             var c = bareName[i];
-            dest[pos++] = c == '`' ? '-' : char.ToLowerInvariant(c);
+            dest[pos] = c == '`' ? '-' : char.ToLowerInvariant(c);
+            pos++;
         }
 
         dest[pos] = ')';
@@ -156,7 +161,7 @@ public sealed class ZensicalCrefResolver : ICrefResolver
         out string link)
     {
         link = string.Empty;
-        var bareName = canonicalUid is [_, ':', ..] ? canonicalUid.AsSpan()[2..] : canonicalUid.AsSpan();
+        var bareName = canonicalUid is [_, ':', ..] ? canonicalUid.AsSpan()[CommentIdPrefixLength..] : canonicalUid.AsSpan();
         if (!StartsWithBclPrefix(bareName))
         {
             return false;

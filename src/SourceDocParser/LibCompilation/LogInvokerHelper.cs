@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,9 +16,7 @@ namespace SourceDocParser.LibCompilation;
 /// </remarks>
 public static class LogInvokerHelper
 {
-    /// <summary>
-    /// Invokes <paramref name="action"/> with two state arguments when <paramref name="logger"/> is enabled at <paramref name="level"/>.
-    /// </summary>
+    /// <summary>Invokes <paramref name="action"/> with two state arguments when <paramref name="logger"/> is enabled at <paramref name="level"/>.</summary>
     /// <typeparam name="T1">Type of the first state argument.</typeparam>
     /// <typeparam name="T2">Type of the second state argument.</typeparam>
     /// <param name="logger">Target logger.</param>
@@ -38,10 +36,7 @@ public static class LogInvokerHelper
         action(logger, arg1, arg2);
     }
 
-    /// <summary>
-    /// Invokes <paramref name="action"/> with two state arguments and a projected third argument when
-    /// <paramref name="logger"/> is enabled at <paramref name="level"/>.
-    /// </summary>
+    /// <summary>Invokes <paramref name="action"/> with two state arguments and a projected third argument when <paramref name="logger"/> is enabled at <paramref name="level"/>.</summary>
     /// <typeparam name="T1">Type of the first state argument.</typeparam>
     /// <typeparam name="T2">Type of the second state argument.</typeparam>
     /// <typeparam name="T3">Type of the source argument to project.</typeparam>

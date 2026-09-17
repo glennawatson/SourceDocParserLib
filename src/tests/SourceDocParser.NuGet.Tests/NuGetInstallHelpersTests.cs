@@ -1,8 +1,9 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 using System.IO.Compression;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -12,14 +13,31 @@ using SourceDocParser.NuGet.Models;
 
 namespace SourceDocParser.NuGet.Tests;
 
-/// <summary>
-/// Pins the installation helpers in <see cref="NuGetInstallHelpers"/>.
-/// </summary>
+/// <summary>Pins the installation helpers in <see cref="NuGetInstallHelpers"/>.</summary>
 public class NuGetInstallHelpersTests
 {
-    /// <summary>
-    /// ComputeContentHashAsync returns the SHA-512 / Base64 hash of a file's content.
-    /// </summary>
+    /// <summary>Fixture value for NupkgMetadata.</summary>
+    private const string NupkgMetadata = ".nupkg.metadata";
+
+    /// <summary>Fixture value for NugetOrg.</summary>
+    private const string NugetOrg = "nuget.org";
+
+    /// <summary>Fixture value for HttpsApiNugetOrgV3IndexJson.</summary>
+    private const string HttpsApiNugetOrgV3IndexJson = "https://api.nuget.org/v3/index.json";
+
+    /// <summary>Fixture value for HttpsFlatExample.</summary>
+    private const string HttpsFlatExample = "https://flat.example/";
+
+    /// <summary>Fixture value for NugetFlatContainerOverride.</summary>
+    private const string NugetFlatContainerOverride = "NUGET_FLAT_CONTAINER_OVERRIDE";
+
+    /// <summary>Fixture value for Version100.</summary>
+    private const string Version100 = "1.0.0";
+
+    /// <summary>Expected fixture value used by WriteNupkgMetadataAsyncWritesValidJson.</summary>
+    private const int WriteNupkgMetadataAsyncWritesValidJsonExpectedValue = 2;
+
+    /// <summary>ComputeContentHashAsync returns the SHA-512 / Base64 hash of a file's content.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ComputeContentHashAsyncReturnsCorrectHash()
@@ -27,10 +45,10 @@ public class NuGetInstallHelpersTests
         var tempFile = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         try
         {
-            const string content = "Hello NuGet!";
-            await File.WriteAllTextAsync(tempFile, content);
+            var content = "Hello NuGet!"u8.ToArray();
+            await File.WriteAllBytesAsync(tempFile, content);
 
-            var expectedHash = Convert.ToBase64String(SHA512.HashData(Encoding.UTF8.GetBytes(content)));
+            var expectedHash = Convert.ToBase64String(SHA512.HashData(content));
             var actualHash = await NuGetInstallHelpers.ComputeContentHashAsync(tempFile, CancellationToken.None);
 
             await Assert.That(actualHash).IsEqualTo(expectedHash);
@@ -44,9 +62,7 @@ public class NuGetInstallHelpersTests
         }
     }
 
-    /// <summary>
-    /// WriteNupkgMetadataAsync writes a valid JSON marker file with the package hash and source.
-    /// </summary>
+    /// <summary>WriteNupkgMetadataAsync writes a valid JSON marker file with the package hash and source.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task WriteNupkgMetadataAsyncWritesValidJson()
@@ -55,20 +71,20 @@ public class NuGetInstallHelpersTests
         var tempNupkg = Path.Combine(tempDir, "test.nupkg");
         try
         {
-            Directory.CreateDirectory(tempDir);
+            _ = Directory.CreateDirectory(tempDir);
             await File.WriteAllTextAsync(tempNupkg, "fake nupkg content");
 
             var source = new PackageSource("TestFeed", "https://example.com/nuget");
             await NuGetInstallHelpers.WriteNupkgMetadataAsync(tempDir, tempNupkg, source, CancellationToken.None);
 
-            var metadataPath = Path.Combine(tempDir, ".nupkg.metadata");
+            var metadataPath = Path.Combine(tempDir, NupkgMetadata);
             await Assert.That(File.Exists(metadataPath)).IsTrue();
 
             var json = await File.ReadAllTextAsync(metadataPath);
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
 
-            await Assert.That(root.GetProperty("version"u8).GetInt32()).IsEqualTo(2);
+            await Assert.That(root.GetProperty("version"u8).GetInt32()).IsEqualTo(WriteNupkgMetadataAsyncWritesValidJsonExpectedValue);
             await Assert.That(root.GetProperty("source"u8).GetString()).IsEqualTo(source.Url);
             await Assert.That(root.GetProperty("contentHash"u8).GetString()).IsNotNull();
         }
@@ -87,11 +103,8 @@ public class NuGetInstallHelpersTests
     public async Task GetFlatContainerUrlReturnsCachedValue()
     {
         var feed = new RecordingFeedHttpClient();
-        var source = new PackageSource("nuget.org", "https://api.nuget.org/v3/index.json");
-        var cache = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
-        {
-            [source.Key] = "https://flat.example/",
-        };
+        var source = new PackageSource(NugetOrg, HttpsApiNugetOrgV3IndexJson);
+        var cache = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase) { [source.Key] = HttpsFlatExample, };
 
         var url = await NuGetInstallHelpers.GetFlatContainerUrlAsync(
             source,
@@ -100,7 +113,7 @@ public class NuGetInstallHelpersTests
             cache,
             CancellationToken.None);
 
-        await Assert.That(url).IsEqualTo("https://flat.example/");
+        await Assert.That(url).IsEqualTo(HttpsFlatExample);
         await Assert.That(feed.ServiceIndexCalls).IsEqualTo(0);
     }
 
@@ -109,12 +122,12 @@ public class NuGetInstallHelpersTests
     [Test]
     public async Task GetFlatContainerUrlHonoursEnvOverride()
     {
-        var prior = Environment.GetEnvironmentVariable("NUGET_FLAT_CONTAINER_OVERRIDE");
+        var prior = Environment.GetEnvironmentVariable(NugetFlatContainerOverride);
         try
         {
-            Environment.SetEnvironmentVariable("NUGET_FLAT_CONTAINER_OVERRIDE", "https://override.example");
+            Environment.SetEnvironmentVariable(NugetFlatContainerOverride, "https://override.example");
             var feed = new RecordingFeedHttpClient();
-            var source = new PackageSource("nuget.org", "https://api.nuget.org/v3/index.json");
+            var source = new PackageSource(NugetOrg, HttpsApiNugetOrgV3IndexJson);
             var cache = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
             var url = await NuGetInstallHelpers.GetFlatContainerUrlAsync(source, [], feed, cache, CancellationToken.None);
@@ -125,7 +138,7 @@ public class NuGetInstallHelpersTests
         }
         finally
         {
-            Environment.SetEnvironmentVariable("NUGET_FLAT_CONTAINER_OVERRIDE", prior);
+            Environment.SetEnvironmentVariable(NugetFlatContainerOverride, prior);
         }
     }
 
@@ -134,26 +147,23 @@ public class NuGetInstallHelpersTests
     [Test]
     public async Task GetFlatContainerUrlReadsServiceIndex()
     {
-        var prior = Environment.GetEnvironmentVariable("NUGET_FLAT_CONTAINER_OVERRIDE");
+        var prior = Environment.GetEnvironmentVariable(NugetFlatContainerOverride);
         try
         {
-            Environment.SetEnvironmentVariable("NUGET_FLAT_CONTAINER_OVERRIDE", null);
-            var feed = new RecordingFeedHttpClient
-            {
-                ServiceIndexBody = """{"version":"3.0.0","resources":[{"@id":"https://flat.example/","@type":"PackageBaseAddress/3.0.0"}]}""",
-            };
-            var source = new PackageSource("nuget.org", "https://api.nuget.org/v3/index.json");
+            Environment.SetEnvironmentVariable(NugetFlatContainerOverride, null);
+            var feed = new RecordingFeedHttpClient { ServiceIndexBody = """{"version":"3.0.0","resources":[{"@id":"https://flat.example/","@type":"PackageBaseAddress/3.0.0"}]}""", };
+            var source = new PackageSource(NugetOrg, HttpsApiNugetOrgV3IndexJson);
             var cache = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
             var url = await NuGetInstallHelpers.GetFlatContainerUrlAsync(source, [], feed, cache, CancellationToken.None);
 
-            await Assert.That(url).IsEqualTo("https://flat.example/");
-            await Assert.That(cache[source.Key]).IsEqualTo("https://flat.example/");
+            await Assert.That(url).IsEqualTo(HttpsFlatExample);
+            await Assert.That(cache[source.Key]).IsEqualTo(HttpsFlatExample);
             await Assert.That(feed.ServiceIndexCalls).IsEqualTo(1);
         }
         finally
         {
-            Environment.SetEnvironmentVariable("NUGET_FLAT_CONTAINER_OVERRIDE", prior);
+            Environment.SetEnvironmentVariable(NugetFlatContainerOverride, prior);
         }
     }
 
@@ -162,11 +172,8 @@ public class NuGetInstallHelpersTests
     [Test]
     public async Task TryInstallFromSourceReturnsFalseWhenNoFlatContainer()
     {
-        var feed = new RecordingFeedHttpClient
-        {
-            ServiceIndexBody = """{"version":"3.0.0","resources":[]}""",
-        };
-        var source = new PackageSource("nuget.org", "https://api.nuget.org/v3/index.json");
+        var feed = new RecordingFeedHttpClient { ServiceIndexBody = """{"version":"3.0.0","resources":[]}""", };
+        var source = new PackageSource(NugetOrg, HttpsApiNugetOrgV3IndexJson);
         var cache = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
         var result = await NuGetInstallHelpers.TryInstallFromSourceAsync(
@@ -176,7 +183,7 @@ public class NuGetInstallHelpersTests
                 feed,
                 cache,
                 "Foo",
-                "1.0.0",
+                Version100,
                 Path.Combine(Path.GetTempPath(), $"sdp-{Guid.NewGuid():N}")));
 
         await Assert.That(result).IsFalse();
@@ -187,12 +194,8 @@ public class NuGetInstallHelpersTests
     [Test]
     public async Task TryInstallFromSourceReturnsFalseOn404()
     {
-        var feed = new RecordingFeedHttpClient
-        {
-            ServiceIndexBody = """{"version":"3.0.0","resources":[{"@id":"https://flat.example/","@type":"PackageBaseAddress/3.0.0"}]}""",
-            NupkgResponse = null,
-        };
-        var source = new PackageSource("nuget.org", "https://api.nuget.org/v3/index.json");
+        var feed = new RecordingFeedHttpClient { ServiceIndexBody = """{"version":"3.0.0","resources":[{"@id":"https://flat.example/","@type":"PackageBaseAddress/3.0.0"}]}""", NupkgResponse = null, };
+        var source = new PackageSource(NugetOrg, HttpsApiNugetOrgV3IndexJson);
         var cache = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
         var result = await NuGetInstallHelpers.TryInstallFromSourceAsync(
@@ -202,7 +205,7 @@ public class NuGetInstallHelpersTests
                 feed,
                 cache,
                 "Foo",
-                "1.0.0",
+                Version100,
                 Path.Combine(Path.GetTempPath(), $"sdp-{Guid.NewGuid():N}")));
 
         await Assert.That(result).IsFalse();
@@ -213,29 +216,26 @@ public class NuGetInstallHelpersTests
     [Test]
     public async Task TryInstallFromSourceInstallsAndWritesMetadata()
     {
-        var prior = Environment.GetEnvironmentVariable("NUGET_FLAT_CONTAINER_OVERRIDE");
+        var prior = Environment.GetEnvironmentVariable(NugetFlatContainerOverride);
         var installPath = Path.Combine(Path.GetTempPath(), $"sdp-install-{Guid.NewGuid():N}");
         try
         {
-            Environment.SetEnvironmentVariable("NUGET_FLAT_CONTAINER_OVERRIDE", "https://flat.example/");
-            var feed = new RecordingFeedHttpClient
-            {
-                NupkgResponse = BuildFakeNupkg(),
-            };
-            var source = new PackageSource("nuget.org", "https://api.nuget.org/v3/index.json");
+            Environment.SetEnvironmentVariable(NugetFlatContainerOverride, HttpsFlatExample);
+            var feed = new RecordingFeedHttpClient { NupkgResponse = BuildFakeNupkg(), };
+            var source = new PackageSource(NugetOrg, HttpsApiNugetOrgV3IndexJson);
             var cache = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
             var result = await NuGetInstallHelpers.TryInstallFromSourceAsync(
                 source,
-                CreateInstallRequest(source, feed, cache, "Foo", "1.0.0", installPath));
+                CreateInstallRequest(source, feed, cache, "Foo", Version100, installPath));
 
             await Assert.That(result).IsTrue();
-            await Assert.That(File.Exists(Path.Combine(installPath, ".nupkg.metadata"))).IsTrue();
+            await Assert.That(File.Exists(Path.Combine(installPath, NupkgMetadata))).IsTrue();
             await Assert.That(File.Exists(Path.Combine(installPath, "lib", "net8.0", "Foo.dll"))).IsTrue();
         }
         finally
         {
-            Environment.SetEnvironmentVariable("NUGET_FLAT_CONTAINER_OVERRIDE", prior);
+            Environment.SetEnvironmentVariable(NugetFlatContainerOverride, prior);
             if (Directory.Exists(installPath))
             {
                 Directory.Delete(installPath, recursive: true);
@@ -248,15 +248,15 @@ public class NuGetInstallHelpersTests
     [Test]
     public async Task InstallFromSourcesFallsThroughOnHttpError()
     {
-        var prior = Environment.GetEnvironmentVariable("NUGET_FLAT_CONTAINER_OVERRIDE");
+        var prior = Environment.GetEnvironmentVariable(NugetFlatContainerOverride);
         var installPath = Path.Combine(Path.GetTempPath(), $"sdp-install-{Guid.NewGuid():N}");
         try
         {
-            Environment.SetEnvironmentVariable("NUGET_FLAT_CONTAINER_OVERRIDE", "https://flat.example/");
+            Environment.SetEnvironmentVariable(NugetFlatContainerOverride, HttpsFlatExample);
             var failingFeed = new SequencedFakeFeed(
             [
-                _ => throw new HttpRequestException("boom"),
-                _ => new MemoryStream(BuildFakeNupkg()),
+                static _ => throw new HttpRequestException("boom"),
+                static _ => new MemoryStream(BuildFakeNupkg()),
             ]);
 
             var sources = new[]
@@ -269,20 +269,20 @@ public class NuGetInstallHelpersTests
             await NuGetInstallHelpers.InstallFromSourcesAsync(
                 new(
                     sources,
-                    new(StringComparer.OrdinalIgnoreCase),
+                    [with(StringComparer.OrdinalIgnoreCase)],
                     failingFeed,
                     NullLogger.Instance,
                     cache,
                     "Foo",
-                    "1.0.0",
+                    Version100,
                     installPath,
                     CancellationToken.None));
 
-            await Assert.That(File.Exists(Path.Combine(installPath, ".nupkg.metadata"))).IsTrue();
+            await Assert.That(File.Exists(Path.Combine(installPath, NupkgMetadata))).IsTrue();
         }
         finally
         {
-            Environment.SetEnvironmentVariable("NUGET_FLAT_CONTAINER_OVERRIDE", prior);
+            Environment.SetEnvironmentVariable(NugetFlatContainerOverride, prior);
             if (Directory.Exists(installPath))
             {
                 Directory.Delete(installPath, recursive: true);
@@ -295,23 +295,23 @@ public class NuGetInstallHelpersTests
     [Test]
     public async Task InstallFromSourcesThrowsWhenAllSourcesMiss()
     {
-        var prior = Environment.GetEnvironmentVariable("NUGET_FLAT_CONTAINER_OVERRIDE");
+        var prior = Environment.GetEnvironmentVariable(NugetFlatContainerOverride);
         try
         {
-            Environment.SetEnvironmentVariable("NUGET_FLAT_CONTAINER_OVERRIDE", "https://flat.example/");
+            Environment.SetEnvironmentVariable(NugetFlatContainerOverride, HttpsFlatExample);
             var feed = new RecordingFeedHttpClient { NupkgResponse = null };
-            var sources = new[] { new PackageSource("nuget.org", "https://api.nuget.org/v3/index.json") };
+            var sources = new[] { new PackageSource(NugetOrg, HttpsApiNugetOrgV3IndexJson) };
             var cache = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
             async Task Act() => await NuGetInstallHelpers.InstallFromSourcesAsync(
                 new(
                     sources,
-                    new(StringComparer.OrdinalIgnoreCase),
+                    [with(StringComparer.OrdinalIgnoreCase)],
                     feed,
                     NullLogger.Instance,
                     cache,
                     "Foo",
-                    "1.0.0",
+                    Version100,
                     Path.Combine(Path.GetTempPath(), $"sdp-{Guid.NewGuid():N}"),
                     CancellationToken.None));
 
@@ -319,7 +319,7 @@ public class NuGetInstallHelpersTests
         }
         finally
         {
-            Environment.SetEnvironmentVariable("NUGET_FLAT_CONTAINER_OVERRIDE", prior);
+            Environment.SetEnvironmentVariable(NugetFlatContainerOverride, prior);
         }
     }
 
@@ -355,7 +355,7 @@ public class NuGetInstallHelpersTests
         string installPath) =>
         new(
             [source],
-            new(StringComparer.OrdinalIgnoreCase),
+            [with(StringComparer.OrdinalIgnoreCase)],
             feed,
             NullLogger.Instance,
             cache,
@@ -371,7 +371,7 @@ public class NuGetInstallHelpersTests
         public string ServiceIndexBody { get; set; } = string.Empty;
 
         /// <summary>Gets or sets the bytes returned by nupkg downloads; null forces a 404.</summary>
-        public byte[]? NupkgResponse { get; set; } = [];
+        public byte[]? NupkgResponse { get; init; } = [];
 
         /// <summary>Gets the count of service-index reads invoked.</summary>
         public int ServiceIndexCalls { get; private set; }
@@ -413,13 +413,15 @@ public class NuGetInstallHelpersTests
         public SequencedFakeFeed(Func<string, Stream>[] nupkgResponders) => _nupkgResponders = nupkgResponders;
 
         /// <inheritdoc />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Task<Stream> ReadServiceIndexAsync(string url, PackageSourceCredential? credential, CancellationToken cancellationToken) =>
             Task.FromResult<Stream>(new MemoryStream("""{"version":"3.0.0","resources":[]}"""u8.ToArray(), writable: false));
 
         /// <inheritdoc />
         public Task<Stream?> TryDownloadNupkgAsync(string url, PackageSourceCredential? credential, CancellationToken cancellationToken)
         {
-            var responder = _nupkgResponders[_nupkgIndex++];
+            var responder = _nupkgResponders[_nupkgIndex];
+            _nupkgIndex++;
             return Task.FromResult<Stream?>(responder(url));
         }
 

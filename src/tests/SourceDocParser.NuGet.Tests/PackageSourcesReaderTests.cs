@@ -1,8 +1,7 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Text;
 using SourceDocParser.NuGet.Readers;
 
 namespace SourceDocParser.NuGet.Tests;
@@ -15,6 +14,9 @@ namespace SourceDocParser.NuGet.Tests;
 /// </summary>
 public class PackageSourcesReaderTests
 {
+    /// <summary>Expected fixture value used by ReadsSourcesInDeclaredOrder.</summary>
+    private const int ReadsSourcesInDeclaredOrderExpectedValue = 2;
+
     /// <summary>
     /// Reads two sources from the with-sources fixture in declared
     /// order. nuget.org always comes first because that's how the
@@ -29,7 +31,7 @@ public class PackageSourcesReaderTests
         var result = await PackageSourcesReader.ReadPackageSourcesAsync(path).ConfigureAwait(false);
 
         await Assert.That(result.ClearedSeen).IsFalse();
-        await Assert.That(result.Sources.Length).IsEqualTo(2);
+        await Assert.That(result.Sources.Length).IsEqualTo(ReadsSourcesInDeclaredOrderExpectedValue);
         await Assert.That(result.Sources[0].Key).IsEqualTo("nuget.org");
         await Assert.That(result.Sources[1].Key).IsEqualTo("github");
     }
@@ -61,7 +63,7 @@ public class PackageSourcesReaderTests
     [Test]
     public async Task FirstAddWinsForDuplicateKey()
     {
-        const string xml = """
+        var xml = """
             <?xml version="1.0" encoding="utf-8"?>
             <configuration>
               <packageSources>
@@ -69,24 +71,21 @@ public class PackageSourcesReaderTests
                 <add key="nuget.org" value="https://second" />
               </packageSources>
             </configuration>
-            """;
+            """u8.ToArray();
 
-        await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(xml));
+        await using var stream = new MemoryStream(xml);
         var result = await PackageSourcesReader.ReadPackageSourcesAsync(stream).ConfigureAwait(false);
 
         await Assert.That(result.Sources.Length).IsEqualTo(1);
         await Assert.That(result.Sources[0].Url).IsEqualTo("https://first");
     }
 
-    /// <summary>
-    /// Pre-clear adds get wiped; the file's effective contribution
-    /// is only the post-clear adds.
-    /// </summary>
+    /// <summary>Pre-clear adds get wiped; the file's effective contribution is only the post-clear adds.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ClearWipesPriorAddsInSameFile()
     {
-        const string xml = """
+        var xml = """
             <?xml version="1.0" encoding="utf-8"?>
             <configuration>
               <packageSources>
@@ -95,9 +94,9 @@ public class PackageSourcesReaderTests
                 <add key="after-clear" value="https://after" />
               </packageSources>
             </configuration>
-            """;
+            """u8.ToArray();
 
-        await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(xml));
+        await using var stream = new MemoryStream(xml);
         var result = await PackageSourcesReader.ReadPackageSourcesAsync(stream).ConfigureAwait(false);
 
         await Assert.That(result.ClearedSeen).IsTrue();
@@ -105,25 +104,21 @@ public class PackageSourcesReaderTests
         await Assert.That(result.Sources[0].Key).IsEqualTo("after-clear");
     }
 
-    /// <summary>
-    /// A file without a <c>packageSources</c> section returns an
-    /// empty result with <c>ClearedSeen = false</c> -- discovery
-    /// keeps walking.
-    /// </summary>
+    /// <summary>A file without a <c>packageSources</c> section returns an empty result with <c>ClearedSeen = false</c> -- discovery keeps walking.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task SectionAbsentReturnsEmpty()
     {
-        const string xml = """
+        var xml = """
             <?xml version="1.0" encoding="utf-8"?>
             <configuration>
               <config>
                 <add key="globalPackagesFolder" value="/x" />
               </config>
             </configuration>
-            """;
+            """u8.ToArray();
 
-        await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(xml));
+        await using var stream = new MemoryStream(xml);
         var result = await PackageSourcesReader.ReadPackageSourcesAsync(stream).ConfigureAwait(false);
 
         await Assert.That(result.ClearedSeen).IsFalse();

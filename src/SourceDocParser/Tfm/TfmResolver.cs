@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -17,9 +17,7 @@ namespace SourceDocParser.Tfm;
 /// </summary>
 public static class TfmResolver
 {
-    /// <summary>
-    /// Modern .NET major version (5.0 and later).
-    /// </summary>
+    /// <summary>Modern .NET major version (5.0 and later).</summary>
     private const int ModernNetMajorVersion = 5;
 
     /// <summary>Android platform label.</summary>
@@ -31,7 +29,7 @@ public static class TfmResolver
     /// <summary>Prefix for legacy MonoAndroid TFMs.</summary>
     private const string MonoAndroidPrefix = "monoandroid";
 
-    /// <summary>iOS platform label.</summary>
+    /// <summary>IOS platform label.</summary>
     private const string IosPlatform = "ios";
 
     /// <summary>Suffix for modern iOS TFMs.</summary>
@@ -79,9 +77,7 @@ public static class TfmResolver
     /// </summary>
     private static readonly Version SupportedDotNetFrameworkFloor = new(4, 6, 2, 0);
 
-    /// <summary>
-    /// Selects every TFM in availableTfms that the resolver would accept.
-    /// </summary>
+    /// <summary>Selects every TFM in availableTfms that the resolver would accept.</summary>
     /// <param name="availableTfms">TFMs present in the package's lib/ directory.</param>
     /// <param name="tfmOverride">Optional per-package TFM override.</param>
     /// <param name="tfmPreference">Ordered list of preferred TFMs.</param>
@@ -216,17 +212,15 @@ public static class TfmResolver
 
         compatible.Sort(static (a, b) =>
         {
-            var aRank = Tfm.Parse(a).Rank;
-            var bRank = Tfm.Parse(b).Rank;
-            return bRank.CompareTo(aRank);
+            var leftRank = Tfm.Parse(a).Rank;
+            var rightRank = Tfm.Parse(b).Rank;
+            return rightRank.CompareTo(leftRank);
         });
 
         return compatible;
     }
 
-    /// <summary>
-    /// Selects the best matching TFM from availableTfms.
-    /// </summary>
+    /// <summary>Selects the best matching TFM from availableTfms.</summary>
     /// <param name="availableTfms">TFMs present in the package's lib/ directory.</param>
     /// <param name="tfmOverride">Optional per-package TFM override.</param>
     /// <param name="tfmPreference">Ordered list of preferred TFMs.</param>
@@ -250,12 +244,7 @@ public static class TfmResolver
             return overrideMatch;
         }
 
-        if (TrySelectPreferredTfm(availableTfms, tfmPreference, out var preferredMatch))
-        {
-            return preferredMatch;
-        }
-
-        return FindBestNetStandardFallback(availableTfms);
+        return TrySelectPreferredTfm(availableTfms, tfmPreference, out var preferredMatch) ? preferredMatch : FindBestNetStandardFallback(availableTfms);
     }
 
     /// <summary>
@@ -331,9 +320,7 @@ public static class TfmResolver
         _ => null,
     };
 
-        /// <summary>
-    /// Resolves a per-package override against the available TFMs.
-    /// </summary>
+        /// <summary>Resolves a per-package override against the available TFMs.</summary>
     /// <param name="availableTfms">TFMs present in the package's lib/ directory.</param>
     /// <param name="tfmOverride">Optional per-package TFM override.</param>
     /// <param name="match">Resolved override match, if found.</param>
@@ -351,9 +338,7 @@ public static class TfmResolver
         return match is not null;
     }
 
-    /// <summary>
-    /// Resolves the first preferred TFM across exact, prefix, and major-version matches.
-    /// </summary>
+    /// <summary>Resolves the first preferred TFM across exact, prefix, and major-version matches.</summary>
     /// <param name="availableTfms">TFMs present in the package's lib/ directory.</param>
     /// <param name="tfmPreference">Ordered list of preferred TFMs.</param>
     /// <param name="match">Resolved preferred match, if found.</param>
@@ -366,9 +351,7 @@ public static class TfmResolver
         return match is not null;
     }
 
-    /// <summary>
-    /// Finds the first exact preferred TFM match.
-    /// </summary>
+    /// <summary>Finds the first exact preferred TFM match.</summary>
     /// <param name="availableTfms">TFMs present in the package's lib/ directory.</param>
     /// <param name="tfmPreference">Ordered list of preferred TFMs.</param>
     /// <returns>The matched TFM, or null.</returns>
@@ -385,9 +368,7 @@ public static class TfmResolver
         return null;
     }
 
-    /// <summary>
-    /// Finds the first prefix-based preferred TFM match.
-    /// </summary>
+    /// <summary>Finds the first prefix-based preferred TFM match.</summary>
     /// <param name="availableTfms">TFMs present in the package's lib/ directory.</param>
     /// <param name="tfmPreference">Ordered list of preferred TFMs.</param>
     /// <returns>The matched TFM, or null.</returns>
@@ -404,9 +385,7 @@ public static class TfmResolver
         return null;
     }
 
-    /// <summary>
-    /// Finds the first preferred TFM whose family and major version match.
-    /// </summary>
+    /// <summary>Finds the first preferred TFM whose family and major version match.</summary>
     /// <param name="availableTfms">TFMs present in the package's lib/ directory.</param>
     /// <param name="tfmPreference">Ordered list of preferred TFMs.</param>
     /// <returns>The matched TFM, or null.</returns>
@@ -423,9 +402,7 @@ public static class TfmResolver
         return null;
     }
 
-    /// <summary>
-    /// Finds the first available TFM that matches the preferred family and major version.
-    /// </summary>
+    /// <summary>Finds the first available TFM that matches the preferred family and major version.</summary>
     /// <param name="availableTfms">TFMs present in the package's lib/ directory.</param>
     /// <param name="preferredTfm">Preferred TFM to match against.</param>
     /// <returns>The matched TFM, or null.</returns>
@@ -446,9 +423,7 @@ public static class TfmResolver
         return null;
     }
 
-    /// <summary>
-    /// Finds the highest netstandard fallback TFM, if any.
-    /// </summary>
+    /// <summary>Finds the highest netstandard fallback TFM, if any.</summary>
     /// <param name="availableTfms">TFMs present in the package's lib/ directory.</param>
     /// <returns>The highest netstandard fallback TFM, or null.</returns>
     internal static string? FindBestNetStandardFallback(List<string> availableTfms)
@@ -501,7 +476,7 @@ public static class TfmResolver
             }
 
             candidates.Add(fw);
-            byFramework.TryAdd(fw, raw);
+            _ = byFramework.TryAdd(fw, raw);
         }
 
         if (_frameworkReducer.GetNearest(libFramework, candidates) is { } nearest)
@@ -510,7 +485,6 @@ public static class TfmResolver
         }
 
         // FrameworkReducer treats netstandard as an abstract target you
-        // cannot run on, so it returns null when asked which of {net8.0+}
         // is "compatible with" netstandard2.0. For docs purposes a modern
         // .NET ref pack does provide types that satisfy a netstandard
         // library's references, so fall back to the highest modern .NET
@@ -563,8 +537,7 @@ public static class TfmResolver
         // don't keep warning. The fetcher couldn't have picked
         // anything from it anyway.
         { IsUnsupported: true } => true,
-        { Framework: FrameworkConstants.FrameworkIdentifiers.NetStandard } => false,
-        { Framework: FrameworkConstants.FrameworkIdentifiers.NetCoreApp } => false,
+        { Framework: FrameworkConstants.FrameworkIdentifiers.NetStandard } or { Framework: FrameworkConstants.FrameworkIdentifiers.NetCoreApp } => false,
 
         // The "Net" identifier covers BOTH .NET Framework (1.x-4.x)
         // and modern .NET (5.0+, where the moniker was reused). Modern
@@ -652,10 +625,7 @@ public static class TfmResolver
         return null;
     }
 
-    /// <summary>
-    /// Returns the first entry in candidates that starts (case-insensitive)
-    /// with target, or null.
-    /// </summary>
+    /// <summary>Returns the first entry in candidates that starts (case-insensitive) with target, or null.</summary>
     /// <param name="candidates">Strings to scan, in iteration order.</param>
     /// <param name="target">Prefix to match.</param>
     /// <returns>The first prefix match, or null if none found.</returns>

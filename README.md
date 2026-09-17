@@ -117,7 +117,7 @@ The walker resolves NuGet packages against frameworks that the active .NET
 SDK still understands and that Microsoft is still shipping fixes for:
 
 - **Modern .NET (5.0+)** — `net5.0`, `net6.0`, `net7.0`, `net8.0`, `net9.0`,
-  `net10.0`, plus the `net*-android`, `net*-ios`, `net*-maccatalyst`,
+  `net10.0`, `net11.0`, plus the `net*-android`, `net*-ios`, `net*-maccatalyst`,
   `net*-windows` workload variants. See the official
   [.NET and .NET Core support policy](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core).
 - **netstandard** — `netstandard1.0` through `netstandard2.1`. Sticks around
@@ -280,7 +280,7 @@ Built on:
 - [Roslyn](https://github.com/dotnet/roslyn) (Microsoft.CodeAnalysis.CSharp) for compilation + symbol model
 - [ICSharpCode.Decompiler](https://github.com/icsharpcode/ILSpy) for transitive reference resolution
 - [NuGet.Frameworks](https://github.com/NuGet/NuGet.Client) + [NuGet.Versioning](https://github.com/NuGet/NuGet.Client) for proper TFM compatibility and SemVer ordering
-- [Polly v8](https://github.com/App-vNext/Polly) for HTTP retry/rate-limit pipelines
+- .NET rate limiting and exponential backoff for HTTP requests
 
 ## License
 

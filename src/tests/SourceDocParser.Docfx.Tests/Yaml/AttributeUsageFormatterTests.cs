@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -18,6 +18,9 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 /// </summary>
 public class AttributeUsageFormatterTests
 {
+    /// <summary>Alternates positional and named arguments in the fixture.</summary>
+    private const int ArgumentNamePeriod = 2;
+
     /// <summary>An attribute with no arguments renders as the bare display name.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -73,7 +76,7 @@ public class AttributeUsageFormatterTests
         var args = new ApiAttributeArgument[argCount];
         for (var i = 0; i < argCount; i++)
         {
-            args[i] = new(Name: i % 2 == 0 ? null : "Named" + i, Value: "v" + i);
+            args[i] = new(Name: i % ArgumentNamePeriod == 0 ? null : $"Named{i}", Value: $"v{i}");
         }
 
         var attribute = new ApiAttribute("Foo", "T:My.FooAttribute", string.Empty, args);

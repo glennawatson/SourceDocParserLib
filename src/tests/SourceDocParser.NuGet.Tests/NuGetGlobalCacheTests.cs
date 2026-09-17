@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -14,10 +14,10 @@ namespace SourceDocParser.NuGet.Tests;
 /// </summary>
 public class NuGetGlobalCacheTests
 {
-    /// <summary>
-    /// NUGET_PACKAGES env var has top precedence -- overrides both
-    /// any nuget.config setting and the platform default.
-    /// </summary>
+    /// <summary>Fixture value for NupkgMetadata.</summary>
+    private const string NupkgMetadata = ".nupkg.metadata";
+
+    /// <summary>NUGET_PACKAGES env var has top precedence -- overrides both any nuget.config setting and the platform default.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ResolveGlobalPackagesFolderHonoursEnvVar()
@@ -37,10 +37,7 @@ public class NuGetGlobalCacheTests
         }
     }
 
-    /// <summary>
-    /// With no env var, an explicit nuget.config override wins
-    /// over the platform default.
-    /// </summary>
+    /// <summary>With no env var, an explicit nuget.config override wins over the platform default.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ResolveGlobalPackagesFolderHonoursConfigOverride()
@@ -101,9 +98,7 @@ public class NuGetGlobalCacheTests
         await Assert.That(path).IsEqualTo(expected);
     }
 
-    /// <summary>
-    /// Per-TFM lib path is just <c>{packageDir}/lib/{tfm}/</c>.
-    /// </summary>
+    /// <summary>Per-TFM lib path is just <c>{packageDir}/lib/{tfm}/</c>.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task GetLibTfmPathComposesPackageRootWithTfmFolder()
@@ -126,10 +121,10 @@ public class NuGetGlobalCacheTests
         var dir = Path.Combine(Path.GetTempPath(), $"sdp-globalcache-{Guid.NewGuid():N}");
         try
         {
-            Directory.CreateDirectory(dir);
+            _ = Directory.CreateDirectory(dir);
             await Assert.That(NuGetGlobalCache.IsPackageInstalled(dir)).IsFalse();
 
-            var marker = Path.Combine(dir, ".nupkg.metadata");
+            var marker = Path.Combine(dir, NupkgMetadata);
             await File.WriteAllTextAsync(marker, "{}").ConfigureAwait(false);
             await Assert.That(NuGetGlobalCache.IsPackageInstalled(dir)).IsTrue();
         }
@@ -160,10 +155,7 @@ public class NuGetGlobalCacheTests
         }
     }
 
-    /// <summary>
-    /// ProbeFallbackFolders checks each folder in order and returns
-    /// the first one that contains a successful install marker.
-    /// </summary>
+    /// <summary>ProbeFallbackFolders checks each folder in order and returns the first one that contains a successful install marker.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ProbeFallbackFoldersReturnsFirstMatchingPath()
@@ -172,8 +164,8 @@ public class NuGetGlobalCacheTests
         var root2 = Path.Combine(Path.GetTempPath(), $"sdp-fallback2-{Guid.NewGuid():N}");
         try
         {
-            Directory.CreateDirectory(root1);
-            Directory.CreateDirectory(root2);
+            _ = Directory.CreateDirectory(root1);
+            _ = Directory.CreateDirectory(root2);
 
             var fallbackFolders = new[] { root1, root2 };
             const string packageId = "Splat";
@@ -185,16 +177,16 @@ public class NuGetGlobalCacheTests
 
             // Case 2: Installed in the second one
             var install2 = NuGetGlobalCache.GetPackageInstallPath(root2, packageId, packageVersion);
-            Directory.CreateDirectory(install2);
-            await File.WriteAllTextAsync(Path.Combine(install2, ".nupkg.metadata"), "{}").ConfigureAwait(false);
+            _ = Directory.CreateDirectory(install2);
+            await File.WriteAllTextAsync(Path.Combine(install2, NupkgMetadata), "{}").ConfigureAwait(false);
 
             result = NuGetGlobalCache.ProbeFallbackFolders(fallbackFolders, packageId, packageVersion);
             await Assert.That(result).IsEqualTo(install2);
 
             // Case 3: Installed in the first one (should win)
             var install1 = NuGetGlobalCache.GetPackageInstallPath(root1, packageId, packageVersion);
-            Directory.CreateDirectory(install1);
-            await File.WriteAllTextAsync(Path.Combine(install1, ".nupkg.metadata"), "{}").ConfigureAwait(false);
+            _ = Directory.CreateDirectory(install1);
+            await File.WriteAllTextAsync(Path.Combine(install1, NupkgMetadata), "{}").ConfigureAwait(false);
 
             result = NuGetGlobalCache.ProbeFallbackFolders(fallbackFolders, packageId, packageVersion);
             await Assert.That(result).IsEqualTo(install1);

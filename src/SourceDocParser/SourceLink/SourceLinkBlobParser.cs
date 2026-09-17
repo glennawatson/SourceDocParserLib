@@ -1,8 +1,9 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 using System.Reflection.Metadata;
+using System.Runtime.CompilerServices;
 
 namespace SourceDocParser.SourceLink;
 
@@ -15,10 +16,7 @@ namespace SourceDocParser.SourceLink;
 /// </summary>
 internal static class SourceLinkBlobParser
 {
-    /// <summary>
-    /// GUID of the SourceLink custom debug information record
-    /// portable PDB writers stamp the blob with.
-    /// </summary>
+    /// <summary>GUID of the SourceLink custom debug information record portable PDB writers stamp the blob with.</summary>
     internal static readonly Guid SourceLinkGuid = new("CC110556-A091-4D38-9FEC-25AB9A351A6A");
 
     /// <summary>
@@ -28,7 +26,7 @@ internal static class SourceLinkBlobParser
     /// </summary>
     /// <param name="bytes">Raw bytes of the SourceLink JSON blob.</param>
     /// <returns>The populated map, or null when the blob doesn't parse.</returns>
-    public static SourceLinkMap? TryParse(in ReadOnlyMemory<byte> bytes)
+    internal static SourceLinkMap? TryParse(in ReadOnlyMemory<byte> bytes)
     {
         try
         {
@@ -41,13 +39,11 @@ internal static class SourceLinkBlobParser
         }
     }
 
-    /// <summary>
-    /// Walks the CustomDebugInformation table looking for the
-    /// SourceLink record and decodes the first one found.
-    /// </summary>
+    /// <summary>Walks the CustomDebugInformation table looking for the SourceLink record and decodes the first one found.</summary>
     /// <param name="pdb">Open PDB metadata reader.</param>
     /// <returns>The map, or null when no record was present (or it didn't parse).</returns>
-    public static SourceLinkMap? FindAndParse(MetadataReader pdb) => FindAndParse(pdb, SourceLinkGuid);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static SourceLinkMap? FindAndParse(MetadataReader pdb) => FindAndParse(pdb, SourceLinkGuid);
 
     /// <summary>
     /// Walks the CustomDebugInformation table for the supplied

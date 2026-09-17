@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -11,13 +11,7 @@ using SourceDocParser.Walk;
 
 namespace SourceDocParser;
 
-/// <summary>
-/// Represents the context used in the processing and walking of loaded assembly symbols.
-/// </summary>
-/// <remarks>
-/// The <c>WalkContext</c> serves as a container for all required dependencies and shared state
-/// necessary during the walking of symbols across multiple assemblies.
-/// </remarks>
+/// <summary>Represents the context used in the processing and walking of loaded assembly symbols.</summary>
 /// <param name="SymbolWalker">
 /// An implementation of <see cref="ISymbolWalker"/> responsible for processing symbols in each loaded assembly.
 /// </param>
@@ -43,6 +37,10 @@ namespace SourceDocParser;
 /// each <see cref="AssemblyGroup.BroadcastTfms"/> entry without
 /// re-walking.
 /// </param>
+/// <remarks>
+/// The <c>WalkContext</c> serves as a container for all required dependencies and shared state
+/// necessary during the walking of symbols across multiple assemblies.
+/// </remarks>
 internal sealed record WalkContext(
     ISymbolWalker SymbolWalker,
     Func<string, ISourceLinkResolver> SourceLinkResolverFactory,

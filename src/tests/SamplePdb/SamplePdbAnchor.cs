@@ -1,6 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
+
+using System.Runtime.CompilerServices;
 
 namespace SamplePdb;
 
@@ -12,14 +14,16 @@ namespace SamplePdb;
 /// through SourceLinkReader to confirm the embedded portable PDB +
 /// SourceLink JSON round-trip end to end.
 /// </summary>
-public class SamplePdbAnchor
+public static class SamplePdbAnchor
 {
     /// <summary>The body line below -- kept on its own well-known line so the test fixture can hard-code it.</summary>
-    public const int KnownMethodBodyLine = 24;
+    public static readonly int KnownMethodBodyLine = 28;
 
+    /// <summary>Constant returned by the source-location anchor.</summary>
     private const int AnchorReturnValue = 42;
 
     /// <summary>Anchor body that always lives on <see cref="KnownMethodBodyLine"/>.</summary>
     /// <returns>A constant; the value isn't important.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static int Anchor() => AnchorReturnValue;
 }

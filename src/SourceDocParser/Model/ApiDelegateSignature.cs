@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -14,6 +14,7 @@ namespace SourceDocParser.Model;
 /// <param name="ReturnType">Reference to the return type, or <see langword="null"/> for <c>void</c> returns.</param>
 /// <param name="Parameters">Invoke parameters in declaration order.</param>
 /// <param name="TypeParameters">Generic type parameter names (empty for non-generic delegates).</param>
+[System.Diagnostics.DebuggerDisplay("ApiDelegateSignature: {ToString(),nq}")]
 public sealed record ApiDelegateSignature(
     string Signature,
     ApiTypeReference? ReturnType,

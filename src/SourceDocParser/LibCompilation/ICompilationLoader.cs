@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -15,10 +15,7 @@ namespace SourceDocParser.LibCompilation;
 /// </summary>
 public interface ICompilationLoader : IDisposable
 {
-    /// <summary>
-    /// Loads <paramref name="assemblyPath"/> and its transitive references
-    /// into a Roslyn compilation using the default metadata-import mode.
-    /// </summary>
+    /// <summary>Loads <paramref name="assemblyPath"/> and its transitive references into a Roslyn compilation using the default metadata-import mode.</summary>
     /// <param name="assemblyPath">Absolute path to the .dll to load.</param>
     /// <param name="fallbackReferences">Map from simple assembly name to absolute path used when the resolver cannot locate a reference on its own.</param>
     /// <returns>The compilation and the primary assembly symbol.</returns>
@@ -26,10 +23,7 @@ public interface ICompilationLoader : IDisposable
         string assemblyPath,
         Dictionary<string, string> fallbackReferences);
 
-    /// <summary>
-    /// Loads <paramref name="assemblyPath"/> and its transitive references
-    /// into a Roslyn compilation.
-    /// </summary>
+    /// <summary>Loads <paramref name="assemblyPath"/> and its transitive references into a Roslyn compilation.</summary>
     /// <param name="assemblyPath">Absolute path to the .dll to load.</param>
     /// <param name="fallbackReferences">Map from simple assembly name to absolute path used when the resolver cannot locate a reference on its own.</param>
     /// <param name="includePrivateMembers">When true, the compilation imports non-public members.</param>

@@ -1,8 +1,10 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Frozen;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using SourceDocParser.Model;
 using SourceDocParser.XmlDoc;
 using SourceDocParser.Zensical.Options;
@@ -19,6 +21,7 @@ namespace SourceDocParser.Zensical;
 /// happened so there's no concurrency benefit, and File.WriteAllText
 /// over ~30k small files is plenty fast.
 /// </summary>
+[System.Diagnostics.DebuggerDisplay("ZensicalDocumentationEmitter: {_options}")]
 public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
 {
     /// <summary>Emitter tunables (per-package routing, BCL link base URL).</summary>
@@ -39,6 +42,7 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
     }
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Task<int> EmitAsync(ApiType[] types, IPageSink sink) =>
         EmitAsync(types, sink, CancellationToken.None);
 
@@ -86,7 +90,7 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
 
             if (type.Uid is { Length: > 0 })
             {
-                collected.Add(type.Uid);
+                _ = collected.Add(type.Uid);
             }
 
             CollectMemberUids(type, collected);
@@ -152,10 +156,7 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
         return ZensicalEmitterHelpers.IsCompilerGeneratedMemberName(type.Name);
     }
 
-    /// <summary>
-    /// Adds the UIDs of <paramref name="type"/>'s members (non-
-    /// compiler-generated) and enum values to <paramref name="collected"/>.
-    /// </summary>
+    /// <summary>Adds the UIDs of <paramref name="type"/>'s members (non- compiler-generated) and enum values to <paramref name="collected"/>.</summary>
     /// <param name="type">Owning type.</param>
     /// <param name="collected">Destination UID set.</param>
     private static void CollectMemberUids(ApiType type, HashSet<string> collected)
@@ -195,7 +196,7 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
             var m = members[i];
             if (!ZensicalEmitterHelpers.IsCompilerGeneratedMemberName(m.Name) && m.Uid is { Length: > 0 })
             {
-                collected.Add(m.Uid);
+                _ = collected.Add(m.Uid);
             }
         }
     }
@@ -210,7 +211,7 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
             var v = values[i];
             if (v.Uid is { Length: > 0 })
             {
-                collected.Add(v.Uid);
+                _ = collected.Add(v.Uid);
             }
         }
     }
@@ -256,12 +257,8 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
                 continue;
             }
 
-            if (!groups.TryGetValue(member.Name, out var bucket))
-            {
-                bucket = [];
-                groups[member.Name] = bucket;
-            }
-
+            ref var bucket = ref CollectionsMarshal.GetValueRefOrAddDefault(groups, member.Name, out _);
+            bucket ??= [];
             bucket.Add(member);
         }
 

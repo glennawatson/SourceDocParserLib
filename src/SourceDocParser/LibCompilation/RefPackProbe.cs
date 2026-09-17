@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -11,7 +11,6 @@ namespace SourceDocParser.LibCompilation;
 /// that match a target TFM, so the resolver can fall back to those
 /// DLLs when a transitive reference belongs to a SDK / workload that
 /// doesn't ship as a NuGet package.
-///
 /// Layout assumed:
 /// <c>&lt;packsRoot&gt;/&lt;PackName&gt;/&lt;Version&gt;/ref/&lt;tfm&gt;/*.dll</c>.
 /// Only packs whose name ends in <c>.Ref</c> are considered (the dotnet
@@ -45,7 +44,7 @@ internal static class RefPackProbe
     /// <param name="packRoots">Pack-root directories from <see cref="DotNetSdkLocator.EnumeratePackRoots()"/>.</param>
     /// <param name="compatibleTfms">TFMs the consumer is willing to accept (target TFM first, then lower-rank fallbacks).</param>
     /// <returns>The matching <c>ref/&lt;tfm&gt;</c> directories in scan order.</returns>
-    public static List<string> ProbeRefPackRefDirs(
+    internal static List<string> ProbeRefPackRefDirs(
         IReadOnlyList<string> packRoots,
         IReadOnlyList<string> compatibleTfms)
     {
@@ -67,11 +66,7 @@ internal static class RefPackProbe
         return dirs;
     }
 
-    /// <summary>
-    /// Walks every <c>*.Ref/&lt;version&gt;/ref/&lt;tfm&gt;</c> dir
-    /// under one pack root and appends the matches to
-    /// <paramref name="dirs"/>.
-    /// </summary>
+    /// <summary>Walks every <c>*.Ref/&lt;version&gt;/ref/&lt;tfm&gt;</c> dir under one pack root and appends the matches to <paramref name="dirs"/>.</summary>
     /// <param name="packRoot">Single packs/ root.</param>
     /// <param name="compatibleTfms">TFMs the consumer accepts.</param>
     /// <param name="seen">Dedupe set, mutated in place.</param>
@@ -143,11 +138,7 @@ internal static class RefPackProbe
         }
     }
 
-    /// <summary>
-    /// Wraps <see cref="Directory.GetDirectories(string)"/> with
-    /// permission/IO error suppression so a single unreadable pack
-    /// folder doesn't break discovery.
-    /// </summary>
+    /// <summary>Wraps <see cref="Directory.GetDirectories(string)"/> with permission/IO error suppression so a single unreadable pack folder doesn't break discovery.</summary>
     /// <param name="dir">The directory to enumerate.</param>
     /// <returns>The subdirectory paths, or an empty array on error.</returns>
     private static string[] SafeGetDirectories(string dir)
@@ -194,11 +185,13 @@ internal static class RefPackProbe
                 continue;
             }
 
-            if (bestVersion is null || version.CompareTo(bestVersion) > 0)
+            if (bestVersion is not null && version.CompareTo(bestVersion) <= 0)
             {
-                bestPath = candidate;
-                bestVersion = version;
+                continue;
             }
+
+            bestPath = candidate;
+            bestVersion = version;
         }
 
         if (bestPath is not null)

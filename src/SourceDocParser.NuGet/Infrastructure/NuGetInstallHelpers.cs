@@ -1,9 +1,9 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Diagnostics.CodeAnalysis;
 using System.IO.Compression;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 using SourceDocParser.NuGet.Models;
@@ -11,10 +11,7 @@ using SourceDocParser.NuGet.Readers;
 
 namespace SourceDocParser.NuGet.Infrastructure;
 
-/// <summary>
-/// Helper methods for installing NuGet packages.
-/// </summary>
-[SuppressMessage("Minor Code Smell", "S4040:Strings should be normalized to uppercase", Justification = "NuGet flat-container package IDs and versions are lower-case in feed URLs")]
+/// <summary>Helper methods for installing NuGet packages.</summary>
 internal static partial class NuGetInstallHelpers
 {
     /// <summary>Env-var override for tests: forces every source's flat-container endpoint to a single URL.</summary>
@@ -30,7 +27,7 @@ internal static partial class NuGetInstallHelpers
     private const int MetadataWriteBufferSize = 256;
 
     /// <summary>The buffer size for computing the content hash.</summary>
-    private const int HashBufferSize = 81920;
+    private const int HashBufferSize = 81_920;
 
     /// <summary>The extension for NuGet packages.</summary>
     private const string NupkgExtension = ".nupkg";
@@ -41,7 +38,8 @@ internal static partial class NuGetInstallHelpers
     /// <param name="source">Source the package came from.</param>
     /// <param name="cancellationToken">Token observed across the file IO.</param>
     /// <returns>A task representing the write.</returns>
-    public static ValueTask WriteNupkgMetadataAsync(string installPath, string nupkgPath, in PackageSource source, in CancellationToken cancellationToken) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ValueTask WriteNupkgMetadataAsync(string installPath, string nupkgPath, in PackageSource source, in CancellationToken cancellationToken) =>
         WriteNupkgMetadataCoreAsync(installPath, nupkgPath, source, cancellationToken);
 
     /// <summary>Implementation of <see cref="WriteNupkgMetadataAsync"/>.</summary>
@@ -50,7 +48,7 @@ internal static partial class NuGetInstallHelpers
     /// <param name="source">Source the package came from.</param>
     /// <param name="cancellationToken">Token observed across the file IO.</param>
     /// <returns>A task representing the write.</returns>
-    public static async ValueTask WriteNupkgMetadataCoreAsync(string installPath, string nupkgPath, PackageSource source, CancellationToken cancellationToken)
+    internal static async ValueTask WriteNupkgMetadataCoreAsync(string installPath, string nupkgPath, PackageSource source, CancellationToken cancellationToken)
     {
         var hash = await ComputeContentHashAsync(nupkgPath, cancellationToken).ConfigureAwait(false);
         var metadataPath = Path.Combine(installPath, NupkgMetadataFileName);
@@ -68,7 +66,7 @@ internal static partial class NuGetInstallHelpers
     /// <param name="nupkgPath">Path to the .nupkg.</param>
     /// <param name="cancellationToken">Token observed across the read.</param>
     /// <returns>Base64-encoded SHA-512 of the .nupkg bytes.</returns>
-    public static async ValueTask<string> ComputeContentHashAsync(string nupkgPath, CancellationToken cancellationToken)
+    internal static async ValueTask<string> ComputeContentHashAsync(string nupkgPath, CancellationToken cancellationToken)
     {
         await using var stream = new FileStream(nupkgPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: HashBufferSize, FileOptions.SequentialScan | FileOptions.Asynchronous);
         var hash = await SHA512.HashDataAsync(stream, cancellationToken).ConfigureAwait(false);
@@ -78,13 +76,15 @@ internal static partial class NuGetInstallHelpers
     /// <summary>Installs a NuGet package asynchronously from the specified sources.</summary>
     /// <param name="request">The installation request containing details such as package information, sources, credentials, and cancellation token.</param>
     /// <returns>A task representing the asynchronous installation operation.</returns>
-    public static ValueTask InstallFromSourcesAsync(in NuGetInstallRequest request) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ValueTask InstallFromSourcesAsync(in NuGetInstallRequest request) =>
         InstallFromSourcesCoreAsync(request);
 
     /// <summary>Implementation of <see cref="InstallFromSourcesAsync(in NuGetInstallRequest)"/>.</summary>
     /// <param name="request">Install request state.</param>
     /// <returns>A task representing the asynchronous install.</returns>
-    public static async ValueTask InstallFromSourcesCoreAsync(NuGetInstallRequest request)
+    /// <exception cref="InvalidOperationException">No configured source contains the requested package.</exception>
+    internal static async ValueTask InstallFromSourcesCoreAsync(NuGetInstallRequest request)
     {
         var enabledSources = request.EnabledSources;
         for (var i = 0; i < enabledSources.Length; i++)
@@ -111,16 +111,15 @@ internal static partial class NuGetInstallHelpers
     /// <param name="source">The package source containing the URL and key of the source feed.</param>
     /// <param name="request">The installation request containing package details and configurations needed for installation.</param>
     /// <returns>A task representing the asynchronous operation. The task result contains a boolean value indicating whether the installation was successful.</returns>
-    public static ValueTask<bool> TryInstallFromSourceAsync(in PackageSource source, in NuGetInstallRequest request) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ValueTask<bool> TryInstallFromSourceAsync(in PackageSource source, in NuGetInstallRequest request) =>
         TryInstallFromSourceCoreAsync(source, request);
 
-    /// <summary>
-    /// Attempts to install a package from the specified NuGet source.
-    /// </summary>
+    /// <summary>Attempts to install a package from the specified NuGet source.</summary>
     /// <param name="source">The NuGet package source to install from.</param>
     /// <param name="request">Details of the installation request, including package information, HTTP client, and credentials.</param>
     /// <returns>A <c>ValueTask</c> representing the asynchronous operation, with a boolean result indicating whether the installation succeeded.</returns>
-    public static async ValueTask<bool> TryInstallFromSourceCoreAsync(
+    internal static async ValueTask<bool> TryInstallFromSourceCoreAsync(
         PackageSource source,
         NuGetInstallRequest request)
     {
@@ -139,7 +138,7 @@ internal static partial class NuGetInstallHelpers
         var versionLower = request.PackageVersion.ToLowerInvariant();
         var url = $"{flatContainer}{idLower}/{versionLower}/{idLower}.{versionLower}{NupkgExtension}";
 
-        request.Credentials.TryGetValue(source.Key, out var credential);
+        _ = request.Credentials.TryGetValue(source.Key, out var credential);
         var stream = await request.FeedHttp.TryDownloadNupkgAsync(
             url,
             credential,
@@ -149,7 +148,7 @@ internal static partial class NuGetInstallHelpers
             return false;
         }
 
-        Directory.CreateDirectory(request.InstallPath);
+        _ = Directory.CreateDirectory(request.InstallPath);
         var nupkgPath = Path.Combine(request.InstallPath, $"{idLower}.{versionLower}{NupkgExtension}");
         await using (stream.ConfigureAwait(false))
         await using (var file = File.Create(nupkgPath))
@@ -174,7 +173,7 @@ internal static partial class NuGetInstallHelpers
     /// <param name="flatContainerByFeed">Per-source flat-container endpoint cache (one HTTP roundtrip per feed).</param>
     /// <param name="cancellationToken">Token observed across the request.</param>
     /// <returns>The flat-container base URL; null when the source doesn't declare one.</returns>
-    public static ValueTask<string?> GetFlatContainerUrlAsync(
+    internal static ValueTask<string?> GetFlatContainerUrlAsync(
         in PackageSource source,
         Dictionary<string, PackageSourceCredential> credentials,
         INuGetFeedHttpClient feedHttp,
@@ -211,7 +210,7 @@ internal static partial class NuGetInstallHelpers
         Dictionary<string, string?> flatContainerByFeed,
         CancellationToken cancellationToken)
     {
-        credentials.TryGetValue(source.Key, out var credential);
+        _ = credentials.TryGetValue(source.Key, out var credential);
         await using var stream = await feedHttp.ReadServiceIndexAsync(source.Url, credential, cancellationToken).ConfigureAwait(false);
         var url = await NuGetServiceIndexReader.ReadFlatContainerUrlAsync(stream, cancellationToken).ConfigureAwait(false);
         flatContainerByFeed[source.Key] = url;

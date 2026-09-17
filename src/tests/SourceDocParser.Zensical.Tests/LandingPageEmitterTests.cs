@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,17 +16,29 @@ namespace SourceDocParser.Zensical.Tests;
 /// </summary>
 public class LandingPageEmitterTests
 {
+    /// <summary>Fixture value for SplatPackage.</summary>
+    private const string SplatPackage = "Splat";
+
+    /// <summary>Fixture value for ReactiveUiPackage.</summary>
+    private const string ReactiveUiPackage = "ReactiveUI";
+
+    /// <summary>Fixture value for PrimaryPackage.</summary>
+    private const string PrimaryPackage = "Primary";
+
+    /// <summary>Fixture value for OtherPackage.</summary>
+    private const string OtherPackage = "Other";
+
     /// <summary>One package index plus one namespace index per (package, namespace) bucket.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task EmitAllWritesPackageAndNamespaceIndexes()
     {
         using var temp = new TempDirectory();
-        var foo = TestData.ObjectType("Foo", assemblyName: "Splat") with { Namespace = "Splat" };
+        var foo = TestData.ObjectType("Foo", assemblyName: SplatPackage) with { Namespace = SplatPackage };
 
         await new ZensicalDocumentationEmitter().EmitAsync([foo], new FilePageSink(temp.Path));
-        var packageIndex = await File.ReadAllTextAsync(Path.Combine(temp.Path, "Splat", LandingPageEmitter.IndexFileName));
-        var namespaceIndex = await File.ReadAllTextAsync(Path.Combine(temp.Path, "Splat", "Splat", LandingPageEmitter.IndexFileName));
+        var packageIndex = await File.ReadAllTextAsync(Path.Combine(temp.Path, SplatPackage, LandingPageEmitter.IndexFileName));
+        var namespaceIndex = await File.ReadAllTextAsync(Path.Combine(temp.Path, SplatPackage, SplatPackage, LandingPageEmitter.IndexFileName));
 
         await Assert.That(packageIndex).Contains("# Splat package");
         await Assert.That(packageIndex).Contains("[Splat](Splat/index.md)");
@@ -41,12 +53,12 @@ public class LandingPageEmitterTests
     public async Task ClashingNamespacesAcrossPackagesEachGetTheirOwnIndex()
     {
         using var temp = new TempDirectory();
-        var core = TestData.ObjectType("Reactive", assemblyName: "ReactiveUI") with { Namespace = "ReactiveUI" };
-        var wpf = TestData.ObjectType("WpfHelper", assemblyName: "ReactiveUI.Wpf") with { Namespace = "ReactiveUI" };
+        var core = TestData.ObjectType("Reactive", assemblyName: ReactiveUiPackage) with { Namespace = ReactiveUiPackage };
+        var wpf = TestData.ObjectType("WpfHelper", assemblyName: "ReactiveUI.Wpf") with { Namespace = ReactiveUiPackage };
 
         await new ZensicalDocumentationEmitter().EmitAsync([core, wpf], new FilePageSink(temp.Path));
-        var coreIndex = await File.ReadAllTextAsync(Path.Combine(temp.Path, "ReactiveUI", "ReactiveUI", LandingPageEmitter.IndexFileName));
-        var wpfIndex = await File.ReadAllTextAsync(Path.Combine(temp.Path, "ReactiveUI.Wpf", "ReactiveUI", LandingPageEmitter.IndexFileName));
+        var coreIndex = await File.ReadAllTextAsync(Path.Combine(temp.Path, ReactiveUiPackage, ReactiveUiPackage, LandingPageEmitter.IndexFileName));
+        var wpfIndex = await File.ReadAllTextAsync(Path.Combine(temp.Path, "ReactiveUI.Wpf", ReactiveUiPackage, LandingPageEmitter.IndexFileName));
 
         await Assert.That(coreIndex).Contains("[Reactive](Reactive.md)");
         await Assert.That(coreIndex).DoesNotContain("WpfHelper");
@@ -61,13 +73,13 @@ public class LandingPageEmitterTests
     {
         using var temp = new TempDirectory();
         var options = new ZensicalEmitterOptions([
-            new(FolderName: "Primary", AssemblyPrefix: "Primary"),
+            new(FolderName: PrimaryPackage, AssemblyPrefix: PrimaryPackage),
         ]);
-        var matched = TestData.ObjectType("Foo", assemblyName: "Primary") with { Namespace = "Primary" };
-        var skipped = TestData.ObjectType("Bar", assemblyName: "Other") with { Namespace = "Other" };
+        var matched = TestData.ObjectType("Foo", assemblyName: PrimaryPackage) with { Namespace = PrimaryPackage };
+        var skipped = TestData.ObjectType("Bar", assemblyName: OtherPackage) with { Namespace = OtherPackage };
 
         await new ZensicalDocumentationEmitter(options).EmitAsync([matched, skipped], new FilePageSink(temp.Path));
 
-        await Assert.That(Directory.Exists(Path.Combine(temp.Path, "Other"))).IsFalse();
+        await Assert.That(Directory.Exists(Path.Combine(temp.Path, OtherPackage))).IsFalse();
     }
 }

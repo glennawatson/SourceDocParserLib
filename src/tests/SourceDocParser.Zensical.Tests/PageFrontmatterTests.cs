@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -9,13 +9,12 @@ using SourceDocParser.Zensical.Pages;
 
 namespace SourceDocParser.Zensical.Tests;
 
-/// <summary>
-/// Pins <see cref="PageFrontmatter"/>: every type-kind label, every
-/// member-kind label, the package-tag-omitted shortcut, and the
-/// obsolete-tag opt-in.
-/// </summary>
+/// <summary>Pins <see cref="PageFrontmatter"/>: every type-kind label, every member-kind label, the package-tag-omitted shortcut, and the obsolete-tag opt-in.</summary>
 public class PageFrontmatterTests
 {
+    /// <summary>Fixture value for SearchSection.</summary>
+    private const string SearchSection = "search:";
+
     /// <summary>Each <see cref="ApiObjectKind"/> maps to its expected kind label.</summary>
     /// <param name="kind">The object kind under test.</param>
     /// <param name="expected">The expected label.</param>
@@ -132,7 +131,7 @@ public class PageFrontmatterTests
 
         var fm = PageFrontmatter.ForType(type, ZensicalEmitterOptions.Default);
 
-        await Assert.That(fm).DoesNotContain("search:");
+        await Assert.That(fm).DoesNotContain(SearchSection);
         await Assert.That(fm).DoesNotContain("exclude: true");
     }
 
@@ -151,14 +150,11 @@ public class PageFrontmatterTests
 
         var fm = PageFrontmatter.ForType(type, options);
 
-        await Assert.That(fm).Contains("search:");
+        await Assert.That(fm).Contains(SearchSection);
         await Assert.That(fm).Contains("  exclude: true");
     }
 
-    /// <summary>
-    /// Member-page frontmatter respects <see cref="ZensicalEmitterOptions.IncludeInSearch"/>
-    /// the same way type pages do.
-    /// </summary>
+    /// <summary>Member-page frontmatter respects <see cref="ZensicalEmitterOptions.IncludeInSearch"/> the same way type pages do.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ForMemberEmitsSearchExcludeWhenIncludeInSearchIsFalse()
@@ -169,7 +165,7 @@ public class PageFrontmatterTests
 
         var fm = PageFrontmatter.ForMember(type, member, [member], options);
 
-        await Assert.That(fm).Contains("search:");
+        await Assert.That(fm).Contains(SearchSection);
         await Assert.That(fm).Contains("  exclude: true");
     }
 

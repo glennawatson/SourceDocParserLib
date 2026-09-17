@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -20,6 +20,12 @@ namespace SourceDocParser.Zensical.Pages;
 /// </summary>
 internal static class PageFrontmatter
 {
+    /// <summary>Typical size of a page's frontmatter and primary anchor.</summary>
+    private const int InitialCapacity = 192;
+
+    /// <summary>Typical space required for each overload anchor.</summary>
+    private const int OverloadAnchorCapacity = 32;
+
     /// <summary>
     /// Renders the type-page frontmatter block for <paramref name="type"/>,
     /// terminated by the closing <c>---</c>, a hidden mkdocs-autorefs
@@ -30,10 +36,10 @@ internal static class PageFrontmatter
     /// <param name="type">The type whose page is about to render.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
     /// <returns>The frontmatter block plus the type's UID anchor.</returns>
-    public static string ForType(ApiType type, ZensicalEmitterOptions options)
+    internal static string ForType(ApiType type, ZensicalEmitterOptions options)
     {
-        var sb = new StringBuilder(capacity: 192);
-        AppendForType(sb, type, options);
+        var sb = new StringBuilder(capacity: InitialCapacity);
+        _ = AppendForType(sb, type, options);
         return sb.ToString();
     }
 
@@ -42,7 +48,7 @@ internal static class PageFrontmatter
     /// <param name="type">The type whose page is about to render.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
-    public static StringBuilder AppendForType(StringBuilder sb, ApiType type, ZensicalEmitterOptions options)
+    internal static StringBuilder AppendForType(StringBuilder sb, ApiType type, ZensicalEmitterOptions options)
     {
         ArgumentNullException.ThrowIfNull(sb);
         ArgumentNullException.ThrowIfNull(type);
@@ -54,7 +60,7 @@ internal static class PageFrontmatter
         AppendBlock(sb, kind: kind, ns: ns, assembly: assembly, package: package, isObsolete: type.IsObsolete, includeInSearch: options.IncludeInSearch);
         AppendUidAnchor(sb, type.Uid);
         AppendMemberUidAnchors(sb, type);
-        sb.AppendLine();
+        _ = sb.AppendLine();
         return sb;
     }
 
@@ -69,10 +75,10 @@ internal static class PageFrontmatter
     /// <param name="overloads">All overloads in the group; one anchor per overload UID.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
     /// <returns>The frontmatter block plus a UID anchor per overload.</returns>
-    public static string ForMember(ApiType containingType, ApiMember member, ApiMember[] overloads, ZensicalEmitterOptions options)
+    internal static string ForMember(ApiType containingType, ApiMember member, ApiMember[] overloads, ZensicalEmitterOptions options)
     {
-        var sb = new StringBuilder(capacity: 192 + ((overloads?.Length ?? 0) * 32));
-        AppendForMember(sb, containingType, member, overloads!, options);
+        var sb = new StringBuilder(capacity: InitialCapacity + ((overloads?.Length ?? 0) * OverloadAnchorCapacity));
+        _ = AppendForMember(sb, containingType, member, overloads!, options);
         return sb.ToString();
     }
 
@@ -83,7 +89,7 @@ internal static class PageFrontmatter
     /// <param name="overloads">All overloads in the group; one anchor per overload UID.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
     /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
-    public static StringBuilder AppendForMember(StringBuilder sb, ApiType containingType, ApiMember member, ApiMember[] overloads, ZensicalEmitterOptions options)
+    internal static StringBuilder AppendForMember(StringBuilder sb, ApiType containingType, ApiMember member, ApiMember[] overloads, ZensicalEmitterOptions options)
     {
         ArgumentNullException.ThrowIfNull(sb);
         ArgumentNullException.ThrowIfNull(containingType);
@@ -100,7 +106,7 @@ internal static class PageFrontmatter
             AppendUidAnchor(sb, overloads[i].Uid);
         }
 
-        sb.AppendLine();
+        _ = sb.AppendLine();
         return sb;
     }
 
@@ -114,7 +120,7 @@ internal static class PageFrontmatter
     /// <param name="includeInSearch">When <see langword="false"/>, append a <c>search.exclude: true</c> block so Zensical omits this page from its search index.</param>
     private static void AppendBlock(StringBuilder sb, string kind, string ns, string assembly, string package, bool isObsolete, bool includeInSearch)
     {
-        sb.AppendLine("---")
+        _ = sb.AppendLine("---")
             .AppendLine("tags:")
             .Append("  - kind/").AppendLine(kind)
             .Append("  - namespace/").AppendLine(ns)
@@ -122,21 +128,21 @@ internal static class PageFrontmatter
 
         if (!string.Equals(package, assembly, StringComparison.Ordinal))
         {
-            sb.Append("  - package/").AppendLine(package);
+            _ = sb.Append("  - package/").AppendLine(package);
         }
 
         if (isObsolete)
         {
-            sb.AppendLine("  - obsolete");
+            _ = sb.AppendLine("  - obsolete");
         }
 
         if (!includeInSearch)
         {
-            sb.AppendLine("search:")
+            _ = sb.AppendLine("search:")
               .AppendLine("  exclude: true");
         }
 
-        sb.AppendLine("---");
+        _ = sb.AppendLine("---");
     }
 
     /// <summary>
@@ -158,7 +164,7 @@ internal static class PageFrontmatter
         // carrying arity-backticks (translated to hyphens by the
         // resolver) won't find the anchor (which would still spell the
         // backtick literally).
-        sb.Append("[](){#").Append(UidNormaliser.ToAutorefId(uid)).AppendLine("}");
+        _ = sb.Append("[](){#").Append(UidNormaliser.ToAutorefId(uid)).AppendLine("}");
     }
 
     /// <summary>

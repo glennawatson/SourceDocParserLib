@@ -1,19 +1,15 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
+using System.Runtime.CompilerServices;
+
 namespace SourceDocParser.Zensical.Pages;
 
-/// <summary>
-/// Shared text/path formatting helpers for the Zensical emitters.
-/// </summary>
+/// <summary>Shared text/path formatting helpers for the Zensical emitters.</summary>
 internal static class ZensicalEmitterHelpers
 {
-    /// <summary>
-    /// Folder under which symbols in the global (unnamed) namespace are emitted.
-    /// </summary>
-    private const string GlobalNamespaceFolder = "_global/";
-
     /// <summary>Markdown table cell pipe character.</summary>
     private const char MarkdownPipe = '|';
 
@@ -53,19 +49,14 @@ internal static class ZensicalEmitterHelpers
     /// <summary>Namespace separator character.</summary>
     private const char NamespaceSeparator = '.';
 
-    /// <summary>Decimal base for integer conversions.</summary>
-    private const int DecimalBase = 10;
+    /// <summary>Line terminators replaced when rendering one Markdown line.</summary>
+    private static readonly SearchValues<char> LineTerminators = SearchValues.Create("\r\n");
 
-    /// <summary>Number of delimiters (opening and closing) in a generic placeholder.</summary>
-    private const int GenericDelimiterCount = 2;
-
-    /// <summary>
-    /// Formats a type name with angle-bracket generic placeholders.
-    /// </summary>
+    /// <summary>Formats a type name with angle-bracket generic placeholders.</summary>
     /// <param name="name">Base type name.</param>
     /// <param name="arity">Generic arity.</param>
     /// <returns>The formatted display name.</returns>
-    public static string FormatDisplayTypeName(string name, int arity)
+    internal static string FormatDisplayTypeName(string name, int arity)
     {
         if (arity is 0)
         {
@@ -79,17 +70,15 @@ internal static class ZensicalEmitterHelpers
             static (dest, state) =>
             {
                 state.Name.CopyTo(dest);
-                state.Suffix.WriteTo(dest[state.Name.Length..]);
+                _ = state.Suffix.WriteTo(dest[state.Name.Length..]);
             });
     }
 
-    /// <summary>
-    /// Formats a type name for use as a folder/file stem.
-    /// </summary>
+    /// <summary>Formats a type name for use as a folder/file stem.</summary>
     /// <param name="name">Base type name.</param>
     /// <param name="arity">Generic arity.</param>
     /// <returns>The formatted path stem.</returns>
-    public static string FormatPathTypeName(string name, int arity)
+    internal static string FormatPathTypeName(string name, int arity)
     {
         if (arity is 0)
         {
@@ -103,17 +92,15 @@ internal static class ZensicalEmitterHelpers
             static (dest, state) =>
             {
                 state.Name.CopyTo(dest);
-                state.Suffix.WriteTo(dest[state.Name.Length..]);
+                _ = state.Suffix.WriteTo(dest[state.Name.Length..]);
             });
     }
 
-    /// <summary>
-    /// Formats a Mermaid-safe node name for a generic type.
-    /// </summary>
+    /// <summary>Formats a Mermaid-safe node name for a generic type.</summary>
     /// <param name="name">Base type name.</param>
     /// <param name="arity">Generic arity.</param>
     /// <returns>The Mermaid-safe node name.</returns>
-    public static string FormatMermaidTypeName(string name, int arity)
+    internal static string FormatMermaidTypeName(string name, int arity)
     {
         if (arity is 0)
         {
@@ -127,24 +114,19 @@ internal static class ZensicalEmitterHelpers
             static (dest, state) =>
             {
                 state.Name.CopyTo(dest);
-                state.Suffix.WriteTo(dest[state.Name.Length..]);
+                _ = state.Suffix.WriteTo(dest[state.Name.Length..]);
             });
     }
 
-    /// <summary>
-    /// Rewrites angle brackets to Mermaid-safe tildes.
-    /// </summary>
+    /// <summary>Rewrites angle brackets to Mermaid-safe tildes.</summary>
     /// <param name="text">Source text.</param>
     /// <returns>The Mermaid-safe text.</returns>
-    public static string EscapeMermaidText(string text)
+    internal static string EscapeMermaidText(string text)
     {
         var replacementIndex = text.IndexOfAny(DisplayGenericOpen, DisplayGenericClose);
-        if (replacementIndex < 0)
-        {
-            return text;
-        }
-
-        return string.Create(
+        return replacementIndex < 0
+            ? text
+            : string.Create(
             text.Length,
             (Text: text, ReplacementIndex: replacementIndex),
             static (dest, state) =>
@@ -161,15 +143,13 @@ internal static class ZensicalEmitterHelpers
             });
     }
 
-    /// <summary>
-    /// Builds the relative path for a type page.
-    /// </summary>
+    /// <summary>Builds the relative path for a type page.</summary>
     /// <param name="namespaceName">Namespace of the type.</param>
     /// <param name="typeName">Simple type name.</param>
     /// <param name="arity">Generic arity.</param>
     /// <param name="extension">Output file extension.</param>
     /// <returns>The relative path.</returns>
-    public static string BuildTypePath(string namespaceName, string typeName, int arity, string extension)
+    internal static string BuildTypePath(string namespaceName, string typeName, int arity, string extension)
     {
         var namespacePrefix = new NamespacePathFormatter(namespaceName);
         var typeNameFormatter = new PathTypeNameFormatter(typeName, arity);
@@ -184,16 +164,14 @@ internal static class ZensicalEmitterHelpers
             });
     }
 
-    /// <summary>
-    /// Builds the relative path for a member page.
-    /// </summary>
+    /// <summary>Builds the relative path for a member page.</summary>
     /// <param name="namespaceName">Namespace of the declaring type.</param>
     /// <param name="typeName">Simple declaring type name.</param>
     /// <param name="arity">Generic arity of the declaring type.</param>
     /// <param name="memberName">Sanitised member file stem.</param>
     /// <param name="extension">Output file extension.</param>
     /// <returns>The relative path.</returns>
-    public static string BuildMemberPath(
+    internal static string BuildMemberPath(
         string namespaceName,
         string typeName,
         int arity,
@@ -209,7 +187,8 @@ internal static class ZensicalEmitterHelpers
             {
                 var written = state.NamespacePrefix.WriteTo(dest);
                 written += state.TypeFolder.WriteTo(dest[written..]);
-                dest[written++] = PathSeparator;
+                dest[written] = PathSeparator;
+                written++;
                 state.MemberName.CopyTo(dest[written..]);
                 written += state.MemberName.Length;
                 state.Extension.CopyTo(dest[written..]);
@@ -226,23 +205,18 @@ internal static class ZensicalEmitterHelpers
     /// </summary>
     /// <param name="symbolName">The symbol's metadata name.</param>
     /// <returns>True when the symbol should be skipped.</returns>
-    public static bool IsCompilerGeneratedMemberName(string symbolName) =>
+    internal static bool IsCompilerGeneratedMemberName(string symbolName) =>
         symbolName.AsSpan().IndexOfAny('<', '>') >= 0;
 
-    /// <summary>
-    /// Sanitises a string for safe use in a file name.
-    /// </summary>
+    /// <summary>Sanitises a string for safe use in a file name.</summary>
     /// <param name="name">Source text.</param>
     /// <returns>The sanitised name.</returns>
-    public static string SanitiseForFilename(string name)
+    internal static string SanitiseForFilename(string name)
     {
         var replacementIndex = IndexOfFilenameReplacement(name);
-        if (replacementIndex < 0)
-        {
-            return name;
-        }
-
-        return string.Create(
+        return replacementIndex < 0
+            ? name
+            : string.Create(
             name.Length,
             (Name: name, ReplacementIndex: replacementIndex),
             static (dest, state) =>
@@ -261,20 +235,15 @@ internal static class ZensicalEmitterHelpers
             });
     }
 
-    /// <summary>
-    /// Escapes pipes and normalises line endings for a Markdown table cell.
-    /// </summary>
+    /// <summary>Escapes pipes and normalises line endings for a Markdown table cell.</summary>
     /// <param name="text">The cell content.</param>
     /// <returns>The escaped table cell content.</returns>
-    public static string EscapeTableCell(string text)
+    internal static string EscapeTableCell(string text)
     {
         var firstEscapeIndex = text.AsSpan().IndexOfAny([MarkdownPipe, '\n', '\r']);
-        if (firstEscapeIndex < 0)
-        {
-            return text;
-        }
-
-        return string.Create(
+        return firstEscapeIndex < 0
+            ? text
+            : string.Create(
             text.Length + CountEscapedPipes(text.AsSpan(firstEscapeIndex)),
             (Text: text, FirstEscapeIndex: firstEscapeIndex),
             static (dest, state) =>
@@ -287,21 +256,24 @@ internal static class ZensicalEmitterHelpers
                     {
                         case MarkdownPipe:
                             {
-                                dest[destIndex++] = MarkdownEscape;
-                                dest[destIndex++] = MarkdownPipe;
+                                dest[destIndex] = MarkdownEscape;
+                                destIndex++;
+                                dest[destIndex] = MarkdownPipe;
+                                destIndex++;
                                 break;
                             }
 
-                        case '\n':
-                        case '\r':
+                        case '\n' or '\r':
                             {
-                                dest[destIndex++] = ' ';
+                                dest[destIndex] = ' ';
+                                destIndex++;
                                 break;
                             }
 
                         default:
                             {
-                                dest[destIndex++] = state.Text[i];
+                                dest[destIndex] = state.Text[i];
+                                destIndex++;
                                 break;
                             }
                     }
@@ -309,20 +281,15 @@ internal static class ZensicalEmitterHelpers
             });
     }
 
-    /// <summary>
-    /// Escapes pipe characters for inline Markdown code and text.
-    /// </summary>
+    /// <summary>Escapes pipe characters for inline Markdown code and text.</summary>
     /// <param name="text">Source text.</param>
     /// <returns>The escaped text.</returns>
-    public static string EscapeInlinePipes(string text)
+    internal static string EscapeInlinePipes(string text)
     {
         var firstPipeIndex = text.IndexOf(MarkdownPipe);
-        if (firstPipeIndex < 0)
-        {
-            return text;
-        }
-
-        return string.Create(
+        return firstPipeIndex < 0
+            ? text
+            : string.Create(
             text.Length + CountEscapedPipes(text.AsSpan(firstPipeIndex)),
             (Text: text, FirstPipeIndex: firstPipeIndex),
             static (dest, state) =>
@@ -333,29 +300,28 @@ internal static class ZensicalEmitterHelpers
                 {
                     if (state.Text[i] == MarkdownPipe)
                     {
-                        dest[destIndex++] = MarkdownEscape;
+                        dest[destIndex] = MarkdownEscape;
+                        destIndex++;
                     }
 
-                    dest[destIndex++] = state.Text[i];
+                    dest[destIndex] = state.Text[i];
+                    destIndex++;
                 }
             });
     }
 
-    /// <summary>
-    /// Trims a summary, keeps only the first paragraph, and flattens it to a single line.
-    /// </summary>
+    /// <summary>Trims a summary, keeps only the first paragraph, and flattens it to a single line.</summary>
     /// <param name="summary">Raw summary text.</param>
     /// <returns>The flattened summary.</returns>
-    public static string FirstParagraphAsSingleLine(string summary) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string FirstParagraphAsSingleLine(string summary) =>
         FirstParagraphAsSingleLine(summary, false);
 
-    /// <summary>
-    /// Trims a summary, keeps only the first paragraph, and flattens it to a single line.
-    /// </summary>
+    /// <summary>Trims a summary, keeps only the first paragraph, and flattens it to a single line.</summary>
     /// <param name="summary">Raw summary text.</param>
     /// <param name="escapePipes">Whether pipe characters should be escaped.</param>
     /// <returns>The flattened summary.</returns>
-    public static string FirstParagraphAsSingleLine(string summary, bool escapePipes)
+    internal static string FirstParagraphAsSingleLine(string summary, bool escapePipes)
     {
         if (summary is not [_, ..])
         {
@@ -368,9 +334,7 @@ internal static class ZensicalEmitterHelpers
         return ToSingleLine(firstParagraph, escapePipes).Trim();
     }
 
-    /// <summary>
-    /// Flattens a span to a single line and optionally escapes pipes.
-    /// </summary>
+    /// <summary>Flattens a span to a single line and optionally escapes pipes.</summary>
     /// <param name="text">Source text.</param>
     /// <param name="escapePipes">Whether pipe characters should be escaped.</param>
     /// <returns>The flattened string.</returns>
@@ -378,7 +342,7 @@ internal static class ZensicalEmitterHelpers
     {
         var firstEscapeIndex = escapePipes
             ? text.IndexOfAny([MarkdownPipe, '\n', '\r'])
-            : text.IndexOfAny(['\n', '\r']);
+            : text.IndexOfAny(LineTerminators);
         if (firstEscapeIndex < 0)
         {
             return text.ToString();
@@ -396,23 +360,24 @@ internal static class ZensicalEmitterHelpers
                     var current = state.Text[i];
                     if (current is '\n' or '\r')
                     {
-                        dest[destIndex++] = ' ';
+                        dest[destIndex] = ' ';
+                        destIndex++;
                         continue;
                     }
 
                     if (state.EscapePipes && current == MarkdownPipe)
                     {
-                        dest[destIndex++] = MarkdownEscape;
+                        dest[destIndex] = MarkdownEscape;
+                        destIndex++;
                     }
 
-                    dest[destIndex++] = current;
+                    dest[destIndex] = current;
+                    destIndex++;
                 }
             });
     }
 
-    /// <summary>
-    /// Counts pipes in the span so the escaped table-cell length can be computed up front.
-    /// </summary>
+    /// <summary>Counts pipes in the span so the escaped table-cell length can be computed up front.</summary>
     /// <param name="text">Text to scan.</param>
     /// <returns>The number of extra backslashes needed.</returns>
     private static int CountEscapedPipes(in ReadOnlySpan<char> text)
@@ -426,34 +391,36 @@ internal static class ZensicalEmitterHelpers
         return count;
     }
 
-    /// <summary>
-    /// Finds the first filename character that needs replacement.
-    /// </summary>
+    /// <summary>Finds the first filename character that needs replacement.</summary>
     /// <param name="text">Source text.</param>
     /// <returns>The first replacement index, or -1.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int IndexOfFilenameReplacement(string text) => text.AsSpan().IndexOfAny([NamespaceSeparator, DisplayGenericOpen, DisplayGenericClose, ':']);
 
-    /// <summary>
-    /// Represents a generic placeholder suffix as one unit so the length and write paths evolve together.
-    /// </summary>
+    /// <summary>Represents a generic placeholder suffix as one unit so the length and write paths evolve together.</summary>
     /// <param name="Arity">Generic arity.</param>
     /// <param name="Open">Opening delimiter.</param>
     /// <param name="Close">Closing delimiter.</param>
     /// <param name="Separator">Separator between placeholders.</param>
     private readonly record struct GenericPlaceholderFormatter(int Arity, char Open, char Close, string Separator)
     {
+        /// <summary>Decimal base for integer conversions.</summary>
+        private const int DecimalBase = 10;
+
+        /// <summary>Number of delimiters (opening and closing) in a generic placeholder.</summary>
+        private const int GenericDelimiterCount = 2;
+
         /// <summary>Gets the total rendered length including the delimiters.</summary>
         public int Length => GetPlaceholderContentLength() + GenericDelimiterCount;
 
-        /// <summary>
-        /// Writes the formatted suffix into <paramref name="dest"/>.
-        /// </summary>
+        /// <summary>Writes the formatted suffix into <paramref name="dest"/>.</summary>
         /// <param name="dest">Destination span.</param>
         /// <returns>Characters written.</returns>
         public int WriteTo(in Span<char> dest)
         {
             var index = 0;
-            dest[index++] = Open;
+            dest[index] = Open;
+            index++;
             for (var i = 0; i < Arity; i++)
             {
                 if (i > 0)
@@ -463,21 +430,22 @@ internal static class ZensicalEmitterHelpers
                 }
                 else if (Arity == 1)
                 {
-                    dest[index++] = 'T';
+                    dest[index] = 'T';
+                    index++;
                     continue;
                 }
 
-                dest[index++] = 'T';
+                dest[index] = 'T';
+                index++;
                 index += WritePositiveInt(dest[index..], i + 1);
             }
 
-            dest[index++] = Close;
+            dest[index] = Close;
+            index++;
             return index;
         }
 
-        /// <summary>
-        /// Writes a positive integer into the destination span.
-        /// </summary>
+        /// <summary>Writes a positive integer into the destination span.</summary>
         /// <param name="dest">Destination span.</param>
         /// <param name="value">Positive integer value.</param>
         /// <returns>Characters written.</returns>
@@ -493,9 +461,7 @@ internal static class ZensicalEmitterHelpers
             return digits;
         }
 
-        /// <summary>
-        /// Counts decimal digits in a positive integer.
-        /// </summary>
+        /// <summary>Counts decimal digits in a positive integer.</summary>
         /// <param name="value">Value to count digits for.</param>
         /// <returns>Decimal digit count.</returns>
         private static int CountDigits(int value)
@@ -510,9 +476,7 @@ internal static class ZensicalEmitterHelpers
             return digits;
         }
 
-        /// <summary>
-        /// Returns the rendered length excluding the surrounding delimiters.
-        /// </summary>
+        /// <summary>Returns the rendered length excluding the surrounding delimiters.</summary>
         /// <returns>Placeholder content length.</returns>
         private int GetPlaceholderContentLength()
         {
@@ -531,18 +495,17 @@ internal static class ZensicalEmitterHelpers
         }
     }
 
-    /// <summary>
-    /// Represents a namespace path prefix as one unit so the rendered length and write path stay aligned.
-    /// </summary>
+    /// <summary>Represents a namespace path prefix as one unit so the rendered length and write path stay aligned.</summary>
     /// <param name="NamespaceName">Namespace to render.</param>
     private readonly record struct NamespacePathFormatter(string NamespaceName)
     {
+        /// <summary>Folder under which symbols in the global (unnamed) namespace are emitted.</summary>
+        private const string GlobalNamespaceFolder = "_global/";
+
         /// <summary>Gets the rendered length including the trailing slash.</summary>
         public int Length => NamespaceName is [] ? GlobalNamespaceFolder.Length : NamespaceName.Length + 1;
 
-        /// <summary>
-        /// Writes the namespace prefix into <paramref name="dest"/>.
-        /// </summary>
+        /// <summary>Writes the namespace prefix into <paramref name="dest"/>.</summary>
         /// <param name="dest">Destination span.</param>
         /// <returns>Characters written.</returns>
         public int WriteTo(in Span<char> dest)
@@ -563,9 +526,7 @@ internal static class ZensicalEmitterHelpers
         }
     }
 
-    /// <summary>
-    /// Represents a type name rendered for a path segment, including any generic placeholders.
-    /// </summary>
+    /// <summary>Represents a type name rendered for a path segment, including any generic placeholders.</summary>
     /// <param name="Name">Base type name.</param>
     /// <param name="Arity">Generic arity.</param>
     private readonly record struct PathTypeNameFormatter(string Name, int Arity)
@@ -575,9 +536,7 @@ internal static class ZensicalEmitterHelpers
             ? Name.Length
             : Name.Length + new GenericPlaceholderFormatter(Arity, PathGenericOpen, PathGenericClose, PathGenericSeparator).Length;
 
-        /// <summary>
-        /// Writes the formatted path name into <paramref name="dest"/>.
-        /// </summary>
+        /// <summary>Writes the formatted path name into <paramref name="dest"/>.</summary>
         /// <param name="dest">Destination span.</param>
         /// <returns>Characters written.</returns>
         public int WriteTo(in Span<char> dest)

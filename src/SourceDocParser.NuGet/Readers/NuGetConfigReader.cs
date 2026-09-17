@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Xml;
 using SourceDocParser.NuGet.Infrastructure;
 using SourceDocParser.NuGet.Models;
@@ -36,21 +37,13 @@ internal static class NuGetConfigReader
     private const string GlobalPackagesFolderKey = "globalPackagesFolder";
 
     /// <summary>Reader settings shared across every parse -- async on so we can pump a FileStream that opened with FileOptions.Asynchronous.</summary>
-    private static readonly XmlReaderSettings _readerSettings = new()
-    {
-        Async = true,
-        IgnoreComments = true,
-        IgnoreWhitespace = true,
-        DtdProcessing = DtdProcessing.Prohibit,
-    };
+    private static readonly XmlReaderSettings _readerSettings = new() { Async = true, IgnoreComments = true, IgnoreWhitespace = true, DtdProcessing = DtdProcessing.Prohibit, };
 
-    /// <summary>
-    /// Reads the <c>globalPackagesFolder</c> setting from
-    /// <paramref name="configPath"/>.
-    /// </summary>
+    /// <summary>Reads the <c>globalPackagesFolder</c> setting from <paramref name="configPath"/>.</summary>
     /// <param name="configPath">Absolute path to a <c>nuget.config</c>.</param>
     /// <returns>Tri-state result -- Found / Cleared / NotMentioned.</returns>
-    public static Task<ConfigSettingResult> ReadGlobalPackagesFolderAsync(string configPath) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Task<ConfigSettingResult> ReadGlobalPackagesFolderAsync(string configPath) =>
         ReadGlobalPackagesFolderAsync(configPath, CancellationToken.None);
 
     /// <summary>
@@ -62,7 +55,7 @@ internal static class NuGetConfigReader
     /// <param name="configPath">Absolute path to a <c>nuget.config</c>.</param>
     /// <param name="cancellationToken">Token observed across the parse.</param>
     /// <returns>Tri-state result -- Found / Cleared / NotMentioned.</returns>
-    public static async Task<ConfigSettingResult> ReadGlobalPackagesFolderAsync(string configPath, CancellationToken cancellationToken)
+    internal static async Task<ConfigSettingResult> ReadGlobalPackagesFolderAsync(string configPath, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(configPath);
         var stream = new FileStream(configPath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, FileOptions.SequentialScan | FileOptions.Asynchronous);
@@ -72,13 +65,11 @@ internal static class NuGetConfigReader
         }
     }
 
-    /// <summary>
-    /// Reads the <c>globalPackagesFolder</c> setting from an open
-    /// <c>nuget.config</c> stream.
-    /// </summary>
+    /// <summary>Reads the <c>globalPackagesFolder</c> setting from an open <c>nuget.config</c> stream.</summary>
     /// <param name="configStream">Open stream positioned at the start of the <c>nuget.config</c> XML.</param>
     /// <returns>Tri-state result -- Found / Cleared / NotMentioned.</returns>
-    public static Task<ConfigSettingResult> ReadGlobalPackagesFolderAsync(Stream configStream) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Task<ConfigSettingResult> ReadGlobalPackagesFolderAsync(Stream configStream) =>
         ReadGlobalPackagesFolderAsync(configStream, CancellationToken.None);
 
     /// <summary>
@@ -90,7 +81,7 @@ internal static class NuGetConfigReader
     /// <param name="configStream">Open stream positioned at the start of the <c>nuget.config</c> XML.</param>
     /// <param name="cancellationToken">Token observed across the parse.</param>
     /// <returns>Tri-state result -- Found / Cleared / NotMentioned.</returns>
-    public static async Task<ConfigSettingResult> ReadGlobalPackagesFolderAsync(Stream configStream, CancellationToken cancellationToken)
+    internal static async Task<ConfigSettingResult> ReadGlobalPackagesFolderAsync(Stream configStream, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(configStream);
 
@@ -131,9 +122,7 @@ internal static class NuGetConfigReader
             : new(SettingState.NotMentioned, null);
     }
 
-    /// <summary>
-    /// Updates whether the reader is currently inside the config section.
-    /// </summary>
+    /// <summary>Updates whether the reader is currently inside the config section.</summary>
     /// <param name="reader">Reader positioned on the current node.</param>
     /// <param name="insideConfig">Current in-config flag.</param>
     /// <returns>True when the current node only updated scope.</returns>
@@ -145,8 +134,8 @@ internal static class NuGetConfigReader
             return true;
         }
 
-        if (reader is not { NodeType: XmlNodeType.EndElement } ||
-            !reader.LocalName.Equals(ConfigElementName, StringComparison.OrdinalIgnoreCase))
+        if (reader is not { NodeType: XmlNodeType.EndElement }
+            || !reader.LocalName.Equals(ConfigElementName, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
@@ -155,18 +144,14 @@ internal static class NuGetConfigReader
         return true;
     }
 
-    /// <summary>
-    /// Returns true when the current node should be inspected as a config child element.
-    /// </summary>
+    /// <summary>Returns true when the current node should be inspected as a config child element.</summary>
     /// <param name="reader">Reader positioned on the current node.</param>
     /// <param name="insideConfig">Whether the parser is currently inside the config section.</param>
     /// <returns>True when the node is a candidate config child element.</returns>
     internal static bool ShouldInspectConfigElement(XmlReader reader, bool insideConfig) =>
         insideConfig && reader.NodeType == XmlNodeType.Element;
 
-    /// <summary>
-    /// Handles a clear directive inside the config section.
-    /// </summary>
+    /// <summary>Handles a clear directive inside the config section.</summary>
     /// <param name="reader">Reader positioned on the current element.</param>
     /// <param name="foundValue">Current in-file value accumulator.</param>
     /// <param name="clearedSeen">Whether a clear directive has been seen.</param>
@@ -183,9 +168,7 @@ internal static class NuGetConfigReader
         return true;
     }
 
-    /// <summary>
-    /// Captures the first globalPackagesFolder add value after the most recent clear.
-    /// </summary>
+    /// <summary>Captures the first globalPackagesFolder add value after the most recent clear.</summary>
     /// <param name="reader">Reader positioned on the current element.</param>
     /// <param name="foundValue">Current in-file value accumulator.</param>
     internal static void TryCaptureGlobalPackagesFolder(XmlReader reader, ref string? foundValue)

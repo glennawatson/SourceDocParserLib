@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -12,6 +12,7 @@ namespace SourceDocParser.Tests;
 /// element-by-element transformations the converter has to nail to
 /// emit clean markdown for downstream renderers.
 /// </summary>
+[System.Diagnostics.DebuggerDisplay("XmlDocToMarkdownTests: {_converter}")]
 public class XmlDocToMarkdownTests
 {
     /// <summary>Shared converter instance -- class is stateless.</summary>
@@ -34,9 +35,7 @@ public class XmlDocToMarkdownTests
         await Assert.That(result).IsEqualTo(string.Empty);
     }
 
-    /// <summary>
-    /// <c>c</c> renders as inline code with backticks.
-    /// </summary>
+    /// <summary><c>c</c> renders as inline code with backticks.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ConvertRendersInlineCode()
@@ -46,9 +45,7 @@ public class XmlDocToMarkdownTests
         await Assert.That(result).Contains("`Foo()`");
     }
 
-    /// <summary>
-    /// <c>see cref="..."/</c> renders as a Markdown autoref link.
-    /// </summary>
+    /// <summary><c>see cref="..."/</c> renders as a Markdown autoref link.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ConvertRendersSeeCrefAsAutorefLink()
@@ -60,9 +57,7 @@ public class XmlDocToMarkdownTests
         await Assert.That(result).Contains("[MyType][T:Namespace.MyType]");
     }
 
-    /// <summary>
-    /// <c>see langword="..."/</c> renders the langword as inline code.
-    /// </summary>
+    /// <summary><c>see langword="..."/</c> renders the langword as inline code.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ConvertRendersSeeLangwordAsInlineCode()
@@ -72,9 +67,7 @@ public class XmlDocToMarkdownTests
         await Assert.That(result).Contains("`null`");
     }
 
-    /// <summary>
-    /// <c>paramref name="..."/</c> renders the param name as inline code.
-    /// </summary>
+    /// <summary><c>paramref name="..."/</c> renders the param name as inline code.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ConvertRendersParamRefAsInlineCode()
@@ -84,9 +77,7 @@ public class XmlDocToMarkdownTests
         await Assert.That(result).Contains("`value`");
     }
 
-    /// <summary>
-    /// <c>code</c> renders as a fenced csharp code block.
-    /// </summary>
+    /// <summary><c>code</c> renders as a fenced csharp code block.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ConvertRendersCodeBlockAsFencedCsharp()
@@ -98,9 +89,7 @@ public class XmlDocToMarkdownTests
         await Assert.That(result).Contains("```");
     }
 
-    /// <summary>
-    /// <c>b</c>/<c>strong</c> render as bold; <c>i</c>/<c>em</c> as italic.
-    /// </summary>
+    /// <summary><c>b</c>/<c>strong</c> render as bold; <c>i</c>/<c>em</c> as italic.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ConvertRendersBoldAndItalic()
@@ -112,9 +101,7 @@ public class XmlDocToMarkdownTests
         await Assert.That(italic).Contains("*important*");
     }
 
-    /// <summary>
-    /// A bullet list renders as a Markdown unordered list with leading dashes.
-    /// </summary>
+    /// <summary>A bullet list renders as a Markdown unordered list with leading dashes.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ConvertRendersBulletListAsDashes()
@@ -130,9 +117,7 @@ public class XmlDocToMarkdownTests
         await Assert.That(result).Contains("- Second");
     }
 
-    /// <summary>
-    /// Handles the case where the input is a single-element list.
-    /// </summary>
+    /// <summary>Handles the case where the input is a single-element list.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ConvertReaderProducesSameOutputAsString()
@@ -151,9 +136,7 @@ public class XmlDocToMarkdownTests
         await Assert.That(actual).IsEqualTo(expected);
     }
 
-    /// <summary>
-    /// Calling the reader overload on an empty element yields an empty string.
-    /// </summary>
+    /// <summary>Calling the reader overload on an empty element yields an empty string.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ConvertReaderReturnsEmptyForEmptyElement()
@@ -168,9 +151,7 @@ public class XmlDocToMarkdownTests
         await Assert.That(result).IsEqualTo(string.Empty);
     }
 
-    /// <summary>
-    /// A null reader throws <see cref="ArgumentNullException"/>.
-    /// </summary>
+    /// <summary>A null reader throws <see cref="ArgumentNullException"/>.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ConvertReaderValidatesArgument()
@@ -184,10 +165,7 @@ public class XmlDocToMarkdownTests
         Task ActReaderWithTokenAsync() => _converter.ConvertAsync(null!, CancellationToken.None);
     }
 
-    /// <summary>
-    /// The span overload returns plain decoded text on the no-tag fast
-    /// path (no XmlReader allocated).
-    /// </summary>
+    /// <summary>The span overload returns plain decoded text on the no-tag fast path (no XmlReader allocated).</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ConvertSpanFastPathDecodesEntities()
@@ -267,7 +245,7 @@ public class XmlDocToMarkdownTests
         await Assert.That(result).IsEqualTo("`Use Inner here`");
     }
 
-    /// <summary>br renders as a hard line break.</summary>
+    /// <summary>Br renders as a hard line break.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ConvertBrRendersAsHardLineBreak()
@@ -289,7 +267,7 @@ public class XmlDocToMarkdownTests
         await Assert.That(result).Contains("Body.");
     }
 
-    /// <summary>see href with body renders as a Markdown link.</summary>
+    /// <summary>See href with body renders as a Markdown link.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ConvertSeeHrefWithBodyRendersAsMarkdownLink()
@@ -299,7 +277,7 @@ public class XmlDocToMarkdownTests
         await Assert.That(result).Contains("[the docs](https://example.com)");
     }
 
-    /// <summary>see href without body renders as an autolink.</summary>
+    /// <summary>See href without body renders as an autolink.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ConvertSeeHrefWithoutBodyRendersAsAutolink()

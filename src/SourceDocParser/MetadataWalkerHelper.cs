@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using SourceDocParser.LibCompilation;
 using SourceDocParser.Model;
 using SourceDocParser.SourceLink;
@@ -9,44 +10,37 @@ using SourceDocParser.Walk;
 
 namespace SourceDocParser;
 
-/// <summary>
-/// Helper methods for Metadata Extractor walk phase.
-/// </summary>
+/// <summary>Helper methods for Metadata Extractor walk phase.</summary>
 internal static partial class MetadataWalkerHelper
 {
-    /// <summary>
-    /// Executes the parallel walk phase.
-    /// </summary>
+    /// <summary>Executes the parallel walk phase.</summary>
     /// <param name="workItems">One work item per assembly across every group.</param>
     /// <param name="maxParallel">Concurrency budget for the walk.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task that represents the asynchronous walk operation.</returns>
-    public static async Task WalkAssembliesAsync(
+    internal static async Task WalkAssembliesAsync(
         List<AssemblyWorkItem> workItems,
         int maxParallel,
         CancellationToken cancellationToken)
     {
-        var parallelOptions = new ParallelOptions
-        {
-            MaxDegreeOfParallelism = maxParallel,
-            CancellationToken = cancellationToken,
-        };
+        var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = maxParallel, CancellationToken = cancellationToken, };
 
         await Parallel.ForEachAsync(
             workItems,
             parallelOptions,
-            static (work, _) =>
+            static (work, cancellationToken) =>
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var ctx = work.Context;
                 if (LoadAndWalkAssembly(work, ctx.SymbolWalker, ctx.SourceLinkResolverFactory, ctx.Logger) is { } catalog)
                 {
                     ctx.Merger.Add(catalog);
                     ctx.TypesByTfm.GetOrAdd(catalog.Tfm, static _ => []).Add(catalog.Types);
-                    Interlocked.Increment(ref ctx.CatalogCount.Value);
+                    _ = Interlocked.Increment(ref ctx.CatalogCount.Value);
                 }
                 else
                 {
-                    Interlocked.Increment(ref ctx.LoadFailures.Value);
+                    _ = Interlocked.Increment(ref ctx.LoadFailures.Value);
                 }
 
                 work.Owner.TryRetire();
@@ -62,7 +56,7 @@ internal static partial class MetadataWalkerHelper
     /// <param name="groups">Per-TFM groups produced by the source.</param>
     /// <param name="context">Shared walk context attached to every work item so the parallel lambda can stay capture-free.</param>
     /// <returns>One work item per assembly across every group.</returns>
-    public static List<AssemblyWorkItem> BuildAssemblyWorkItems(List<TfmGroup> groups, WalkContext context)
+    internal static List<AssemblyWorkItem> BuildAssemblyWorkItems(List<TfmGroup> groups, WalkContext context)
     {
         var total = 0;
         for (var i = 0; i < groups.Count; i++)
@@ -94,7 +88,7 @@ internal static partial class MetadataWalkerHelper
     /// <param name="sourceLinkResolverFactory">Factory that produces the per-assembly source-link resolver.</param>
     /// <param name="logger">Logger for progress and failure messages.</param>
     /// <returns>The walked catalog, or null on load/walk failure.</returns>
-    public static ApiCatalog? LoadAndWalkAssembly(
+    internal static ApiCatalog? LoadAndWalkAssembly(
         AssemblyWorkItem work,
         ISymbolWalker symbolWalker,
         Func<string, ISourceLinkResolver> sourceLinkResolverFactory,
@@ -112,7 +106,7 @@ internal static partial class MetadataWalkerHelper
                 tfm,
                 catalog.Types.Length,
                 work.AssemblyPath,
-                static assemblyPath => Path.GetFileNameWithoutExtension(assemblyPath),
+                GetAssemblyName,
                 static (l, walkTfm, typeCount, assemblyName) => LogAssemblyWalked(l, walkTfm, assemblyName, typeCount));
 
             return catalog;
@@ -125,8 +119,8 @@ internal static partial class MetadataWalkerHelper
                 ex,
                 tfm,
                 work.AssemblyPath,
-                static assemblyPath => Path.GetFileNameWithoutExtension(assemblyPath),
-                static (l, error, walkTfm, assemblyName) => LogAssemblyLoadFailed(l, error, walkTfm, assemblyName));
+                GetAssemblyName,
+                LogAssemblyLoadFailed);
             return null;
         }
     }
@@ -137,13 +131,13 @@ internal static partial class MetadataWalkerHelper
     /// <param name="tfmCount">Number of TFM groups they span.</param>
     /// <param name="maxParallel">Concurrency budget for the walk.</param>
     [LoggerMessage(Level = LogLevel.Information, Message = "Walking {AssemblyCount} package assembly/ies across {TfmCount} TFM(s) (max {MaxParallel} concurrent)")]
-    public static partial void LogWalking(ILogger logger, int assemblyCount, int tfmCount, int maxParallel);
+    internal static partial void LogWalking(ILogger logger, int assemblyCount, int tfmCount, int maxParallel);
 
     /// <summary>Logs completion of the walk phase before merging.</summary>
     /// <param name="logger">Target logger.</param>
     /// <param name="catalogCount">Number of per-assembly catalogs collected.</param>
     [LoggerMessage(Level = LogLevel.Information, Message = "Walked {CatalogCount} catalog(s); merging across TFMs")]
-    public static partial void LogWalkComplete(ILogger logger, int catalogCount);
+    internal static partial void LogWalkComplete(ILogger logger, int catalogCount);
 
     /// <summary>Logs successful walk of a single assembly.</summary>
     /// <param name="logger">Target logger.</param>
@@ -151,7 +145,7 @@ internal static partial class MetadataWalkerHelper
     /// <param name="assembly">Assembly name (no extension).</param>
     /// <param name="typeCount">Public types discovered.</param>
     [LoggerMessage(Level = LogLevel.Trace, Message = "    {Tfm}/{Assembly}: {TypeCount} public type(s)")]
-    public static partial void LogAssemblyWalked(ILogger logger, string tfm, string assembly, int typeCount);
+    internal static partial void LogAssemblyWalked(ILogger logger, string tfm, string assembly, int typeCount);
 
     /// <summary>Logs failure to load or walk a single assembly.</summary>
     /// <param name="logger">Target logger.</param>
@@ -159,5 +153,11 @@ internal static partial class MetadataWalkerHelper
     /// <param name="tfm">TFM the assembly belongs to.</param>
     /// <param name="assembly">Assembly name (no extension).</param>
     [LoggerMessage(Level = LogLevel.Error, Message = "    {Tfm}/{Assembly}: load failed")]
-    public static partial void LogAssemblyLoadFailed(ILogger logger, Exception exception, string tfm, string assembly);
+    internal static partial void LogAssemblyLoadFailed(ILogger logger, Exception exception, string tfm, string assembly);
+
+    /// <summary>Extracts the file name from a non-null assembly path.</summary>
+    /// <param name="path">Assembly path.</param>
+    /// <returns>The assembly file name without its extension.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string GetAssemblyName(string path) => Path.GetFileNameWithoutExtension(path);
 }

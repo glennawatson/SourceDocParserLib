@@ -1,6 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
+
+using System.Runtime.CompilerServices;
 
 namespace SourceDocParser.Zensical.Routing;
 
@@ -16,6 +18,9 @@ namespace SourceDocParser.Zensical.Routing;
 /// </summary>
 internal static class UidNormaliser
 {
+    /// <summary>Length of the kind prefix and colon in a documentation UID.</summary>
+    private const int CommentIdPrefixLength = 2;
+
     /// <summary>
     /// Converts <paramref name="uid"/> to its autoref-safe form for
     /// use in mkdocs-autorefs anchors (<c>[](){#id}</c>) and
@@ -29,7 +34,8 @@ internal static class UidNormaliser
     /// </summary>
     /// <param name="uid">A commentId-style UID (may contain a generic-arity backtick).</param>
     /// <returns>The autoref-safe id string.</returns>
-    public static string ToAutorefId(string uid) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string ToAutorefId(string uid) =>
         Normalise(uid).Replace('`', '-');
 
     /// <summary>
@@ -41,7 +47,7 @@ internal static class UidNormaliser
     /// </summary>
     /// <param name="uid">A commentId-style UID (e.g. <c>T:System.Action{`0}</c>, <c>M:Foo.Bar(System.Int32)</c>, <c>T:System.String</c>).</param>
     /// <returns>The canonical UID.</returns>
-    public static string Normalise(string uid)
+    internal static string Normalise(string uid)
     {
         ArgumentNullException.ThrowIfNull(uid);
         if (uid is [])
@@ -66,9 +72,9 @@ internal static class UidNormaliser
             return uid;
         }
 
-        var body = uid[2..];
+        var body = uid[CommentIdPrefixLength..];
         var normalisedBody = TryNormaliseBareTypeName(body);
-        return ReferenceEquals(normalisedBody, body) ? uid : "T:" + normalisedBody;
+        return ReferenceEquals(normalisedBody, body) ? uid : $"T:{normalisedBody}";
     }
 
     /// <summary>
@@ -103,12 +109,7 @@ internal static class UidNormaliser
         }
 
         var arity = CountTopLevelTypeArguments(typeName.AsSpan(openIndex + 1, closeIndex - openIndex - 1));
-        if (arity <= 0)
-        {
-            return typeName;
-        }
-
-        return $"{typeName.AsSpan(0, openIndex)}`{arity.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+        return arity <= 0 ? typeName : $"{typeName.AsSpan(0, openIndex)}`{arity.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
     }
 
     /// <summary>Finds the index of the brace that matches the open at <paramref name="openIndex"/>.</summary>

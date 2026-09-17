@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -42,7 +42,7 @@ public class SourceLinkReaderIntegrationTests
     /// <summary>
     /// GetMethodLocation against the SamplePdb anchor returns the
     /// SamplePdbAnchor.cs source path and the body line pinned by
-    /// <see cref="SamplePdb.SamplePdbAnchor.KnownMethodBodyLine"/> --
+    /// <see cref="SamplePdbAnchor.KnownMethodBodyLine"/> --
     /// keeps the test in lockstep with the fixture: any time the
     /// body moves, the const moves with it.
     /// </summary>
@@ -128,10 +128,7 @@ public class SourceLinkReaderIntegrationTests
         await Assert.That(rawUrl).EndsWith("SamplePdbAnchor.cs");
     }
 
-    /// <summary>
-    /// ResolveRawUrl returns null for a path that doesn't sit under
-    /// any of the SourceLink map's roots.
-    /// </summary>
+    /// <summary>ResolveRawUrl returns null for a path that doesn't sit under any of the SourceLink map's roots.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ResolveRawUrlReturnsNullForUnmappedPath()
@@ -157,10 +154,7 @@ public class SourceLinkReaderIntegrationTests
         await Assert.That(reader.HasSourceLink).IsFalse();
     }
 
-    /// <summary>
-    /// GetMethodLocation against a reader whose constructor failed
-    /// (so <c>_pdbReader</c> is null) returns null without throwing.
-    /// </summary>
+    /// <summary>GetMethodLocation against a reader whose constructor failed (so <c>_pdbReader</c> is null) returns null without throwing.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task GetMethodLocationReturnsNullWhenPdbReaderIsNull()

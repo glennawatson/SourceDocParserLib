@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using SourceDocParser.SourceLink;
@@ -20,6 +21,25 @@ namespace SourceDocParser.Tests;
 /// </summary>
 internal static class WalkerTestFixtures
 {
+    /// <summary>Creates metadata references for the runtime assemblies available to an in-memory fixture.</summary>
+    /// <returns>References to loaded assemblies with physical locations.</returns>
+    internal static MetadataReference[] GetRuntimeReferences()
+    {
+        var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+        var references = new List<MetadataReference>(assemblies.Length);
+        foreach (var assembly in assemblies)
+        {
+            if (assembly.IsDynamic || assembly.Location is [])
+            {
+                continue;
+            }
+
+            references.Add(MetadataReference.CreateFromFile(assembly.Location));
+        }
+
+        return references.ToArray();
+    }
+
     /// <summary>
     /// Builds an in-memory compilation against the runtime's BCL
     /// references with C# preview features enabled (so the C# 14
@@ -32,9 +52,7 @@ internal static class WalkerTestFixtures
         var tree = CSharpSyntaxTree.ParseText(source, new(LanguageVersion.Preview));
         List<MetadataReference> references =
         [
-            .. AppDomain.CurrentDomain.GetAssemblies()
-                .Where(static a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-                .Select(static a => MetadataReference.CreateFromFile(a.Location)),
+            .. WalkerTestFixtures.GetRuntimeReferences(),
         ];
         return CSharpCompilation.Create(
             "WalkerTest",
@@ -65,6 +83,7 @@ internal static class WalkerTestFixtures
     private sealed class NullSourceLinkResolver : ISourceLinkResolver
     {
         /// <inheritdoc />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public string? Resolve(ISymbol symbol) => null;
 
         /// <inheritdoc />

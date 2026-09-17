@@ -1,6 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
+
+using System.Runtime.CompilerServices;
 
 namespace SourceDocParser.LibCompilation;
 
@@ -10,7 +12,6 @@ namespace SourceDocParser.LibCompilation;
 /// when resolving transitive assembly references that don't ship as
 /// NuGet packages -- WPF / WinForms framework assemblies, Android /
 /// iOS / macOS workload refs, ASP.NET Core targeting refs, and so on.
-///
 /// Discovery walks the canonical locations in priority order so an
 /// explicit override (the <c>DOTNET_ROOT</c> env var, or a
 /// <c>dotnet</c> on PATH) wins over the defaults, and the per-user
@@ -18,7 +19,6 @@ namespace SourceDocParser.LibCompilation;
 /// land there even on a system-wide SDK install. The returned roots
 /// are deduplicated and filtered to those that exist on disk so the
 /// caller can iterate without re-checking <see cref="Directory.Exists(string)"/>.
-///
 /// Functional design: every public method takes a frozen
 /// <see cref="DotNetSdkLocatorInputs"/> snapshot, so the locator
 /// itself holds no global state and concurrent callers (or
@@ -29,6 +29,9 @@ namespace SourceDocParser.LibCompilation;
 /// </summary>
 internal static class DotNetSdkLocator
 {
+    /// <summary>Maximum number of Windows program-files roots.</summary>
+    private const int WindowsRootCapacity = 2;
+
     /// <summary>The <c>packs/</c> subdirectory holds every ref pack.</summary>
     private const string PacksFolder = "packs";
 
@@ -57,7 +60,8 @@ internal static class DotNetSdkLocator
     /// OS state. Subsequent calls reuse the same snapshot.
     /// </summary>
     /// <returns>Ordered, distinct, existing install-root paths.</returns>
-    public static IReadOnlyList<string> EnumerateInstallRoots() =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static IReadOnlyList<string> EnumerateInstallRoots() =>
         EnumerateInstallRoots(_processSnapshot.Value);
 
     /// <summary>
@@ -69,7 +73,7 @@ internal static class DotNetSdkLocator
     /// </summary>
     /// <param name="inputs">Frozen process / OS snapshot.</param>
     /// <returns>Ordered, distinct, existing install-root paths.</returns>
-    public static IReadOnlyList<string> EnumerateInstallRoots(DotNetSdkLocatorInputs inputs)
+    internal static IReadOnlyList<string> EnumerateInstallRoots(in DotNetSdkLocatorInputs inputs)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var ordered = new List<string>(capacity: 6);
@@ -97,15 +101,14 @@ internal static class DotNetSdkLocator
     /// to the latter even on system-wide SDKs.
     /// </summary>
     /// <returns>Ordered, distinct, existing <c>packs/</c> paths.</returns>
-    public static IReadOnlyList<string> EnumeratePackRoots() =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static IReadOnlyList<string> EnumeratePackRoots() =>
         EnumeratePackRoots(_processSnapshot.Value);
 
-    /// <summary>
-    /// Snapshot-driven equivalent of <see cref="EnumeratePackRoots()"/>.
-    /// </summary>
+    /// <summary>Snapshot-driven equivalent of <see cref="EnumeratePackRoots()"/>.</summary>
     /// <param name="inputs">Frozen process / OS snapshot.</param>
     /// <returns>Ordered, distinct, existing <c>packs/</c> paths.</returns>
-    public static IReadOnlyList<string> EnumeratePackRoots(DotNetSdkLocatorInputs inputs)
+    internal static IReadOnlyList<string> EnumeratePackRoots(in DotNetSdkLocatorInputs inputs)
     {
         var roots = EnumerateInstallRoots(inputs);
         if (roots is [])
@@ -130,11 +133,11 @@ internal static class DotNetSdkLocator
     /// </summary>
     /// <param name="inputs">Frozen process / OS snapshot.</param>
     /// <returns>The platform's default install candidates.</returns>
-    public static IReadOnlyList<string> GetDefaultInstallRoots(DotNetSdkLocatorInputs inputs)
+    internal static IReadOnlyList<string> GetDefaultInstallRoots(in DotNetSdkLocatorInputs inputs)
     {
         if (inputs.IsWindows)
         {
-            var candidates = new List<string>(2);
+            var candidates = new List<string>(WindowsRootCapacity);
             if (inputs.ProgramFiles is { Length: > 0 } pf)
             {
                 candidates.Add(Path.Combine(pf, DotnetExeStem));
@@ -153,12 +156,7 @@ internal static class DotNetSdkLocator
             return ["/usr/local/share/dotnet"];
         }
 
-        if (inputs.IsLinux)
-        {
-            return ["/usr/share/dotnet", "/usr/lib/dotnet"];
-        }
-
-        return [];
+        return inputs.IsLinux ? ["/usr/share/dotnet", "/usr/lib/dotnet"] : [];
     }
 
     /// <summary>
@@ -169,7 +167,7 @@ internal static class DotNetSdkLocator
     /// </summary>
     /// <param name="inputs">Frozen process / OS snapshot.</param>
     /// <returns>The path, or null when the user profile cannot be located.</returns>
-    public static string? GetUserDotnetRoot(DotNetSdkLocatorInputs inputs) =>
+    internal static string? GetUserDotnetRoot(in DotNetSdkLocatorInputs inputs) =>
         inputs.UserProfile is { Length: > 0 } home ? Path.Combine(home, DotnetUserFolder) : null;
 
     /// <summary>
@@ -179,7 +177,7 @@ internal static class DotNetSdkLocator
     /// </summary>
     /// <param name="inputs">Frozen process / OS snapshot.</param>
     /// <returns>The dotnet executable's parent directory, or null when not on PATH.</returns>
-    public static string? GetDotnetDirFromPath(DotNetSdkLocatorInputs inputs)
+    internal static string? GetDotnetDirFromPath(in DotNetSdkLocatorInputs inputs)
     {
         if (inputs.Path is not { Length: > 0 } path)
         {
@@ -208,10 +206,7 @@ internal static class DotNetSdkLocator
         return null;
     }
 
-    /// <summary>
-    /// Adds <paramref name="dir"/> to <paramref name="ordered"/> when
-    /// it's non-null, exists, and hasn't been recorded before.
-    /// </summary>
+    /// <summary>Adds <paramref name="dir"/> to <paramref name="ordered"/> when it's non-null, exists, and hasn't been recorded before.</summary>
     /// <param name="dir">Candidate directory.</param>
     /// <param name="seen">Dedupe set.</param>
     /// <param name="ordered">Output list, mutated in place.</param>
@@ -234,6 +229,7 @@ internal static class DotNetSdkLocator
     /// <summary>Resolves <paramref name="dir"/> to an absolute path with no trailing separator for stable dedupe.</summary>
     /// <param name="dir">The directory to canonicalise.</param>
     /// <returns>The canonicalised path.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string NormaliseFullPath(string dir) =>
         Path.TrimEndingDirectorySeparator(Path.GetFullPath(dir));
 }

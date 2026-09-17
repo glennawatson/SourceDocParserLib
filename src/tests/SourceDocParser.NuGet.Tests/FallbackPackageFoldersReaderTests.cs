@@ -1,8 +1,7 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Text;
 using SourceDocParser.NuGet.Readers;
 
 namespace SourceDocParser.NuGet.Tests;
@@ -14,9 +13,7 @@ namespace SourceDocParser.NuGet.Tests;
 /// </summary>
 public class FallbackPackageFoldersReaderTests
 {
-    /// <summary>
-    /// The fixture lists one fallback folder; reader returns it.
-    /// </summary>
+    /// <summary>The fixture lists one fallback folder; reader returns it.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ReadsFallbackFolderFromFixture()
@@ -39,7 +36,7 @@ public class FallbackPackageFoldersReaderTests
     [Test]
     public async Task ClearWipesPriorAndIsReported()
     {
-        const string xml = """
+        var xml = """
             <?xml version="1.0" encoding="utf-8"?>
             <configuration>
               <fallbackPackageFolders>
@@ -48,9 +45,9 @@ public class FallbackPackageFoldersReaderTests
                 <add key="after" value="/after" />
               </fallbackPackageFolders>
             </configuration>
-            """;
+            """u8.ToArray();
 
-        await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(xml));
+        await using var stream = new MemoryStream(xml);
         var result = await FallbackPackageFoldersReader.ReadAsync(stream).ConfigureAwait(false);
 
         await Assert.That(result.ClearedSeen).IsTrue();
@@ -58,14 +55,12 @@ public class FallbackPackageFoldersReaderTests
         await Assert.That(result.Folders[0]).IsEqualTo("/after");
     }
 
-    /// <summary>
-    /// Duplicate keys within a file are dropped -- first add wins.
-    /// </summary>
+    /// <summary>Duplicate keys within a file are dropped -- first add wins.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task FirstAddWinsForDuplicateKey()
     {
-        const string xml = """
+        var xml = """
             <?xml version="1.0" encoding="utf-8"?>
             <configuration>
               <fallbackPackageFolders>
@@ -73,9 +68,9 @@ public class FallbackPackageFoldersReaderTests
                 <add key="dotnet-sdk" value="/second" />
               </fallbackPackageFolders>
             </configuration>
-            """;
+            """u8.ToArray();
 
-        await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(xml));
+        await using var stream = new MemoryStream(xml);
         var result = await FallbackPackageFoldersReader.ReadAsync(stream).ConfigureAwait(false);
 
         await Assert.That(result.Folders.Length).IsEqualTo(1);

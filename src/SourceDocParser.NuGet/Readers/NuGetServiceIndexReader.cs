@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using SourceDocParser.NuGet.Infrastructure;
 
@@ -21,25 +22,24 @@ internal static class NuGetServiceIndexReader
     /// <summary>Reads the flat-container URL from <paramref name="indexJson"/>.</summary>
     /// <param name="indexJson">UTF-8 bytes of the v3 service-index document.</param>
     /// <returns>The flat-container base URL ending with <c>/</c>; null when none declared.</returns>
-    public static string? ReadFlatContainerUrl(in ReadOnlyMemory<byte> indexJson)
+    internal static string? ReadFlatContainerUrl(in ReadOnlyMemory<byte> indexJson)
     {
         using var doc = JsonDocument.Parse(indexJson, _strictDocOptions);
         return ReadFlatContainerUrl(doc.RootElement);
     }
 
-    /// <summary>
-    /// Reads the flat-container URL from <paramref name="indexJsonStream"/>.
-    /// </summary>
+    /// <summary>Reads the flat-container URL from <paramref name="indexJsonStream"/>.</summary>
     /// <param name="indexJsonStream">UTF-8 stream of the v3 service-index document.</param>
     /// <returns>The flat-container base URL ending with <c>/</c>; null when none declared.</returns>
-    public static Task<string?> ReadFlatContainerUrlAsync(Stream indexJsonStream) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Task<string?> ReadFlatContainerUrlAsync(Stream indexJsonStream) =>
         ReadFlatContainerUrlAsync(indexJsonStream, CancellationToken.None);
 
     /// <summary>Reads the flat-container URL from <paramref name="indexJsonStream"/>.</summary>
     /// <param name="indexJsonStream">UTF-8 stream of the v3 service-index document.</param>
     /// <param name="cancellationToken">Token observed across the JSON parse.</param>
     /// <returns>The flat-container base URL ending with <c>/</c>; null when none declared.</returns>
-    public static async Task<string?> ReadFlatContainerUrlAsync(Stream indexJsonStream, CancellationToken cancellationToken)
+    internal static async Task<string?> ReadFlatContainerUrlAsync(Stream indexJsonStream, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(indexJsonStream);
         using var doc = await JsonDocument.ParseAsync(indexJsonStream, _strictDocOptions, cancellationToken).ConfigureAwait(false);

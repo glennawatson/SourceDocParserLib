@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -49,28 +50,26 @@ internal static class PackageInstallLock
     /// <param name="globalPackagesFolder">Root of the global cache (parent of the per-package directories).</param>
     /// <param name="packageInstallPath">Per-package install directory inside the global cache.</param>
     /// <returns>The absolute path to the lock file.</returns>
-    public static string GetLockFilePath(string globalPackagesFolder, string packageInstallPath)
+    internal static string GetLockFilePath(string globalPackagesFolder, string packageInstallPath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(globalPackagesFolder);
         ArgumentException.ThrowIfNullOrWhiteSpace(packageInstallPath);
         return Path.Combine(globalPackagesFolder, LocksFolderName, ComputeLockKey(packageInstallPath) + LockFileSuffix);
     }
 
-    /// <summary>
-    /// Acquires the per-package lock using the default wait limit and no cancellation token.
-    /// </summary>
+    /// <summary>Acquires the per-package lock using the default wait limit and no cancellation token.</summary>
     /// <param name="lockFilePath">Path returned by <see cref="GetLockFilePath"/>.</param>
     /// <returns>An open <see cref="FileStream"/>; dispose to release the lock.</returns>
-    public static Task<FileStream> AcquireAsync(string lockFilePath) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Task<FileStream> AcquireAsync(string lockFilePath) =>
         AcquireAsync(lockFilePath, null, TimeProvider.System, CancellationToken.None);
 
-    /// <summary>
-    /// Acquires the per-package lock using the default wait limit.
-    /// </summary>
+    /// <summary>Acquires the per-package lock using the default wait limit.</summary>
     /// <param name="lockFilePath">Path returned by <see cref="GetLockFilePath"/>.</param>
     /// <param name="cancellationToken">Token observed across each retry.</param>
     /// <returns>An open <see cref="FileStream"/>; dispose to release the lock.</returns>
-    public static Task<FileStream> AcquireAsync(string lockFilePath, in CancellationToken cancellationToken) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Task<FileStream> AcquireAsync(string lockFilePath, in CancellationToken cancellationToken) =>
         AcquireAsync(lockFilePath, null, TimeProvider.System, cancellationToken);
 
     /// <summary>
@@ -84,17 +83,17 @@ internal static class PackageInstallLock
     /// <param name="maxWait">Optional cap on total wait time; defaults to 5 minutes.</param>
     /// <param name="cancellationToken">Token observed across each retry.</param>
     /// <returns>An open <see cref="FileStream"/>; dispose to release the lock.</returns>
-    public static Task<FileStream> AcquireAsync(string lockFilePath, TimeSpan? maxWait, CancellationToken cancellationToken) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Task<FileStream> AcquireAsync(string lockFilePath, TimeSpan? maxWait, CancellationToken cancellationToken) =>
         AcquireAsync(lockFilePath, maxWait, TimeProvider.System, cancellationToken);
 
-    /// <summary>
-    /// Acquires the lock, re-checks the completion marker, and runs the work when needed.
-    /// </summary>
+    /// <summary>Acquires the lock, re-checks the completion marker, and runs the work when needed.</summary>
     /// <param name="lockFilePath">Path returned by <see cref="GetLockFilePath"/>.</param>
     /// <param name="alreadyDone">Re-checks the install marker after the lock is acquired; returning true short-circuits the work.</param>
     /// <param name="work">Async install work to run under the lock.</param>
     /// <returns>True when <paramref name="work"/> ran; false when <paramref name="alreadyDone"/> short-circuited.</returns>
-    public static Task<bool> RunUnderLockAsync(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Task<bool> RunUnderLockAsync(
         string lockFilePath,
         Func<bool> alreadyDone,
         Func<CancellationToken, Task> work) =>
@@ -113,7 +112,7 @@ internal static class PackageInstallLock
     /// <param name="work">Async install work to run under the lock.</param>
     /// <param name="cancellationToken">Token observed across the wait + the work.</param>
     /// <returns>True when <paramref name="work"/> ran; false when <paramref name="alreadyDone"/> short-circuited.</returns>
-    public static async Task<bool> RunUnderLockAsync(
+    internal static async Task<bool> RunUnderLockAsync(
         string lockFilePath,
         Func<bool> alreadyDone,
         Func<CancellationToken, Task> work,
@@ -134,9 +133,7 @@ internal static class PackageInstallLock
         }
     }
 
-    /// <summary>
-    /// Acquires the per-package lock using the supplied time provider for retry deadlines.
-    /// </summary>
+    /// <summary>Acquires the per-package lock using the supplied time provider for retry deadlines.</summary>
     /// <param name="lockFilePath">Path returned by <see cref="GetLockFilePath"/>.</param>
     /// <param name="maxWait">Optional cap on total wait time; defaults to 5 minutes.</param>
     /// <param name="timeProvider">Clock used to compute the retry deadline.</param>
@@ -153,7 +150,7 @@ internal static class PackageInstallLock
         var dir = Path.GetDirectoryName(lockFilePath);
         if (TextHelpers.HasValue(dir))
         {
-            Directory.CreateDirectory(dir);
+            _ = Directory.CreateDirectory(dir);
         }
 
         var deadline = timeProvider.GetUtcNow() + (maxWait ?? _defaultMaxWait);
@@ -206,9 +203,7 @@ internal static class PackageInstallLock
         }
     }
 
-    /// <summary>
-    /// Hashes the UTF-8 representation of the install path using the supplied scratch buffer.
-    /// </summary>
+    /// <summary>Hashes the UTF-8 representation of the install path using the supplied scratch buffer.</summary>
     /// <param name="packageInstallPath">Path to hash.</param>
     /// <param name="buffer">Scratch buffer used for UTF-8 encoding.</param>
     /// <returns>Lower-case hex SHA-256 of the UTF-8 bytes.</returns>
@@ -216,7 +211,7 @@ internal static class PackageInstallLock
     {
         var written = Encoding.UTF8.GetBytes(packageInstallPath, buffer);
         Span<byte> hash = stackalloc byte[Sha256HashLength];
-        SHA256.HashData(buffer[..written], hash);
+        _ = SHA256.HashData(buffer[..written], hash);
         return string.Create(Sha256HexLength, hash, static (dest, h) => Convert.TryToHexStringLower(h, dest, out _));
     }
 }

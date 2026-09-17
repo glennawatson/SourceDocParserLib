@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -15,6 +15,9 @@ namespace SourceDocParser.Tests;
 /// </summary>
 public class PageBuilderRentalTests
 {
+    /// <summary>Expected fixture value used by DisposeReturnsBuilderToPool.</summary>
+    private const int DisposeReturnsBuilderToPoolRent = 64;
+
     /// <summary>The builder property exposes exactly the instance handed to the constructor.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -89,17 +92,9 @@ public class PageBuilderRentalTests
     /// <summary><c>GetHashCode</c> falls back to zero when the wrapped builder is null (default struct).</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task GetHashCodeReturnsZeroForDefaultStruct()
-    {
-        var rental = default(PageBuilderRental);
-        await Assert.That(rental.GetHashCode()).IsEqualTo(0);
-    }
+    public async Task GetHashCodeReturnsZeroForDefaultStruct() => await Assert.That(default(PageBuilderRental).GetHashCode()).IsEqualTo(0);
 
-    /// <summary>
-    /// <c>Dispose</c> hands the builder back to the pool, so a subsequent
-    /// <see cref="PageBuilderPool.Rent(int)"/> call on the same thread
-    /// reuses the same instance (cleared).
-    /// </summary>
+    /// <summary><c>Dispose</c> hands the builder back to the pool, so a subsequent <see cref="PageBuilderPool.Rent(int)"/> call on the same thread reuses the same instance (cleared).</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task DisposeReturnsBuilderToPool()
@@ -111,10 +106,10 @@ public class PageBuilderRentalTests
         }
 
         StringBuilder captured;
-        using (var rental = PageBuilderPool.Rent(64))
+        using (var rental = PageBuilderPool.Rent(DisposeReturnsBuilderToPoolRent))
         {
             captured = rental.Builder;
-            captured.Append("dirty");
+            _ = captured.Append("dirty");
         }
 
         using var next = PageBuilderPool.Rent(0);
@@ -137,7 +132,7 @@ public class PageBuilderRentalTests
             // discard
         }
 
-        const int OverCap = (64 * 1024) + 1;
+        const int OverCap = (DisposeReturnsBuilderToPoolRent * 1024) + 1;
 
         StringBuilder oversized;
         using (var rental = PageBuilderPool.Rent(OverCap))

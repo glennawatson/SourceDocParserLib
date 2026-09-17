@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -15,13 +15,34 @@ namespace SourceDocParser.NuGet.Tests;
 /// </summary>
 public class OwningStreamTests
 {
+    /// <summary>Expected fixture value used by ReadDelegatesToInner.</summary>
+    private const long ReadDelegatesToInnerExpectedValue = 5L;
+
+    /// <summary>Expected fixture value used by ReadDelegatesToInner.</summary>
+    private const int ReadDelegatesToInnerExpectedValue2 = 5;
+
+    /// <summary>Expected fixture value used by SpanReadDelegatesToInner.</summary>
+    private const int SpanReadDelegatesToInnerExpectedValue = 3;
+
+    /// <summary>Expected fixture value used by SeekAndPositionDelegate.</summary>
+    private const long SeekAndPositionDelegateExpectedValue = 3L;
+
+    /// <summary>Expected fixture value used by SeekAndPositionDelegate.</summary>
+    private const int SeekAndPositionDelegateSeek = 2;
+
+    /// <summary>Expected fixture value used by SeekAndPositionDelegate.</summary>
+    private const long SeekAndPositionDelegateExpectedValue2 = 2L;
+
+    /// <summary>Bytes expected after write delegation and stream truncation.</summary>
+    private static readonly byte[] ExpectedWrittenBytes = [1, SeekAndPositionDelegateSeek, SpanReadDelegatesToInnerExpectedValue];
+
     /// <summary>Constructor rejects null arguments.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ConstructorRejectsNullArgs()
     {
-        await Assert.That(() => new OwningStream(null!, new TrackingDisposable())).Throws<ArgumentNullException>();
-        await Assert.That(() => new OwningStream(new MemoryStream(), null!)).Throws<ArgumentNullException>();
+        await Assert.That(static () => new OwningStream(null!, new TrackingDisposable())).Throws<ArgumentNullException>();
+        await Assert.That(static () => new OwningStream(new MemoryStream(), null!)).Throws<ArgumentNullException>();
     }
 
     /// <summary>Reads delegate to the inner stream.</summary>
@@ -37,11 +58,11 @@ public class OwningStreamTests
         await Assert.That(sut.CanRead).IsTrue();
         await Assert.That(sut.CanSeek).IsTrue();
         await Assert.That(sut.CanWrite).IsTrue();
-        await Assert.That(sut.Length).IsEqualTo(5L);
+        await Assert.That(sut.Length).IsEqualTo(ReadDelegatesToInnerExpectedValue);
 
-        var buf = new byte[5];
+        var buf = new byte[ReadDelegatesToInnerExpectedValue2];
         var read = await sut.ReadAsync(buf);
-        await Assert.That(read).IsEqualTo(5);
+        await Assert.That(read).IsEqualTo(ReadDelegatesToInnerExpectedValue2);
         await Assert.That(Encoding.UTF8.GetString(buf)).IsEqualTo("hello");
     }
 
@@ -54,10 +75,10 @@ public class OwningStreamTests
         var owner = new TrackingDisposable();
         await using var sut = new OwningStream(inner, owner);
 
-        Span<byte> buf = stackalloc byte[3];
+        Span<byte> buf = stackalloc byte[SpanReadDelegatesToInnerExpectedValue];
         var read = sut.Read(buf);
         var bufValue = buf[0];
-        await Assert.That(read).IsEqualTo(3);
+        await Assert.That(read).IsEqualTo(SpanReadDelegatesToInnerExpectedValue);
         await Assert.That(bufValue).IsEqualTo((byte)'a');
     }
 
@@ -70,14 +91,14 @@ public class OwningStreamTests
         var owner = new TrackingDisposable();
         await using var sut = new OwningStream(inner, owner);
 
-        var buf = new byte[3];
+        var buf = new byte[SpanReadDelegatesToInnerExpectedValue];
         var read = await sut.ReadAsync(buf, CancellationToken.None).ConfigureAwait(false);
-        await Assert.That(read).IsEqualTo(3);
+        await Assert.That(read).IsEqualTo(SpanReadDelegatesToInnerExpectedValue);
 
         inner.Position = 0;
-        var memBuf = new byte[3];
+        var memBuf = new byte[SpanReadDelegatesToInnerExpectedValue];
         var memRead = await sut.ReadAsync(memBuf.AsMemory()).ConfigureAwait(false);
-        await Assert.That(memRead).IsEqualTo(3);
+        await Assert.That(memRead).IsEqualTo(SpanReadDelegatesToInnerExpectedValue);
     }
 
     /// <summary>Seek and Position delegate to the inner stream.</summary>
@@ -88,10 +109,10 @@ public class OwningStreamTests
         var inner = new MemoryStream(new byte[8]);
         await using var sut = new OwningStream(inner, new TrackingDisposable());
 
-        sut.Position = 3;
-        await Assert.That(sut.Position).IsEqualTo(3L);
-        var pos = sut.Seek(2, SeekOrigin.Begin);
-        await Assert.That(pos).IsEqualTo(2L);
+        sut.Position = SpanReadDelegatesToInnerExpectedValue;
+        await Assert.That(sut.Position).IsEqualTo(SeekAndPositionDelegateExpectedValue);
+        var pos = sut.Seek(SeekAndPositionDelegateSeek, SeekOrigin.Begin);
+        await Assert.That(pos).IsEqualTo(SeekAndPositionDelegateExpectedValue2);
     }
 
     /// <summary>Write paths delegate to the inner stream.</summary>
@@ -102,12 +123,12 @@ public class OwningStreamTests
         var inner = new MemoryStream();
         await using var sut = new OwningStream(inner, new TrackingDisposable());
 
-        byte[] data = [1, 2, 3];
+        byte[] data = [1, SeekAndPositionDelegateSeek, SpanReadDelegatesToInnerExpectedValue];
         await sut.WriteAsync(data);
         await sut.FlushAsync();
-        sut.SetLength(3);
+        sut.SetLength(SpanReadDelegatesToInnerExpectedValue);
 
-        await Assert.That(inner.ToArray()).IsEquivalentTo(new byte[] { 1, 2, 3 });
+        await Assert.That(inner.ToArray()).IsEquivalentTo(ExpectedWrittenBytes);
         await Assert.That(sut.CanWrite).IsTrue();
     }
 
@@ -115,7 +136,6 @@ public class OwningStreamTests
     /// <returns>A task representing the test execution.</returns>
     [Test]
     [SuppressMessage("Performance", "CA1849:Call async methods when in an async method", Justification = "Item under test is Dispose")]
-    [SuppressMessage("Major Code Smell", "S6966:Awaitable method should be used", Justification = "Item under test is Dispose")]
     public async Task DisposeDisposesInnerAndOwner()
     {
         var inner = new TrackingStream();
@@ -146,9 +166,7 @@ public class OwningStreamTests
     /// <summary>Test helper -- disposable that records when it was disposed.</summary>
     private sealed class TrackingDisposable : IDisposable
     {
-        /// <summary>
-        /// Gets a value indicating whether this instance is disposed.
-        /// </summary>
+        /// <summary>Gets a value indicating whether this instance is disposed.</summary>
         public bool Disposed { get; private set; }
 
         /// <inheritdoc/>
@@ -158,9 +176,7 @@ public class OwningStreamTests
     /// <summary>Test helper -- memory-backed stream that records disposal.</summary>
     private sealed class TrackingStream : MemoryStream
     {
-        /// <summary>
-        /// Gets a value indicating whether this instance is disposed.
-        /// </summary>
+        /// <summary>Gets a value indicating whether this instance is disposed.</summary>
         public bool Disposed { get; private set; }
 
         /// <inheritdoc/>

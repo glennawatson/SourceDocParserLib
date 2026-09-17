@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -19,6 +19,9 @@ namespace SourceDocParser.Docfx.Yaml;
 /// </summary>
 internal static class DocfxObjectSignature
 {
+    /// <summary>Capacity reserved for base type and interface names.</summary>
+    private const int BaseListCapacity = 64;
+
     /// <summary>
     /// Builds the declaration line for an object-shaped type. Result
     /// shape: <c>{modifiers} {kind} {Name}{ : Base, IFace1, IFace2 }</c>.
@@ -36,24 +39,24 @@ internal static class DocfxObjectSignature
         var hasBase = type.BaseType is not null && !IsImplicitObject(type);
         var hasInterfaces = type.Interfaces is [_, ..];
 
-        var sb = new StringBuilder(modifiers.Length + 1 + kindKeyword.Length + 1 + name.Length + 64);
+        var sb = new StringBuilder(modifiers.Length + 1 + kindKeyword.Length + 1 + name.Length + BaseListCapacity);
         if (modifiers is [_, ..])
         {
-            sb.Append(modifiers).Append(' ');
+            _ = sb.Append(modifiers).Append(' ');
         }
 
-        sb.Append(kindKeyword).Append(' ').Append(name);
+        _ = sb.Append(kindKeyword).Append(' ').Append(name);
 
         if (!hasBase && !hasInterfaces)
         {
             return sb.ToString();
         }
 
-        sb.Append(" : ");
+        _ = sb.Append(" : ");
         var first = true;
         if (hasBase && type.BaseType is { } baseRef)
         {
-            sb.Append(baseRef.DisplayName);
+            _ = sb.Append(baseRef.DisplayName);
             first = false;
         }
 
@@ -66,21 +69,17 @@ internal static class DocfxObjectSignature
         {
             if (!first)
             {
-                sb.Append(", ");
+                _ = sb.Append(", ");
             }
 
-            sb.Append(type.Interfaces[i].DisplayName);
+            _ = sb.Append(type.Interfaces[i].DisplayName);
             first = false;
         }
 
         return sb.ToString();
     }
 
-    /// <summary>
-    /// Returns the C# keyword for an <see cref="ApiObjectKind"/> --
-    /// <c>class</c>, <c>struct</c>, <c>interface</c>, <c>record</c>,
-    /// or <c>record struct</c>.
-    /// </summary>
+    /// <summary>Returns the C# keyword for an <see cref="ApiObjectKind"/> -- <c>class</c>, <c>struct</c>, <c>interface</c>, <c>record</c>, or <c>record struct</c>.</summary>
     /// <param name="kind">Kind to render.</param>
     /// <returns>The keyword sequence.</returns>
     internal static string KindKeyword(ApiObjectKind kind) => kind switch

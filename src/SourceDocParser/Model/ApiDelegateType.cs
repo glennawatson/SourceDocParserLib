@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -28,6 +28,7 @@ namespace SourceDocParser.Model;
 /// <param name="ObsoleteMessage">Message supplied to <c>[Obsolete(...)]</c>, or null.</param>
 /// <param name="Attributes">Attributes applied to the type, in declaration order.</param>
 /// <param name="Invoke">Invoke method signature (return type, parameters, type parameters).</param>
+[System.Diagnostics.DebuggerDisplay("ApiDelegateType: {ToString(),nq}")]
 public sealed record ApiDelegateType(
     string Name,
     string FullName,

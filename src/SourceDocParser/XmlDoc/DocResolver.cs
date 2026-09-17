@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using SourceDocParser.Model;
 
@@ -13,14 +14,13 @@ namespace SourceDocParser.XmlDoc;
 /// Results are memoized in a per-resolver cache to ensure efficient
 /// resolution across complex inheritance chains. Created per assembly.
 /// </summary>
+[System.Diagnostics.DebuggerDisplay("DocResolver: {_context}")]
 public sealed class DocResolver : IDocResolver
 {
     /// <summary>Per-resolver state bundle threaded through every static helper.</summary>
     private readonly DocResolveContext _context;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="DocResolver"/> class.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="DocResolver"/> class.</summary>
     /// <param name="compilation">Compilation used for cref resolution.</param>
     /// <remarks>
     /// The resolver returns <see cref="ApiDocumentation"/> with raw
@@ -34,6 +34,7 @@ public sealed class DocResolver : IDocResolver
     }
 
     /// <inheritdoc />
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public ApiDocumentation Resolve(ISymbol symbol) => ResolveCached(symbol, _context);
 
     /// <summary>
@@ -43,8 +44,9 @@ public sealed class DocResolver : IDocResolver
     /// <param name="symbol">Symbol whose documentation to resolve.</param>
     /// <param name="context">Per-resolver state bundle.</param>
     /// <returns>The resolved documentation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static ApiDocumentation ResolveCached(ISymbol symbol, DocResolveContext context) =>
-        context.Cache.GetOrAdd(symbol, context, static (candidate, state) => ResolveCore(candidate, state));
+        context.Cache.GetOrAdd(symbol, context, ResolveCore);
 
     /// <summary>
     /// Resolution body: parse the symbol's own XML, decide whether
@@ -57,11 +59,10 @@ public sealed class DocResolver : IDocResolver
     /// <returns>The resolved documentation.</returns>
     internal static ApiDocumentation ResolveCore(ISymbol symbol, DocResolveContext context)
     {
-        var raw = ParseRaw(symbol, context);
+        var raw = ParseRaw(symbol);
 
         if (raw.HasInheritDoc)
         {
-            // Explicit inheritdoc. Walk the chain with cycle protection;
             // child fields beat parent fields.
             var visited = new HashSet<ISymbol>(SymbolEqualityComparer.Default) { symbol };
             return ResolveExplicitInherit(symbol, raw, visited, context);
@@ -101,7 +102,6 @@ public sealed class DocResolver : IDocResolver
         if (inheritFrom is null || !visited.Add(inheritFrom))
         {
             // No source or we've already visited it (cycle). Just
-            // emit what we have without an inheritedFrom marker;
             // a cycle isn't user-actionable noise.
             return ToApiDocumentation(raw, inheritedFrom: null);
         }
@@ -137,17 +137,10 @@ public sealed class DocResolver : IDocResolver
             return FindNaturalInheritedEventSource(eventSymbol);
         }
 
-        if (symbol is not INamedTypeSymbol typeSymbol)
-        {
-            return null;
-        }
-
-        return FindNaturalInheritedTypeSource(typeSymbol);
+        return symbol is not INamedTypeSymbol typeSymbol ? null : FindNaturalInheritedTypeSource(typeSymbol);
     }
 
-    /// <summary>
-    /// Finds the natural inheritdoc source for a method symbol.
-    /// </summary>
+    /// <summary>Finds the natural inheritdoc source for a method symbol.</summary>
     /// <param name="symbol">Method symbol to inspect.</param>
     /// <returns>The symbol to inherit from, or null if none exists.</returns>
     internal static ISymbol? FindNaturalInheritedMethodSource(IMethodSymbol symbol)
@@ -157,17 +150,10 @@ public sealed class DocResolver : IDocResolver
             return overridden;
         }
 
-        if (symbol.ExplicitInterfaceImplementations is [var implementation, ..])
-        {
-            return implementation;
-        }
-
-        return FindImplicitInterfaceImpl(symbol);
+        return symbol.ExplicitInterfaceImplementations is [var implementation, ..] ? implementation : FindImplicitInterfaceImpl(symbol);
     }
 
-    /// <summary>
-    /// Finds the natural inheritdoc source for a property symbol.
-    /// </summary>
+    /// <summary>Finds the natural inheritdoc source for a property symbol.</summary>
     /// <param name="symbol">Property symbol to inspect.</param>
     /// <returns>The symbol to inherit from, or null if none exists.</returns>
     internal static ISymbol? FindNaturalInheritedPropertySource(IPropertySymbol symbol)
@@ -177,17 +163,10 @@ public sealed class DocResolver : IDocResolver
             return overridden;
         }
 
-        if (symbol.ExplicitInterfaceImplementations is [var implementation, ..])
-        {
-            return implementation;
-        }
-
-        return FindImplicitInterfaceImpl(symbol);
+        return symbol.ExplicitInterfaceImplementations is [var implementation, ..] ? implementation : FindImplicitInterfaceImpl(symbol);
     }
 
-    /// <summary>
-    /// Finds the natural inheritdoc source for an event symbol.
-    /// </summary>
+    /// <summary>Finds the natural inheritdoc source for an event symbol.</summary>
     /// <param name="symbol">Event symbol to inspect.</param>
     /// <returns>The symbol to inherit from, or null if none exists.</returns>
     internal static ISymbol? FindNaturalInheritedEventSource(IEventSymbol symbol)
@@ -197,19 +176,13 @@ public sealed class DocResolver : IDocResolver
             return overridden;
         }
 
-        if (symbol.ExplicitInterfaceImplementations is [var implementation, ..])
-        {
-            return implementation;
-        }
-
-        return FindImplicitInterfaceImpl(symbol);
+        return symbol.ExplicitInterfaceImplementations is [var implementation, ..] ? implementation : FindImplicitInterfaceImpl(symbol);
     }
 
-    /// <summary>
-    /// Finds the natural inheritdoc source for a type symbol.
-    /// </summary>
+    /// <summary>Finds the natural inheritdoc source for a type symbol.</summary>
     /// <param name="symbol">Type symbol to inspect.</param>
     /// <returns>The base type, or null if none exists.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static ISymbol? FindNaturalInheritedTypeSource(INamedTypeSymbol symbol) => symbol.BaseType;
 
     /// <summary>
@@ -310,7 +283,7 @@ public sealed class DocResolver : IDocResolver
         var childKeys = new HashSet<string>(child.Length, StringComparer.Ordinal);
         for (var i = 0; i < child.Length; i++)
         {
-            childKeys.Add(child[i].Name);
+            _ = childKeys.Add(child[i].Name);
         }
 
         var merged = new List<DocEntry>(child.Length + parent.Length);
@@ -358,12 +331,11 @@ public sealed class DocResolver : IDocResolver
     /// docs were never written).
     /// </summary>
     /// <param name="symbol">Symbol whose XML doc to read.</param>
-    /// <param name="context">Per-resolver state bundle.</param>
     /// <returns>The parsed raw documentation.</returns>
-    private static RawDocumentation ParseRaw(ISymbol symbol, DocResolveContext context)
+    private static RawDocumentation ParseRaw(ISymbol symbol)
     {
         var xml = symbol.GetDocumentationCommentXml();
-        return xml is [_, ..] ? DocXmlParser.Parse(xml, context) : RawDocumentation.Empty;
+        return xml is [_, ..] ? DocXmlParser.Parse(xml) : RawDocumentation.Empty;
     }
 
     /// <summary>
@@ -376,6 +348,7 @@ public sealed class DocResolver : IDocResolver
     /// <param name="cref">cref string from the inheritdoc element.</param>
     /// <param name="compilation">Compilation to use for resolution.</param>
     /// <returns>The resolved symbol, or null if not found.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ISymbol? ResolveCref(string cref, Compilation compilation) =>
         DocumentationCommentId.GetFirstSymbolForDeclarationId(cref, compilation);
 }

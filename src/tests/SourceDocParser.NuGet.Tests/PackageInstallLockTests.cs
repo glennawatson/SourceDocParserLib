@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -15,6 +15,24 @@ namespace SourceDocParser.NuGet.Tests;
 /// </summary>
 public class PackageInstallLockTests
 {
+    /// <summary>Fixture value for Cache.</summary>
+    private const string Cache = "/cache";
+
+    /// <summary>Fixture value for CacheSplat1931.</summary>
+    private const string CacheSplat1931 = "/cache/splat/19.3.1";
+
+    /// <summary>Fixture value for TestLock.</summary>
+    private const string TestLock = "test.lock";
+
+    /// <summary>Expected fixture value used by AcquireSerialisesConcurrentWaiters.</summary>
+    private const int FirstLockWaitSeconds = 2;
+
+    /// <summary>Expected fixture value used by AcquireSerialisesConcurrentWaiters.</summary>
+    private const int SecondLockWaitSeconds = 5;
+
+    /// <summary>Expected fixture value used by AcquireSerialisesConcurrentWaiters.</summary>
+    private const int ContentionObservationDelayMilliseconds = 150;
+
     /// <summary>
     /// The lock file path is derived from a hash of the install
     /// path so the same package always lands on the same lock --
@@ -24,23 +42,19 @@ public class PackageInstallLockTests
     [Test]
     public async Task GetLockFilePathIsStableForSameInstallPath()
     {
-        var path1 = PackageInstallLock.GetLockFilePath("/cache", "/cache/splat/19.3.1");
-        var path2 = PackageInstallLock.GetLockFilePath("/cache", "/cache/splat/19.3.1");
+        var path1 = PackageInstallLock.GetLockFilePath(Cache, CacheSplat1931);
+        var path2 = PackageInstallLock.GetLockFilePath(Cache, CacheSplat1931);
 
         await Assert.That(path1).IsEqualTo(path2);
     }
 
-    /// <summary>
-    /// Different install paths hash to different lock files --
-    /// installs of unrelated packages don't serialise on each
-    /// other.
-    /// </summary>
+    /// <summary>Different install paths hash to different lock files -- installs of unrelated packages don't serialise on each other.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task GetLockFilePathDiffersForDifferentInstallPaths()
     {
-        var splat = PackageInstallLock.GetLockFilePath("/cache", "/cache/splat/19.3.1");
-        var reactiveui = PackageInstallLock.GetLockFilePath("/cache", "/cache/reactiveui/23.2.1");
+        var splat = PackageInstallLock.GetLockFilePath(Cache, CacheSplat1931);
+        var reactiveui = PackageInstallLock.GetLockFilePath(Cache, "/cache/reactiveui/23.2.1");
 
         await Assert.That(splat).IsNotEqualTo(reactiveui);
     }
@@ -55,24 +69,24 @@ public class PackageInstallLockTests
     public async Task AcquireSerialisesConcurrentWaiters()
     {
         var dir = Path.Combine(Path.GetTempPath(), $"sdp-lock-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
-        var lockPath = Path.Combine(dir, "test.lock");
+        _ = Directory.CreateDirectory(dir);
+        var lockPath = Path.Combine(dir, TestLock);
 
         try
         {
-            var first = await PackageInstallLock.AcquireAsync(lockPath, maxWait: TimeSpan.FromSeconds(2), CancellationToken.None).ConfigureAwait(false);
+            var first = await PackageInstallLock.AcquireAsync(lockPath, maxWait: TimeSpan.FromSeconds(FirstLockWaitSeconds), CancellationToken.None).ConfigureAwait(false);
 
             var secondAcquired = false;
             var secondTask = Task.Run(async () =>
             {
-                var second = await PackageInstallLock.AcquireAsync(lockPath, maxWait: TimeSpan.FromSeconds(5), CancellationToken.None).ConfigureAwait(false);
+                var second = await PackageInstallLock.AcquireAsync(lockPath, maxWait: TimeSpan.FromSeconds(SecondLockWaitSeconds), CancellationToken.None).ConfigureAwait(false);
                 await using (second.ConfigureAwait(false))
                 {
                     secondAcquired = true;
                 }
             });
 
-            await Task.Delay(150).ConfigureAwait(false);
+            await Task.Delay(ContentionObservationDelayMilliseconds).ConfigureAwait(false);
             await Assert.That(secondAcquired).IsFalse();
 
             await first.DisposeAsync().ConfigureAwait(false);
@@ -89,24 +103,21 @@ public class PackageInstallLockTests
         }
     }
 
-    /// <summary>
-    /// RunUnderLockAsync runs the work when the install isn't
-    /// already done, returning true.
-    /// </summary>
+    /// <summary>RunUnderLockAsync runs the work when the install isn't already done, returning true.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task RunUnderLockExecutesWorkWhenNotAlreadyDone()
     {
         var dir = Path.Combine(Path.GetTempPath(), $"sdp-lock-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
-        var lockPath = Path.Combine(dir, "test.lock");
+        _ = Directory.CreateDirectory(dir);
+        var lockPath = Path.Combine(dir, TestLock);
 
         try
         {
             var workRan = false;
             var ran = await PackageInstallLock.RunUnderLockAsync(
                 lockPath,
-                alreadyDone: () => false,
+                alreadyDone: static () => false,
                 work: ct =>
                 {
                     workRan = true;
@@ -125,24 +136,21 @@ public class PackageInstallLockTests
         }
     }
 
-    /// <summary>
-    /// Double-checked-lock: when alreadyDone returns true after
-    /// the lock is acquired, the work is skipped.
-    /// </summary>
+    /// <summary>Double-checked-lock: when alreadyDone returns true after the lock is acquired, the work is skipped.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task RunUnderLockSkipsWorkWhenAlreadyDone()
     {
         var dir = Path.Combine(Path.GetTempPath(), $"sdp-lock-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
-        var lockPath = Path.Combine(dir, "test.lock");
+        _ = Directory.CreateDirectory(dir);
+        var lockPath = Path.Combine(dir, TestLock);
 
         try
         {
             var workRan = false;
             var ran = await PackageInstallLock.RunUnderLockAsync(
                 lockPath,
-                alreadyDone: () => true,
+                alreadyDone: static () => true,
                 work: ct =>
                 {
                     workRan = true;
@@ -171,8 +179,8 @@ public class PackageInstallLockTests
     public async Task LockFileSelfDeletesAfterRelease()
     {
         var dir = Path.Combine(Path.GetTempPath(), $"sdp-lock-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
-        var lockPath = Path.Combine(dir, "test.lock");
+        _ = Directory.CreateDirectory(dir);
+        var lockPath = Path.Combine(dir, TestLock);
 
         try
         {

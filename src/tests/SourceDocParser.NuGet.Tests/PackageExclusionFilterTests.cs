@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -38,25 +38,13 @@ public class PackageExclusionFilterTests
     [Test]
     public async Task ExcludedByUserReturnsFalseForEmptyLists() => await Assert.That(PackageExclusionFilter.IsExcludedByUser("Anything", [], [])).IsFalse();
 
-    /// <summary>Native runtime.* packages are always default-transitive-skipped.</summary>
-    /// <param name="id">Native runtime package ID.</param>
+    /// <summary>Native runtime and framework shim packages are default-transitive-skipped.</summary>
+    /// <param name="id">Runtime or framework shim package ID.</param>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     [Arguments("runtime.linux-x64.System.Foo")]
     [Arguments("RUNTIME.WIN-X64.SOMETHING")]
     [Arguments("runtime.osx.runtime.native.System")]
-    public async Task DefaultTransitiveSkipsRuntimePackages(string id) =>
-        await Assert.That(PackageExclusionFilter.IsDefaultTransitiveSkip(id)).IsTrue();
-
-    /// <summary>Microsoft.NET.Native.* packages are default-transitive-skipped.</summary>
-    /// <returns>A task representing the test execution.</returns>
-    [Test]
-    public async Task DefaultTransitiveSkipsMicrosoftNetNative() => await Assert.That(PackageExclusionFilter.IsDefaultTransitiveSkip("Microsoft.NET.Native.Compiler")).IsTrue();
-
-    /// <summary>Microsoft.NETCore.* shim families are default-transitive-skipped.</summary>
-    /// <param name="id">Microsoft.NETCore subfamily package id.</param>
-    /// <returns>A task representing the test execution.</returns>
-    [Test]
     [Arguments("Microsoft.NETCore.Native.Compiler")]
     [Arguments("Microsoft.NETCore.UniversalWindowsPlatform")]
     [Arguments("Microsoft.NETCore.Targets")]
@@ -64,8 +52,13 @@ public class PackageExclusionFilterTests
     [Arguments("Microsoft.NETCore.Jit")]
     [Arguments("Microsoft.NETCore.Runtime.CoreCLR")]
     [Arguments("Microsoft.NETCore.Portable.Compatibility")]
-    public async Task DefaultTransitiveSkipsMicrosoftNetCoreShimFamilies(string id) =>
+    public async Task DefaultTransitiveSkipsRuntimeAndFrameworkPackages(string id) =>
         await Assert.That(PackageExclusionFilter.IsDefaultTransitiveSkip(id)).IsTrue();
+
+    /// <summary>Microsoft.NET.Native.* packages are default-transitive-skipped.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task DefaultTransitiveSkipsMicrosoftNetNative() => await Assert.That(PackageExclusionFilter.IsDefaultTransitiveSkip("Microsoft.NET.Native.Compiler")).IsTrue();
 
     /// <summary>Regular Microsoft.* packages outside the shim families pass through.</summary>
     /// <param name="id">Regular Microsoft package id.</param>

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -19,19 +19,19 @@ public class DocfxConfigReaderJsonExceptionTests
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task NonObjectMetadataEntryThrows() =>
-        await Assert.That(() => Parse("""{ "metadata": [ "not-an-object" ] }""")).Throws<JsonException>();
+        await Assert.That(static () => Parse("""{ "metadata": [ "not-an-object" ] }""")).Throws<JsonException>();
 
     /// <summary>A non-object src entry inside metadata throws.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task NonObjectMetadataSrcEntryThrows() =>
-        await Assert.That(() => Parse("""{ "metadata": [ { "src": [ "not-object" ] } ] }""")).Throws<JsonException>();
+        await Assert.That(static () => Parse("""{ "metadata": [ { "src": [ "not-object" ] } ] }""")).Throws<JsonException>();
 
     /// <summary>A non-object content entry inside build throws.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task NonObjectBuildContentEntryThrows() =>
-        await Assert.That(() => Parse("""{ "build": { "content": [ "not-object" ] } }""")).Throws<JsonException>();
+        await Assert.That(static () => Parse("""{ "build": { "content": [ "not-object" ] } }""")).Throws<JsonException>();
 
     /// <summary>An empty src array on a metadata entry yields an empty source list.</summary>
     /// <returns>A task representing the test execution.</returns>

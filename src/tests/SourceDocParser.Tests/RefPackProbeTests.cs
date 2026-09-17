@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -14,15 +14,36 @@ namespace SourceDocParser.Tests;
 /// </summary>
 public class RefPackProbeTests
 {
+    /// <summary>Fixture value for MicrosoftWindowsDesktopAppRef.</summary>
+    private const string MicrosoftWindowsDesktopAppRef = "Microsoft.WindowsDesktop.App.Ref";
+
+    /// <summary>Fixture value for Version8010.</summary>
+    private const string Version8010 = "8.0.10";
+
+    /// <summary>Fixture value for Net80.</summary>
+    private const string Net80 = "net8.0";
+
+    /// <summary>Fixture value for MicrosoftNETCoreAppRef.</summary>
+    private const string MicrosoftNETCoreAppRef = "Microsoft.NETCore.App.Ref";
+
+    /// <summary>Fixture value for Net60.</summary>
+    private const string Net60 = "net6.0";
+
+    /// <summary>Expected fixture value used by ProbeReturnsRefDirsForCompatibleTfmList.</summary>
+    private const int ProbeReturnsRefDirsForCompatibleTfmListExpectedValue = 2;
+
+    /// <summary>Expected fixture value used by ProbeAccumulatesAcrossDistinctPacks.</summary>
+    private const int ProbeAccumulatesAcrossDistinctPacksExpectedValue = 3;
+
     /// <summary>A single pack with one matching TFM is discovered.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ProbeReturnsRefDirForMatchingTfm()
     {
         using var scratch = new TempDirectory();
-        var refDir = MakeRefDir(scratch.Path, "Microsoft.WindowsDesktop.App.Ref", "8.0.10", "net8.0");
+        var refDir = MakeRefDir(scratch.Path, MicrosoftWindowsDesktopAppRef, Version8010, Net80);
 
-        var dirs = RefPackProbe.ProbeRefPackRefDirs([scratch.Path], ["net8.0"]);
+        var dirs = RefPackProbe.ProbeRefPackRefDirs([scratch.Path], [Net80]);
 
         await Assert.That(dirs.Count).IsEqualTo(1);
         await Assert.That(dirs[0]).IsEqualTo(Path.TrimEndingDirectorySeparator(Path.GetFullPath(refDir)));
@@ -34,9 +55,9 @@ public class RefPackProbeTests
     public async Task ProbeSkipsNonRefPacks()
     {
         using var scratch = new TempDirectory();
-        MakeRefDir(scratch.Path, "Microsoft.WindowsDesktop.App", "8.0.10", "net8.0");
+        _ = MakeRefDir(scratch.Path, "Microsoft.WindowsDesktop.App", Version8010, Net80);
 
-        var dirs = RefPackProbe.ProbeRefPackRefDirs([scratch.Path], ["net8.0"]);
+        var dirs = RefPackProbe.ProbeRefPackRefDirs([scratch.Path], [Net80]);
 
         await Assert.That(dirs.Count).IsEqualTo(0);
     }
@@ -47,11 +68,11 @@ public class RefPackProbeTests
     public async Task ProbePicksHighestStableVersion()
     {
         using var scratch = new TempDirectory();
-        MakeRefDir(scratch.Path, "Microsoft.WindowsDesktop.App.Ref", "8.0.5", "net8.0");
-        var winner = MakeRefDir(scratch.Path, "Microsoft.WindowsDesktop.App.Ref", "8.0.10", "net8.0");
-        MakeRefDir(scratch.Path, "Microsoft.WindowsDesktop.App.Ref", "7.0.20", "net7.0");
+        _ = MakeRefDir(scratch.Path, MicrosoftWindowsDesktopAppRef, "8.0.5", Net80);
+        var winner = MakeRefDir(scratch.Path, MicrosoftWindowsDesktopAppRef, Version8010, Net80);
+        _ = MakeRefDir(scratch.Path, MicrosoftWindowsDesktopAppRef, "7.0.20", "net7.0");
 
-        var dirs = RefPackProbe.ProbeRefPackRefDirs([scratch.Path], ["net8.0"]);
+        var dirs = RefPackProbe.ProbeRefPackRefDirs([scratch.Path], [Net80]);
 
         await Assert.That(dirs.Count).IsEqualTo(1);
         await Assert.That(dirs[0]).IsEqualTo(Path.TrimEndingDirectorySeparator(Path.GetFullPath(winner)));
@@ -63,12 +84,12 @@ public class RefPackProbeTests
     public async Task ProbeReturnsRefDirsForCompatibleTfmList()
     {
         using var scratch = new TempDirectory();
-        var net8 = MakeRefDir(scratch.Path, "Microsoft.NETCore.App.Ref", "8.0.10", "net8.0");
-        var net6 = MakeRefDir(scratch.Path, "Microsoft.NETCore.App.Ref", "8.0.10", "net6.0");
+        var net8 = MakeRefDir(scratch.Path, MicrosoftNETCoreAppRef, Version8010, Net80);
+        var net6 = MakeRefDir(scratch.Path, MicrosoftNETCoreAppRef, Version8010, Net60);
 
-        var dirs = RefPackProbe.ProbeRefPackRefDirs([scratch.Path], ["net8.0", "net6.0", "netstandard2.0"]);
+        var dirs = RefPackProbe.ProbeRefPackRefDirs([scratch.Path], [Net80, Net60, "netstandard2.0"]);
 
-        await Assert.That(dirs.Count).IsEqualTo(2);
+        await Assert.That(dirs.Count).IsEqualTo(ProbeReturnsRefDirsForCompatibleTfmListExpectedValue);
         await Assert.That(dirs).Contains(Path.TrimEndingDirectorySeparator(Path.GetFullPath(net8)));
         await Assert.That(dirs).Contains(Path.TrimEndingDirectorySeparator(Path.GetFullPath(net6)));
     }
@@ -79,14 +100,14 @@ public class RefPackProbeTests
     public async Task ProbePreservesCompatibleTfmOrder()
     {
         using var scratch = new TempDirectory();
-        MakeRefDir(scratch.Path, "Microsoft.NETCore.App.Ref", "8.0.10", "net8.0");
-        MakeRefDir(scratch.Path, "Microsoft.NETCore.App.Ref", "8.0.10", "net6.0");
+        _ = MakeRefDir(scratch.Path, MicrosoftNETCoreAppRef, Version8010, Net80);
+        _ = MakeRefDir(scratch.Path, MicrosoftNETCoreAppRef, Version8010, Net60);
 
-        var dirs = RefPackProbe.ProbeRefPackRefDirs([scratch.Path], ["net8.0", "net6.0"]);
+        var dirs = RefPackProbe.ProbeRefPackRefDirs([scratch.Path], [Net80, Net60]);
 
-        await Assert.That(dirs.Count).IsEqualTo(2);
-        await Assert.That(dirs[0]).EndsWith(Path.Combine("ref", "net8.0"));
-        await Assert.That(dirs[1]).EndsWith(Path.Combine("ref", "net6.0"));
+        await Assert.That(dirs.Count).IsEqualTo(ProbeReturnsRefDirsForCompatibleTfmListExpectedValue);
+        await Assert.That(dirs[0]).EndsWith(Path.Combine("ref", Net80));
+        await Assert.That(dirs[1]).EndsWith(Path.Combine("ref", Net60));
     }
 
     /// <summary>Missing <c>ref/</c> directory under the version dir is silently ignored.</summary>
@@ -95,7 +116,7 @@ public class RefPackProbeTests
     public async Task ProbeSkipsPacksWithoutRefSubdir()
     {
         using var scratch = new TempDirectory();
-        Directory.CreateDirectory(Path.Combine(scratch.Path, "Microsoft.iOS.Ref", "18.0.0"));
+        _ = Directory.CreateDirectory(Path.Combine(scratch.Path, "Microsoft.iOS.Ref", "18.0.0"));
 
         var dirs = RefPackProbe.ProbeRefPackRefDirs([scratch.Path], ["net8.0-ios"]);
 
@@ -107,7 +128,7 @@ public class RefPackProbeTests
     [Test]
     public async Task ProbeReturnsEmptyForEmptyInputs()
     {
-        await Assert.That(RefPackProbe.ProbeRefPackRefDirs([], ["net8.0"]).Count).IsEqualTo(0);
+        await Assert.That(RefPackProbe.ProbeRefPackRefDirs([], [Net80]).Count).IsEqualTo(0);
         await Assert.That(RefPackProbe.ProbeRefPackRefDirs(["/some/path"], []).Count).IsEqualTo(0);
     }
 
@@ -117,8 +138,8 @@ public class RefPackProbeTests
     public async Task ProbeIgnoresMissingPackRoot()
     {
         var dirs = RefPackProbe.ProbeRefPackRefDirs(
-            ["/nonexistent/path/sdp-test-" + Guid.NewGuid()],
-            ["net8.0"]);
+            [$"/nonexistent/path/sdp-test-{Guid.NewGuid()}"],
+            [Net80]);
 
         await Assert.That(dirs.Count).IsEqualTo(0);
     }
@@ -129,9 +150,9 @@ public class RefPackProbeTests
     public async Task ProbeDeduplicatesAcrossPackRoots()
     {
         using var scratch = new TempDirectory();
-        MakeRefDir(scratch.Path, "Microsoft.NETCore.App.Ref", "8.0.10", "net8.0");
+        _ = MakeRefDir(scratch.Path, MicrosoftNETCoreAppRef, Version8010, Net80);
 
-        var dirs = RefPackProbe.ProbeRefPackRefDirs([scratch.Path, scratch.Path], ["net8.0"]);
+        var dirs = RefPackProbe.ProbeRefPackRefDirs([scratch.Path, scratch.Path], [Net80]);
 
         await Assert.That(dirs.Count).IsEqualTo(1);
     }
@@ -142,13 +163,13 @@ public class RefPackProbeTests
     public async Task ProbeAccumulatesAcrossDistinctPacks()
     {
         using var scratch = new TempDirectory();
-        MakeRefDir(scratch.Path, "Microsoft.NETCore.App.Ref", "8.0.10", "net8.0");
-        MakeRefDir(scratch.Path, "Microsoft.WindowsDesktop.App.Ref", "8.0.10", "net8.0");
-        MakeRefDir(scratch.Path, "Microsoft.AspNetCore.App.Ref", "8.0.10", "net8.0");
+        _ = MakeRefDir(scratch.Path, MicrosoftNETCoreAppRef, Version8010, Net80);
+        _ = MakeRefDir(scratch.Path, MicrosoftWindowsDesktopAppRef, Version8010, Net80);
+        _ = MakeRefDir(scratch.Path, "Microsoft.AspNetCore.App.Ref", Version8010, Net80);
 
-        var dirs = RefPackProbe.ProbeRefPackRefDirs([scratch.Path], ["net8.0"]);
+        var dirs = RefPackProbe.ProbeRefPackRefDirs([scratch.Path], [Net80]);
 
-        await Assert.That(dirs.Count).IsEqualTo(3);
+        await Assert.That(dirs.Count).IsEqualTo(ProbeAccumulatesAcrossDistinctPacksExpectedValue);
     }
 
     /// <summary>Rejects null arguments via the standard guards.</summary>
@@ -156,14 +177,11 @@ public class RefPackProbeTests
     [Test]
     public async Task ProbeRejectsNullArguments()
     {
-        await Assert.That(() => RefPackProbe.ProbeRefPackRefDirs(null!, ["net8.0"])).Throws<ArgumentNullException>();
-        await Assert.That(() => RefPackProbe.ProbeRefPackRefDirs([], null!)).Throws<ArgumentNullException>();
+        await Assert.That(static () => RefPackProbe.ProbeRefPackRefDirs(null!, [Net80])).Throws<ArgumentNullException>();
+        await Assert.That(static () => RefPackProbe.ProbeRefPackRefDirs([], null!)).Throws<ArgumentNullException>();
     }
 
-    /// <summary>
-    /// Builds <c>&lt;packsRoot&gt;/&lt;packName&gt;/&lt;version&gt;/ref/&lt;tfm&gt;/</c>
-    /// on disk and returns the path to the leaf <c>tfm</c> dir.
-    /// </summary>
+    /// <summary>Builds <c>&lt;packsRoot&gt;/&lt;packName&gt;/&lt;version&gt;/ref/&lt;tfm&gt;/</c> on disk and returns the path to the leaf <c>tfm</c> dir.</summary>
     /// <param name="packsRoot">Root of the synthetic packs/ tree.</param>
     /// <param name="packName">Pack folder name (e.g. <c>Microsoft.WindowsDesktop.App.Ref</c>).</param>
     /// <param name="version">Version folder name (e.g. <c>8.0.10</c>).</param>
@@ -172,7 +190,7 @@ public class RefPackProbeTests
     private static string MakeRefDir(string packsRoot, string packName, string version, string tfm)
     {
         var path = Path.Combine(packsRoot, packName, version, "ref", tfm);
-        Directory.CreateDirectory(path);
+        _ = Directory.CreateDirectory(path);
         return path;
     }
 }

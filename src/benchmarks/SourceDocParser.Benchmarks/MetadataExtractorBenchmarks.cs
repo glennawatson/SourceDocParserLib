@@ -1,9 +1,11 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Jobs;
 using SourceDocParser.Model;
 using SourceDocParser.NuGet.Infrastructure;
 using SourceDocParser.Zensical;
@@ -15,7 +17,9 @@ namespace SourceDocParser.Benchmarks;
 /// This class uses BenchmarkDotNet attributes to measure execution times and memory usage
 /// for different stages of the extraction workflow inside the SourceDocParser.
 /// </summary>
-[ShortRunJob]
+[System.Diagnostics.DebuggerDisplay("MetadataExtractorBenchmarks: {_scratchRoot}")]
+[ShortRunJob(RuntimeMoniker.Net10_0)]
+[ShortRunJob(RuntimeMoniker.Net11_0)]
 [MemoryDiagnoser]
 [SuppressMessage(
     "Design",
@@ -48,14 +52,14 @@ public class MetadataExtractorBenchmarks
     public async Task GlobalSetupAsync()
     {
         _scratchRoot = Path.Combine(Path.GetTempPath(), $"sdp-bench-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(_scratchRoot);
+        _ = Directory.CreateDirectory(_scratchRoot);
 
         File.Copy(
             Path.Combine(AppContext.BaseDirectory, "Fixtures", "nuget-packages.json"),
             Path.Combine(_scratchRoot, "nuget-packages.json"));
 
         var apiPath = Path.Combine(_scratchRoot, "api");
-        Directory.CreateDirectory(apiPath);
+        _ = Directory.CreateDirectory(apiPath);
 
         _source = new(_scratchRoot, apiPath);
         _emitter = new();
@@ -70,12 +74,7 @@ public class MetadataExtractorBenchmarks
     [IterationSetup]
     public void IterationSetup() => _outputRoot = Path.Combine(_scratchRoot, $"iter-{Guid.NewGuid():N}");
 
-    /// <summary>
-    /// Per-iteration cleanup. Drops the iteration's output tree and
-    /// forces a full GC pass so the next iteration starts on a clean
-    /// heap -- without this the Roslyn compilation state accumulates
-    /// across iterations and inflates measurements.
-    /// </summary>
+    /// <summary>Removes the iteration's output tree before the next measurement.</summary>
     [IterationCleanup]
     public void IterationCleanup()
     {
@@ -83,10 +82,6 @@ public class MetadataExtractorBenchmarks
         {
             Directory.Delete(_outputRoot, recursive: true);
         }
-
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-        GC.Collect();
     }
 
     /// <summary>Disposes the assembly source (and its shared <see cref="HttpClient"/>) and removes the scratch directory after the benchmark series completes.</summary>
@@ -102,11 +97,9 @@ public class MetadataExtractorBenchmarks
         Directory.Delete(_scratchRoot, recursive: true);
     }
 
-    /// <summary>
-    /// Measures one full <c>RunAsync</c>: discover groups, walk every
-    /// assembly, merge by UID, hand to the emitter.
-    /// </summary>
+    /// <summary>Measures one full <c>RunAsync</c>: discover groups, walk every assembly, merge by UID, hand to the emitter.</summary>
     /// <returns>The extraction summary (returned so BenchmarkDotNet doesn't elide the call).</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<ExtractionResult> RunAsync() =>
         _extractor.RunAsync(_source, new FilePageSink(_outputRoot), _emitter);

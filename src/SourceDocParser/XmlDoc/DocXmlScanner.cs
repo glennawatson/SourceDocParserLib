@@ -1,6 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
+
+using System.Runtime.CompilerServices;
 
 namespace SourceDocParser.XmlDoc;
 
@@ -64,13 +66,19 @@ internal ref struct DocXmlScanner
     /// <summary>Gets the raw text slice for the current text token (entity-encoded).</summary>
     public ReadOnlySpan<char> RawText { get; private set; }
 
+    /// <summary>True for the four whitespace characters allowed inside an XML start tag.</summary>
+    /// <param name="ch">Character to test.</param>
+    /// <returns>True when whitespace.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsWhitespace(char ch) => XmlCharHelper.IsWhitespace(ch);
+
     /// <summary>
     /// Advances to the next significant token. Returns false when the
     /// input is exhausted. Comments and processing instructions are
     /// silently consumed.
     /// </summary>
     /// <returns>True when a new token is available.</returns>
-    public bool Read()
+    internal bool Read()
     {
         IsEmptyElement = false;
 
@@ -111,10 +119,6 @@ internal ref struct DocXmlScanner
             {
                 Depth += IsEmptyElement ? 0 : 1;
             }
-            else
-            {
-                // No depth change for other token kinds.
-            }
 
             return true;
         }
@@ -136,7 +140,7 @@ internal ref struct DocXmlScanner
     /// positioned on a start element.
     /// </summary>
     /// <returns>The inner XML span (still entity-encoded, may contain nested elements). Empty for self-closing elements.</returns>
-    public ReadOnlySpan<char> ReadInnerSpan()
+    internal ReadOnlySpan<char> ReadInnerSpan()
     {
         if (IsEmptyElement)
         {
@@ -164,7 +168,8 @@ internal ref struct DocXmlScanner
     /// </summary>
     /// <param name="attributeName">Attribute name to look up.</param>
     /// <returns>The attribute value as a span over the source, or empty.</returns>
-    public readonly ReadOnlySpan<char> GetAttribute(ReadOnlySpan<char> attributeName) => XmlAttributeParser.GetAttribute(_attrArea, attributeName);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal readonly ReadOnlySpan<char> GetAttribute(ReadOnlySpan<char> attributeName) => XmlAttributeParser.GetAttribute(_attrArea, attributeName);
 
     /// <summary>
     /// Advances the scanner past the current element, ignoring its
@@ -172,7 +177,7 @@ internal ref struct DocXmlScanner
     /// on return it is positioned on the matching end element (or
     /// stays put for self-closing elements).
     /// </summary>
-    public void SkipElement()
+    internal void SkipElement()
     {
         if (IsEmptyElement)
         {
@@ -188,9 +193,4 @@ internal ref struct DocXmlScanner
             }
         }
     }
-
-    /// <summary>True for the four whitespace characters allowed inside an XML start tag.</summary>
-    /// <param name="ch">Character to test.</param>
-    /// <returns>True when whitespace.</returns>
-    internal static bool IsWhitespace(char ch) => XmlCharHelper.IsWhitespace(ch);
 }

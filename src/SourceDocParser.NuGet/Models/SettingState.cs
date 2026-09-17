@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -14,11 +14,11 @@ namespace SourceDocParser.NuGet.Models;
 public enum SettingState
 {
     /// <summary>Config didn't mention the setting; caller keeps walking the chain.</summary>
-    NotMentioned,
+    NotMentioned = 0,
 
     /// <summary>Config carries a <c>clear /</c> in the relevant section; caller stops walking and falls back to the platform default.</summary>
-    Cleared,
+    Cleared = 1,
 
     /// <summary>Config explicitly set the value; caller uses <see cref="ConfigSettingResult.Value"/>.</summary>
-    Found,
+    Found = 2,
 }

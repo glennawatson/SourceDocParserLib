@@ -1,36 +1,35 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
+using System.Runtime.CompilerServices;
+
 namespace SourceDocParser.NuGet.Infrastructure;
 
-/// <summary>
-/// Normalises mixed slash input for archive-style and platform-native paths.
-/// </summary>
+/// <summary>Normalises mixed slash input for archive-style and platform-native paths.</summary>
 internal static class PathSeparatorHelpers
 {
-    /// <summary>
-    /// Normalises a relative path to the current platform separator.
-    /// </summary>
+    /// <summary>Both separator characters accepted in package paths.</summary>
+    private static readonly SearchValues<char> Separators = SearchValues.Create("/\\");
+
+    /// <summary>Normalises a relative path to the current platform separator.</summary>
     /// <param name="value">Relative path that may contain either slash form.</param>
     /// <returns>The normalised path.</returns>
-    public static string ToPlatformPath(string value) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string ToPlatformPath(string value) =>
         NormalizeSeparators(value, Path.DirectorySeparatorChar);
 
-    /// <summary>
-    /// Normalises an archive-style path prefix to forward slashes and ensures it ends with a slash.
-    /// </summary>
+    /// <summary>Normalises an archive-style path prefix to forward slashes and ensures it ends with a slash.</summary>
     /// <param name="value">Archive path prefix that may contain either slash form.</param>
     /// <returns>The slash-normalised prefix ending with <c>/</c>.</returns>
-    public static string EnsureTrailingForwardSlash(string value)
+    internal static string EnsureTrailingForwardSlash(string value)
     {
         var normalized = NormalizeSeparators(value, '/');
-        return normalized.EndsWith('/') ? normalized : normalized + "/";
+        return normalized.EndsWith('/') ? normalized : $"{normalized}/";
     }
 
-    /// <summary>
-    /// Rewrites both slash forms to the requested separator.
-    /// </summary>
+    /// <summary>Rewrites both slash forms to the requested separator.</summary>
     /// <param name="value">Path text that may contain either slash form.</param>
     /// <param name="separator">Separator to emit.</param>
     /// <returns>The normalised path.</returns>
@@ -38,7 +37,7 @@ internal static class PathSeparatorHelpers
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
 
-        var firstSeparator = value.AsSpan().IndexOfAny(['/', '\\']);
+        var firstSeparator = value.AsSpan().IndexOfAny(Separators);
         if (firstSeparator < 0)
         {
             return value;

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -18,22 +18,31 @@ namespace SourceDocParser.Zensical.Tests;
 /// </summary>
 public class NavigationEmitterTests
 {
+    /// <summary>Fixture value for ReactiveUiPackage.</summary>
+    private const string ReactiveUiPackage = "ReactiveUI";
+
+    /// <summary>Fixture value for SplatPackage.</summary>
+    private const string SplatPackage = "Splat";
+
+    /// <summary>Fixture value for AlphaName.</summary>
+    private const string AlphaName = "Alpha";
+
     /// <summary>Routed types are grouped under the matching package folder.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task BuildGroupsByRoutedPackage()
     {
         var options = new ZensicalEmitterOptions([
-            new(FolderName: "ReactiveUI", AssemblyPrefix: "ReactiveUI"),
+            new(FolderName: ReactiveUiPackage, AssemblyPrefix: ReactiveUiPackage),
         ]);
         var builder = new NavigationGraphBuilder(options);
-        var typeA = TestData.ObjectType("Foo", assemblyName: "ReactiveUI") with { Namespace = "ReactiveUI" };
+        var typeA = TestData.ObjectType("Foo", assemblyName: ReactiveUiPackage) with { Namespace = ReactiveUiPackage };
 
         var graph = builder.Build([typeA]);
 
         await Assert.That(graph.Packages.Length).IsEqualTo(1);
-        await Assert.That(graph.Packages[0].Name).IsEqualTo("ReactiveUI");
-        await Assert.That(graph.Packages[0].Namespaces[0].Name).IsEqualTo("ReactiveUI");
+        await Assert.That(graph.Packages[0].Name).IsEqualTo(ReactiveUiPackage);
+        await Assert.That(graph.Packages[0].Namespaces[0].Name).IsEqualTo(ReactiveUiPackage);
         await Assert.That(graph.Packages[0].Namespaces[0].Types[0].Title).IsEqualTo("Foo");
         await Assert.That(graph.Packages[0].Namespaces[0].Types[0].Path).IsEqualTo("ReactiveUI/ReactiveUI/Foo.md");
     }
@@ -44,11 +53,11 @@ public class NavigationEmitterTests
     public async Task BuildDefaultsPackageToAssemblyName()
     {
         var builder = new NavigationGraphBuilder(ZensicalEmitterOptions.Default);
-        var type = TestData.ObjectType("Foo", assemblyName: "Splat") with { Namespace = "Bar" };
+        var type = TestData.ObjectType("Foo", assemblyName: SplatPackage) with { Namespace = "Bar" };
 
         var graph = builder.Build([type]);
 
-        await Assert.That(graph.Packages[0].Name).IsEqualTo("Splat");
+        await Assert.That(graph.Packages[0].Name).IsEqualTo(SplatPackage);
         await Assert.That(graph.Packages[0].Namespaces[0].Name).IsEqualTo("Bar");
         await Assert.That(graph.Packages[0].Namespaces[0].Types[0].Path).IsEqualTo("Splat/Bar/Foo.md");
     }
@@ -58,15 +67,16 @@ public class NavigationEmitterTests
     [Test]
     public async Task EntriesAreOrderedAlphabetically()
     {
+        const int ExpectedEntries = 2;
         var builder = new NavigationGraphBuilder(ZensicalEmitterOptions.Default);
-        var zType = TestData.ObjectType("Zeta") with { Namespace = "Bar" };
-        var aType = TestData.ObjectType("Alpha") with { Namespace = "Bar" };
+        var zetaType = TestData.ObjectType("Zeta") with { Namespace = "Bar" };
+        var alphaType = TestData.ObjectType(AlphaName) with { Namespace = "Bar" };
 
-        var graph = builder.Build([zType, aType]);
+        var graph = builder.Build([zetaType, alphaType]);
         var entries = graph.Packages[0].Namespaces[0].Types;
 
-        await Assert.That(entries.Length).IsEqualTo(2);
-        await Assert.That(entries[0].Title).IsEqualTo("Alpha");
+        await Assert.That(entries.Length).IsEqualTo(ExpectedEntries);
+        await Assert.That(entries[0].Title).IsEqualTo(AlphaName);
         await Assert.That(entries[1].Title).IsEqualTo("Zeta");
     }
 
@@ -77,12 +87,12 @@ public class NavigationEmitterTests
     {
         var builder = new NavigationGraphBuilder(ZensicalEmitterOptions.Default);
         var beta = TestData.ObjectType("X", assemblyName: "Beta") with { Namespace = "Z.Sub" };
-        var alpha = TestData.ObjectType("Y", assemblyName: "Alpha") with { Namespace = "A.Sub" };
-        var alphaSecondNs = TestData.ObjectType("W", assemblyName: "Alpha") with { Namespace = "B.Sub" };
+        var alpha = TestData.ObjectType("Y", assemblyName: AlphaName) with { Namespace = "A.Sub" };
+        var alphaSecondNs = TestData.ObjectType("W", assemblyName: AlphaName) with { Namespace = "B.Sub" };
 
         var graph = builder.Build([beta, alpha, alphaSecondNs]);
 
-        await Assert.That(graph.Packages[0].Name).IsEqualTo("Alpha");
+        await Assert.That(graph.Packages[0].Name).IsEqualTo(AlphaName);
         await Assert.That(graph.Packages[1].Name).IsEqualTo("Beta");
         await Assert.That(graph.Packages[0].Namespaces[0].Name).IsEqualTo("A.Sub");
         await Assert.That(graph.Packages[0].Namespaces[1].Name).IsEqualTo("B.Sub");
@@ -94,7 +104,7 @@ public class NavigationEmitterTests
     public async Task TypesWithoutNamespaceFallToGlobalBucket()
     {
         var builder = new NavigationGraphBuilder(ZensicalEmitterOptions.Default);
-        var type = TestData.ObjectType("Foo", assemblyName: "Splat") with { Namespace = string.Empty };
+        var type = TestData.ObjectType("Foo", assemblyName: SplatPackage) with { Namespace = string.Empty };
 
         var graph = builder.Build([type]);
 
@@ -195,27 +205,25 @@ public class NavigationEmitterTests
     [Test]
     public async Task BuildPropagatesKindAcrossArityDuplicates()
     {
+        const int PairArity = 2;
+        const int ExpectedEntries = 2;
         var builder = new NavigationGraphBuilder(ZensicalEmitterOptions.Default);
         var change1 = TestData.ObjectType("Change", ApiObjectKind.Class) with { Namespace = "Demo", Arity = 1 };
-        var change2 = TestData.ObjectType("Change", ApiObjectKind.Class) with { Namespace = "Demo", Arity = 2 };
+        var change2 = TestData.ObjectType("Change", ApiObjectKind.Class) with { Namespace = "Demo", Arity = PairArity };
 
         var graph = builder.Build([change1, change2]);
         var entries = graph.Packages[0].Namespaces[0].Types;
 
-        await Assert.That(entries.Length).IsEqualTo(2);
+        await Assert.That(entries.Length).IsEqualTo(ExpectedEntries);
         await Assert.That(entries[0].Title).IsEqualTo("Change<T1, T2>");
         await Assert.That(entries[0].Kind).IsEqualTo(NavigationTypeKind.Class);
-        await Assert.That(entries[0].Arity).IsEqualTo(2);
+        await Assert.That(entries[0].Arity).IsEqualTo(PairArity);
         await Assert.That(entries[1].Title).IsEqualTo("Change<T>");
         await Assert.That(entries[1].Kind).IsEqualTo(NavigationTypeKind.Class);
         await Assert.That(entries[1].Arity).IsEqualTo(1);
     }
 
-    /// <summary>
-    /// A non-generic type carries <c>Arity = 0</c> and an empty
-    /// <see cref="NavigationEntry.TypeParameters"/> -- the consumer
-    /// can branch on that to skip generic-rendering.
-    /// </summary>
+    /// <summary>A non-generic type carries <c>Arity = 0</c> and an empty <see cref="NavigationEntry.TypeParameters"/> -- the consumer can branch on that to skip generic-rendering.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task BuildExposesZeroArityForNonGenericTypes()
@@ -240,19 +248,20 @@ public class NavigationEmitterTests
     [Test]
     public async Task BuildPropagatesAuthorGivenTypeParameterNames()
     {
+        const int Arity = 2;
         var builder = new NavigationGraphBuilder(ZensicalEmitterOptions.Default);
         var type = TestData.ObjectType("Dictionary", ApiObjectKind.Class) with
         {
             Namespace = "System.Collections.Generic",
-            Arity = 2,
+            Arity = Arity,
             TypeParameters = ["TKey", "TValue"],
         };
 
         var graph = builder.Build([type]);
         var entry = graph.Packages[0].Namespaces[0].Types[0];
 
-        await Assert.That(entry.Arity).IsEqualTo(2);
-        await Assert.That(entry.TypeParameters.Length).IsEqualTo(2);
+        await Assert.That(entry.Arity).IsEqualTo(Arity);
+        await Assert.That(entry.TypeParameters.Length).IsEqualTo(Arity);
         await Assert.That(entry.TypeParameters[0]).IsEqualTo("TKey");
         await Assert.That(entry.TypeParameters[1]).IsEqualTo("TValue");
     }
@@ -268,13 +277,13 @@ public class NavigationEmitterTests
     public async Task BuildSurfacesPackageAndNamespaceLandingPagePaths()
     {
         var builder = new NavigationGraphBuilder(ZensicalEmitterOptions.Default);
-        var type = TestData.ObjectType("Foo", assemblyName: "Splat") with { Namespace = "Splat.Sub" };
+        var type = TestData.ObjectType("Foo", assemblyName: SplatPackage) with { Namespace = "Splat.Sub" };
 
         var graph = builder.Build([type]);
         var package = graph.Packages[0];
         var ns = package.Namespaces[0];
 
-        await Assert.That(package.Folder).IsEqualTo("Splat");
+        await Assert.That(package.Folder).IsEqualTo(SplatPackage);
         await Assert.That(package.LandingPagePath).IsEqualTo("Splat/index.md");
         await Assert.That(ns.Folder).IsEqualTo("Splat/Sub");
         await Assert.That(ns.LandingPagePath).IsEqualTo("Splat/Splat/Sub/index.md");
@@ -292,7 +301,7 @@ public class NavigationEmitterTests
     public async Task BuildMapsGlobalNamespaceToUnderscoreGlobalFolder()
     {
         var builder = new NavigationGraphBuilder(ZensicalEmitterOptions.Default);
-        var type = TestData.ObjectType("Foo", assemblyName: "Splat") with { Namespace = string.Empty };
+        var type = TestData.ObjectType("Foo", assemblyName: SplatPackage) with { Namespace = string.Empty };
 
         var graph = builder.Build([type]);
         var ns = graph.Packages[0].Namespaces[0];
@@ -313,7 +322,7 @@ public class NavigationEmitterTests
     public async Task BuildUsesRoutedFolderForLandingPagePathWhenAssemblyNameDiffers()
     {
         var options = new ZensicalEmitterOptions([
-            new(FolderName: "ReactiveUI", AssemblyPrefix: "ReactiveUI"),
+            new(FolderName: ReactiveUiPackage, AssemblyPrefix: ReactiveUiPackage),
         ]);
         var builder = new NavigationGraphBuilder(options);
         var type = TestData.ObjectType("Foo", assemblyName: "ReactiveUI.Maui") with { Namespace = "ReactiveUI.Maui" };
@@ -322,8 +331,8 @@ public class NavigationEmitterTests
         var package = graph.Packages[0];
         var ns = package.Namespaces[0];
 
-        await Assert.That(package.Name).IsEqualTo("ReactiveUI");
-        await Assert.That(package.Folder).IsEqualTo("ReactiveUI");
+        await Assert.That(package.Name).IsEqualTo(ReactiveUiPackage);
+        await Assert.That(package.Folder).IsEqualTo(ReactiveUiPackage);
         await Assert.That(package.LandingPagePath).IsEqualTo("ReactiveUI/index.md");
         await Assert.That(ns.LandingPagePath).IsEqualTo("ReactiveUI/ReactiveUI/Maui/index.md");
     }

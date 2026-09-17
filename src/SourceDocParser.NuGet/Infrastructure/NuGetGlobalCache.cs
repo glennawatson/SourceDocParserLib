@@ -1,8 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using SourceDocParser.NuGet.Readers;
 
 namespace SourceDocParser.NuGet.Infrastructure;
@@ -33,7 +33,8 @@ internal static class NuGetGlobalCache
     /// variables and platform defaults when no config override is supplied.
     /// </summary>
     /// <returns>The absolute path to the global packages folder.</returns>
-    public static string ResolveGlobalPackagesFolder() =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string ResolveGlobalPackagesFolder() =>
         ResolveGlobalPackagesFolder(null);
 
     /// <summary>
@@ -44,13 +45,13 @@ internal static class NuGetGlobalCache
     /// is supplied) -> platform default
     /// (<c>~/.nuget/packages</c> on Unix, <c>%USERPROFILE%\.nuget\packages</c>
     /// on Windows). The optional override is the resolved value from
-    /// <see cref="NuGetConfigReader.ReadGlobalPackagesFolderAsync(string,System.Threading.CancellationToken)"/>;
+    /// <see cref="NuGetConfigReader.ReadGlobalPackagesFolderAsync(string,CancellationToken)"/>;
     /// callers that don't care about config-file overrides pass
     /// <see langword="null"/>.
     /// </summary>
     /// <param name="configOverride">Pre-resolved value from a <c>nuget.config</c>, or <see langword="null"/> when none.</param>
     /// <returns>The absolute path to the global packages folder.</returns>
-    public static string ResolveGlobalPackagesFolder(string? configOverride)
+    internal static string ResolveGlobalPackagesFolder(string? configOverride)
     {
         var envValue = Environment.GetEnvironmentVariable(GlobalPackagesFolderEnvVar);
         if (TextHelpers.HasNonWhitespace(envValue))
@@ -75,8 +76,7 @@ internal static class NuGetGlobalCache
     /// <param name="packageId">The ID of the NuGet package.</param>
     /// <param name="packageVersion">The version of the NuGet package.</param>
     /// <returns>The absolute path to the specific package installation folder.</returns>
-    [SuppressMessage("Minor Code Smell", "S4040:Strings should be normalized to uppercase", Justification = "NuGet lowercases package ID and version when laying out the cache")]
-    public static string GetPackageInstallPath(string globalPackagesFolder, string packageId, string packageVersion)
+    internal static string GetPackageInstallPath(string globalPackagesFolder, string packageId, string packageVersion)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(globalPackagesFolder);
         ArgumentException.ThrowIfNullOrWhiteSpace(packageId);
@@ -95,7 +95,7 @@ internal static class NuGetGlobalCache
     /// <param name="packageInstallPath">Result of <see cref="GetPackageInstallPath"/>.</param>
     /// <param name="tfm">Short TFM identifier (e.g. <c>net8.0</c>, <c>net472</c>).</param>
     /// <returns>The absolute lib/TFM path.</returns>
-    public static string GetLibTfmPath(string packageInstallPath, string tfm)
+    internal static string GetLibTfmPath(string packageInstallPath, string tfm)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(packageInstallPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(tfm);
@@ -111,7 +111,7 @@ internal static class NuGetGlobalCache
     /// </summary>
     /// <param name="packageInstallPath">Result of <see cref="GetPackageInstallPath"/>.</param>
     /// <returns>True when the package has been fully installed.</returns>
-    public static bool IsPackageInstalled(string packageInstallPath)
+    internal static bool IsPackageInstalled(string packageInstallPath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(packageInstallPath);
         return File.Exists(Path.Combine(packageInstallPath, ExtractionMarkerFileName));
@@ -123,7 +123,8 @@ internal static class NuGetGlobalCache
     /// walk-from-cwd on top and machine-scoped underneath.
     /// </summary>
     /// <returns>Candidate nuget.config paths in precedence order.</returns>
-    public static string[] GetUserNuGetConfigPaths() =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string[] GetUserNuGetConfigPaths() =>
         NuGetConfigPathsResolver.GetUserPaths(
             OperatingSystem.IsWindows(),
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -138,7 +139,7 @@ internal static class NuGetGlobalCache
     /// <c>/etc/opt/NuGet/Config/</c>.
     /// </summary>
     /// <returns>Existing <c>*.config</c> paths under the machine root, sorted ordinal.</returns>
-    public static string[] GetMachineNuGetConfigPaths()
+    internal static string[] GetMachineNuGetConfigPaths()
     {
         var root = OperatingSystem.IsWindows()
             ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "NuGet", "Config")
@@ -152,7 +153,7 @@ internal static class NuGetGlobalCache
     /// <param name="packageId">NuGet package id.</param>
     /// <param name="packageVersion">Normalised version string.</param>
     /// <returns>The fallback install path when found; null otherwise.</returns>
-    public static string? ProbeFallbackFolders(string[] fallbackFolders, string packageId, string packageVersion)
+    internal static string? ProbeFallbackFolders(string[] fallbackFolders, string packageId, string packageVersion)
     {
         for (var i = 0; i < fallbackFolders.Length; i++)
         {

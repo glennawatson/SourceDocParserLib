@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -27,7 +27,7 @@ internal static class PageBuilderPool
     /// </summary>
     /// <param name="hintCapacity">Initial capacity hint for the page body.</param>
     /// <returns>A rental scope holding the builder.</returns>
-    public static PageBuilderRental Rent(int hintCapacity)
+    internal static PageBuilderRental Rent(int hintCapacity)
     {
         var sb = _scratch;
         _scratch = null;
@@ -37,10 +37,10 @@ internal static class PageBuilderPool
         }
         else
         {
-            sb.Clear();
+            _ = sb.Clear();
             if (sb.Capacity < hintCapacity)
             {
-                sb.EnsureCapacity(hintCapacity);
+                _ = sb.EnsureCapacity(hintCapacity);
             }
         }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -22,6 +22,9 @@ namespace SourceDocParser.IntegrationTests;
 /// </remarks>
 public class SourceLinkValidatorTests
 {
+    /// <summary>Documentation identifier used for the missing source fixture.</summary>
+    private const string MissingTypeUid = "T:ReactiveUI.Missing";
+
     /// <summary>
     /// Real ReactiveUI source pinned to an immutable release commit (the 23.2.28 tag) rather than a
     /// moving branch ref. Files get moved/renamed on <c>main</c> over time (e.g. the primitives
@@ -64,7 +67,7 @@ public class SourceLinkValidatorTests
     public async Task FlagsHttpFailureAsBroken()
     {
         var validator = new SourceLinkValidator();
-        SourceLinkEntry[] entries = [new("T:ReactiveUI.Missing", KnownMissingUrl)];
+        SourceLinkEntry[] entries = [new(MissingTypeUid, KnownMissingUrl)];
 
         var brokenCount = await validator.ValidateAsync(entries).ConfigureAwait(false);
 
@@ -86,7 +89,7 @@ public class SourceLinkValidatorTests
         [
             new("T:ReactiveUI.ReactiveObject", KnownLiveUrl),
             new("M:ReactiveUI.ReactiveObject.RaisePropertyChanged", KnownLiveUrl),
-            new("T:ReactiveUI.Missing", KnownMissingUrl),
+            new(MissingTypeUid, KnownMissingUrl),
         ];
 
         var brokenCount = await validator.ValidateAsync(entries).ConfigureAwait(false);
@@ -94,10 +97,7 @@ public class SourceLinkValidatorTests
         await Assert.That(brokenCount).IsEqualTo(1);
     }
 
-    /// <summary>
-    /// Empty input short-circuits to zero. No HTTP traffic, no
-    /// rate-limiter spin-up -- pins the early-return path.
-    /// </summary>
+    /// <summary>Empty input short-circuits to zero. No HTTP traffic, no rate-limiter spin-up -- pins the early-return path.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task EmptyInputReturnsZeroWithoutTouchingNetwork()
@@ -111,7 +111,7 @@ public class SourceLinkValidatorTests
     }
 
     /// <summary>
-    /// failOnBroken: a broken URL with the flag set throws
+    /// FailOnBroken: a broken URL with the flag set throws
     /// <see cref="InvalidOperationException"/> rather than returning
     /// a count -- pins the contract that build pipelines rely on for
     /// hard failure.
@@ -121,7 +121,7 @@ public class SourceLinkValidatorTests
     public async Task FailOnBrokenThrowsForBrokenLink()
     {
         var validator = new SourceLinkValidator();
-        SourceLinkEntry[] entries = [new("T:ReactiveUI.Missing", KnownMissingUrl)];
+        SourceLinkEntry[] entries = [new(MissingTypeUid, KnownMissingUrl)];
 
         await Assert.That(() => validator.ValidateAsync(entries, failOnBroken: true))
             .Throws<InvalidOperationException>();

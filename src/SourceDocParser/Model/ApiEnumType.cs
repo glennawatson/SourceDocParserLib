@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -29,6 +29,7 @@ namespace SourceDocParser.Model;
 /// <param name="Attributes">Attributes applied to the type, in declaration order.</param>
 /// <param name="UnderlyingType">Reference to the integral storage type (e.g. <c>System.Int32</c>).</param>
 /// <param name="Values">Declared enum values in source order.</param>
+[System.Diagnostics.DebuggerDisplay("ApiEnumType: {ToString(),nq}")]
 public sealed record ApiEnumType(
     string Name,
     string FullName,

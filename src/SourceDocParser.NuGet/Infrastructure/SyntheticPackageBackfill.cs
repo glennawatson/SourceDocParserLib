@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,7 +16,6 @@ namespace SourceDocParser.NuGet.Infrastructure;
 /// live in the <c>Microsoft.WindowsAppSDK</c> NuGet package which the
 /// nuspec doesn't surface. The transitive walker would otherwise miss
 /// it and the resolver later logs the assembly as unresolved.
-///
 /// This helper reads every extracted DLL via
 /// <see cref="System.Reflection.Metadata.MetadataReader"/>, projects
 /// each assembly reference through the synthetic-ref → NuGet-id map,
@@ -34,7 +33,6 @@ internal static class SyntheticPackageBackfill
     /// name lives in <see cref="KnownFrameworkPackageMap"/>, and
     /// returns the corresponding NuGet package IDs minus any already
     /// fetched (tracked in <paramref name="seenIds"/>).
-    ///
     /// Pure read-only -- never mutates <paramref name="seenIds"/>;
     /// the caller is responsible for marking the returned IDs as
     /// queued before the next BFS round.
@@ -42,7 +40,7 @@ internal static class SyntheticPackageBackfill
     /// <param name="libDir">Per-TFM lib output root the fetcher extracts into.</param>
     /// <param name="seenIds">Package IDs already fetched / queued; never modified by this method.</param>
     /// <returns>De-duplicated package IDs to schedule for the next fetch round.</returns>
-    public static List<string> DiscoverFromExtractedAssemblies(string libDir, HashSet<string> seenIds)
+    internal static List<string> DiscoverFromExtractedAssemblies(string libDir, HashSet<string> seenIds)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(libDir);
         ArgumentNullException.ThrowIfNull(seenIds);

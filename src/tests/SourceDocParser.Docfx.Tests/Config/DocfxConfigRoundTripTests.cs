@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -74,9 +74,7 @@ public class DocfxConfigRoundTripTests
         await Assert.That(firstContent.Extra!.ContainsKey("exclude")).IsTrue();
     }
 
-    /// <summary>
-    /// An empty top-level object parses into a config with empty metadata and an empty build content list.
-    /// </summary>
+    /// <summary>An empty top-level object parses into a config with empty metadata and an empty build content list.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ReadAcceptsEmptyObject()
@@ -87,16 +85,12 @@ public class DocfxConfigRoundTripTests
         await Assert.That(config.Build.Content.Length).IsEqualTo(0);
     }
 
-    /// <summary>
-    /// A non-object root throws a JsonException with a clear message.
-    /// </summary>
+    /// <summary>A non-object root throws a JsonException with a clear message.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ReadRejectsNonObjectRoot() => await Assert.That(static () => ReadFromString("[1, 2, 3]")).ThrowsExactly<JsonException>();
 
-    /// <summary>
-    /// Reads a docfx config from a string by encoding it to UTF-8 and feeding the bytes to the reader.
-    /// </summary>
+    /// <summary>Reads a docfx config from a string by encoding it to UTF-8 and feeding the bytes to the reader.</summary>
     /// <param name="json">JSON document body.</param>
     /// <returns>The parsed configuration.</returns>
     private static DocfxConfig ReadFromString(string json)
@@ -165,7 +159,7 @@ public class DocfxConfigRoundTripTests
             {
                 var src = entry.Src[srcIndex];
                 writer.WriteStartObject();
-                writer.WriteString("src", src.Src);
+                writer.WriteString(nameof(src), src.Src);
                 writer.WritePropertyName("files");
                 writer.WriteStartArray();
                 for (var fileIndex = 0; fileIndex < src.Files.Length; fileIndex++)
@@ -195,7 +189,7 @@ public class DocfxConfigRoundTripTests
             writer.WriteStartObject();
             if (c.Files is { } files)
             {
-                writer.WritePropertyName("files");
+                writer.WritePropertyName(nameof(files));
                 writer.WriteStartArray();
                 for (var fileIndex = 0; fileIndex < files.Length; fileIndex++)
                 {
@@ -216,9 +210,7 @@ public class DocfxConfigRoundTripTests
         writer.WriteEndObject();
     }
 
-    /// <summary>
-    /// Emits extras through <see cref="JsonElement.WriteTo(Utf8JsonWriter)"/>.
-    /// </summary>
+    /// <summary>Emits extras through <see cref="JsonElement.WriteTo(Utf8JsonWriter)"/>.</summary>
     /// <param name="writer">Destination writer.</param>
     /// <param name="extras">Extras dictionary.</param>
     private static void WriteExtras(Utf8JsonWriter writer, Dictionary<string, JsonElement>? extras)

@@ -1,8 +1,9 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers;
+using System.Runtime.CompilerServices;
 using SourceDocParser.Docfx.Config;
 
 namespace SourceDocParser.Docfx.Common;
@@ -22,12 +23,10 @@ internal static class DocfxInternalHelpers
     /// <summary>Cached set of filename-unsafe characters; one allocation per process instead of per call.</summary>
     private static readonly SearchValues<char> _unsafeStemChars = SearchValues.Create('<', '>', '/', '\\', '*', '?', '|', ':', '"');
 
-    /// <summary>
-    /// Returns the names of every immediate sub-directory of <paramref name="root"/> that contains at least one DLL.
-    /// </summary>
+    /// <summary>Returns the names of every immediate sub-directory of <paramref name="root"/> that contains at least one DLL.</summary>
     /// <param name="root">Directory to enumerate.</param>
     /// <returns>Sorted list of TFM directory names.</returns>
-    public static List<string> DiscoverTfms(string root)
+    internal static List<string> DiscoverTfms(string root)
     {
         List<string> tfms = [];
 
@@ -44,14 +43,12 @@ internal static class DocfxInternalHelpers
         return tfms;
     }
 
-    /// <summary>
-    /// Returns a case-insensitive set of DLL filenames in <paramref name="dir"/> (or empty if the directory does not exist).
-    /// </summary>
+    /// <summary>Returns a case-insensitive set of DLL filenames in <paramref name="dir"/> (or empty if the directory does not exist).</summary>
     /// <param name="dir">Directory to scan.</param>
     /// <returns>Set of DLL filenames.</returns>
-    public static HashSet<string> CollectDllNames(string dir)
+    internal static HashSet<string> CollectDllNames(string dir)
     {
-        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> names = [with(StringComparer.OrdinalIgnoreCase)];
         if (!Directory.Exists(dir))
         {
             return names;
@@ -59,20 +56,18 @@ internal static class DocfxInternalHelpers
 
         foreach (var file in Directory.EnumerateFiles(dir, DllPattern))
         {
-            names.Add(Path.GetFileName(file.AsSpan()).ToString());
+            _ = names.Add(Path.GetFileName(file.AsSpan()).ToString());
         }
 
         return names;
     }
 
-    /// <summary>
-    /// Returns the cached DLL filename set for a refs/ TFM, populating it on the first request.
-    /// </summary>
+    /// <summary>Returns the cached DLL filename set for a refs/ TFM, populating it on the first request.</summary>
     /// <param name="cache">Per-run cache keyed by refs/ TFM.</param>
     /// <param name="tfm">refs/ TFM whose DLL names are needed.</param>
     /// <param name="dir">Directory to scan on a cache miss.</param>
     /// <returns>Case-insensitive set of DLL filenames.</returns>
-    public static HashSet<string> GetOrAddDllNames(
+    internal static HashSet<string> GetOrAddDllNames(
         Dictionary<string, HashSet<string>> cache,
         string tfm,
         string dir)
@@ -87,13 +82,11 @@ internal static class DocfxInternalHelpers
         return names;
     }
 
-    /// <summary>
-    /// Lists the package DLL filenames in <paramref name="libTfmDir"/>, excluding any that match a co-located reference assembly.
-    /// </summary>
+    /// <summary>Lists the package DLL filenames in <paramref name="libTfmDir"/>, excluding any that match a co-located reference assembly.</summary>
     /// <param name="libTfmDir">Per-TFM lib directory.</param>
     /// <param name="refDllNames">Filenames of reference assemblies to exclude.</param>
     /// <returns>Sorted list of package DLL filenames.</returns>
-    public static List<string> CollectPackageDllNames(string libTfmDir, HashSet<string> refDllNames)
+    internal static List<string> CollectPackageDllNames(string libTfmDir, HashSet<string> refDllNames)
     {
         List<string> packageDlls = [];
 
@@ -110,15 +103,13 @@ internal static class DocfxInternalHelpers
         return packageDlls;
     }
 
-    /// <summary>
-    /// Removes previously-injected platform <c>api-*</c> content entries and appends a fresh set.
-    /// </summary>
+    /// <summary>Removes previously-injected platform <c>api-*</c> content entries and appends a fresh set.</summary>
     /// <param name="template">Build section from the template.</param>
     /// <param name="platformLabels">Platform labels to inject content entries for, in deterministic order.</param>
     /// <returns>The patched build section.</returns>
-    public static DocfxBuildSection PatchBuildSection(DocfxBuildSection template, string[] platformLabels)
+    internal static DocfxBuildSection PatchBuildSection(DocfxBuildSection template, string[] platformLabels)
     {
-        List<DocfxBuildContent> content = new(template.Content.Length + platformLabels.Length);
+        List<DocfxBuildContent> content = [with(template.Content.Length + platformLabels.Length)];
         for (var i = 0; i < template.Content.Length; i++)
         {
             var item = template.Content[i];
@@ -137,12 +128,10 @@ internal static class DocfxInternalHelpers
         return template with { Content = [.. content] };
     }
 
-    /// <summary>
-    /// Detects content entries previously injected by the config writer.
-    /// </summary>
+    /// <summary>Detects content entries previously injected by the config writer.</summary>
     /// <param name="entry">A build content entry from the template.</param>
     /// <returns>True if the entry was previously injected.</returns>
-    public static bool IsInjectedPlatformEntry(DocfxBuildContent entry)
+    internal static bool IsInjectedPlatformEntry(DocfxBuildContent entry)
     {
         if (entry.Files is not [var firstFile, ..])
         {
@@ -153,26 +142,15 @@ internal static class DocfxInternalHelpers
             && !firstFile.StartsWith("api/", StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// Sanitises a UID into a filesystem-safe stem with an early return for strings that need no substitutions.
-    /// </summary>
+    /// <summary>Sanitises a UID into a filesystem-safe stem with an early return for strings that need no substitutions.</summary>
     /// <param name="value">UID or full name to sanitise.</param>
     /// <returns>The filesystem-safe stem.</returns>
-    public static string SanitiseFileStem(string value)
-    {
-        if (value.AsSpan().IndexOfAny(_unsafeStemChars) < 0)
-        {
-            return value;
-        }
+    internal static string SanitiseFileStem(string value) => value.AsSpan().IndexOfAny(_unsafeStemChars) < 0 ? value : SanitiseFileStemSlow(value);
 
-        return SanitiseFileStemSlow(value);
-    }
-
-    /// <summary>
-    /// Slow path of <see cref="SanitiseFileStem"/> for values that contain characters needing replacement.
-    /// </summary>
+    /// <summary>Slow path of <see cref="SanitiseFileStem"/> for values that contain characters needing replacement.</summary>
     /// <param name="value">String to sanitise.</param>
     /// <returns>Sanitised copy.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string SanitiseFileStemSlow(string value) =>
         string.Create(
             value.Length,

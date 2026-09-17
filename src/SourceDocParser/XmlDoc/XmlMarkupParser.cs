@@ -1,12 +1,10 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 namespace SourceDocParser.XmlDoc;
 
-/// <summary>
-/// Static helpers for parsing XML markup (tags, comments, CDATA, PI).
-/// </summary>
+/// <summary>Static helpers for parsing XML markup (tags, comments, CDATA, PI).</summary>
 internal static class XmlMarkupParser
 {
     /// <summary>Opening delimiter for an XML comment.</summary>
@@ -24,14 +22,10 @@ internal static class XmlMarkupParser
     /// <summary>Closing delimiter for a processing instruction.</summary>
     private const string PiClose = "?>";
 
-    /// <summary>
-    /// Length of the opening delimiter for an XML tag.
-    /// </summary>
+    /// <summary>Length of the opening delimiter for an XML tag.</summary>
     private const int LtLen = 1;
 
-    /// <summary>
-    /// Length of the prefix for an end element tag.
-    /// </summary>
+    /// <summary>Length of the prefix for an end element tag.</summary>
     private const int EndElementPrefixLen = 2;
 
     /// <summary>
@@ -44,7 +38,7 @@ internal static class XmlMarkupParser
     /// <param name="input">The full input span.</param>
     /// <param name="pos">The current position.</param>
     /// <returns>A <see cref="MarkupResult"/> describing what was found.</returns>
-    public static MarkupResult ReadMarkup(ReadOnlySpan<char> input, int pos)
+    internal static MarkupResult ReadMarkup(ReadOnlySpan<char> input, int pos)
     {
         if (pos + LtLen >= input.Length)
         {
@@ -61,23 +55,18 @@ internal static class XmlMarkupParser
                         return commentResult;
                     }
 
-                    if (TryReadCdata(input, pos, out var cdataResult))
-                    {
-                        return cdataResult;
-                    }
-
-                    return ReadStartElement(input, pos);
+                    return TryReadCdata(input, pos, out var cdataResult) ? cdataResult : ReadStartElement(input, pos);
                 }
 
             case '?':
                 {
-                    TryReadProcessingInstruction(input, pos, out var piResult);
+                    _ = TryReadProcessingInstruction(input, pos, out var piResult);
                     return piResult;
                 }
 
             case '/':
                 {
-                    TryReadEndElement(input, pos, out var endElementResult);
+                    _ = TryReadEndElement(input, pos, out var endElementResult);
                     return endElementResult;
                 }
 
@@ -88,9 +77,7 @@ internal static class XmlMarkupParser
         }
     }
 
-    /// <summary>
-    /// Tries to read an XML comment.
-    /// </summary>
+    /// <summary>Tries to read an XML comment.</summary>
     /// <param name="input">The input span.</param>
     /// <param name="pos">The current position.</param>
     /// <param name="result">The result if successful.</param>
@@ -115,9 +102,7 @@ internal static class XmlMarkupParser
         return false;
     }
 
-    /// <summary>
-    /// Tries to read a CDATA section.
-    /// </summary>
+    /// <summary>Tries to read a CDATA section.</summary>
     /// <param name="input">The input span.</param>
     /// <param name="pos">The current position.</param>
     /// <param name="result">The result if successful.</param>
@@ -134,13 +119,7 @@ internal static class XmlMarkupParser
                 return true;
             }
 
-            result = new()
-            {
-                RawText = input[afterOpen..(afterOpen + end)],
-                NewPos = afterOpen + end + CdataClose.Length,
-                Kind = DocTokenKind.Text,
-                Success = true
-            };
+            result = new() { RawText = input[afterOpen..(afterOpen + end)], NewPos = afterOpen + end + CdataClose.Length, Kind = DocTokenKind.Text, Success = true };
             return true;
         }
 
@@ -148,9 +127,7 @@ internal static class XmlMarkupParser
         return false;
     }
 
-    /// <summary>
-    /// Tries to read a processing instruction.
-    /// </summary>
+    /// <summary>Tries to read a processing instruction.</summary>
     /// <param name="input">The input span.</param>
     /// <param name="pos">The current position.</param>
     /// <param name="result">The result if successful.</param>
@@ -175,9 +152,7 @@ internal static class XmlMarkupParser
         return false;
     }
 
-    /// <summary>
-    /// Tries to read an end element.
-    /// </summary>
+    /// <summary>Tries to read an end element.</summary>
     /// <param name="input">The input span.</param>
     /// <param name="pos">The current position.</param>
     /// <param name="result">The result if successful.</param>
@@ -194,13 +169,7 @@ internal static class XmlMarkupParser
                 return true;
             }
 
-            result = new()
-            {
-                Name = input[nameStart..(nameStart + end)].Trim(),
-                NewPos = nameStart + end + 1,
-                Kind = DocTokenKind.EndElement,
-                Success = true
-            };
+            result = new() { Name = input[nameStart..(nameStart + end)].Trim(), NewPos = nameStart + end + 1, Kind = DocTokenKind.EndElement, Success = true };
             return true;
         }
 
@@ -208,9 +177,7 @@ internal static class XmlMarkupParser
         return false;
     }
 
-    /// <summary>
-    /// Reads a start element.
-    /// </summary>
+    /// <summary>Reads a start element.</summary>
     /// <param name="input">The input span.</param>
     /// <param name="pos">The current position.</param>
     /// <returns>A <see cref="MarkupResult"/> describing what was found.</returns>
@@ -236,14 +203,6 @@ internal static class XmlMarkupParser
             nameEnd++;
         }
 
-        return new()
-        {
-            Name = tagBody[..nameEnd],
-            AttrArea = tagBody[nameEnd..],
-            NewPos = pos + tagEnd + 1,
-            Kind = DocTokenKind.StartElement,
-            IsEmptyElement = isEmptyElement,
-            Success = true
-        };
+        return new() { Name = tagBody[..nameEnd], AttrArea = tagBody[nameEnd..], NewPos = pos + tagEnd + 1, Kind = DocTokenKind.StartElement, IsEmptyElement = isEmptyElement, Success = true };
     }
 }

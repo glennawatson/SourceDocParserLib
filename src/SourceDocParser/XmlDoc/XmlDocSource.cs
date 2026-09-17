@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -21,7 +21,6 @@ namespace SourceDocParser.XmlDoc;
 /// Get(). Keeps peak memory bounded to one source string plus a small
 /// Range entry per member, instead of thousands of small per-member
 /// strings hanging off the dictionary.
-///
 /// Thread safety: build-once-then-read-many. Both factories build the
 /// internal dictionary and return; nothing writes after that. Get() is
 /// safe to call from multiple threads concurrently -- the parallel
@@ -29,6 +28,7 @@ namespace SourceDocParser.XmlDoc;
 /// compilation, and Roslyn routes those into this source via the
 /// FileXmlDocumentationProvider hook.
 /// </remarks>
+[System.Diagnostics.DebuggerDisplay("XmlDocSource: {Count}")]
 public sealed class XmlDocSource : IXmlDocSource
 {
     /// <summary>Initial capacity hint for the per-file member dictionary.</summary>
@@ -43,9 +43,7 @@ public sealed class XmlDocSource : IXmlDocSource
     /// <summary>Member ID -> (start offset, exclusive end) into <see cref="_content"/>.</summary>
     private readonly Dictionary<string, MemberRange> _ranges;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="XmlDocSource"/> class.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="XmlDocSource"/> class.</summary>
     /// <param name="content">Raw .xml file text the ranges index into.</param>
     /// <param name="ranges">Member-id -> range map.</param>
     internal XmlDocSource(string content, Dictionary<string, MemberRange> ranges)
@@ -57,10 +55,7 @@ public sealed class XmlDocSource : IXmlDocSource
     /// <inheritdoc />
     public int Count => _ranges.Count;
 
-    /// <summary>
-    /// Loads <paramref name="xmlPath"/> and indexes every
-    /// member element by its <c>name</c> attribute.
-    /// </summary>
+    /// <summary>Loads <paramref name="xmlPath"/> and indexes every member element by its <c>name</c> attribute.</summary>
     /// <param name="xmlPath">Absolute path to the .xml file.</param>
     /// <returns>An indexed source over the file's contents.</returns>
     public static XmlDocSource Load(string xmlPath)
@@ -83,9 +78,7 @@ public sealed class XmlDocSource : IXmlDocSource
         return new(content, BuildIndex(content));
     }
 
-    /// <summary>
-    /// Attempts to load XML documentation sitting next to the assembly.
-    /// </summary>
+    /// <summary>Attempts to load XML documentation sitting next to the assembly.</summary>
     /// <param name="assemblyPath">The absolute path to the assembly DLL.</param>
     /// <returns>A documentation source if the XML exists; otherwise, null.</returns>
     public static XmlDocSource? TryLoad(string assemblyPath)
@@ -177,12 +170,7 @@ public sealed class XmlDocSource : IXmlDocSource
         }
 
         var closeOffset = span[(elementStart + startTagSpan.Length)..].IndexOf(CloseTag, StringComparison.Ordinal);
-        if (closeOffset < 0)
-        {
-            return ScanStep.End();
-        }
-
-        return ScanStep.Record(memberId, elementStart, elementStart + startTagSpan.Length + closeOffset + CloseTag.Length);
+        return closeOffset < 0 ? ScanStep.End() : ScanStep.Record(memberId, elementStart, elementStart + startTagSpan.Length + closeOffset + CloseTag.Length);
     }
 
     /// <summary>
@@ -224,6 +212,10 @@ public sealed class XmlDocSource : IXmlDocSource
     /// either record a member at the supplied range, skip past a
     /// malformed start tag, or stop scanning entirely.
     /// </summary>
+    /// <param name="Stop">Whether scanning is complete.</param>
+    /// <param name="MemberId">Member identifier when a complete element was found.</param>
+    /// <param name="ElementStart">Start of the member element.</param>
+    /// <param name="NextPosition">Position at which scanning resumes.</param>
     private readonly record struct ScanStep(bool Stop, string? MemberId, int ElementStart, int NextPosition)
     {
         /// <summary>Stop the outer scan loop.</summary>

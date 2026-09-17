@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -19,6 +19,9 @@ internal static class AttributeUsageFormatter
     /// <summary>The pair-separator string written between adjacent attribute arguments.</summary>
     private const string ArgumentSeparator = ", ";
 
+    /// <summary>Opening and closing parentheses around the argument list.</summary>
+    private const int ParenthesisCount = 2;
+
     /// <summary>
     /// Formats <paramref name="attribute"/> as <c>Name</c> when there
     /// are no arguments, or <c>Name(arg, Named=val)</c> otherwise.
@@ -26,7 +29,7 @@ internal static class AttributeUsageFormatter
     /// </summary>
     /// <param name="attribute">Attribute usage to render.</param>
     /// <returns>The bracket-less usage string.</returns>
-    public static string Render(ApiAttribute attribute)
+    internal static string Render(ApiAttribute attribute)
     {
         if (attribute.Arguments is [])
         {
@@ -38,7 +41,8 @@ internal static class AttributeUsageFormatter
         {
             attr.DisplayName.AsSpan().CopyTo(span);
             var cursor = attr.DisplayName.Length;
-            span[cursor++] = '(';
+            span[cursor] = '(';
+            cursor++;
             for (var i = 0; i < attr.Arguments.Length; i++)
             {
                 if (i > 0)
@@ -52,7 +56,8 @@ internal static class AttributeUsageFormatter
                 {
                     name.AsSpan().CopyTo(span[cursor..]);
                     cursor += name.Length;
-                    span[cursor++] = '=';
+                    span[cursor] = '=';
+                    cursor++;
                 }
 
                 arg.Value.AsSpan().CopyTo(span[cursor..]);
@@ -63,15 +68,12 @@ internal static class AttributeUsageFormatter
         });
     }
 
-    /// <summary>
-    /// Sums the final character count of the rendered attribute usage
-    /// so the <see cref="string.Create{TState}"/> allocation is exact.
-    /// </summary>
+    /// <summary>Sums the final character count of the rendered attribute usage so the <see cref="string.Create{TState}"/> allocation is exact.</summary>
     /// <param name="attribute">Attribute whose usage length to compute.</param>
     /// <returns>The total character count, including the surrounding parens and separators.</returns>
-    public static int ComputeLength(ApiAttribute attribute)
+    internal static int ComputeLength(ApiAttribute attribute)
     {
-        var total = attribute.DisplayName.Length + 2;
+        var total = attribute.DisplayName.Length + ParenthesisCount;
         for (var i = 0; i < attribute.Arguments.Length; i++)
         {
             if (i > 0)

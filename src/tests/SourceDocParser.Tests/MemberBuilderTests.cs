@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -32,11 +32,11 @@ public class MemberBuilderTests
                 private void Hidden() { }
             }
             """);
-        var fooSymbol = (INamedTypeSymbol)compilation.GetSymbolsWithName("Foo").Single();
+        var fooSymbol = (INamedTypeSymbol)(await Assert.That(compilation.GetSymbolsWithName("Foo")).HasSingleItem());
         var context = WalkerTestFixtures.NewContext(compilation);
 
         var members = MemberBuilder.Build(fooSymbol, fooSymbol.Name, fooSymbol.GetDocumentationCommentId() ?? string.Empty, context);
-        var names = members.Select(m => m.Name).ToHashSet();
+        var names = Array.ConvertAll(members, static member => member.Name);
 
         await Assert.That(names).Contains("Run");
         await Assert.That(names).Contains("Name");
@@ -55,11 +55,11 @@ public class MemberBuilderTests
                 public string Name { get; }
             }
             """);
-        var fooSymbol = (INamedTypeSymbol)compilation.GetSymbolsWithName("Foo").Single();
+        var fooSymbol = (INamedTypeSymbol)(await Assert.That(compilation.GetSymbolsWithName("Foo")).HasSingleItem());
         var context = WalkerTestFixtures.NewContext(compilation);
 
         var members = MemberBuilder.Build(fooSymbol, fooSymbol.Name, "T:Foo", context);
-        var names = members.Select(m => m.Name).ToList();
+        var names = Array.ConvertAll(members, static member => member.Name);
 
         await Assert.That(names).Contains("Name");
 
@@ -77,8 +77,8 @@ public class MemberBuilderTests
             """
             public class Foo { public void Run() { } }
             """);
-        var fooSymbol = (INamedTypeSymbol)compilation.GetSymbolsWithName("Foo").Single();
-        var run = fooSymbol.GetMembers("Run").OfType<IMethodSymbol>().Single();
+        var fooSymbol = (INamedTypeSymbol)(await Assert.That(compilation.GetSymbolsWithName("Foo")).HasSingleItem());
+        var run = ((IMethodSymbol)(await Assert.That(fooSymbol.GetMembers("Run")).HasSingleItem(static item => item is IMethodSymbol)));
         var context = WalkerTestFixtures.NewContext(compilation);
 
         var member = MemberBuilder.BuildOne(run, ApiMemberKind.Method, "MyType", "T:My.MyType", context);

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <PackageId>SourceDocParser.NuGet</PackageId>
     <Description>NuGet-backed IAssemblySource for SourceDocParser. Discovers, fetches and extracts packages, then exposes their per-TFM assemblies to the parser.</Description>
   </PropertyGroup>
@@ -17,7 +17,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Polly" />
     <PackageReference Include="NuGet.Versioning" />
   </ItemGroup>
 

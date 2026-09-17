@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -19,36 +19,69 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 /// </summary>
 public class DocfxYamlEmitterTests
 {
-    /// <summary>
-    /// Builds the parameterised arguments for
-    /// <see cref="TypeItemCarriesRequiredDocfxFields"/>.
-    /// </summary>
+    /// <summary>Member count representing a large control-like API surface.</summary>
+    private const int LargeMemberCount = 500;
+
+    /// <summary>Docfx label for class items.</summary>
+    private const string ClassKindLabel = "Class";
+
+    /// <summary>Docfx label for structure items.</summary>
+    private const string StructKindLabel = "Struct";
+
+    /// <summary>Docfx label for delegate items.</summary>
+    private const string DelegateKindLabel = "Delegate";
+
+    /// <summary>Name of the delegate fixture.</summary>
+    private const string DelegateName = "Handler";
+
+    /// <summary>YAML property containing emitted API items.</summary>
+    private const string ItemsProperty = "items";
+
+    /// <summary>Documentation identifier of the method fixture.</summary>
+    private const string RunMethodUid = "M:Foo.Run";
+
+    /// <summary>Type-qualified name of the method fixture.</summary>
+    private const string RunMethodName = "Foo.Run";
+
+    /// <summary>YAML property containing member identifiers.</summary>
+    private const string ChildrenProperty = "children";
+
+    /// <summary>YAML property containing declaration details.</summary>
+    private const string SyntaxProperty = "syntax";
+
+    /// <summary>YAML property containing method parameters.</summary>
+    private const string ParametersProperty = "parameters";
+
+    /// <summary>YAML property containing referenced types.</summary>
+    private const string ReferencesProperty = "references";
+
+    /// <summary>Metadata name of the generic list fixture.</summary>
+    private const string GenericListName = "List`1";
+
+    /// <summary>Builds the parameterised arguments for <see cref="TypeItemCarriesRequiredDocfxFields"/>.</summary>
     /// <returns>One <c>(label, type)</c> pair per derivation.</returns>
     public static IEnumerable<Func<(string KindLabel, ApiType Type)>> EveryKindOfType()
     {
-        yield return static () => ("Class", TestData.ObjectType("Foo"));
-        yield return static () => ("Struct", TestData.ObjectType("Bar", ApiObjectKind.Struct));
+        yield return static () => (ClassKindLabel, TestData.ObjectType("Foo"));
+        yield return static () => (StructKindLabel, TestData.ObjectType("Bar", ApiObjectKind.Struct));
         yield return static () => ("Interface", TestData.ObjectType("IFoo", ApiObjectKind.Interface));
         yield return static () => ("Record", TestData.ObjectType("Rec", ApiObjectKind.Record));
         yield return static () => ("RecordStruct", TestData.ObjectType("RecStr", ApiObjectKind.RecordStruct));
         yield return static () => ("Enum", TestData.EnumType("Day"));
-        yield return static () => ("Delegate", TestData.DelegateType("Handler"));
+        yield return static () => (DelegateKindLabel, TestData.DelegateType(DelegateName));
     }
 
-    /// <summary>
-    /// Builds the parameterised arguments for
-    /// <see cref="TypeFieldUsesDocfxKindLabel"/>.
-    /// </summary>
+    /// <summary>Builds the parameterised arguments for <see cref="TypeFieldUsesDocfxKindLabel"/>.</summary>
     /// <returns>One <c>(type, expectedLabel)</c> pair per derivation.</returns>
     public static IEnumerable<Func<(ApiType Type, string Expected)>> KindToDocfxLabel()
     {
-        yield return static () => (TestData.ObjectType("Foo"), "Class");
-        yield return static () => (TestData.ObjectType("Bar", ApiObjectKind.Struct), "Struct");
+        yield return static () => (TestData.ObjectType("Foo"), ClassKindLabel);
+        yield return static () => (TestData.ObjectType("Bar", ApiObjectKind.Struct), StructKindLabel);
         yield return static () => (TestData.ObjectType("IFoo", ApiObjectKind.Interface), "Interface");
-        yield return static () => (TestData.ObjectType("Rec", ApiObjectKind.Record), "Class");
-        yield return static () => (TestData.ObjectType("RecStr", ApiObjectKind.RecordStruct), "Struct");
+        yield return static () => (TestData.ObjectType("Rec", ApiObjectKind.Record), ClassKindLabel);
+        yield return static () => (TestData.ObjectType("RecStr", ApiObjectKind.RecordStruct), StructKindLabel);
         yield return static () => (TestData.EnumType("Day"), "Enum");
-        yield return static () => (TestData.DelegateType("Handler"), "Delegate");
+        yield return static () => (TestData.DelegateType(DelegateName), DelegateKindLabel);
     }
 
     /// <summary>
@@ -65,7 +98,7 @@ public class DocfxYamlEmitterTests
 
         await Assert.That(yaml).StartsWith(DocfxYamlEmitter.YamlMimeHeader);
         var root = ParseFirstDocument(yaml);
-        await Assert.That(root.Children).ContainsKey(new YamlScalarNode("items"));
+        await Assert.That(root.Children).ContainsKey(new YamlScalarNode(ItemsProperty));
     }
 
     /// <summary>
@@ -78,25 +111,25 @@ public class DocfxYamlEmitterTests
     [Test]
     public async Task RenderEmitsTypeAndMemberItemsForClass()
     {
-        var member = NewMember("Run", "M:Foo.Run");
+        var member = NewMember("Run", RunMethodUid);
         var type = TestData.ObjectType("Foo") with { Members = [member] };
 
         var yaml = DocfxYamlEmitter.Render(type).Lf();
-        var items = (YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("items")];
+        var items = (YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode(ItemsProperty)];
 
-        await Assert.That(items.Children).Count().IsEqualTo(2);
+        await Assert.That(items.Children).Count().IsEqualTo(type.Members.Length + 1);
         var typeItem = (YamlMappingNode)items.Children[0];
         var memberItem = (YamlMappingNode)items.Children[1];
 
         await Assert.That(typeItem[new YamlScalarNode("uid")].ToString()).IsEqualTo("Foo");
-        await Assert.That(typeItem[new YamlScalarNode("type")].ToString()).IsEqualTo("Class");
-        await Assert.That(memberItem[new YamlScalarNode("uid")].ToString()).IsEqualTo("Foo.Run");
+        await Assert.That(typeItem[new YamlScalarNode("type")].ToString()).IsEqualTo(ClassKindLabel);
+        await Assert.That(memberItem[new YamlScalarNode("uid")].ToString()).IsEqualTo(RunMethodName);
         await Assert.That(memberItem[new YamlScalarNode("parent")].ToString()).IsEqualTo("Foo");
         await Assert.That(memberItem[new YamlScalarNode("type")].ToString()).IsEqualTo("Method");
 
-        var children = (YamlSequenceNode)typeItem[new YamlScalarNode("children")];
+        var children = (YamlSequenceNode)typeItem[new YamlScalarNode(ChildrenProperty)];
         await Assert.That(children.Children).Count().IsEqualTo(1);
-        await Assert.That(children.Children[0].ToString()).IsEqualTo("Foo.Run");
+        await Assert.That(children.Children[0].ToString()).IsEqualTo(RunMethodName);
     }
 
     /// <summary>
@@ -108,24 +141,20 @@ public class DocfxYamlEmitterTests
     [Test]
     public async Task RenderEmitsEnumValuesUnderSyntaxParameters()
     {
-        var values = new List<ApiEnumValue>
-        {
-            new("Friday", "F:Day.Friday", "5", ApiDocumentation.Empty, null),
-            new("Saturday", "F:Day.Saturday", "6", ApiDocumentation.Empty, null),
-        };
+        var values = new List<ApiEnumValue> { new("Friday", "F:Day.Friday", "5", ApiDocumentation.Empty, null), new("Saturday", "F:Day.Saturday", "6", ApiDocumentation.Empty, null), };
         var type = TestData.EnumType("Day") with { Values = [.. values] };
 
         var yaml = DocfxYamlEmitter.Render(type).Lf();
-        var items = (YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("items")];
+        var items = (YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode(ItemsProperty)];
 
         // No per-value member items -- a single type item carries the values inline.
         await Assert.That(items.Children).Count().IsEqualTo(1);
         var typeItem = (YamlMappingNode)items.Children[0];
         await Assert.That(typeItem[new YamlScalarNode("type")].ToString()).IsEqualTo("Enum");
 
-        var syntax = (YamlMappingNode)typeItem[new YamlScalarNode("syntax")];
-        var parameters = (YamlSequenceNode)syntax[new YamlScalarNode("parameters")];
-        await Assert.That(parameters.Children).Count().IsEqualTo(2);
+        var syntax = (YamlMappingNode)typeItem[new YamlScalarNode(SyntaxProperty)];
+        var parameters = (YamlSequenceNode)syntax[new YamlScalarNode(ParametersProperty)];
+        await Assert.That(parameters.Children).Count().IsEqualTo(values.Count);
         var first = (YamlMappingNode)parameters.Children[0];
         await Assert.That(first[new YamlScalarNode("id")].ToString()).IsEqualTo("Friday");
         await Assert.That(first[new YamlScalarNode("defaultValue")].ToString()).IsEqualTo("5");
@@ -140,15 +169,15 @@ public class DocfxYamlEmitterTests
     [Test]
     public async Task RenderEmitsDelegateSignatureUnderSyntax()
     {
-        var type = TestData.DelegateType("Handler");
+        var type = TestData.DelegateType(DelegateName);
 
         var yaml = DocfxYamlEmitter.Render(type).Lf();
-        var items = (YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("items")];
+        var items = (YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode(ItemsProperty)];
 
         await Assert.That(items.Children).Count().IsEqualTo(1);
         var typeItem = (YamlMappingNode)items.Children[0];
-        await Assert.That(typeItem[new YamlScalarNode("type")].ToString()).IsEqualTo("Delegate");
-        var syntax = (YamlMappingNode)typeItem[new YamlScalarNode("syntax")];
+        await Assert.That(typeItem[new YamlScalarNode("type")].ToString()).IsEqualTo(DelegateKindLabel);
+        var syntax = (YamlMappingNode)typeItem[new YamlScalarNode(SyntaxProperty)];
         await Assert.That(syntax[new YamlScalarNode("content")].ToString()).Contains("Handler()");
     }
 
@@ -178,7 +207,7 @@ public class DocfxYamlEmitterTests
         var type = TestData.ObjectType("Foo") with { Members = [member] };
 
         var yaml = DocfxYamlEmitter.Render(type).Lf();
-        var items = (YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("items")];
+        var items = (YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode(ItemsProperty)];
         var memberItem = (YamlMappingNode)items.Children[1];
 
         await Assert.That(memberItem[new YamlScalarNode("name")].ToString()).IsEqualTo(raw);
@@ -193,9 +222,9 @@ public class DocfxYamlEmitterTests
     [Test]
     public async Task RenderCollectsDistinctReferencesIntoPageReferences()
     {
-        var stringRef = new ApiTypeReference("String", "T:System.String");
-        var intRef = new ApiTypeReference("Int32", "T:System.Int32");
-        var member = NewMember("Run", "M:Foo.Run") with
+        var stringRef = new ApiTypeReference(nameof(String), "T:System.String");
+        var intRef = new ApiTypeReference(nameof(Int32), "T:System.Int32");
+        var member = NewMember("Run", RunMethodUid) with
         {
             ReturnType = stringRef,
             Parameters =
@@ -207,20 +236,15 @@ public class DocfxYamlEmitterTests
         var type = TestData.ObjectType("Foo") with { Members = [member] };
 
         var yaml = DocfxYamlEmitter.Render(type).Lf();
-        var refs = (YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("references")];
+        var refs = (YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode(ReferencesProperty)];
 
         // String shows up twice (return + parameter) but should be
         // deduplicated; Int32 shows up once. System.Object is added by
         // the well-known-base synthesis for class types, bringing the
         // expected count to 3.
-        await Assert.That(refs.Children).Count().IsEqualTo(3);
-        var refUids = refs.Children
-            .Cast<YamlMappingNode>()
-            .Select(static n => n[new YamlScalarNode("uid")].ToString())
-            .ToList();
-        await Assert.That(refUids).Contains("System.String");
-        await Assert.That(refUids).Contains("System.Int32");
-        await Assert.That(refUids).Contains("System.Object");
+        var refUids = ReadReferenceUids(refs);
+        string[] expected = ["System.String", "System.Int32", "System.Object"];
+        await Assert.That(refUids).IsEquivalentTo(expected);
     }
 
     /// <summary>
@@ -258,9 +282,9 @@ public class DocfxYamlEmitterTests
         var type = TestData.ObjectType("Foo") with { Members = [member] };
 
         var yaml = DocfxYamlEmitter.Render(type).Lf();
-        var memberItem = (YamlMappingNode)((YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("items")]).Children[1];
+        var memberItem = (YamlMappingNode)((YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode(ItemsProperty)]).Children[1];
 
-        await Assert.That(memberItem[new YamlScalarNode("nameWithType")].ToString()).IsEqualTo("Foo.Run");
+        await Assert.That(memberItem[new YamlScalarNode("nameWithType")].ToString()).IsEqualTo(RunMethodName);
 
         // The value should be written unquoted (the dotted form is a
         // valid YAML plain scalar; only the quoted-form path allocates).
@@ -279,7 +303,7 @@ public class DocfxYamlEmitterTests
         var type = TestData.ObjectType("Foo") with { Members = [member] };
 
         var yaml = DocfxYamlEmitter.Render(type).Lf();
-        var memberItem = (YamlMappingNode)((YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("items")]).Children[1];
+        var memberItem = (YamlMappingNode)((YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode(ItemsProperty)]).Children[1];
 
         // Round-trips back to the original composite -- the quoted form
         // preserves the leading colon docfx readers expect.
@@ -292,16 +316,11 @@ public class DocfxYamlEmitterTests
     public async Task EmitAsyncWritesOnePagePerType()
     {
         using var scratch = new ScratchDirectory("sdp-docfx-yaml");
-        var types = new List<ApiType>
-        {
-            TestData.ObjectType("Foo"),
-            TestData.EnumType("Day"),
-            TestData.DelegateType("Handler"),
-        };
+        var types = new List<ApiType> { TestData.ObjectType("Foo"), TestData.EnumType("Day"), TestData.DelegateType(DelegateName), };
 
         var pages = await new DocfxYamlEmitter().EmitAsync([.. types], new FilePageSink(scratch.Path));
 
-        await Assert.That(pages).IsEqualTo(3);
+        await Assert.That(pages).IsEqualTo(types.Count);
         await Assert.That(File.Exists(Path.Combine(scratch.Path, "Foo.yml"))).IsTrue();
         await Assert.That(File.Exists(Path.Combine(scratch.Path, "Day.yml"))).IsTrue();
         await Assert.That(File.Exists(Path.Combine(scratch.Path, "Handler.yml"))).IsTrue();
@@ -321,7 +340,7 @@ public class DocfxYamlEmitterTests
     {
         _ = kindLabel;
         var typeItem = (YamlMappingNode)((YamlSequenceNode)ParseFirstDocument(DocfxYamlEmitter.Render(type))
-            .Children[new YamlScalarNode("items")]).Children[0];
+            .Children[new YamlScalarNode(ItemsProperty)]).Children[0];
 
         await Assert.That(typeItem.Children).ContainsKey(new YamlScalarNode("uid"));
         await Assert.That(typeItem.Children).ContainsKey(new YamlScalarNode("id"));
@@ -348,7 +367,7 @@ public class DocfxYamlEmitterTests
     public async Task TypeFieldUsesDocfxKindLabel(ApiType type, string expected)
     {
         var typeItem = (YamlMappingNode)((YamlSequenceNode)ParseFirstDocument(DocfxYamlEmitter.Render(type))
-            .Children[new YamlScalarNode("items")]).Children[0];
+            .Children[new YamlScalarNode(ItemsProperty)]).Children[0];
 
         await Assert.That(typeItem[new YamlScalarNode("type")].ToString()).IsEqualTo(expected);
     }
@@ -367,7 +386,7 @@ public class DocfxYamlEmitterTests
         var type = TestData.ObjectType("Foo") with { Documentation = docs };
 
         var yaml = DocfxYamlEmitter.Render(type).Lf();
-        var typeItem = (YamlMappingNode)((YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("items")]).Children[0];
+        var typeItem = (YamlMappingNode)((YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode(ItemsProperty)]).Children[0];
 
         await Assert.That(yaml).Contains("summary: |-\n");
         await Assert.That(typeItem[new YamlScalarNode("summary")].ToString()).IsEqualTo(summary);
@@ -381,14 +400,14 @@ public class DocfxYamlEmitterTests
     [Test]
     public async Task ParameterlessMemberOmitsParametersBlock()
     {
-        var member = NewMember("Run", "M:Foo.Run") with { Parameters = [] };
+        var member = NewMember("Run", RunMethodUid) with { Parameters = [] };
         var type = TestData.ObjectType("Foo") with { Members = [member] };
 
         var yaml = DocfxYamlEmitter.Render(type).Lf();
-        var memberItem = (YamlMappingNode)((YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("items")]).Children[1];
-        var syntax = (YamlMappingNode)memberItem[new YamlScalarNode("syntax")];
+        var memberItem = (YamlMappingNode)((YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode(ItemsProperty)]).Children[1];
+        var syntax = (YamlMappingNode)memberItem[new YamlScalarNode(SyntaxProperty)];
 
-        await Assert.That(syntax.Children).DoesNotContainKey(new YamlScalarNode("parameters"));
+        await Assert.That(syntax.Children).DoesNotContainKey(new YamlScalarNode(ParametersProperty));
     }
 
     /// <summary>
@@ -408,7 +427,7 @@ public class DocfxYamlEmitterTests
     {
         var parameter = new ApiParameter(
             "value",
-            new("Object", "T:System.Object"),
+            new(nameof(Object), "T:System.Object"),
             IsOptional: true,
             IsParams: false,
             IsIn: false,
@@ -419,29 +438,26 @@ public class DocfxYamlEmitterTests
         var type = TestData.ObjectType("Foo") with { Members = [member] };
 
         var yaml = DocfxYamlEmitter.Render(type).Lf();
-        var memberItem = (YamlMappingNode)((YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("items")]).Children[1];
-        var syntax = (YamlMappingNode)memberItem[new YamlScalarNode("syntax")];
-        var parameters = (YamlSequenceNode)syntax[new YamlScalarNode("parameters")];
+        var memberItem = (YamlMappingNode)((YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode(ItemsProperty)]).Children[1];
+        var syntax = (YamlMappingNode)memberItem[new YamlScalarNode(SyntaxProperty)];
+        var parameters = (YamlSequenceNode)syntax[new YamlScalarNode(ParametersProperty)];
         var paramEntry = (YamlMappingNode)parameters.Children[0];
 
         await Assert.That(paramEntry[new YamlScalarNode("defaultValue")].ToString()).IsEqualTo(rawDefault);
     }
 
-    /// <summary>
-    /// Generic types encode arity into their UID/name ('`1', '`2', etc.)
-    /// per docfx convention -- verified through round-trip.
-    /// </summary>
+    /// <summary>Generic types encode arity into their UID/name ('`1', '`2', etc.) per docfx convention -- verified through round-trip.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task GenericTypeRoundTripsArityAndName()
     {
-        var type = TestData.ObjectType("List`1") with { Arity = 1 };
+        var type = TestData.ObjectType(GenericListName) with { Arity = 1 };
 
         var yaml = DocfxYamlEmitter.Render(type).Lf();
-        var typeItem = (YamlMappingNode)((YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("items")]).Children[0];
+        var typeItem = (YamlMappingNode)((YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode(ItemsProperty)]).Children[0];
 
-        await Assert.That(typeItem[new YamlScalarNode("uid")].ToString()).IsEqualTo("List`1");
-        await Assert.That(typeItem[new YamlScalarNode("name")].ToString()).IsEqualTo("List`1");
+        await Assert.That(typeItem[new YamlScalarNode("uid")].ToString()).IsEqualTo(GenericListName);
+        await Assert.That(typeItem[new YamlScalarNode("name")].ToString()).IsEqualTo(GenericListName);
     }
 
     /// <summary>
@@ -455,7 +471,7 @@ public class DocfxYamlEmitterTests
         var type = TestData.ObjectType("Foo");
 
         var yaml = DocfxYamlEmitter.Render(type).Lf();
-        var typeItem = (YamlMappingNode)((YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("items")]).Children[0];
+        var typeItem = (YamlMappingNode)((YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode(ItemsProperty)]).Children[0];
 
         await Assert.That(typeItem.Children).DoesNotContainKey(new YamlScalarNode("namespace"));
     }
@@ -473,32 +489,25 @@ public class DocfxYamlEmitterTests
 
         var yaml = DocfxYamlEmitter.Render(type).Lf();
         var root = ParseFirstDocument(yaml);
-        var items = (YamlSequenceNode)root.Children[new YamlScalarNode("items")];
+        var items = (YamlSequenceNode)root.Children[new YamlScalarNode(ItemsProperty)];
         var typeItem = (YamlMappingNode)items.Children[0];
 
         // The well-known-base synthesis adds an `inheritance: System.Object`
         // line and a corresponding `references:` entry even for types
         // with no walked base, so those two keys now exist.
         await Assert.That(items.Children).Count().IsEqualTo(1);
-        await Assert.That(typeItem.Children).DoesNotContainKey(new YamlScalarNode("children"));
+        await Assert.That(typeItem.Children).DoesNotContainKey(new YamlScalarNode(ChildrenProperty));
         await Assert.That(typeItem.Children).DoesNotContainKey(new YamlScalarNode("implements"));
         await Assert.That(typeItem.Children).ContainsKey(new YamlScalarNode("inheritance"));
-        await Assert.That(root.Children).ContainsKey(new YamlScalarNode("references"));
+        await Assert.That(root.Children).ContainsKey(new YamlScalarNode(ReferencesProperty));
     }
 
-    /// <summary>
-    /// Union types emit each case under <c>references:</c> so docfx's
-    /// cross-link rendering can surface the full closed hierarchy.
-    /// </summary>
+    /// <summary>Union types emit each case under <c>references:</c> so docfx's cross-link rendering can surface the full closed hierarchy.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task UnionTypeEmitsCasesAsReferences()
     {
-        var caseRefs = new List<ApiTypeReference>
-        {
-            new("Circle", "T:My.Shape.Circle"),
-            new("Square", "T:My.Shape.Square"),
-        };
+        var caseRefs = new List<ApiTypeReference> { new("Circle", "T:My.Shape.Circle"), new("Square", "T:My.Shape.Square"), };
         var union = new ApiUnionType(
             Name: "Shape",
             FullName: "My.Shape",
@@ -521,20 +530,14 @@ public class DocfxYamlEmitterTests
             Cases: [.. caseRefs]);
 
         var yaml = DocfxYamlEmitter.Render(union).Lf();
-        var refs = (YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("references")];
-        var refUids = refs.Children
-            .Cast<YamlMappingNode>()
-            .Select(static n => n[new YamlScalarNode("uid")].ToString())
-            .ToList();
+        var refs = (YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode(ReferencesProperty)];
+        var refUids = ReadReferenceUids(refs);
 
         await Assert.That(refUids).Contains("My.Shape.Circle");
         await Assert.That(refUids).Contains("My.Shape.Square");
     }
 
-    /// <summary>
-    /// Inheritance + implements blocks land under their docfx-expected
-    /// keys, with each entry as a sequence item.
-    /// </summary>
+    /// <summary>Inheritance + implements blocks land under their docfx-expected keys, with each entry as a sequence item.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task InheritanceAndInterfacesEmittedUnderExpectedKeys()
@@ -544,19 +547,20 @@ public class DocfxYamlEmitterTests
             BaseType = new("Base", "T:My.Base"),
             Interfaces =
             [
-                new("IDisposable", "T:System.IDisposable"),
+                new(nameof(IDisposable), "T:System.IDisposable"),
                 new("IFoo", "T:My.IFoo"),
             ],
         };
 
         var yaml = DocfxYamlEmitter.Render(type).Lf();
-        var typeItem = (YamlMappingNode)((YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("items")]).Children[0];
+        var typeItem = (YamlMappingNode)((YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode(ItemsProperty)]).Children[0];
 
         var inheritance = (YamlSequenceNode)typeItem[new YamlScalarNode("inheritance")];
         var implements = (YamlSequenceNode)typeItem[new YamlScalarNode("implements")];
 
-        await Assert.That(inheritance.Children.Single().ToString()).IsEqualTo("My.Base");
-        await Assert.That(implements.Children).Count().IsEqualTo(2);
+        await Assert.That(inheritance.Children).Count().IsEqualTo(1);
+        await Assert.That(inheritance.Children[0].ToString()).IsEqualTo("My.Base");
+        await Assert.That(implements.Children).Count().IsEqualTo(type.Interfaces.Length);
     }
 
     /// <summary>
@@ -574,7 +578,7 @@ public class DocfxYamlEmitterTests
         };
 
         var yaml = DocfxYamlEmitter.Render(type).Lf();
-        var refs = (YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("references")];
+        var refs = (YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode(ReferencesProperty)];
         var refEntry = (YamlMappingNode)refs.Children[0];
 
         await Assert.That(refEntry[new YamlScalarNode("uid")].ToString()).IsEqualTo("Bare");
@@ -590,7 +594,7 @@ public class DocfxYamlEmitterTests
     [Test]
     public async Task RenderProducesExactlyOneYamlDocument()
     {
-        var type = TestData.ObjectType("Foo") with { Members = [NewMember("Run", "M:Foo.Run")] };
+        var type = TestData.ObjectType("Foo") with { Members = [NewMember("Run", RunMethodUid)] };
 
         var yaml = DocfxYamlEmitter.Render(type).Lf();
         var stream = new YamlStream();
@@ -620,7 +624,7 @@ public class DocfxYamlEmitterTests
         var type = TestData.ObjectType("Foo") with { Members = [member] };
 
         var yaml = DocfxYamlEmitter.Render(type).Lf();
-        var memberItem = (YamlMappingNode)((YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("items")]).Children[1];
+        var memberItem = (YamlMappingNode)((YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode(ItemsProperty)]).Children[1];
 
         await Assert.That(memberItem[new YamlScalarNode("name")].ToString()).IsEqualTo(name);
     }
@@ -635,8 +639,8 @@ public class DocfxYamlEmitterTests
     [Test]
     public async Task LargeMemberCountStillProducesValidPage()
     {
-        var members = new List<ApiMember>(500);
-        for (var i = 0; i < 500; i++)
+        List<ApiMember> members = [with(LargeMemberCount)];
+        for (var i = 0; i < LargeMemberCount; i++)
         {
             members.Add(NewMember($"Method{i:D3}", $"M:Foo.Method{i:D3}"));
         }
@@ -644,18 +648,15 @@ public class DocfxYamlEmitterTests
         var type = TestData.ObjectType("Foo") with { Members = [.. members] };
 
         var yaml = DocfxYamlEmitter.Render(type).Lf();
-        var items = (YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode("items")];
+        var items = (YamlSequenceNode)ParseFirstDocument(yaml).Children[new YamlScalarNode(ItemsProperty)];
 
-        await Assert.That(items.Children).Count().IsEqualTo(501);
+        await Assert.That(items.Children).Count().IsEqualTo(LargeMemberCount + 1);
         var typeItem = (YamlMappingNode)items.Children[0];
-        var children = (YamlSequenceNode)typeItem[new YamlScalarNode("children")];
-        await Assert.That(children.Children).Count().IsEqualTo(500);
+        var children = (YamlSequenceNode)typeItem[new YamlScalarNode(ChildrenProperty)];
+        await Assert.That(children.Children).Count().IsEqualTo(LargeMemberCount);
     }
 
-    /// <summary>
-    /// PathFor is deterministic -- repeated calls with the same input
-    /// produce the same output.
-    /// </summary>
+    /// <summary>PathFor is deterministic -- repeated calls with the same input produce the same output.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task PathForIsStableAcrossRepeatedCalls()
@@ -670,10 +671,22 @@ public class DocfxYamlEmitterTests
         await Assert.That(second).IsEqualTo(third);
     }
 
-    /// <summary>
-    /// Parses <paramref name="yaml"/> with YamlDotNet and returns the
-    /// root mapping node of the first (and only) document.
-    /// </summary>
+    /// <summary>Reads the identifiers of the rendered reference sequence.</summary>
+    /// <param name="references">Reference mapping nodes.</param>
+    /// <returns>The identifiers in emission order.</returns>
+    private static string[] ReadReferenceUids(YamlSequenceNode references)
+    {
+        var uids = new string[references.Children.Count];
+        for (var i = 0; i < uids.Length; i++)
+        {
+            var reference = (YamlMappingNode)references.Children[i];
+            uids[i] = reference[new YamlScalarNode("uid")].ToString();
+        }
+
+        return uids;
+    }
+
+    /// <summary>Parses <paramref name="yaml"/> with YamlDotNet and returns the root mapping node of the first (and only) document.</summary>
     /// <param name="yaml">YAML text to parse.</param>
     /// <returns>The root mapping node.</returns>
     private static YamlMappingNode ParseFirstDocument(string yaml)

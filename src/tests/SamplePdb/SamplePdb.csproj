@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <!-- Sample fixture: not a test, not a shipped package. The parent
          Directory.Build.props treats anything not named *Tests as a
          shippable library, so suppress the generated .nupkg + the
@@ -14,5 +14,9 @@
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <NoWarn>$(NoWarn);CS1591;SA1600;CA1822;CA1062;CA1052;RCS1102;CA1040;CA1028;S2325;S3400;S2344;S1118;S2955;S3246;S4022;S2339</NoWarn>
   </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
+    <Compile Remove="IUnion.cs" />
+  </ItemGroup>
 
 </Project>

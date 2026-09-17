@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -36,9 +36,9 @@ public static class Program
     {
         ArgumentNullException.ThrowIfNull(args);
 
-        if (args.Length > 0)
+        if (args is [_, ..])
         {
-            BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
+            _ = await BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).RunAsync(args).ConfigureAwait(false);
             return;
         }
 
@@ -52,11 +52,12 @@ public static class Program
         var bench = new SourceDocParserDocfxLibraryBenchmark();
         await bench.GlobalSetupAsync().ConfigureAwait(false);
 
-        Console.WriteLine();
-        Console.WriteLine("SourceDocParser MetadataExtractor + DocfxYamlEmitter -- one pass per TFM");
-        Console.WriteLine();
-        Console.WriteLine("| TFM      | Wall time | Allocated |");
-        Console.WriteLine("|----------|----------:|----------:|");
+        var output = Console.Out;
+        await output.WriteLineAsync().ConfigureAwait(false);
+        await output.WriteLineAsync("SourceDocParser MetadataExtractor + DocfxYamlEmitter -- one pass per TFM").ConfigureAwait(false);
+        await output.WriteLineAsync().ConfigureAwait(false);
+        await output.WriteLineAsync("| TFM      | Wall time | Allocated |").ConfigureAwait(false);
+        await output.WriteLineAsync("|----------|----------:|----------:|").ConfigureAwait(false);
 
         for (var i = 0; i < Tfms.Length; i++)
         {
@@ -69,16 +70,17 @@ public static class Program
             GC.Collect();
 
             var allocBefore = GC.GetTotalAllocatedBytes(precise: true);
-            var sw = Stopwatch.StartNew();
+            var start = Stopwatch.GetTimestamp();
             await bench.RunAsync().ConfigureAwait(false);
-            sw.Stop();
+            var elapsed = Stopwatch.GetElapsedTime(start);
             var allocAfter = GC.GetTotalAllocatedBytes(precise: true);
 
-            Console.WriteLine(
-                $"| {tfm,-TfmColumnWidth} | {sw.Elapsed.TotalSeconds,NumericColumnWidth:F2} s | {(allocAfter - allocBefore) / BytesPerKiB / BytesPerKiB,NumericColumnWidth:F2} MB |");
+            var megabytes = (allocAfter - allocBefore) / BytesPerKiB / BytesPerKiB;
+            await output.WriteLineAsync(
+                $"| {tfm,-TfmColumnWidth} | {elapsed.TotalSeconds,NumericColumnWidth:F2} s | {megabytes,NumericColumnWidth:F2} MB |").ConfigureAwait(false);
         }
 
-        Console.WriteLine();
-        Console.WriteLine($"YAML output retained at: {bench.ScratchRootForInspection}");
+        await output.WriteLineAsync().ConfigureAwait(false);
+        await output.WriteLineAsync($"YAML output retained at: {bench.ScratchRootForInspection}").ConfigureAwait(false);
     }
 }

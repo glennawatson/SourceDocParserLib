@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -11,6 +11,7 @@ namespace SourceDocParser.Merge;
 /// Allows incremental addition of per-TFM catalogs and produces a canonical, merged
 /// list of API types after processing. Once finalized, no further modifications are allowed.
 /// </summary>
+[System.Diagnostics.DebuggerDisplay("StreamingTypeMerger: {_byUid}")]
 public sealed class StreamingTypeMerger
 {
     /// <summary>Initial capacity for the per-UID bucket dictionary; matches <see cref="TypeMerger.Merge"/>.</summary>
@@ -24,7 +25,7 @@ public sealed class StreamingTypeMerger
 
     /// <summary>Per-UID variant buckets being built up.</summary>
     private readonly Dictionary<string, TypeMerger.Bucket> _byUid =
-        new(InitialBucketCapacity, StringComparer.Ordinal);
+        [with(InitialBucketCapacity, StringComparer.Ordinal)];
 
     /// <summary>Lock guarding <see cref="_byUid"/> writes.</summary>
     private readonly Lock _lock = new();
@@ -32,10 +33,7 @@ public sealed class StreamingTypeMerger
     /// <summary>Set to true after <see cref="Build"/> runs so subsequent <see cref="Add"/>s throw.</summary>
     private bool _built;
 
-    /// <summary>
-    /// Adds <paramref name="catalog"/>'s types to the in-progress merge
-    /// state. Safe to call from multiple workers concurrently.
-    /// </summary>
+    /// <summary>Adds <paramref name="catalog"/>'s types to the in-progress merge state. Safe to call from multiple workers concurrently.</summary>
     /// <param name="catalog">Per-TFM catalog to fold in.</param>
     /// <exception cref="ArgumentNullException">When <paramref name="catalog"/> is null.</exception>
     /// <exception cref="InvalidOperationException">When called after <see cref="Build"/>.</exception>
@@ -62,17 +60,13 @@ public sealed class StreamingTypeMerger
                     continue;
                 }
 
-                if (!_byUid.TryGetValue(uid, out var bucket))
-                {
-                    bucket = new(InitialVariantCapacity);
-                    _byUid[uid] = bucket;
-                }
+                ref var bucket = ref System.Runtime.InteropServices.CollectionsMarshal.GetValueRefOrAddDefault(_byUid, uid, out _);
+                bucket ??= new(InitialVariantCapacity);
 
                 var items = bucket.Items;
                 if (bucket.Count == items.Length)
                 {
-                    Array.Resize(ref items, items.Length * GrowthFactor);
-                    bucket.Items = items;
+                    items = bucket.Grow(items.Length * GrowthFactor);
                 }
 
                 items[bucket.Count] = new(tfm, type);
@@ -81,10 +75,7 @@ public sealed class StreamingTypeMerger
         }
     }
 
-    /// <summary>
-    /// Produces the merged canonical list and seals the merger so further
-    /// <see cref="Add"/> calls throw.
-    /// </summary>
+    /// <summary>Produces the merged canonical list and seals the merger so further <see cref="Add"/> calls throw.</summary>
     /// <returns>A sorted array of canonical <see cref="ApiType"/>s.</returns>
     public ApiType[] Build()
     {
@@ -130,7 +121,8 @@ public sealed class StreamingTypeMerger
                 }
             }
 
-            merged[i++] = canonical with { AppliesTo = appliesTo, SourceUrl = sourceUrl };
+            merged[i] = canonical with { AppliesTo = appliesTo, SourceUrl = sourceUrl };
+            i++;
         }
 
         Array.Sort(merged, static (a, b) => string.CompareOrdinal(a.FullName, b.FullName));

@@ -1,8 +1,9 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text;
 using SourceDocParser.Model;
 using SourceDocParser.XmlDoc;
@@ -11,56 +12,43 @@ using SourceDocParser.Zensical.Routing;
 
 namespace SourceDocParser.Zensical.Pages;
 
-/// <summary>
-/// Renders an ApiType as a Zensical-flavoured Markdown page.
-/// </summary>
+/// <summary>Renders an ApiType as a Zensical-flavoured Markdown page.</summary>
 /// <remarks>
 /// Cross-refs render as <c>[text][uid]</c> links for Zensical's autorefs plugin.
 /// </remarks>
 internal static class TypePageEmitter
 {
-    /// <summary>
-    /// Default output filename suffix.
-    /// </summary>
-    [SuppressMessage("Critical Code Smell", "S2339:Public constant members should not be used", Justification = "Default value is not secret.")]
+    /// <summary>Default output filename suffix.</summary>
     public const string FileExtension = ".md";
 
-    /// <summary>
-    /// Number of distinct values in <see cref="ApiMemberKind"/>.
-    /// </summary>
+    /// <summary>Number of distinct values in <see cref="ApiMemberKind"/>.</summary>
     /// <remarks>
     /// Used to pre-size the kind-grouping dictionary.
     /// </remarks>
     private const int ApiMemberKindCount = 7;
 
-    /// <summary>
-    /// Initial StringBuilder capacity for a rendered page.
-    /// </summary>
+    /// <summary>Initial StringBuilder capacity for a rendered page.</summary>
     private const int InitialPageCapacity = 4096;
 
-    /// <summary>
-    /// Initial StringBuilder capacity for the modifier list.
-    /// </summary>
+    /// <summary>Initial StringBuilder capacity for the modifier list.</summary>
     private const int InitialModifierCapacity = 32;
 
-    /// <summary>
-    /// Maximum length of a member-table summary before truncation.
-    /// </summary>
+    /// <summary>Typical size of a short inheritance diagram.</summary>
+    private const int InitialDiagramCapacity = 128;
+
+    /// <summary>Typical space required for one union-case row.</summary>
+    private const int UnionCaseCapacity = 256;
+
+    /// <summary>Maximum length of a member-table summary before truncation.</summary>
     private const int SummaryMaxLength = 200;
 
-    /// <summary>
-    /// Minimum retained prefix before using a space-delimited summary cut.
-    /// </summary>
+    /// <summary>Minimum retained prefix before using a space-delimited summary cut.</summary>
     private const int MinimumSummaryWordBoundary = SummaryMaxLength / 2;
 
-    /// <summary>
-    /// Length of the XML-doc cref prefix (for example <c>T:</c> or <c>M:</c>).
-    /// </summary>
+    /// <summary>Length of the XML-doc cref prefix (for example <c>T:</c> or <c>M:</c>).</summary>
     private const int CrefPrefixLength = 2;
 
-    /// <summary>
-    /// Mermaid class declaration prefix including indentation.
-    /// </summary>
+    /// <summary>Mermaid class declaration prefix including indentation.</summary>
     private const string MermaidClassDeclarationPrefix = "    class ";
 
     /// <summary>
@@ -70,7 +58,8 @@ internal static class TypePageEmitter
     /// </summary>
     /// <param name="type">The type to render.</param>
     /// <returns>The rendered Markdown string.</returns>
-    public static string Render(ApiType type) => Render(type, ZensicalEmitterOptions.Default);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string Render(ApiType type) => Render(type, ZensicalEmitterOptions.Default);
 
     /// <summary>
     /// Renders the supplied ApiType into a Markdown string,
@@ -80,7 +69,8 @@ internal static class TypePageEmitter
     /// <param name="type">The type to render.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
     /// <returns>The rendered Markdown string.</returns>
-    public static string Render(ApiType type, ZensicalEmitterOptions options) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string Render(ApiType type, ZensicalEmitterOptions options) =>
         Render(type, options, ZensicalCatalogIndexes.Empty);
 
     /// <summary>
@@ -93,34 +83,9 @@ internal static class TypePageEmitter
     /// <param name="options">Routing + cross-link tunables.</param>
     /// <param name="indexes">Catalog rollups; pass <see cref="ZensicalCatalogIndexes.Empty"/> to skip them.</param>
     /// <returns>The rendered Markdown string.</returns>
-    public static string Render(ApiType type, ZensicalEmitterOptions options, ZensicalCatalogIndexes indexes) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string Render(ApiType type, ZensicalEmitterOptions options, ZensicalCatalogIndexes indexes) =>
         Render(type, BuildDefaultConverter(), options, indexes);
-
-    /// <summary>
-    /// Returns a relative file path for the type's page (legacy
-    /// flat-namespace layout -- no per-package folder routing).
-    /// </summary>
-    /// <param name="type">The type whose page path to compute.</param>
-    /// <returns>The relative file path for the type's page.</returns>
-    public static string PathFor(ApiType type) => PathFor(type, ZensicalEmitterOptions.Default);
-
-    /// <summary>
-    /// Returns a relative file path for the type's page, prefixed by
-    /// the package folder when <paramref name="options"/> declares a
-    /// matching <see cref="PackageRoutingRule"/>.
-    /// </summary>
-    /// <param name="type">The type whose page path to compute.</param>
-    /// <param name="options">Routing + cross-link tunables.</param>
-    /// <returns>The relative file path for the type's page.</returns>
-    public static string PathFor(ApiType type, ZensicalEmitterOptions options)
-    {
-        ArgumentNullException.ThrowIfNull(type);
-        ArgumentNullException.ThrowIfNull(options);
-
-        var basePath = ZensicalEmitterHelpers.BuildTypePath(type.Namespace, type.Name, type.Arity, FileExtension);
-        var packageFolder = PackageRouter.ResolveFolder(type.AssemblyName, options.PackageRouting);
-        return packageFolder is null ? basePath : packageFolder + "/" + basePath;
-    }
 
     /// <summary>
     /// Render-and-write entry point used by
@@ -144,6 +109,26 @@ internal static class TypePageEmitter
         context.Sink.WritePage(PathFor(type, context.Options), rental.Builder);
     }
 
+    /// <summary>Returns a relative file path for the type's page (legacy flat-namespace layout -- no per-package folder routing).</summary>
+    /// <param name="type">The type whose page path to compute.</param>
+    /// <returns>The relative file path for the type's page.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string PathFor(ApiType type) => PathFor(type, ZensicalEmitterOptions.Default);
+
+    /// <summary>Returns a relative file path for the type's page, prefixed by the package folder when <paramref name="options"/> declares a matching <see cref="PackageRoutingRule"/>.</summary>
+    /// <param name="type">The type whose page path to compute.</param>
+    /// <param name="options">Routing + cross-link tunables.</param>
+    /// <returns>The relative file path for the type's page.</returns>
+    internal static string PathFor(ApiType type, ZensicalEmitterOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(options);
+
+        var basePath = ZensicalEmitterHelpers.BuildTypePath(type.Namespace, type.Name, type.Arity, FileExtension);
+        var packageFolder = PackageRouter.ResolveFolder(type.AssemblyName, options.PackageRouting);
+        return packageFolder is null ? basePath : $"{packageFolder}/{basePath}";
+    }
+
     /// <summary>
     /// Renders the "Derived types" section as a bullet list of
     /// autoref links. No-op when the type has no derivers -- the empty-
@@ -159,10 +144,10 @@ internal static class TypePageEmitter
             return;
         }
 
-        sb.Append("\n## Derived types\n\n");
+        _ = sb.Append("\n## Derived types\n\n");
         for (var i = 0; i < derived.Length; i++)
         {
-            sb.Append("- ").AppendLine(CrossLinkRouter.Format(derived[i], options));
+            _ = sb.Append("- ").AppendLine(CrossLinkRouter.Format(derived[i], options));
         }
     }
 
@@ -184,12 +169,12 @@ internal static class TypePageEmitter
             return;
         }
 
-        sb.Append("\n??? abstract \"Inherited members\"\n");
+        _ = sb.Append("\n??? abstract \"Inherited members\"\n");
         for (var i = 0; i < inherited.Length; i++)
         {
             var uid = inherited[i];
             var label = uid is [_, ':', ..] ? uid[CrefPrefixLength..] : uid;
-            sb.Append("    - ").AppendLine(CrossLinkRouter.Format(new($"`{label}`", uid), options));
+            _ = sb.Append("    - ").AppendLine(CrossLinkRouter.Format(new($"`{label}`", uid), options));
         }
     }
 
@@ -211,19 +196,16 @@ internal static class TypePageEmitter
             return;
         }
 
-        sb.Append("\n## Extension members\n\n");
+        _ = sb.Append("\n## Extension members\n\n");
         for (var i = 0; i < extensions.Length; i++)
         {
             var member = extensions[i];
             var label = $"`{member.ContainingTypeName}.{member.Name}`";
-            sb.Append("- ").AppendLine(CrossLinkRouter.Format(new(label, member.Uid), options));
+            _ = sb.Append("- ").AppendLine(CrossLinkRouter.Format(new(label, member.Uid), options));
         }
     }
 
-    /// <summary>
-    /// Renders the "See also" section listing each cref from the
-    /// type's documentation as an autoref link. No-op when empty.
-    /// </summary>
+    /// <summary>Renders the "See also" section listing each cref from the type's documentation as an autoref link. No-op when empty.</summary>
     /// <param name="sb">Destination buffer.</param>
     /// <param name="seealso">SeeAlso cref strings from <see cref="ApiDocumentation.SeeAlso"/>.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
@@ -234,12 +216,12 @@ internal static class TypePageEmitter
             return;
         }
 
-        sb.Append("\n## See also\n\n");
+        _ = sb.Append("\n## See also\n\n");
         for (var i = 0; i < seealso.Length; i++)
         {
             var cref = seealso[i];
             var displayName = cref is [_, ':', ..] ? cref[CrefPrefixLength..] : cref;
-            sb.Append("- ").AppendLine(CrossLinkRouter.Format(new(displayName, cref), options));
+            _ = sb.Append("- ").AppendLine(CrossLinkRouter.Format(new(displayName, cref), options));
         }
     }
 
@@ -260,19 +242,19 @@ internal static class TypePageEmitter
             return;
         }
 
-        sb.Append("\n## Extension blocks\n\n");
+        _ = sb.Append("\n## Extension blocks\n\n");
         for (var i = 0; i < blocks.Length; i++)
         {
             var block = blocks[i];
-            sb.Append("### extension(").Append(CrossLinkRouter.Format(block.Receiver, options))
+            _ = sb.Append("### extension(").Append(CrossLinkRouter.Format(block.Receiver, options))
               .Append(' ').Append(block.ReceiverName).Append(")\n\n");
             for (var m = 0; m < block.Members.Length; m++)
             {
                 var member = block.Members[m];
-                sb.Append("- ").AppendLine(CrossLinkRouter.Format(new($"`{member.Name}`", member.Uid), options));
+                _ = sb.Append("- ").AppendLine(CrossLinkRouter.Format(new($"`{member.Name}`", member.Uid), options));
             }
 
-            sb.Append('\n');
+            _ = sb.Append('\n');
         }
     }
 
@@ -293,14 +275,14 @@ internal static class TypePageEmitter
             return;
         }
 
-        sb.Append("\n## Values\n\n| Name | Value | Description |\n| --- | --- | --- |\n");
+        _ = sb.Append("\n## Values\n\n| Name | Value | Description |\n| --- | --- | --- |\n");
         for (var i = 0; i < enumType.Values.Length; i++)
         {
             var value = enumType.Values[i];
             var summary = converter.Convert(value.Documentation.Summary) is [_, ..] documentedSummary
                 ? documentedSummary.ReplaceLineEndings(" ")
                 : string.Empty;
-            sb.Append("| `").Append(value.Name)
+            _ = sb.Append("| `").Append(value.Name)
                 .Append("` | `").Append(value.Value)
                 .Append("` | ").Append(summary).AppendLine(" |");
         }
@@ -321,31 +303,29 @@ internal static class TypePageEmitter
         }
 
         var invoke = delegateType.Invoke;
-        sb.Append("\n## Signature\n\n```csharp\n").Append(invoke.Signature).Append("\n```\n");
+        _ = sb.Append("\n## Signature\n\n```csharp\n").Append(invoke.Signature).Append("\n```\n");
 
         if (invoke.Parameters is [])
         {
             return;
         }
 
-        sb.Append("\n## Parameters\n\n| Name | Type |\n| --- | --- |\n");
+        _ = sb.Append("\n## Parameters\n\n| Name | Type |\n| --- | --- |\n");
         for (var i = 0; i < invoke.Parameters.Length; i++)
         {
             var p = invoke.Parameters[i];
-            sb.Append("| `").Append(p.Name)
+            _ = sb.Append("| `").Append(p.Name)
                 .Append("` | `").Append(p.Type.DisplayName).AppendLine("` |");
         }
     }
 
-    /// <summary>
-    /// Emits a collapsible class-hierarchy admonition.
-    /// </summary>
-    /// <remarks>
-    /// Uses a Mermaid classDiagram to show the type's immediate hierarchy.
-    /// </remarks>
+    /// <summary>Emits a collapsible class-hierarchy admonition.</summary>
     /// <param name="sb">The destination string builder.</param>
     /// <param name="type">The type to diagram.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
+    /// <remarks>
+    /// Uses a Mermaid classDiagram to show the type's immediate hierarchy.
+    /// </remarks>
     private static void AppendHierarchy(StringBuilder sb, ApiType type, ZensicalEmitterOptions options)
     {
         if (type is ApiDelegateType or ApiEnumType)
@@ -367,7 +347,7 @@ internal static class TypePageEmitter
             ? $"**Implements:** {FormatReferenceList(type.Interfaces, options)}\n\n"
             : string.Empty;
 
-        sb.Append($"""
+        _ = sb.Append($"""
 
             ??? abstract "Class hierarchy"
 
@@ -379,21 +359,19 @@ internal static class TypePageEmitter
             """);
     }
 
-    /// <summary>
-    /// Builds the body lines of the Mermaid classDiagram.
-    /// </summary>
+    /// <summary>Builds the body lines of the Mermaid classDiagram.</summary>
     /// <param name="type">The type whose hierarchy to diagram.</param>
     /// <param name="typeNode">The pre-formatted Mermaid node name for the type.</param>
     /// <returns>The diagram body lines.</returns>
     private static string RenderDiagramBody(ApiType type, string typeNode)
     {
-        var sb = new StringBuilder(capacity: InitialModifierCapacity * 4);
-        sb.Append(MermaidClassDeclarationPrefix).AppendLine(typeNode);
+        var sb = new StringBuilder(capacity: InitialDiagramCapacity);
+        _ = sb.Append(MermaidClassDeclarationPrefix).AppendLine(typeNode);
 
         if (type.BaseType is { } baseType)
         {
             var baseNode = MermaidNodeName(baseType.DisplayName);
-            sb.Append(MermaidClassDeclarationPrefix).AppendLine(baseNode)
+            _ = sb.Append(MermaidClassDeclarationPrefix).AppendLine(baseNode)
                 .Append("    ").Append(baseNode).Append(" <|-- ").AppendLine(typeNode);
         }
 
@@ -401,7 +379,7 @@ internal static class TypePageEmitter
         {
             var iface = type.Interfaces[i];
             var ifaceNode = MermaidNodeName(iface.DisplayName);
-            sb.Append(MermaidClassDeclarationPrefix).Append(ifaceNode).AppendLine(" {")
+            _ = sb.Append(MermaidClassDeclarationPrefix).Append(ifaceNode).AppendLine(" {")
                 .AppendLine("        <<interface>>")
                 .AppendLine("    }")
                 .Append("    ").Append(ifaceNode).Append(" <|.. ").AppendLine(typeNode);
@@ -410,14 +388,12 @@ internal static class TypePageEmitter
         return sb.ToString();
     }
 
-    /// <summary>
-    /// Appends the "Applies to" admonition listing every TFM the merged canonical type appears in.
-    /// </summary>
+    /// <summary>Appends the "Applies to" admonition listing every TFM the merged canonical type appears in.</summary>
+    /// <param name="sb">The destination string builder.</param>
+    /// <param name="appliesTo">The ordered TFM list.</param>
     /// <remarks>
     /// Skipped when the list is empty.
     /// </remarks>
-    /// <param name="sb">The destination string builder.</param>
-    /// <param name="appliesTo">The ordered TFM list.</param>
     private static void AppendAppliesTo(StringBuilder sb, string[] appliesTo)
     {
         if (appliesTo is [])
@@ -427,7 +403,7 @@ internal static class TypePageEmitter
 
         var joined = JoinTfms(appliesTo);
 
-        sb.Append($"""
+        _ = sb.Append($"""
 
             !!! tip "Applies to"
                 {joined}
@@ -435,9 +411,7 @@ internal static class TypePageEmitter
             """);
     }
 
-    /// <summary>
-    /// Joins the TFM list into a comma-separated string of inline-code spans.
-    /// </summary>
+    /// <summary>Joins the TFM list into a comma-separated string of inline-code spans.</summary>
     /// <param name="appliesTo">The TFMs to join.</param>
     /// <returns>A comma-separated list of formatted TFMs.</returns>
     private static string JoinTfms(string[] appliesTo)
@@ -447,24 +421,22 @@ internal static class TypePageEmitter
         {
             if (i > 0)
             {
-                sb.Append(", ");
+                _ = sb.Append(", ");
             }
 
-            sb.Append('`').Append(appliesTo[i]).Append('`');
+            _ = sb.Append('`').Append(appliesTo[i]).Append('`');
         }
 
         return sb.ToString();
     }
 
-    /// <summary>
-    /// For C# 15+ union types, renders a "Cases" section.
-    /// </summary>
-    /// <remarks>
-    /// Includes a Markdown table and a Mermaid diagram showing the union shape.
-    /// </remarks>
+    /// <summary>For C# 15+ union types, renders a "Cases" section.</summary>
     /// <param name="sb">The destination string builder.</param>
     /// <param name="type">The type to render.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
+    /// <remarks>
+    /// Includes a Markdown table and a Mermaid diagram showing the union shape.
+    /// </remarks>
     private static void AppendUnionCases(StringBuilder sb, ApiType type, ZensicalEmitterOptions options)
     {
         if (type is not ApiUnionType { Cases: [_, ..] } union)
@@ -476,7 +448,7 @@ internal static class TypePageEmitter
         var diagramBody = RenderUnionDiagramBody(union.Cases, unionNode);
         var caseRows = RenderUnionCaseRows(union.Cases, options);
 
-        sb.Append($"""
+        _ = sb.Append($"""
 
             ## Cases
 
@@ -491,19 +463,17 @@ internal static class TypePageEmitter
             """);
     }
 
-    /// <summary>
-    /// Renders the body of the union Mermaid diagram.
-    /// </summary>
-    /// <remarks>
-    /// Each case is a node with a composition arrow from the union.
-    /// </remarks>
+    /// <summary>Renders the body of the union Mermaid diagram.</summary>
     /// <param name="cases">The case type references.</param>
     /// <param name="unionNode">The pre-formatted Mermaid node name for the union.</param>
     /// <returns>The union diagram body lines.</returns>
+    /// <remarks>
+    /// Each case is a node with a composition arrow from the union.
+    /// </remarks>
     private static string RenderUnionDiagramBody(ApiTypeReference[] cases, string unionNode)
     {
         var sb = new StringBuilder(capacity: cases.Length * InitialModifierCapacity);
-        sb.Append(MermaidClassDeclarationPrefix).Append(unionNode).AppendLine(" {")
+        _ = sb.Append(MermaidClassDeclarationPrefix).Append(unionNode).AppendLine(" {")
             .AppendLine("        <<union>>")
             .AppendLine("    }");
 
@@ -511,35 +481,31 @@ internal static class TypePageEmitter
         {
             var caseRef = cases[i];
             var caseNode = MermaidNodeName(caseRef.DisplayName);
-            sb.Append(MermaidClassDeclarationPrefix).AppendLine(caseNode)
+            _ = sb.Append(MermaidClassDeclarationPrefix).AppendLine(caseNode)
                 .Append("    ").Append(unionNode).Append(" o-- ").AppendLine(caseNode);
         }
 
         return sb.ToString();
     }
 
-    /// <summary>
-    /// Renders the union-cases table.
-    /// </summary>
+    /// <summary>Renders the union-cases table.</summary>
     /// <param name="cases">The case type references.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
     /// <returns>The Markdown table rows for the union cases.</returns>
     private static string RenderUnionCaseRows(ApiTypeReference[] cases, ZensicalEmitterOptions options)
     {
-        var sb = new StringBuilder(capacity: cases.Length * InitialPageCapacity / 16);
-        sb.Append("| Case | Description |\n| ---- | ----------- |\n");
+        var sb = new StringBuilder(capacity: cases.Length * UnionCaseCapacity);
+        _ = sb.Append("| Case | Description |\n| ---- | ----------- |\n");
 
         for (var i = 0; i < cases.Length; i++)
         {
-            sb.Append("| ").Append(FormatReference(cases[i], options)).AppendLine(" |  |");
+            _ = sb.Append("| ").Append(FormatReference(cases[i], options)).AppendLine(" |  |");
         }
 
         return sb.ToString();
     }
 
-    /// <summary>
-    /// Joins a list of type references into a comma-separated Markdown string.
-    /// </summary>
+    /// <summary>Joins a list of type references into a comma-separated Markdown string.</summary>
     /// <param name="references">The references to format.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
     /// <returns>A comma-separated list of formatted references.</returns>
@@ -550,10 +516,10 @@ internal static class TypePageEmitter
         {
             if (i > 0)
             {
-                sb.Append(", ");
+                _ = sb.Append(", ");
             }
 
-            sb.Append(FormatReference(references[i], options));
+            _ = sb.Append(FormatReference(references[i], options));
         }
 
         return sb.ToString();
@@ -567,6 +533,7 @@ internal static class TypePageEmitter
     /// <param name="reference">The reference to render.</param>
     /// <param name="options">Routing + cross-link tunables.</param>
     /// <returns>The formatted reference string.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string FormatReference(ApiTypeReference reference, ZensicalEmitterOptions options) =>
         CrossLinkRouter.Format(reference, options);
 
@@ -604,14 +571,12 @@ internal static class TypePageEmitter
         return rendered is { Length: > 0 } ? $"\n**Attributes:** {rendered}\n\n" : string.Empty;
     }
 
-    /// <summary>
-    /// Builds a Mermaid-safe node name from a type display name.
-    /// </summary>
+    /// <summary>Builds a Mermaid-safe node name from a type display name.</summary>
+    /// <param name="displayName">The type display name.</param>
+    /// <returns>A Mermaid-safe node name.</returns>
     /// <remarks>
     /// Substitutes angle brackets with tildes and strips namespaces.
     /// </remarks>
-    /// <param name="displayName">The type display name.</param>
-    /// <returns>A Mermaid-safe node name.</returns>
     private static string MermaidNodeName(string displayName)
     {
         // Drop namespace prefix if any - MinimallyQualifiedFormat is
@@ -626,18 +591,15 @@ internal static class TypePageEmitter
         return ZensicalEmitterHelpers.EscapeMermaidText(name);
     }
 
-    /// <summary>
-    /// Mermaid node name for the type being documented.
-    /// </summary>
+    /// <summary>Mermaid node name for the type being documented.</summary>
     /// <param name="name">The simple type name.</param>
     /// <param name="arity">The generic arity.</param>
     /// <returns>A Mermaid-safe node name including generic placeholders.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string MermaidNodeName(string name, int arity) =>
         ZensicalEmitterHelpers.FormatMermaidTypeName(name, arity);
 
-    /// <summary>
-    /// Builds the page heading text.
-    /// </summary>
+    /// <summary>Builds the page heading text.</summary>
     /// <param name="type">The type whose heading to format.</param>
     /// <returns>The formatted heading text.</returns>
     private static string RenderHeading(ApiType type)
@@ -658,14 +620,12 @@ internal static class TypePageEmitter
         return $"{ZensicalEmitterHelpers.FormatDisplayTypeName(type.Name, type.Arity)} {kindLabel}";
     }
 
-    /// <summary>
-    /// Appends an Examples section containing one fenced block per example.
-    /// </summary>
+    /// <summary>Appends an Examples section containing one fenced block per example.</summary>
+    /// <param name="sb">The destination string builder.</param>
+    /// <param name="examples">The example XML fragments.</param>
     /// <remarks>
     /// Skipped when the type has no examples.
     /// </remarks>
-    /// <param name="sb">The destination string builder.</param>
-    /// <param name="examples">The example XML fragments.</param>
     private static void AppendExamples(StringBuilder sb, string[] examples)
     {
         if (examples is [])
@@ -673,7 +633,7 @@ internal static class TypePageEmitter
             return;
         }
 
-        sb.Append("""
+        _ = sb.Append("""
 
             ## Examples
 
@@ -681,19 +641,17 @@ internal static class TypePageEmitter
 
         for (var i = 0; i < examples.Length; i++)
         {
-            sb.AppendLine().AppendLine(examples[i]);
+            _ = sb.AppendLine().AppendLine(examples[i]);
         }
     }
 
-    /// <summary>
-    /// Appends Members sections grouped by kind.
-    /// </summary>
-    /// <remarks>
-    /// Follows conventional .NET docs order.
-    /// </remarks>
+    /// <summary>Appends Members sections grouped by kind.</summary>
     /// <param name="sb">The destination string builder.</param>
     /// <param name="type">The type whose documented members to emit.</param>
     /// <param name="converter">XML->Markdown converter for the per-member table summaries.</param>
+    /// <remarks>
+    /// Follows conventional .NET docs order.
+    /// </remarks>
     private static void AppendMembers(StringBuilder sb, ApiType type, XmlDocToMarkdown converter)
     {
         var members = type switch
@@ -726,12 +684,8 @@ internal static class TypePageEmitter
                 continue;
             }
 
-            if (!byKind.TryGetValue(member.Kind, out var bucket))
-            {
-                bucket = [];
-                byKind[member.Kind] = bucket;
-            }
-
+            ref var bucket = ref CollectionsMarshal.GetValueRefOrAddDefault(byKind, member.Kind, out _);
+            bucket ??= [];
             bucket.Add(member);
         }
 
@@ -743,9 +697,7 @@ internal static class TypePageEmitter
         AppendMemberSection(sb, "Events", byKind, ApiMemberKind.Event, type, converter);
     }
 
-    /// <summary>
-    /// Writes a single members table for one kind.
-    /// </summary>
+    /// <summary>Writes a single members table for one kind.</summary>
     /// <param name="sb">The destination string builder.</param>
     /// <param name="title">The section heading text.</param>
     /// <param name="byKind">The pre-grouped members lookup.</param>
@@ -771,7 +723,7 @@ internal static class TypePageEmitter
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var typeFolder = TypeFolderName(containingType);
 
-        sb.Append($"""
+        _ = sb.Append($"""
 
                     ## {title}
 
@@ -792,31 +744,26 @@ internal static class TypePageEmitter
             var staticPrefix = member.IsStatic ? "_static_ " : string.Empty;
             var memberFile = SanitiseForFilename(member.Name) + FileExtension;
             var summary = TableEscape(OneLineSummary(converter.Convert(member.Documentation.Summary)));
-            sb.Append("| ").Append(staticPrefix)
+            _ = sb.Append("| ").Append(staticPrefix)
               .Append('[').Append(name).Append("](").Append(typeFolder).Append('/').Append(memberFile).Append(')')
               .Append(" | ").Append(summary).AppendLine(" |");
         }
     }
 
-    /// <summary>
-    /// Returns the folder name a type's member pages live in.
-    /// </summary>
+    /// <summary>Returns the folder name a type's member pages live in.</summary>
     /// <param name="type">The type to compute the folder for.</param>
     /// <returns>The folder name for the type's member pages.</returns>
     private static string TypeFolderName(ApiType type) => type.Arity > 0
         ? ZensicalEmitterHelpers.FormatPathTypeName(type.Name, type.Arity)
         : type.Name;
 
-    /// <summary>
-    /// Strips unsafe characters from a member name for use in a filename.
-    /// </summary>
+    /// <summary>Strips unsafe characters from a member name for use in a filename.</summary>
     /// <param name="name">The raw member name.</param>
     /// <returns>A sanitised filename-safe string.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string SanitiseForFilename(string name) => ZensicalEmitterHelpers.SanitiseForFilename(name);
 
-    /// <summary>
-    /// Joins type-level modifiers into a space-separated string.
-    /// </summary>
+    /// <summary>Joins type-level modifiers into a space-separated string.</summary>
     /// <param name="type">The type whose modifiers to format.</param>
     /// <returns>A space-separated string of modifiers.</returns>
     private static string JoinModifiers(ApiType type) => type switch
@@ -828,14 +775,12 @@ internal static class TypePageEmitter
         _ => "public",
     };
 
-    /// <summary>
-    /// Returns a one-line summary suitable for a member table.
-    /// </summary>
+    /// <summary>Returns a one-line summary suitable for a member table.</summary>
+    /// <param name="summary">The markdown summary text.</param>
+    /// <returns>A truncated, one-line summary.</returns>
     /// <remarks>
     /// Truncates at a word boundary near <see cref="SummaryMaxLength"/>.
     /// </remarks>
-    /// <param name="summary">The markdown summary text.</param>
-    /// <returns>A truncated, one-line summary.</returns>
     private static string OneLineSummary(string summary)
     {
         var oneLine = ZensicalEmitterHelpers.FirstParagraphAsSingleLine(summary);
@@ -845,26 +790,23 @@ internal static class TypePageEmitter
             return oneLine;
         }
 
-        // Cut at the last word boundary that keeps us under the limit;
         // fall back to a hard cut if there's no space in range.
         var lastSpace = oneLine.LastIndexOf(' ', SummaryMaxLength - 1);
         return lastSpace > MinimumSummaryWordBoundary
-            ? oneLine[..lastSpace] + "..."
-            : oneLine[..SummaryMaxLength] + "...";
+            ? $"{oneLine[..lastSpace]}..."
+            : $"{oneLine[..SummaryMaxLength]}...";
     }
 
-    /// <summary>
-    /// Escapes Markdown metacharacters in inline text.
-    /// </summary>
+    /// <summary>Escapes Markdown metacharacters in inline text.</summary>
     /// <param name="text">The text to escape.</param>
     /// <returns>The escaped Markdown text.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string MarkdownEscape(string text) => ZensicalEmitterHelpers.EscapeInlinePipes(text);
 
-    /// <summary>
-    /// Escapes pipes and replaces newlines for use in a table cell.
-    /// </summary>
+    /// <summary>Escapes pipes and replaces newlines for use in a table cell.</summary>
     /// <param name="text">The cell content.</param>
     /// <returns>The escaped table cell content.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string TableEscape(string text) => ZensicalEmitterHelpers.EscapeTableCell(text);
 
     /// <summary>
@@ -922,8 +864,8 @@ internal static class TypePageEmitter
 
         var deprecation = RenderDeprecationAdmonition(type.IsObsolete, type.ObsoleteMessage);
         var attributesLine = RenderAttributesLine(type.Attributes);
-        PageFrontmatter.AppendForType(sb, type, options);
-        sb.Append($"""
+        _ = PageFrontmatter.AppendForType(sb, type, options);
+        _ = sb.Append($"""
             # {heading}
             {deprecation}{attributesLine}
             !!! info "Defined in"
@@ -944,7 +886,7 @@ internal static class TypePageEmitter
 
         if (doc.Remarks is [_, ..] remarks)
         {
-            sb.Append($"""
+            _ = sb.Append($"""
 
                 ## Remarks
 

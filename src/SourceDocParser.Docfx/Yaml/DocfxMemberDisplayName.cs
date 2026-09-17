@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -29,7 +29,7 @@ internal static class DocfxMemberDisplayName
     /// <param name="member">Member to render.</param>
     /// <param name="containingType">Declaring type -- supplies the constructor display name.</param>
     /// <returns>Allocated string ready to drop into the YAML scalar position.</returns>
-    public static string Unqualified(ApiMember member, ApiType containingType)
+    internal static string Unqualified(ApiMember member, ApiType containingType)
     {
         var label = LabelFor(member, containingType);
         return TakesParens(member.Kind)
@@ -45,7 +45,8 @@ internal static class DocfxMemberDisplayName
     /// <param name="member">Member to render.</param>
     /// <param name="containingType">Declaring type.</param>
     /// <returns>Qualified friendly name.</returns>
-    public static string Qualified(ApiMember member, ApiType containingType) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string Qualified(ApiMember member, ApiType containingType) =>
         MemberDisplayFormatter.Concat(containingType.Name, '.', Unqualified(member, containingType));
 
     /// <summary>
@@ -56,16 +57,15 @@ internal static class DocfxMemberDisplayName
     /// <param name="member">Member to render.</param>
     /// <param name="containingType">Declaring type.</param>
     /// <returns>Fully-qualified friendly name.</returns>
-    public static string FullyQualified(ApiMember member, ApiType containingType) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string FullyQualified(ApiMember member, ApiType containingType) =>
         MemberDisplayFormatter.Concat(containingType.FullName, '.', Unqualified(member, containingType));
 
-    /// <summary>
-    /// Returns the docfx <c>overload:</c> anchor -- <c>member.Uid + "*"</c>.
-    /// One allocation per call via <see cref="string.Create{TState}"/>.
-    /// </summary>
+    /// <summary>Returns the docfx <c>overload:</c> anchor -- <c>member.Uid + "*"</c>. One allocation per call via <see cref="string.Create{TState}"/>.</summary>
     /// <param name="memberUid">The member's documentation comment ID.</param>
     /// <returns>The anchor string.</returns>
-    public static string OverloadAnchor(string memberUid) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string OverloadAnchor(string memberUid) =>
         string.Create(memberUid.Length + 1, memberUid, static (span, source) =>
         {
             source.AsSpan().CopyTo(span);
@@ -81,9 +81,7 @@ internal static class DocfxMemberDisplayName
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool TakesParens(ApiMemberKind kind) => kind switch
     {
-        ApiMemberKind.Constructor => true,
-        ApiMemberKind.Method => true,
-        ApiMemberKind.Operator => true,
+        ApiMemberKind.Constructor or ApiMemberKind.Method or ApiMemberKind.Operator => true,
         _ => false,
     };
 

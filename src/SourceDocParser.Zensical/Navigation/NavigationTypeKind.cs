@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -17,26 +17,26 @@ namespace SourceDocParser.Zensical.Navigation;
 public enum NavigationTypeKind
 {
     /// <summary>A non-record reference type (<c>class</c>).</summary>
-    Class,
+    Class = 0,
 
     /// <summary>A non-record value type (<c>struct</c>).</summary>
-    Struct,
+    Struct = 1,
 
     /// <summary>An interface type.</summary>
-    Interface,
+    Interface = 2,
 
     /// <summary>A reference-type record (<c>record</c> / <c>record class</c>).</summary>
-    Record,
+    Record = 3,
 
     /// <summary>A value-type record (<c>record struct</c>).</summary>
-    RecordStruct,
+    RecordStruct = 4,
 
     /// <summary>An enum type.</summary>
-    Enum,
+    Enum = 5,
 
     /// <summary>A delegate type.</summary>
-    Delegate,
+    Delegate = 6,
 
     /// <summary>A C# 15+ closed discriminated-union base type.</summary>
-    Union,
+    Union = 7,
 }

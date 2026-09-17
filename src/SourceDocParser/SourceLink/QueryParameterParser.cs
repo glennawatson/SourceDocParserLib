@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -27,17 +27,17 @@ internal static class QueryParameterParser
     /// <param name="query">Query-string region (without the leading <c>?</c>).</param>
     /// <param name="name">Parameter name to look up.</param>
     /// <returns>The parameter value, or <see langword="null"/> when absent.</returns>
-    public static string? Extract(in ReadOnlySpan<char> query, string name)
+    internal static string? Extract(in ReadOnlySpan<char> query, string name)
     {
         var current = query;
         while (!current.IsEmpty)
         {
             var ampIdx = current.IndexOf(PairSeparator);
             var pair = ampIdx < 0 ? current : current[..ampIdx];
-            var eqIdx = pair.IndexOf(ValueSeparator);
-            if (eqIdx > 0 && pair[..eqIdx].Equals(name, StringComparison.OrdinalIgnoreCase))
+            var equalsIndex = pair.IndexOf(ValueSeparator);
+            if (equalsIndex > 0 && pair[..equalsIndex].Equals(name, StringComparison.OrdinalIgnoreCase))
             {
-                return pair[(eqIdx + 1)..].ToString();
+                return pair[(equalsIndex + 1)..].ToString();
             }
 
             if (ampIdx < 0)

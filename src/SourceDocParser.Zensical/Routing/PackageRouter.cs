@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -27,7 +27,7 @@ internal static class PackageRouter
     /// <param name="assemblyName">Assembly the type lives in (e.g. <c>Splat.Core</c>).</param>
     /// <param name="rules">Ordered routing rules from the user's options; may be empty.</param>
     /// <returns>The folder name, or null when rules are configured and none match.</returns>
-    public static string? ResolveFolder(string assemblyName, PackageRoutingRule[] rules)
+    internal static string? ResolveFolder(string assemblyName, PackageRoutingRule[] rules)
     {
         ArgumentNullException.ThrowIfNull(assemblyName);
         ArgumentNullException.ThrowIfNull(rules);

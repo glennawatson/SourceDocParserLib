@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -29,10 +29,7 @@ namespace SourceDocParser;
 /// </remarks>
 public interface ICrefResolver
 {
-    /// <summary>
-    /// Renders <paramref name="uid"/> as a Markdown fragment, with
-    /// <paramref name="shortName"/> as the suggested display text.
-    /// </summary>
+    /// <summary>Renders <paramref name="uid"/> as a Markdown fragment, with <paramref name="shortName"/> as the suggested display text.</summary>
     /// <param name="uid">The cref / commentId UID being referenced.</param>
     /// <param name="shortName">A short, human-readable display name. Resolvers may use it as link text or ignore it and produce their own.</param>
     /// <returns>The Markdown fragment to splice in at the reference site.</returns>

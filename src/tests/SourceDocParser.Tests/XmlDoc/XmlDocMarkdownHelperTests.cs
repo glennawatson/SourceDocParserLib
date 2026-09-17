@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -12,7 +12,7 @@ namespace SourceDocParser.Tests.XmlDoc;
 /// <see cref="XmlDocMarkdownHelper"/>: cref-name shortening,
 /// table-cell escaping, blank-line / line-start whitespace control,
 /// the whitespace collapser, and the public
-/// <see cref="XmlDocMarkdownHelper.ConvertSpanToMarkdown(in System.ReadOnlySpan{char})"/> entry.
+/// <see cref="XmlDocMarkdownHelper.ConvertSpanToMarkdown(in ReadOnlySpan{char})"/> entry.
 /// The tag-dispatch surfaces are exercised end-to-end via
 /// <see cref="XmlDocToMarkdown"/>; this file pins the helpers in
 /// isolation so a regression in one of them lights up directly.
@@ -146,7 +146,7 @@ public class XmlDocMarkdownHelperTests
     public async Task CollapseWhitespaceFoldsRuns()
     {
         var sb = new StringBuilder("a   b\t\tc   ");
-        XmlDocMarkdownHelper.CollapseWhitespace(sb);
+        _ = XmlDocMarkdownHelper.CollapseWhitespace(sb);
         await Assert.That(sb.ToString()).IsEqualTo("a b c");
     }
 
@@ -156,7 +156,7 @@ public class XmlDocMarkdownHelperTests
     public async Task CollapseWhitespacePreservesNewlines()
     {
         var sb = new StringBuilder("a   b\n\nc");
-        XmlDocMarkdownHelper.CollapseWhitespace(sb);
+        _ = XmlDocMarkdownHelper.CollapseWhitespace(sb);
         await Assert.That(sb.ToString()).IsEqualTo("a b\n\nc");
     }
 

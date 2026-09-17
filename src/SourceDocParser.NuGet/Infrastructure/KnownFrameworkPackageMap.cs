@@ -1,6 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
+
+using System.Collections.Frozen;
 
 namespace SourceDocParser.NuGet.Infrastructure;
 
@@ -11,7 +13,6 @@ namespace SourceDocParser.NuGet.Infrastructure;
 /// handful of "framework" assemblies that DO live on NuGet.org
 /// (most don't -- WPF/WinForms/Android/iOS workload refs ship with
 /// the SDK and are caught by <c>RefPackProbe</c> instead).
-///
 /// Surfaced as a static helper so the
 /// <see cref="NuGetFetcher"/>-driven walk can pre-populate
 /// <see cref="Models.PackageConfig.AdditionalPackages"/> with the
@@ -32,7 +33,7 @@ internal static class KnownFrameworkPackageMap
     /// ID". Add entries here whenever a new platform projection becomes a doc
     /// surface in the wild.
     /// </summary>
-    private static readonly Dictionary<string, string> RefToPackage = new(StringComparer.Ordinal)
+    private static readonly FrozenDictionary<string, string> RefToPackage = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         // Windows App SDK (WinUI 3 + projections + WebView2 projection).
         ["Microsoft.WinUI"] = WindowsAppSdkPackageId,
@@ -47,7 +48,7 @@ internal static class KnownFrameworkPackageMap
         ["Microsoft.Web.WebView2.Core"] = WebView2PackageId,
         ["Microsoft.Web.WebView2.Wpf"] = WebView2PackageId,
         ["Microsoft.Web.WebView2.WinForms"] = WebView2PackageId,
-    };
+    }.ToFrozenDictionary(StringComparer.Ordinal);
 
     /// <summary>
     /// Returns the NuGet package ID that ships <paramref name="referenceName"/>,
@@ -56,7 +57,7 @@ internal static class KnownFrameworkPackageMap
     /// </summary>
     /// <param name="referenceName">Simple assembly name (no extension).</param>
     /// <returns>The package ID, or null when not mapped.</returns>
-    public static string? TryGetPackageId(string referenceName)
+    internal static string? TryGetPackageId(string referenceName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(referenceName);
         return RefToPackage.GetValueOrDefault(referenceName);
@@ -71,7 +72,7 @@ internal static class KnownFrameworkPackageMap
     /// </summary>
     /// <param name="unresolvedRefs">Reference names that didn't resolve through normal package fetch.</param>
     /// <returns>The de-duplicated package IDs in first-seen order.</returns>
-    public static List<string> AdditionalNuGetPackagesFor(IEnumerable<string> unresolvedRefs)
+    internal static List<string> AdditionalNuGetPackagesFor(IEnumerable<string> unresolvedRefs)
     {
         ArgumentNullException.ThrowIfNull(unresolvedRefs);
 
@@ -99,7 +100,7 @@ internal static class KnownFrameworkPackageMap
     /// freely; the underlying map is private.
     /// </summary>
     /// <returns>The mapped reference names.</returns>
-    public static string[] KnownReferenceNames()
+    internal static string[] KnownReferenceNames()
     {
         var names = new string[RefToPackage.Count];
         RefToPackage.Keys.CopyTo(names, 0);

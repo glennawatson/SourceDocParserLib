@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -29,9 +29,8 @@ internal static class DocXmlParser
     /// strings rather than rendered Markdown.
     /// </summary>
     /// <param name="memberXml">Raw member XML.</param>
-    /// <param name="context">Per-resolver state bundle.</param>
     /// <returns>The parsed raw documentation (every text field holds inner-XML, not Markdown).</returns>
-    public static RawDocumentation Parse(string memberXml, DocResolveContext context)
+    internal static RawDocumentation Parse(string memberXml)
     {
         var state = new ParseState();
         var scanner = new DocXmlScanner(memberXml.AsSpan());
@@ -47,9 +46,7 @@ internal static class DocXmlParser
         return state.ToRawDocumentation();
     }
 
-    /// <summary>
-    /// Handles a start element by dispatching to the appropriate tag handler.
-    /// </summary>
+    /// <summary>Handles a start element by dispatching to the appropriate tag handler.</summary>
     /// <param name="scanner">The scanner.</param>
     /// <param name="state">The parse state.</param>
     /// <returns>The updated parse state.</returns>
@@ -65,25 +62,16 @@ internal static class DocXmlParser
             return state with { Examples = [.. state.Examples, scanner.ReadInnerSpan().ToString()] };
         }
 
-        if (scanner.Name is "param")
-        {
-            return HandleParam(ref scanner, state);
-        }
-
-        return HandleNonCommonElement(ref scanner, state);
+        return scanner.Name is "param" ? HandleParam(ref scanner, state) : HandleNonCommonElement(ref scanner, state);
     }
 
-    /// <summary>
-    /// Returns true when the tag is one of the common single-value documentation tags.
-    /// </summary>
+    /// <summary>Returns true when the tag is one of the common single-value documentation tags.</summary>
     /// <param name="elementName">Element name to test.</param>
     /// <returns>True when the tag is handled by <see cref="HandleCommonTag"/>.</returns>
     internal static bool IsCommonTag(ReadOnlySpan<char> elementName) =>
         elementName is "summary" or "remarks" or "returns" or "value";
 
-    /// <summary>
-    /// Handles the non-common documentation tags.
-    /// </summary>
+    /// <summary>Handles the non-common documentation tags.</summary>
     /// <param name="scanner">The scanner.</param>
     /// <param name="state">The parse state.</param>
     /// <returns>The updated parse state.</returns>
@@ -97,9 +85,7 @@ internal static class DocXmlParser
             _ => state,
         };
 
-    /// <summary>
-    /// Handles common documentation tags like summary, remarks, returns, and value.
-    /// </summary>
+    /// <summary>Handles common documentation tags like summary, remarks, returns, and value.</summary>
     /// <param name="scanner">The scanner.</param>
     /// <param name="state">The parse state.</param>
     /// <returns>The updated parse state.</returns>
@@ -113,9 +99,7 @@ internal static class DocXmlParser
             _ => state
         };
 
-    /// <summary>
-    /// Handles the <c>param</c> tag.
-    /// </summary>
+    /// <summary>Handles the <c>param</c> tag.</summary>
     /// <param name="scanner">The scanner.</param>
     /// <param name="state">The parse state.</param>
     /// <returns>The updated parse state.</returns>
@@ -128,9 +112,7 @@ internal static class DocXmlParser
             }
             : state;
 
-    /// <summary>
-    /// Handles the <c>typeparam</c> tag.
-    /// </summary>
+    /// <summary>Handles the <c>typeparam</c> tag.</summary>
     /// <param name="scanner">The scanner.</param>
     /// <param name="state">The parse state.</param>
     /// <returns>The updated parse state.</returns>
@@ -143,9 +125,7 @@ internal static class DocXmlParser
             }
             : state;
 
-    /// <summary>
-    /// Handles the <c>exception</c> tag.
-    /// </summary>
+    /// <summary>Handles the <c>exception</c> tag.</summary>
     /// <param name="scanner">The scanner.</param>
     /// <param name="state">The parse state.</param>
     /// <returns>The updated parse state.</returns>
@@ -158,9 +138,7 @@ internal static class DocXmlParser
             }
             : state;
 
-    /// <summary>
-    /// Handles the <c>seealso</c> tag.
-    /// </summary>
+    /// <summary>Handles the <c>seealso</c> tag.</summary>
     /// <param name="scanner">The scanner.</param>
     /// <param name="state">The parse state.</param>
     /// <returns>The updated parse state.</returns>
@@ -169,9 +147,7 @@ internal static class DocXmlParser
             ? state with { SeeAlso = [.. state.SeeAlso, seeAlsoCref.ToString()] }
             : state;
 
-    /// <summary>
-    /// Handles the <c>inheritdoc</c> tag.
-    /// </summary>
+    /// <summary>Handles the <c>inheritdoc</c> tag.</summary>
     /// <param name="scanner">The scanner.</param>
     /// <param name="state">The parse state.</param>
     /// <returns>The updated parse state.</returns>

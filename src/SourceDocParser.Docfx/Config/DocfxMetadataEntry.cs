@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -15,6 +15,7 @@ namespace SourceDocParser.Docfx.Config;
 /// </summary>
 /// <param name="Src">The set of source directories and files this metadata entry consumes.</param>
 /// <param name="Dest">Output directory (relative to the docfx working directory) for the generated YAML.</param>
+[System.Diagnostics.DebuggerDisplay("DocfxMetadataEntry: {Extra}")]
 public sealed record DocfxMetadataEntry(
     DocfxMetadataSource[] Src,
     string Dest)

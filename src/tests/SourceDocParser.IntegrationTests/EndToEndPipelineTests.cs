@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -32,7 +32,7 @@ public class EndToEndPipelineTests
 
         var apiPath = Path.Combine(scratch.Path, "api");
         var output = Path.Combine(scratch.Path, "out");
-        Directory.CreateDirectory(apiPath);
+        _ = Directory.CreateDirectory(apiPath);
 
         var source = new NuGetAssemblySource(scratch.Path, apiPath);
         var emitter = new ZensicalDocumentationEmitter();
@@ -43,6 +43,6 @@ public class EndToEndPipelineTests
         await Assert.That(result.CanonicalTypes).IsGreaterThan(0);
         await Assert.That(result.PagesEmitted).IsGreaterThan(0);
         await Assert.That(result.LoadFailures).IsEqualTo(0);
-        await Assert.That(Directory.EnumerateFiles(output, "*.md", SearchOption.AllDirectories).Any()).IsTrue();
+        await Assert.That(Directory.GetFiles(output, "*.md", SearchOption.AllDirectories)).IsNotEmpty();
     }
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -7,9 +7,7 @@ using SourceDocParser.SourceLink;
 
 namespace SourceDocParser;
 
-/// <summary>
-/// Helper methods for Metadata Extractor source link collection.
-/// </summary>
+/// <summary>Helper methods for Metadata Extractor source link collection.</summary>
 internal static class MetadataSourceLinkHelper
 {
     /// <summary>
@@ -19,7 +17,7 @@ internal static class MetadataSourceLinkHelper
     /// </summary>
     /// <param name="merged">Merged canonical types.</param>
     /// <returns>One entry per documented source URL.</returns>
-    public static SourceLinkEntry[] CollectSourceLinks(ApiType[] merged)
+    internal static SourceLinkEntry[] CollectSourceLinks(ApiType[] merged)
     {
         // Most types contribute 0-1 source URLs (the type-level URL,
         // occasionally a member URL on top), so the type count is the

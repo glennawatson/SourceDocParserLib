@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,25 +16,21 @@ internal static class SourceUrlRewriter
     /// <summary>The anchor separator character.</summary>
     private const char AnchorSeparator = '#';
 
-    /// <summary>
-    /// Rewrites a raw SourceLink URL into a blob URL with a line anchor.
-    /// </summary>
+    /// <summary>Rewrites a raw SourceLink URL into a blob URL with a line anchor.</summary>
     /// <param name="rawUrl">Raw URL from SourceLinkMap.</param>
     /// <param name="line">First executable source line for the symbol.</param>
     /// <returns>A human-friendly URL.</returns>
-    public static string ToBlobUrl(string rawUrl, int line) =>
+    internal static string ToBlobUrl(string rawUrl, int line) =>
         BlobUrlProviders.TryRewriteGitHub(rawUrl, line)
         ?? BlobUrlProviders.TryRewriteGitLab(rawUrl, line)
         ?? BlobUrlProviders.TryRewriteBitbucket(rawUrl, line)
         ?? BlobUrlProviders.TryRewriteAzureDevOps(rawUrl, line)
         ?? BlobUrlProviders.AppendDefaultAnchor(rawUrl, line);
 
-    /// <summary>
-    /// Strips the line anchor from a blob URL.
-    /// </summary>
+    /// <summary>Strips the line anchor from a blob URL.</summary>
     /// <param name="blobUrl">Blob URL with optional line anchor.</param>
     /// <returns>The URL without the anchor.</returns>
-    public static string StripAnchor(string blobUrl)
+    internal static string StripAnchor(string blobUrl)
     {
         var hashIdx = blobUrl.IndexOf(AnchorSeparator, StringComparison.Ordinal);
         return hashIdx < 0 ? blobUrl : blobUrl[..hashIdx];

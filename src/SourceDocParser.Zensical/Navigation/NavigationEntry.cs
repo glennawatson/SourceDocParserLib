@@ -1,12 +1,10 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 namespace SourceDocParser.Zensical.Navigation;
 
-/// <summary>
-/// One leaf in the nav graph -- a single type page.
-/// </summary>
+/// <summary>One leaf in the nav graph -- a single type page.</summary>
 /// <param name="Title">
 /// Pre-formatted display name with generic placeholders
 /// (<c>Change&lt;T&gt;</c>, <c>Change&lt;T1, T2&gt;</c>) -- safe to
@@ -35,6 +33,8 @@ namespace SourceDocParser.Zensical.Navigation;
 /// placeholder-only <c>"Change&lt;T1, T2&gt;"</c> when they want
 /// MS-Learn-style readability.
 /// </param>
+[System.Diagnostics.DebuggerDisplay("NavigationEntry: {ToString(),nq}")]
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "SST2338", Justification = "Navigation metadata fields coexist for every kind and are not mutually exclusive payloads.")]
 public readonly record struct NavigationEntry(
     string Title,
     string Path,

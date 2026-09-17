@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -31,11 +31,7 @@ public class TypePageEmitterTests
     [Test]
     public async Task RenderEmitsValueTableForEnum()
     {
-        var values = new List<ApiEnumValue>
-        {
-            new("Red", "F:Color.Red", "0", ApiDocumentation.Empty, null),
-            new("Green", "F:Color.Green", "1", ApiDocumentation.Empty, null),
-        };
+        var values = new List<ApiEnumValue> { new("Red", "F:Color.Red", "0", ApiDocumentation.Empty, null), new("Green", "F:Color.Green", "1", ApiDocumentation.Empty, null), };
         var enumType = TestData.EnumType("Color") with { Values = [.. values] };
 
         var page = TypePageEmitter.Render(enumType);
@@ -46,10 +42,7 @@ public class TypePageEmitterTests
         await Assert.That(page).Contains("`Green`");
     }
 
-    /// <summary>
-    /// Delegate types render the Invoke signature under a Signature
-    /// section, not as a member page.
-    /// </summary>
+    /// <summary>Delegate types render the Invoke signature under a Signature section, not as a member page.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task RenderEmitsSignatureSectionForDelegate()
@@ -78,10 +71,7 @@ public class TypePageEmitterTests
         await Assert.That(TypePageEmitter.PathFor(globalNs)).IsEqualTo("Test/_global/Bar.md");
     }
 
-    /// <summary>
-    /// Generic types use curly braces in the file stem so the path stays
-    /// safe on Windows and readable in URLs.
-    /// </summary>
+    /// <summary>Generic types use curly braces in the file stem so the path stays safe on Windows and readable in URLs.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task PathForReplacesAngleBracketsWithCurlyBraces()
@@ -127,7 +117,9 @@ public class TypePageEmitterTests
         // A 250-char run with the only space placed past the half-limit
         // boundary so LastIndexOf(' ', 199) returns a position not greater
         // than MinimumSummaryWordBoundary (=100).
-        var noEarlySpace = new string('a', 95) + new string('b', 155) + " end";
+        const int PrefixLength = 95;
+        const int SuffixLength = 155;
+        var noEarlySpace = $"{new string('a', PrefixLength)}{new string('b', SuffixLength)} end";
         var summaryDoc = ApiDocumentation.Empty with { Summary = noEarlySpace };
         var member = new ApiMember(
             Name: "DoThing",

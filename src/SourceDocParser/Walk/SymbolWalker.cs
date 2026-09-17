@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -20,23 +20,19 @@ namespace SourceDocParser.Walk;
 /// <see cref="NamespaceDisplayResolver"/> so each piece is unit-
 /// testable in isolation against synthesised Roslyn symbols.
 /// </summary>
+[System.Diagnostics.DebuggerDisplay("SymbolWalker: {_docResolverFactory}")]
 public sealed class SymbolWalker : ISymbolWalker
 {
     /// <summary>Factory invoked once per <see cref="Walk"/> to create the per-compilation doc resolver.</summary>
     private readonly Func<Compilation, IDocResolver> _docResolverFactory;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="SymbolWalker"/> class
-    /// using the default doc-resolver factory.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="SymbolWalker"/> class using the default doc-resolver factory.</summary>
     public SymbolWalker()
         : this(null)
     {
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="SymbolWalker"/> class.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="SymbolWalker"/> class.</summary>
     /// <param name="docResolverFactory">Factory invoked once per <see cref="Walk"/> to create the per-compilation doc resolver. Defaults to <c>c => new DocResolver(c)</c>.</param>
     public SymbolWalker(Func<Compilation, IDocResolver>? docResolverFactory) =>
         _docResolverFactory = docResolverFactory ?? (static c => new DocResolver(c));
@@ -111,7 +107,7 @@ public sealed class SymbolWalker : ISymbolWalker
         // definition lives in a sibling assembly (Splat.Core.dll).
         // Seed the same pending stack so DrainPendingTypes surfaces
         // them through the existing visibility / dedupe filtering.
-        TypeForwardingHelpers.SeedPending(assembly, pendingTypes);
+        _ = TypeForwardingHelpers.SeedPending(assembly, pendingTypes);
         DrainPendingTypes(pendingTypes, types, seenTypeUids, context);
 
         types.Sort(static (a, b) => string.CompareOrdinal(a.FullName, b.FullName));
@@ -154,7 +150,7 @@ public sealed class SymbolWalker : ISymbolWalker
             // only the impl, drop the marker.
             if (SymbolWalkerHelpers.IsExtensionDeclaration(type))
             {
-                TypeForwardingHelpers.PushNested(type, pendingTypes);
+                _ = TypeForwardingHelpers.PushNested(type, pendingTypes);
                 continue;
             }
 
@@ -168,11 +164,11 @@ public sealed class SymbolWalker : ISymbolWalker
                 types.Add(apiType);
                 if (apiType.Uid is [_, ..])
                 {
-                    seenTypeUids.Add(apiType.Uid);
+                    _ = seenTypeUids.Add(apiType.Uid);
                 }
             }
 
-            TypeForwardingHelpers.PushNested(type, pendingTypes);
+            _ = TypeForwardingHelpers.PushNested(type, pendingTypes);
         }
     }
 }

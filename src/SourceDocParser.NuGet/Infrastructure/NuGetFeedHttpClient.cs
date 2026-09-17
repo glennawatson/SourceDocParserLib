@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -23,10 +23,7 @@ internal sealed class NuGetFeedHttpClient : INuGetFeedHttpClient
     /// <summary>True when this instance is responsible for disposing <see cref="_http"/>.</summary>
     private readonly bool _ownsHttp;
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="NuGetFeedHttpClient"/> class
-    /// that wraps, but does not own, <paramref name="http"/>.
-    /// </summary>
+    /// <summary>Initializes a new instance of the <see cref="NuGetFeedHttpClient"/> class that wraps, but does not own, <paramref name="http"/>.</summary>
     /// <param name="http">Underlying HTTP client.</param>
     public NuGetFeedHttpClient(HttpClient http)
         : this(http, false)
@@ -63,7 +60,7 @@ internal sealed class NuGetFeedHttpClient : INuGetFeedHttpClient
         var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
         try
         {
-            response.EnsureSuccessStatusCode();
+            _ = response.EnsureSuccessStatusCode();
             var inner = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
             return new OwningStream(inner, response);
         }
@@ -89,7 +86,7 @@ internal sealed class NuGetFeedHttpClient : INuGetFeedHttpClient
                 return null;
             }
 
-            response.EnsureSuccessStatusCode();
+            _ = response.EnsureSuccessStatusCode();
             var inner = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
             return new OwningStream(inner, response);
         }

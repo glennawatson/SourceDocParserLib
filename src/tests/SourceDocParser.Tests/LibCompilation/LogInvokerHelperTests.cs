@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SourceDocParser.LibCompilation;
@@ -15,6 +16,12 @@ namespace SourceDocParser.Tests.LibCompilation;
 /// </summary>
 public class LogInvokerHelperTests
 {
+    /// <summary>Expected fixture value used by ProjectingOverloadRunsProjectorAndActionWhenEnabled.</summary>
+    private const int ProjectingOverloadRunsProjectorAndActionWhenEnabledInvoke = 2;
+
+    /// <summary>Expected fixture value used by ProjectingOverloadRunsProjectorAndActionWhenEnabled.</summary>
+    private const int ProjectingOverloadRunsProjectorAndActionWhenEnabledExpectedValue = 6;
+
     /// <summary>The 2-state overload runs the action when the logger is enabled.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -69,7 +76,7 @@ public class LogInvokerHelperTests
             projector: x =>
             {
                 projections++;
-                return x * 2;
+                return x * ProjectingOverloadRunsProjectorAndActionWhenEnabledInvoke;
             },
             action: (_, _, _, projected) =>
             {
@@ -79,7 +86,7 @@ public class LogInvokerHelperTests
 
         await Assert.That(projections).IsEqualTo(1);
         await Assert.That(calls).IsEqualTo(1);
-        await Assert.That(capturedProjected).IsEqualTo(6);
+        await Assert.That(capturedProjected).IsEqualTo(ProjectingOverloadRunsProjectorAndActionWhenEnabledExpectedValue);
     }
 
     /// <summary>The 3-state overload skips both projector and action when disabled.</summary>
@@ -113,10 +120,17 @@ public class LogInvokerHelperTests
     [Test]
     public async Task RejectsNullArguments()
     {
-        await Assert.That(() => LogInvokerHelper.Invoke<int, int>(null!, LogLevel.Information, 0, 0, (_, _, _) => { })).Throws<ArgumentNullException>();
-        await Assert.That(() => LogInvokerHelper.Invoke(NullLogger.Instance, LogLevel.Information, 0, 0, null!)).Throws<ArgumentNullException>();
-        await Assert.That(() => LogInvokerHelper.Invoke<int, int, int, int>(NullLogger.Instance, LogLevel.Information, 0, 0, 0, projector: null!, (_, _, _, _) => { })).Throws<ArgumentNullException>();
-        await Assert.That(() => LogInvokerHelper.Invoke<int, int, int, int>(NullLogger.Instance, LogLevel.Information, 0, 0, 0, projector: x => x, action: null!)).Throws<ArgumentNullException>();
+        await Assert.That(static () => LogInvokerHelper.Invoke(null!, LogLevel.Information, 0, 0, static (_, _, _) => { })).Throws<ArgumentNullException>();
+        await Assert.That(static () => LogInvokerHelper.Invoke(NullLogger.Instance, LogLevel.Information, 0, 0, null!)).Throws<ArgumentNullException>();
+        await Assert.That(static () => LogInvokerHelper.Invoke<int, int, int, int>(
+            NullLogger.Instance,
+            LogLevel.Information,
+            0,
+            0,
+            0,
+            projector: null!,
+            static (_, _, _, _) => { })).Throws<ArgumentNullException>();
+        await Assert.That(static () => LogInvokerHelper.Invoke(NullLogger.Instance, LogLevel.Information, 0, 0, 0, projector: static x => x, action: null!)).Throws<ArgumentNullException>();
     }
 
     /// <summary>Test helper -- minimal ILogger whose <c>IsEnabled</c> returns a fixed value.</summary>
@@ -130,10 +144,12 @@ public class LogInvokerHelperTests
         public TogglingLogger(bool enabled) => _enabled = enabled;
 
         /// <inheritdoc />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IDisposable? BeginScope<TState>(TState state)
             where TState : notnull => null;
 
         /// <inheritdoc />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsEnabled(LogLevel logLevel) => _enabled;
 
         /// <inheritdoc />

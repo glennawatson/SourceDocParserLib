@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -25,7 +25,7 @@ public class YamlLiteralBlockFormatterTests
     {
         var sb = new StringBuilder();
 
-        YamlLiteralBlockFormatter.Format(sb, "  summary: ", "line one\nline two");
+        _ = YamlLiteralBlockFormatter.Format(sb, "  summary: ", "line one\nline two");
 
         // Key sits at 2 spaces; body lines at 4 spaces (key + 2).
         await Assert.That(sb.ToString().Lf()).IsEqualTo("  summary: |-\n    line one\n    line two\n");
@@ -38,7 +38,7 @@ public class YamlLiteralBlockFormatterTests
     {
         var sb = new StringBuilder();
 
-        YamlLiteralBlockFormatter.Format(sb, "summary: ", "alpha\nbeta");
+        _ = YamlLiteralBlockFormatter.Format(sb, "summary: ", "alpha\nbeta");
 
         await Assert.That(sb.ToString().Lf()).IsEqualTo("summary: |-\n  alpha\n  beta\n");
     }
@@ -50,7 +50,7 @@ public class YamlLiteralBlockFormatterTests
     {
         var sb = new StringBuilder();
 
-        YamlLiteralBlockFormatter.Format(sb, "    remarks: ", "alone");
+        _ = YamlLiteralBlockFormatter.Format(sb, "    remarks: ", "alone");
 
         // Key sits at 4; body at 6.
         await Assert.That(sb.ToString().Lf()).IsEqualTo("    remarks: |-\n      alone\n");
@@ -70,5 +70,9 @@ public class YamlLiteralBlockFormatterTests
     /// <summary>An all-spaces prefix returns the full prefix length (degenerate but defined).</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task AllSpacesPrefixReturnsFullLength() => await Assert.That(YamlLiteralBlockFormatter.ComputeIndentLength("    ")).IsEqualTo(4);
+    public async Task AllSpacesPrefixReturnsFullLength()
+    {
+        const string prefix = "    ";
+        await Assert.That(YamlLiteralBlockFormatter.ComputeIndentLength(prefix)).IsEqualTo(prefix.Length);
+    }
 }

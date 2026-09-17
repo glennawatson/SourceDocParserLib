@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -19,6 +19,9 @@ namespace SourceDocParser.Zensical.Pages;
 /// </summary>
 internal static class AttributeFilter
 {
+    /// <summary>Typical space required for one rendered attribute.</summary>
+    private const int AttributeCapacity = 32;
+
     /// <summary>
     /// Renders the user-meaningful attributes from <paramref name="attributes"/>
     /// as a single inline-code line (one usage per attribute, separated
@@ -29,14 +32,14 @@ internal static class AttributeFilter
     /// </summary>
     /// <param name="attributes">The full attribute list from the walker.</param>
     /// <returns>The pre-formatted markdown line, or empty when no attributes survive.</returns>
-    public static string RenderInlineList(ApiAttribute[] attributes)
+    internal static string RenderInlineList(ApiAttribute[] attributes)
     {
         if (attributes is [])
         {
             return string.Empty;
         }
 
-        var sb = new StringBuilder(capacity: attributes.Length * 32);
+        var sb = new StringBuilder(capacity: attributes.Length * AttributeCapacity);
         var first = true;
         for (var i = 0; i < attributes.Length; i++)
         {
@@ -48,17 +51,17 @@ internal static class AttributeFilter
 
             if (!first)
             {
-                sb.Append(' ');
+                _ = sb.Append(' ');
             }
 
             first = false;
-            sb.Append('`').Append('[').Append(attribute.DisplayName);
+            _ = sb.Append('`').Append('[').Append(attribute.DisplayName);
             if (attribute.Arguments is [_, ..])
             {
                 AppendArguments(sb, attribute.Arguments);
             }
 
-            sb.Append(']').Append('`');
+            _ = sb.Append(']').Append('`');
         }
 
         return sb.ToString();
@@ -69,23 +72,23 @@ internal static class AttributeFilter
     /// <param name="arguments">Attribute arguments, in source order.</param>
     private static void AppendArguments(StringBuilder sb, ApiAttributeArgument[] arguments)
     {
-        sb.Append('(');
+        _ = sb.Append('(');
         for (var i = 0; i < arguments.Length; i++)
         {
             if (i > 0)
             {
-                sb.Append(", ");
+                _ = sb.Append(", ");
             }
 
             var argument = arguments[i];
             if (argument.Name is { Length: > 0 } name)
             {
-                sb.Append(name).Append(" = ");
+                _ = sb.Append(name).Append(" = ");
             }
 
-            sb.Append(argument.Value);
+            _ = sb.Append(argument.Value);
         }
 
-        sb.Append(')');
+        _ = sb.Append(')');
     }
 }

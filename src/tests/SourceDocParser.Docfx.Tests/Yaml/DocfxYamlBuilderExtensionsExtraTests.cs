@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -16,6 +16,9 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 /// </summary>
 public class DocfxYamlBuilderExtensionsExtraTests
 {
+    /// <summary>Namespace-qualified name used by the fixture.</summary>
+    private const string QualifiedTypeName = "Foo.Bar";
+
     /// <summary>An empty value writes the YAML empty-string sentinel <c>''</c>.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -43,7 +46,7 @@ public class DocfxYamlBuilderExtensionsExtraTests
     {
         var sb = new StringBuilder();
 
-        sb.AppendSeealso(["T:Foo.Bar", "M:Foo.Baz"]);
+        _ = sb.AppendSeealso(["T:Foo.Bar", "M:Foo.Baz"]);
 
         var output = sb.ToString().Lf();
         await Assert.That(output).Contains("seealso:");
@@ -80,7 +83,7 @@ public class DocfxYamlBuilderExtensionsExtraTests
     {
         var sb = new StringBuilder().AppendQualifiedScalar("Foo", '.', "Bar");
 
-        await Assert.That(sb.ToString().Lf()).IsEqualTo("Foo.Bar");
+        await Assert.That(sb.ToString().Lf()).IsEqualTo(QualifiedTypeName);
     }
 
     /// <summary>An empty-string body skips emission entirely.</summary>
@@ -208,9 +211,9 @@ public class DocfxYamlBuilderExtensionsExtraTests
     [Test]
     public async Task StripCommentIdPrefixIfPresentReturnsInputWithoutPrefix()
     {
-        var actual = DocfxYamlBuilderExtensions.StripCommentIdPrefixIfPresent("Foo.Bar");
+        var actual = DocfxYamlBuilderExtensions.StripCommentIdPrefixIfPresent(QualifiedTypeName);
 
-        await Assert.That(actual).IsEqualTo("Foo.Bar");
+        await Assert.That(actual).IsEqualTo(QualifiedTypeName);
     }
 
     /// <summary>A comment-id-prefixed string has the two-character prefix stripped.</summary>
@@ -220,7 +223,7 @@ public class DocfxYamlBuilderExtensionsExtraTests
     {
         var actual = DocfxYamlBuilderExtensions.StripCommentIdPrefixIfPresent("T:Foo.Bar");
 
-        await Assert.That(actual).IsEqualTo("Foo.Bar");
+        await Assert.That(actual).IsEqualTo(QualifiedTypeName);
     }
 
     /// <summary>The legacy single-arg <c>AppendTypeItem</c> overload routes through the empty index.</summary>
@@ -231,7 +234,7 @@ public class DocfxYamlBuilderExtensionsExtraTests
         var sb = new StringBuilder();
         var type = TestData.ObjectType("Foo");
 
-        sb.AppendTypeItem(type);
+        _ = sb.AppendTypeItem(type);
 
         var output = sb.ToString().Lf();
         await Assert.That(output).Contains("- uid: Foo");
@@ -258,7 +261,7 @@ public class DocfxYamlBuilderExtensionsExtraTests
         TypeParameters: [],
         ReturnType: null,
         ContainingTypeUid: "T:Test",
-        ContainingTypeName: "Test",
+        ContainingTypeName: nameof(Test),
         SourceUrl: null,
         Documentation: ApiDocumentation.Empty,
         IsObsolete: false,

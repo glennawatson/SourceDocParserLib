@@ -1,7 +1,8 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using SourceDocParser.Model;
 using SourceDocParser.TestHelpers;
 using SourceDocParser.Zensical.Options;
@@ -18,6 +19,15 @@ namespace SourceDocParser.Zensical.Tests;
 /// </summary>
 public class ZensicalDocumentationEmitterTests
 {
+    /// <summary>Fixture value for ClassName.</summary>
+    private const string ClassName = "DemoClass";
+
+    /// <summary>Fixture value for ClassFileName.</summary>
+    private const string ClassFileName = "DemoClass.md";
+
+    /// <summary>Fixture value for UnionName.</summary>
+    private const string UnionName = "DemoUnion";
+
     /// <summary>
     /// A class with three distinct member names produces one type page
     /// plus three overload-group pages -- the baseline contract.
@@ -26,32 +36,31 @@ public class ZensicalDocumentationEmitterTests
     [Test]
     public async Task ClassWithDistinctMemberNamesEmitsOnePagePerOverloadGroup()
     {
+        const int ExpectedPages = 6;
         using var scratch = new ScratchDirectory();
-        var type = ObjectTypeWithMembers("DemoClass", "Run", "Stop", "Cancel");
+        var type = ObjectTypeWithMembers(ClassName, "Run", "Stop", "Cancel");
 
         var pages = await new ZensicalDocumentationEmitter().EmitAsync([type], new FilePageSink(scratch.Path));
 
         // 1 type page + 3 overload-group pages + 1 package landing + 1 namespace landing.
-        await Assert.That(pages).IsEqualTo(6);
-        await Assert.That(MarkdownFiles(scratch.Path)).IsEqualTo(6);
+        await Assert.That(pages).IsEqualTo(ExpectedPages);
+        await Assert.That(MarkdownFiles(scratch.Path)).IsEqualTo(ExpectedPages);
     }
 
-    /// <summary>
-    /// Overloads of the same method name share one overload-group page --
-    /// the bucket-by-name behaviour collapses them.
-    /// </summary>
+    /// <summary>Overloads of the same method name share one overload-group page -- the bucket-by-name behaviour collapses them.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ClassWithRepeatedOverloadsCollapsesIntoOneMemberPage()
     {
+        const int ExpectedPages = 4;
         using var scratch = new ScratchDirectory();
-        var type = ObjectTypeWithMembers("DemoClass", "Run", "Run", "Run");
+        var type = ObjectTypeWithMembers(ClassName, "Run", "Run", "Run");
 
         var pages = await new ZensicalDocumentationEmitter().EmitAsync([type], new FilePageSink(scratch.Path));
 
         // 1 type page + 1 overload-group page (all three Run overloads share
         // the same name bucket) + 1 package landing + 1 namespace landing.
-        await Assert.That(pages).IsEqualTo(4);
+        await Assert.That(pages).IsEqualTo(ExpectedPages);
     }
 
     /// <summary>
@@ -64,10 +73,12 @@ public class ZensicalDocumentationEmitterTests
     [Test]
     public async Task EnumWithManyValuesEmitsOnlyTheTypePage()
     {
+        const int EnumValueCount = 256;
+        const int ExpectedPages = 3;
         using var scratch = new ScratchDirectory();
 
-        var values = new List<ApiEnumValue>(256);
-        for (var i = 0; i < 256; i++)
+        var values = new List<ApiEnumValue>(EnumValueCount);
+        for (var i = 0; i < EnumValueCount; i++)
         {
             values.Add(new($"Value{i}", $"F:DemoEnum.Value{i}", i.ToString(System.Globalization.CultureInfo.InvariantCulture), ApiDocumentation.Empty, null));
         }
@@ -76,26 +87,24 @@ public class ZensicalDocumentationEmitterTests
         var pages = await new ZensicalDocumentationEmitter().EmitAsync([type], new FilePageSink(scratch.Path));
 
         // 1 type page + 1 package landing + 1 namespace landing.
-        await Assert.That(pages).IsEqualTo(3);
-        await Assert.That(MarkdownFiles(scratch.Path)).IsEqualTo(3);
+        await Assert.That(pages).IsEqualTo(ExpectedPages);
+        await Assert.That(MarkdownFiles(scratch.Path)).IsEqualTo(ExpectedPages);
     }
 
-    /// <summary>
-    /// Delegates never emit per-overload pages -- the Invoke signature
-    /// is the type page itself.
-    /// </summary>
+    /// <summary>Delegates never emit per-overload pages -- the Invoke signature is the type page itself.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task DelegateEmitsOnlyTheTypePage()
     {
+        const int ExpectedPages = 3;
         using var scratch = new ScratchDirectory();
         var type = TestData.DelegateType("DemoHandler");
 
         var pages = await new ZensicalDocumentationEmitter().EmitAsync([type], new FilePageSink(scratch.Path));
 
         // 1 type page + 1 package landing + 1 namespace landing.
-        await Assert.That(pages).IsEqualTo(3);
-        await Assert.That(MarkdownFiles(scratch.Path)).IsEqualTo(3);
+        await Assert.That(pages).IsEqualTo(ExpectedPages);
+        await Assert.That(MarkdownFiles(scratch.Path)).IsEqualTo(ExpectedPages);
     }
 
     /// <summary>
@@ -110,7 +119,7 @@ public class ZensicalDocumentationEmitterTests
     {
         using var scratch = new ScratchDirectory();
         var emitter = new ZensicalDocumentationEmitter();
-        var type = TestData.ObjectType("DemoClass");
+        var type = TestData.ObjectType(ClassName);
 
         var pages = await emitter.EmitAsync([type], new FilePageSink(scratch.Path));
 
@@ -138,22 +147,19 @@ public class ZensicalDocumentationEmitterTests
         // exact total includes namespace + package landing pages so we
         // assert the lower bound to keep this test robust against
         // landing-page count changes.
-        await Assert.That(pages).IsGreaterThanOrEqualTo(2);
-        var firstPage = Directory.EnumerateFiles(scratch.Path, "FirstDemo.md", SearchOption.AllDirectories).FirstOrDefault();
-        var secondPage = Directory.EnumerateFiles(scratch.Path, "SecondDemo.md", SearchOption.AllDirectories).FirstOrDefault();
-        await Assert.That(firstPage).IsNotNull();
-        await Assert.That(secondPage).IsNotNull();
+        const int MinimumPages = 2;
+        await Assert.That(pages).IsGreaterThanOrEqualTo(MinimumPages);
+        var firstPages = Directory.GetFiles(scratch.Path, "FirstDemo.md", SearchOption.AllDirectories);
+        var secondPages = Directory.GetFiles(scratch.Path, "SecondDemo.md", SearchOption.AllDirectories);
+        await Assert.That(firstPages.Length).IsGreaterThan(0);
+        await Assert.That(secondPages.Length).IsGreaterThan(0);
     }
 
-    /// <summary>
-    /// Passing <see langword="null"/> for <c>options</c> hits the
-    /// <see cref="ArgumentNullException.ThrowIfNull(object?, string?)"/>
-    /// guard in the constructor.
-    /// </summary>
+    /// <summary>Passing <see langword="null"/> for <c>options</c> hits the <see cref="ArgumentNullException.ThrowIfNull(object?, string?)"/> guard in the constructor.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
     public async Task ConstructorThrowsWhenOptionsIsNull() =>
-        await Assert.That(() => new ZensicalDocumentationEmitter(null!)).Throws<ArgumentNullException>();
+        await Assert.That(static () => new ZensicalDocumentationEmitter(null!)).Throws<ArgumentNullException>();
 
     /// <summary>
     /// Passing <see langword="null"/> for <c>types</c> hits the
@@ -170,9 +176,7 @@ public class ZensicalDocumentationEmitterTests
         await Assert.That(() => emitter.EmitAsync(null!, new FilePageSink(scratch.Path), CancellationToken.None)).Throws<ArgumentNullException>();
     }
 
-    /// <summary>
-    /// Constructing a <see cref="FilePageSink"/> with a blank root trips its argument-validation guard.
-    /// </summary>
+    /// <summary>Constructing a <see cref="FilePageSink"/> with a blank root trips its argument-validation guard.</summary>
     /// <param name="outputRoot">Invalid output root candidate.</param>
     /// <returns>A task representing the test execution.</returns>
     [Test]
@@ -187,7 +191,7 @@ public class ZensicalDocumentationEmitterTests
     public async Task EmitAsyncThrowsWhenSinkIsNull()
     {
         var emitter = new ZensicalDocumentationEmitter();
-        var type = TestData.ObjectType("DemoClass");
+        var type = TestData.ObjectType(ClassName);
 
         await Assert.That(() => emitter.EmitAsync([type], null!, CancellationToken.None)).Throws<ArgumentNullException>();
     }
@@ -203,7 +207,7 @@ public class ZensicalDocumentationEmitterTests
     {
         using var scratch = new ScratchDirectory();
         var emitter = new ZensicalDocumentationEmitter();
-        var type = TestData.ObjectType("DemoClass");
+        var type = TestData.ObjectType(ClassName);
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 
@@ -223,7 +227,7 @@ public class ZensicalDocumentationEmitterTests
         using var scratch = new ScratchDirectory();
         var options = new ZensicalEmitterOptions([new PackageRoutingRule("InScope", "InScope")]);
         var emitter = new ZensicalDocumentationEmitter(options);
-        var inScope = ObjectTypeWithMembers("DemoClass", "Run") with
+        var inScope = ObjectTypeWithMembers(ClassName, "Run") with
         {
             AssemblyName = "InScope.Demo",
             Namespace = "InScope.Demo",
@@ -232,10 +236,10 @@ public class ZensicalDocumentationEmitterTests
 
         await emitter.EmitAsync([inScope, outOfScope], new FilePageSink(scratch.Path));
 
-        var inScopePage = Directory.EnumerateFiles(scratch.Path, "DemoClass.md", SearchOption.AllDirectories).FirstOrDefault();
-        var outOfScopePage = Directory.EnumerateFiles(scratch.Path, "OtherClass.md", SearchOption.AllDirectories).FirstOrDefault();
-        await Assert.That(inScopePage).IsNotNull();
-        await Assert.That(outOfScopePage).IsNull();
+        var inScopePages = Directory.GetFiles(scratch.Path, ClassFileName, SearchOption.AllDirectories);
+        var outOfScopePages = Directory.GetFiles(scratch.Path, "OtherClass.md", SearchOption.AllDirectories);
+        await Assert.That(inScopePages.Length).IsGreaterThan(0);
+        await Assert.That(outOfScopePages.Length).IsEqualTo(0);
     }
 
     /// <summary>
@@ -273,7 +277,7 @@ public class ZensicalDocumentationEmitterTests
         // Every member name is angle-bracket-mangled so the
         // compiler-generated filter (matches `<` / `>`) skips them all.
         var type = ObjectTypeWithMembers(
-            "DemoClass",
+            ClassName,
             "<RealName>k__BackingField",
             "<>c__DisplayClass0_0",
             "<RaiseEvent>b__0");
@@ -282,13 +286,13 @@ public class ZensicalDocumentationEmitterTests
 
         // The type page exists, but no member-page directory should
         // contain a per-overload page for any of the synthetic names.
-        var typePage = Directory.EnumerateFiles(scratch.Path, "DemoClass.md", SearchOption.AllDirectories).FirstOrDefault();
-        await Assert.That(typePage).IsNotNull();
-        var memberPages = Directory
-            .EnumerateFiles(scratch.Path, "*.md", SearchOption.AllDirectories)
-            .Where(static path => Path.GetFileName(path) is not "DemoClass.md" and not "index.md")
-            .ToList();
-        await Assert.That(memberPages.Count).IsEqualTo(0);
+        var typePages = Directory.GetFiles(scratch.Path, ClassFileName, SearchOption.AllDirectories);
+        await Assert.That(typePages.Length).IsGreaterThan(0);
+        var pages = Directory.GetFiles(scratch.Path, "*.md", SearchOption.AllDirectories);
+        foreach (var page in pages)
+        {
+            await Assert.That(Path.GetFileName(page) is ClassFileName or "index.md").IsTrue();
+        }
     }
 
     /// <summary>
@@ -318,8 +322,8 @@ public class ZensicalDocumentationEmitterTests
             Parameters: [],
             TypeParameters: [],
             ReturnType: null,
-            ContainingTypeUid: "DemoUnion",
-            ContainingTypeName: "DemoUnion",
+            ContainingTypeUid: UnionName,
+            ContainingTypeName: UnionName,
             SourceUrl: null,
             Documentation: ApiDocumentation.Empty,
             IsObsolete: false,
@@ -327,15 +331,15 @@ public class ZensicalDocumentationEmitterTests
             Attributes: []);
 
         var union = new ApiUnionType(
-            Name: "DemoUnion",
-            FullName: "DemoUnion",
-            Uid: "DemoUnion",
+            Name: UnionName,
+            FullName: UnionName,
+            Uid: UnionName,
             Namespace: string.Empty,
             Arity: 0,
             IsStatic: false,
             IsSealed: false,
             IsAbstract: true,
-            AssemblyName: "Test",
+            AssemblyName: nameof(Test),
             Documentation: ApiDocumentation.Empty,
             BaseType: null,
             Interfaces: [],
@@ -349,13 +353,11 @@ public class ZensicalDocumentationEmitterTests
 
         var pages = await emitter.EmitAsync([union], new FilePageSink(scratch.Path));
 
-        await Assert.That(pages).IsGreaterThanOrEqualTo(2);
+        const int MinimumPages = 2;
+        await Assert.That(pages).IsGreaterThanOrEqualTo(MinimumPages);
     }
 
-    /// <summary>
-    /// Builds an <see cref="ApiObjectType"/> with one synthetic
-    /// <see cref="ApiMember"/> per name in <paramref name="memberNames"/>.
-    /// </summary>
+    /// <summary>Builds an <see cref="ApiObjectType"/> with one synthetic <see cref="ApiMember"/> per name in <paramref name="memberNames"/>.</summary>
     /// <param name="name">Type name (also used as the UID stem for each member).</param>
     /// <param name="memberNames">Member names, one per synthesised member.</param>
     /// <returns>The constructed type with members attached.</returns>
@@ -395,6 +397,7 @@ public class ZensicalDocumentationEmitterTests
     /// <summary>Counts every markdown file under <paramref name="root"/>.</summary>
     /// <param name="root">Directory to walk recursively.</param>
     /// <returns>Total number of <c>.md</c> files found.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int MarkdownFiles(string root) =>
-        Directory.EnumerateFiles(root, "*.md", SearchOption.AllDirectories).Count();
+        Directory.GetFiles(root, "*.md", SearchOption.AllDirectories).Length;
 }

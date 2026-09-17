@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -18,21 +18,17 @@ namespace SourceDocParser.XmlDoc;
 /// <c>Microsoft.CodeAnalysis.Workspaces</c> (which would drag in MEF
 /// and a pile of editor types) just to get an XML doc loader.
 /// </summary>
+/// <param name="source">Indexed member documentation.</param>
+/// <param name="identity">Path identifying this documentation source.</param>
 internal sealed class FileXmlDocumentationProvider(XmlDocSource source, string identity) : DocumentationProvider
 {
-    /// <summary>
-    /// Indexed XML doc data.
-    /// </summary>
+    /// <summary>Indexed XML doc data.</summary>
     private readonly XmlDocSource _source = source;
 
-    /// <summary>
-    /// Identity used for equality (typically the .xml file path).
-    /// </summary>
+    /// <summary>Identity used for equality (typically the .xml file path).</summary>
     private readonly string _identity = identity;
 
-    /// <summary>
-    /// Checks if two providers share the same identity.
-    /// </summary>
+    /// <summary>Checks if two providers share the same identity.</summary>
     /// <param name="obj">Other provider to compare.</param>
     /// <returns>True if identities match.</returns>
     public override bool Equals(object? obj) =>
@@ -43,9 +39,7 @@ internal sealed class FileXmlDocumentationProvider(XmlDocSource source, string i
     public override int GetHashCode() =>
         StringComparer.Ordinal.GetHashCode(_identity);
 
-    /// <summary>
-    /// Roslyn lookup hook.
-    /// </summary>
+    /// <summary>Roslyn lookup hook.</summary>
     /// <param name="documentationMemberID">Roslyn member ID being resolved.</param>
     /// <param name="preferredCulture">Ignored as shipped XML docs are not localized.</param>
     /// <param name="cancellationToken">Standard cancellation token.</param>

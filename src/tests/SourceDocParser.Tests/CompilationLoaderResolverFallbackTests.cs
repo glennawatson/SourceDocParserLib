@@ -1,8 +1,9 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.Extensions.Logging;
@@ -14,12 +15,10 @@ namespace SourceDocParser.Tests;
 /// <summary>
 /// Pins the fallback-by-name behaviour inside
 /// <see cref="CompilationLoader.ResolveTransitiveReferences(string, Dictionary{string, string}, ILogger)"/>.
-///
 /// The downstream complaint we're chasing is the long tail of
 /// <c>Unable to resolve assembly reference 'Splat, Version=15.3.0.0'</c>
 /// warnings on real-world ReactiveUI / Akavache / CrissCross walks.
 /// The resolver's contract is:
-///
 /// <list type="number">
 ///   <item><description>Try ICSharpCode's <c>UniversalAssemblyResolver</c> first.</description></item>
 ///   <item><description>If that returns null, fall through to the user-supplied
@@ -29,12 +28,20 @@ namespace SourceDocParser.Tests;
 ///     unless the reference matches the platform/SDK/stub filter,
 ///     in which case the skip stays silent.</description></item>
 /// </list>
-///
 /// Each scenario is built from synthetic Roslyn-emitted DLLs so the
 /// test stays self-contained and deterministic.
 /// </summary>
 public class CompilationLoaderResolverFallbackTests
 {
+    /// <summary>Fixture value for FakeSplat.</summary>
+    private const string FakeSplat = "FakeSplat";
+
+    /// <summary>Fixture value for Primary.</summary>
+    private const string Primary = "primary";
+
+    /// <summary>Fixture value for Primary2.</summary>
+    private const string Primary2 = "Primary";
+
     /// <summary>
     /// Standalone-DLL scenario: the primary lives in a directory
     /// that does NOT carry its dependency. The standard resolver's
@@ -48,15 +55,12 @@ public class CompilationLoaderResolverFallbackTests
     {
         using var temp = new TempDirectory();
         var depDir = MakeSubDir(temp.Path, "deps");
-        var depPath = EmitSyntheticDependency("FakeSplat", depDir);
+        var depPath = EmitSyntheticDependency(FakeSplat, depDir);
 
-        var primaryDir = MakeSubDir(temp.Path, "primary");
-        var primaryPath = EmitPrimaryReferencingDependency("Primary", depPath, primaryDir);
+        var primaryDir = MakeSubDir(temp.Path, Primary);
+        var primaryPath = EmitPrimaryReferencingDependency(Primary2, depPath, primaryDir);
 
-        var fallback = new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            ["FakeSplat"] = depPath,
-        };
+        var fallback = new Dictionary<string, string>(StringComparer.Ordinal) { [FakeSplat] = depPath, };
 
         var resolved = CompilationLoader.ResolveTransitiveReferences(primaryPath, fallback, NullLogger.Instance);
 
@@ -82,21 +86,18 @@ public class CompilationLoaderResolverFallbackTests
         // its AssemblyReference. We drop it after compiling so the
         // standard resolver can't find it.
         var compileTimeDir = MakeSubDir(temp.Path, "ct");
-        var compileTimeDep = EmitSyntheticDependency("FakeSplat", compileTimeDir, version: "15.3.0.0");
-        var primaryDir = MakeSubDir(temp.Path, "primary");
-        var primaryPath = EmitPrimaryReferencingDependency("Primary", compileTimeDep, primaryDir);
+        var compileTimeDep = EmitSyntheticDependency(FakeSplat, compileTimeDir, version: "15.3.0.0");
+        var primaryDir = MakeSubDir(temp.Path, Primary);
+        var primaryPath = EmitPrimaryReferencingDependency(Primary2, compileTimeDep, primaryDir);
 
         // Now emit a NEWER version of FakeSplat in a separate dir and
         // discard the compile-time version. The resolver only sees
         // the newer one, by name, via fallback.
         var fallbackDir = MakeSubDir(temp.Path, "fallback");
-        var newerDep = EmitSyntheticDependency("FakeSplat", fallbackDir, version: "19.0.0.0");
+        var newerDep = EmitSyntheticDependency(FakeSplat, fallbackDir, version: "19.0.0.0");
         File.Delete(compileTimeDep);
 
-        var fallback = new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            ["FakeSplat"] = newerDep,
-        };
+        var fallback = new Dictionary<string, string>(StringComparer.Ordinal) { [FakeSplat] = newerDep, };
 
         var resolved = CompilationLoader.ResolveTransitiveReferences(primaryPath, fallback, NullLogger.Instance);
 
@@ -116,8 +117,8 @@ public class CompilationLoaderResolverFallbackTests
         var depDir = MakeSubDir(temp.Path, "deps");
         var depPath = EmitSyntheticDependency("UnresolvableTestDep", depDir, version: "9.9.9.9");
 
-        var primaryDir = MakeSubDir(temp.Path, "primary");
-        var primaryPath = EmitPrimaryReferencingDependency("Primary", depPath, primaryDir);
+        var primaryDir = MakeSubDir(temp.Path, Primary);
+        var primaryPath = EmitPrimaryReferencingDependency(Primary2, depPath, primaryDir);
 
         // Drop the dep from disk and provide nothing in the fallback.
         File.Delete(depPath);
@@ -150,12 +151,12 @@ public class CompilationLoaderResolverFallbackTests
         // off the logger regardless.
         var compileDir = MakeSubDir(temp.Path, "ct");
         var compileDep = EmitSyntheticDependency("Java.Interop", compileDir);
-        var primaryDir = MakeSubDir(temp.Path, "primary");
-        var primaryPath = EmitPrimaryReferencingDependency("Primary", compileDep, primaryDir);
+        var primaryDir = MakeSubDir(temp.Path, Primary);
+        var primaryPath = EmitPrimaryReferencingDependency(Primary2, compileDep, primaryDir);
         File.Delete(compileDep);
 
         var spy = new RecordingLogger();
-        CompilationLoader.ResolveTransitiveReferences(primaryPath, [], spy);
+        _ = CompilationLoader.ResolveTransitiveReferences(primaryPath, [], spy);
 
         await Assert.That(spy.HasWarningContaining("Java.Interop"))
             .IsFalse()
@@ -184,15 +185,10 @@ public class CompilationLoaderResolverFallbackTests
         var midDir = MakeSubDir(temp.Path, "mid");
         var midA = EmitDependencyReferencing("MidA", depPath, midDir);
         var midB = EmitDependencyReferencing("MidB", depPath, midDir);
-        var primaryDir = MakeSubDir(temp.Path, "primary");
-        var primaryPath = EmitPrimaryReferencingMultiple("Primary", [midA, midB], primaryDir);
+        var primaryDir = MakeSubDir(temp.Path, Primary);
+        var primaryPath = EmitPrimaryReferencingMultiple(Primary2, [midA, midB], primaryDir);
 
-        var fallback = new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            ["SharedLib"] = depPath,
-            ["MidA"] = midA,
-            ["MidB"] = midB,
-        };
+        var fallback = new Dictionary<string, string>(StringComparer.Ordinal) { ["SharedLib"] = depPath, ["MidA"] = midA, ["MidB"] = midB, };
 
         var resolved = CompilationLoader.ResolveTransitiveReferences(primaryPath, fallback, NullLogger.Instance);
 
@@ -208,17 +204,14 @@ public class CompilationLoaderResolverFallbackTests
         await Assert.That(sharedHits).IsEqualTo(1);
     }
 
-    /// <summary>
-    /// Builds <paramref name="parent"/>/<paramref name="name"/> as a
-    /// fresh subdirectory.
-    /// </summary>
+    /// <summary>Builds <paramref name="parent"/>/<paramref name="name"/> as a fresh subdirectory.</summary>
     /// <param name="parent">Parent directory.</param>
     /// <param name="name">Subdirectory name.</param>
     /// <returns>The created path.</returns>
     private static string MakeSubDir(string parent, string name)
     {
         var dir = Path.Combine(parent, name);
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         return dir;
     }
 
@@ -274,10 +267,7 @@ public class CompilationLoaderResolverFallbackTests
             }
             """;
 
-        var references = new List<MetadataReference>(BclReferences())
-        {
-            MetadataReference.CreateFromFile(upstreamDependencyPath),
-        };
+        var references = new List<MetadataReference>(BclReferences()) { MetadataReference.CreateFromFile(upstreamDependencyPath), };
 
         var compilation = CSharpCompilation.Create(
             assemblyName,
@@ -298,6 +288,7 @@ public class CompilationLoaderResolverFallbackTests
     /// <param name="dependencyPath">Absolute path to the dependency DLL.</param>
     /// <param name="outputDir">Output dir.</param>
     /// <returns>The absolute path of the emitted primary DLL.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string EmitPrimaryReferencingDependency(string primaryName, string dependencyPath, string outputDir) =>
         EmitPrimaryReferencingMultiple(primaryName, [dependencyPath], outputDir);
 
@@ -346,9 +337,10 @@ public class CompilationLoaderResolverFallbackTests
     /// <param name="outputDir">Destination directory.</param>
     /// <param name="name">File-name stem (without extension).</param>
     /// <returns>The absolute path of the emitted DLL.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when <c>!emit.Success</c>.</exception>
     private static string EmitToFile(CSharpCompilation compilation, string outputDir, string name)
     {
-        var path = Path.Combine(outputDir, name + ".dll");
+        var path = Path.Combine(outputDir, $"{name}.dll");
         var emit = compilation.Emit(path);
         if (!emit.Success)
         {
@@ -361,14 +353,14 @@ public class CompilationLoaderResolverFallbackTests
     /// <summary>Replaces dots with underscores so the assembly name doubles as a valid namespace identifier.</summary>
     /// <param name="assemblyName">Source assembly name.</param>
     /// <returns>Identifier-safe namespace.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static string SafeNamespace(string assemblyName) => assemblyName.Replace('.', '_');
 
     /// <summary>BCL references picked up from the live test runner's loaded assemblies.</summary>
     /// <returns>The reference set every synthetic compilation needs to compile.</returns>
-    private static IEnumerable<MetadataReference> BclReferences() =>
-        AppDomain.CurrentDomain.GetAssemblies()
-            .Where(static a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
-            .Select(static a => (MetadataReference)MetadataReference.CreateFromFile(a.Location));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static MetadataReference[] BclReferences() =>
+        WalkerTestFixtures.GetRuntimeReferences();
 
     /// <summary>
     /// Test-only logger that records every warning message so the
@@ -381,10 +373,12 @@ public class CompilationLoaderResolverFallbackTests
         public List<string> Warnings { get; } = [];
 
         /// <inheritdoc />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public IDisposable? BeginScope<TState>(TState state)
             where TState : notnull => null;
 
         /// <inheritdoc />
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsEnabled(LogLevel logLevel) => true;
 
         /// <inheritdoc />

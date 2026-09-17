@@ -1,8 +1,9 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using BenchmarkDotNet.Attributes;
 using Docfx.Dotnet;
@@ -20,7 +21,8 @@ namespace Docfx.StandaloneBenchmarks.Benchmarks;
 /// One <c>[Params]</c>-selected TFM per row keeps each measurement
 /// scoped to a single framework slice for a fair side-by-side.
 /// </summary>
-[ShortRunJob]
+[DebuggerDisplay("{Tfm,nq}: {WorkspaceForInspection,nq}")]
+[InProcess]
 [MemoryDiagnoser]
 public class DocfxLibraryBenchmark
 {
@@ -36,8 +38,8 @@ public class DocfxLibraryBenchmark
     /// <summary>Workspace the benchmark scaffolds the synthetic csproj + per-TFM staging dirs in.</summary>
     private string _workspace = string.Empty;
 
-    /// <summary>Per-TFM docfx.json paths populated in <see cref="GlobalSetup"/>.</summary>
-    private Dictionary<string, string> _docfxConfigPerTfm = new(StringComparer.Ordinal);
+    /// <summary>Per-TFM docfx.json paths populated in <see cref="GlobalSetupAsync"/>.</summary>
+    private Dictionary<string, string> _docfxConfigPerTfm = [with(StringComparer.Ordinal)];
 
     /// <summary>Resolved docfx config for the current iteration's <see cref="Tfm"/>.</summary>
     private string _docfxConfig = string.Empty;
@@ -50,23 +52,25 @@ public class DocfxLibraryBenchmark
     public string Tfm { get; set; } = string.Empty;
 
     /// <summary>Restores the fixture once, stages compile-time DLLs per TFM, generates one docfx.json per TFM.</summary>
+    /// <returns>A task representing fixture preparation.</returns>
     [GlobalSetup]
-    public void GlobalSetup()
+    public async Task GlobalSetupAsync()
     {
         _workspace = Path.Combine(Path.GetTempPath(), $"sdp-docfx-stand-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(_workspace);
+        _ = Directory.CreateDirectory(_workspace);
 
         var fixtureProject = Path.Combine(_workspace, "Fixture.csproj");
-        File.WriteAllText(fixtureProject, BuildFixtureCsproj());
+        await File.WriteAllTextAsync(fixtureProject, BuildFixtureCsproj()).ConfigureAwait(false);
 
-        RunRestore(fixtureProject);
+        await RunRestoreAsync(fixtureProject).ConfigureAwait(false);
 
-        var assets = JsonNode.Parse(File.ReadAllText(Path.Combine(_workspace, "obj", "project.assets.json")))!.AsObject();
+        var assetsText = await File.ReadAllTextAsync(Path.Combine(_workspace, "obj", "project.assets.json")).ConfigureAwait(false);
+        var assets = JsonNode.Parse(assetsText)!.AsObject();
         var packagesRoot = assets["project"]!["restore"]!["packagesPath"]!.GetValue<string>();
         var libraries = assets["libraries"]!.AsObject();
         var targets = assets["targets"]!.AsObject();
 
-        _docfxConfigPerTfm = new(StringComparer.Ordinal);
+        _docfxConfigPerTfm = [with(StringComparer.Ordinal)];
 
         foreach (var (targetMoniker, targetItems) in targets)
         {
@@ -76,7 +80,7 @@ public class DocfxLibraryBenchmark
             }
 
             var stageDir = Path.Combine(_workspace, "stage", tfmShort);
-            Directory.CreateDirectory(stageDir);
+            _ = Directory.CreateDirectory(stageDir);
 
             foreach (var (libKey, libEntry) in targetItems!.AsObject())
             {
@@ -111,7 +115,7 @@ public class DocfxLibraryBenchmark
             }
 
             var configPath = Path.Combine(_workspace, $"docfx.{tfmShort}.json");
-            File.WriteAllText(configPath, BuildDocfxJson(stageDir, tfmShort));
+            await File.WriteAllTextAsync(configPath, BuildDocfxJson(stageDir, tfmShort)).ConfigureAwait(false);
             _docfxConfigPerTfm[tfmShort] = configPath;
         }
     }
@@ -133,7 +137,11 @@ public class DocfxLibraryBenchmark
         {
             Directory.Delete(_workspace, recursive: true);
         }
-        catch
+        catch (IOException)
+        {
+            // Best-effort cleanup of files held by the extractor.
+        }
+        catch (UnauthorizedAccessException)
         {
             // Best-effort cleanup.
         }
@@ -141,26 +149,38 @@ public class DocfxLibraryBenchmark
 
     /// <summary>Times one docfx YAML emission pass over the staged DLL set for the current TFM.</summary>
     /// <returns>A task representing the asynchronous extraction.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task GenerateManagedReferenceYaml() =>
         DotnetApiCatalog.GenerateManagedReferenceYamlFiles(_docfxConfig);
 
     /// <summary>Runs <c>dotnet restore</c> on the synthetic fixture csproj to populate the local NuGet cache.</summary>
     /// <param name="fixtureProject">Absolute path to the csproj.</param>
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Roslynator", "RCS1208:Reduce 'if' nesting", Justification = "Linear restore-then-throw read more clearly than an early-exit shape here.")]
-    private static void RunRestore(string fixtureProject)
+    /// <returns>A task representing the restore process.</returns>
+    /// <exception cref="InvalidOperationException">The restore process failed or was terminated by a signal.</exception>
+    private static async Task RunRestoreAsync(string fixtureProject)
     {
-        var restore = Process.Start(new ProcessStartInfo("dotnet", $"restore \"{fixtureProject}\"")
+        using var restore = Process.Start(new ProcessStartInfo("dotnet", $"restore \"{fixtureProject}\"")
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
             CreateNoWindow = true,
         })!;
-        restore.WaitForExit();
-        if (restore.ExitCode != 0)
+        var outputTask = restore.StandardOutput.ReadToEndAsync();
+        var errorTask = restore.StandardError.ReadToEndAsync();
+#if NET11_0_OR_GREATER
+        var status = await restore.WaitForExitStatusAsync().ConfigureAwait(false);
+        var succeeded = status is { Signal: null, ExitCode: 0 };
+#else
+        await restore.WaitForExitAsync().ConfigureAwait(false);
+        var succeeded = restore.ExitCode is 0;
+#endif
+        var output = await outputTask.ConfigureAwait(false);
+        var error = await errorTask.ConfigureAwait(false);
+        if (!succeeded)
         {
-            throw new InvalidOperationException($"dotnet restore failed: {restore.StandardError.ReadToEnd()}");
+            throw new InvalidOperationException($"dotnet restore failed: {error}{Environment.NewLine}{output}");
         }
     }
 
@@ -193,7 +213,7 @@ public class DocfxLibraryBenchmark
         return family switch
         {
             ".NETCoreApp" => $"net{version}",
-            ".NETFramework" => "net" + version.Replace(".", string.Empty, StringComparison.Ordinal),
+            ".NETFramework" => $"net{version.Replace(".", string.Empty, StringComparison.Ordinal)}",
             _ => null,
         };
     }
@@ -202,9 +222,14 @@ public class DocfxLibraryBenchmark
     /// <returns>The csproj XML text.</returns>
     private static string BuildFixtureCsproj()
     {
-        var refs = string.Join(
-            "\n    ",
-            FixturePackages.Select(p => $"<PackageReference Include=\"{p.Id}\" Version=\"{p.Version}\" />"));
+        var references = new string[FixturePackages.Length];
+        for (var i = 0; i < FixturePackages.Length; i++)
+        {
+            var package = FixturePackages[i];
+            references[i] = $"<PackageReference Include=\"{package.Id}\" Version=\"{package.Version}\" />";
+        }
+
+        var refs = string.Join("\n    ", references);
 
         return $"""
             <Project Sdk="Microsoft.NET.Sdk">

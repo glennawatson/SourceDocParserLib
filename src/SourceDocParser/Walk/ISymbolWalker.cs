@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2025-2026 Glenn Watson and contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
@@ -15,10 +15,7 @@ namespace SourceDocParser.Walk;
 /// </summary>
 public interface ISymbolWalker
 {
-    /// <summary>
-    /// Walks the public types of <paramref name="assembly"/> and returns a
-    /// catalog tagged with <paramref name="tfm"/>.
-    /// </summary>
+    /// <summary>Walks the public types of <paramref name="assembly"/> and returns a catalog tagged with <paramref name="tfm"/>.</summary>
     /// <param name="tfm">TFM the assembly was extracted from; recorded on the catalog.</param>
     /// <param name="assembly">Assembly symbol to walk.</param>
     /// <param name="compilation">Compilation that produced <paramref name="assembly"/>; passed through to the doc resolver for cref lookups.</param>
