@@ -3,26 +3,17 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics;
-using System.Globalization;
 
 namespace SourceDocParser.IntegrationTests;
 
 /// <summary>
-/// Render-smoke that points Zensical at the bundled mock-site fixture
-/// and asserts a strict build completes. The test bootstraps its own
-/// Python virtualenv under <c>zensical/.venv</c> on first run
-/// (assuming <c>python3</c> is on PATH) and reuses the venv on
-/// subsequent runs. Falls back to silently skipping when
-/// <c>python3</c> is not installed so the suite still runs on bare
-/// dev machines.
+/// Runs a strict Zensical build of the bundled fixture in an isolated temporary directory.
+/// Each invocation owns its Python environment and site output so framework test processes can run concurrently.
 /// </summary>
 public class ZensicalRenderSmokeTests
 {
     /// <summary>Path (relative to the test project's <c>zensical/</c> folder) of the bundled mock site.</summary>
     private const string MockSiteRelativePath = "zensical/mock-site";
-
-    /// <summary>Path (relative to the test project's <c>zensical/</c> folder) of the Python virtual environment.</summary>
-    private const string VenvRelativePath = "zensical/.venv";
 
     /// <summary>Path (relative to the test project's <c>zensical/</c> folder) of the requirements file.</summary>
     private const string RequirementsRelativePath = "zensical/requirements.txt";
@@ -41,7 +32,6 @@ public class ZensicalRenderSmokeTests
         }
 
         var projectRoot = LocateProjectRoot();
-        var venvDir = Path.Combine(projectRoot, VenvRelativePath);
         var requirements = Path.Combine(projectRoot, RequirementsRelativePath);
         var docsRoot = Path.Combine(projectRoot, MockSiteRelativePath);
 
@@ -50,14 +40,39 @@ public class ZensicalRenderSmokeTests
             return; // Fixture incomplete; treat as skipped.
         }
 
-        await EnsureVenvAsync(venvDir, requirements);
+        var workspace = Directory.CreateTempSubdirectory("sourcedocparser-zensical-");
+        try
+        {
+            var venvDir = Path.Combine(workspace.FullName, ".venv");
+            CopyMockSite(docsRoot, workspace.FullName);
+            await EnsureVenvAsync(venvDir, requirements);
 
-        var zensical = ResolveVenvBinary(venvDir, "zensical");
-        var (exitCode, stdout, stderr) = await RunAsync(zensical, ["build", "--strict"], docsRoot);
+            var zensical = ResolveVenvBinary(venvDir, "zensical");
+            var (exitCode, stdout, stderr) = await RunAsync(zensical, ["build", "--strict"], workspace.FullName);
 
-        await Assert.That(exitCode)
-            .IsEqualTo(0)
-            .Because($"zensical failed:\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}");
+            await Assert.That(exitCode)
+                .IsEqualTo(0)
+                .Because($"zensical failed:\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}");
+        }
+        finally
+        {
+            workspace.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>Copies fixture inputs without sharing generated site or cache files between test processes.</summary>
+    /// <param name="source">Bundled mock-site directory.</param>
+    /// <param name="destination">Isolated test workspace.</param>
+    private static void CopyMockSite(string source, string destination)
+    {
+        const string ConfigName = "mkdocs.yml";
+        File.Copy(Path.Combine(source, ConfigName), Path.Combine(destination, ConfigName));
+        foreach (var file in Directory.EnumerateFiles(Path.Combine(source, "docs"), "*", SearchOption.AllDirectories))
+        {
+            var target = Path.Combine(destination, Path.GetRelativePath(source, file));
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Copy(file, target);
+        }
     }
 
     /// <summary>
@@ -140,33 +155,18 @@ public class ZensicalRenderSmokeTests
         return Path.Combine(venvDir, subdir, toolName + ext);
     }
 
-    /// <summary>
-    /// Creates <paramref name="venvDir"/> via <c>python3 -m venv</c> when
-    /// missing, then installs <paramref name="requirements"/> into it
-    /// when the requirements file is newer than the install marker (or
-    /// the marker doesn't exist yet). Subsequent runs are no-ops.
-    /// </summary>
+    /// <summary>Creates an isolated Python environment and installs the fixture requirements.</summary>
     /// <param name="venvDir">Absolute path to the venv root.</param>
     /// <param name="requirements">Absolute path to the pip requirements file.</param>
     /// <returns>A task representing the asynchronous bootstrap.</returns>
     /// <exception cref="InvalidOperationException">Thrown when <c>exit != 0</c>.</exception>
     private static async Task EnsureVenvAsync(string venvDir, string requirements)
     {
-        if (!Directory.Exists(venvDir))
+        var (exit, stdout, stderr) = await RunAsync("python3", ["-m", "venv", venvDir], workingDirectory: null);
+        if (exit != 0)
         {
-            var (exit, stdout, stderr) = await RunAsync("python3", ["-m", "venv", venvDir], workingDirectory: null);
-            if (exit != 0)
-            {
-                throw new InvalidOperationException(
-                    $"Failed to create venv at '{venvDir}'.\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}");
-            }
-        }
-
-        var marker = Path.Combine(venvDir, ".requirements-installed");
-        var requirementsStamp = File.GetLastWriteTimeUtc(requirements);
-        if (File.Exists(marker) && File.GetLastWriteTimeUtc(marker) >= requirementsStamp)
-        {
-            return;
+            throw new InvalidOperationException(
+                $"Failed to create venv at '{venvDir}'.\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}");
         }
 
         var pip = ResolveVenvBinary(venvDir, "pip");
@@ -176,8 +176,6 @@ public class ZensicalRenderSmokeTests
             throw new InvalidOperationException(
                 $"pip install failed.\nSTDOUT:\n{pipStdout}\nSTDERR:\n{pipStderr}");
         }
-
-        await File.WriteAllTextAsync(marker, requirementsStamp.ToString("O", CultureInfo.InvariantCulture));
     }
 
     /// <summary>Spawns <paramref name="tool"/> with <paramref name="args"/> in <paramref name="workingDirectory"/> and captures stdout / stderr for any failure message.</summary>
