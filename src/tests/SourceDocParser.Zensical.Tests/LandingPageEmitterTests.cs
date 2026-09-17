@@ -28,6 +28,27 @@ public class LandingPageEmitterTests
     /// <summary>Fixture value for OtherPackage.</summary>
     private const string OtherPackage = "Other";
 
+    /// <summary>Index types retain their own page and a working link from the namespace listing.</summary>
+    /// <param name="typeName">Type name with the reserved landing-page spelling.</param>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    [Arguments("Index")]
+    [Arguments("index")]
+    [Arguments("INDEX")]
+    public async Task EmitAllSeparatesIndexTypeFromNamespacePage(string typeName)
+    {
+        const string NamespaceName = "System";
+        using var temp = new TempDirectory();
+        var type = TestData.ObjectType(typeName) with { Namespace = NamespaceName };
+
+        await new ZensicalDocumentationEmitter().EmitAsync([type], new FilePageSink(temp.Path));
+        var namespaceIndex = await File.ReadAllTextAsync(Path.Combine(temp.Path, "Test", NamespaceName, LandingPageEmitter.IndexFileName));
+
+        await Assert.That(namespaceIndex).Contains($"[{typeName}]({typeName}-type.md)");
+        var typePage = await File.ReadAllTextAsync(Path.Combine(temp.Path, "Test", NamespaceName, $"{typeName}-type.md"));
+        await Assert.That(typePage).Contains($"# {typeName} class");
+    }
+
     /// <summary>One package index plus one namespace index per (package, namespace) bucket.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]

@@ -10,6 +10,12 @@ namespace SourceDocParser.Zensical.Pages;
 /// <summary>Shared text/path formatting helpers for the Zensical emitters.</summary>
 internal static class ZensicalEmitterHelpers
 {
+    /// <summary>Filename stem reserved for namespace landing pages.</summary>
+    private const string LandingPageStem = "index";
+
+    /// <summary>Distinguishes a type page from a directory landing page.</summary>
+    private const string TypePageSuffix = "-type";
+
     /// <summary>Markdown table cell pipe character.</summary>
     private const char MarkdownPipe = '|';
 
@@ -153,13 +159,18 @@ internal static class ZensicalEmitterHelpers
     {
         var namespacePrefix = new NamespacePathFormatter(namespaceName);
         var typeNameFormatter = new PathTypeNameFormatter(typeName, arity);
+        var suffix = arity is 0 && string.Equals(typeName, LandingPageStem, StringComparison.OrdinalIgnoreCase)
+            ? TypePageSuffix
+            : string.Empty;
         return string.Create(
-            namespacePrefix.Length + typeNameFormatter.Length + extension.Length,
-            (NamespacePrefix: namespacePrefix, TypeName: typeNameFormatter, Extension: extension),
+            namespacePrefix.Length + typeNameFormatter.Length + suffix.Length + extension.Length,
+            (NamespacePrefix: namespacePrefix, TypeName: typeNameFormatter, Suffix: suffix, Extension: extension),
             static (dest, state) =>
             {
                 var written = state.NamespacePrefix.WriteTo(dest);
                 written += state.TypeName.WriteTo(dest[written..]);
+                state.Suffix.CopyTo(dest[written..]);
+                written += state.Suffix.Length;
                 state.Extension.CopyTo(dest[written..]);
             });
     }

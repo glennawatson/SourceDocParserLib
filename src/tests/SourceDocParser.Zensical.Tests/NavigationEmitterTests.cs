@@ -27,6 +27,21 @@ public class NavigationEmitterTests
     /// <summary>Fixture value for AlphaName.</summary>
     private const string AlphaName = "Alpha";
 
+    /// <summary>Index type navigation targets a different page from its namespace landing page.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task BuildSeparatesIndexTypeFromNamespaceLandingPage()
+    {
+        var builder = new NavigationGraphBuilder(ZensicalEmitterOptions.Default);
+        var type = TestData.ObjectType("Index") with { Namespace = "System" };
+
+        var graph = builder.Build([type]);
+        var ns = graph.Packages[0].Namespaces[0];
+
+        await Assert.That(ns.LandingPagePath).IsEqualTo("Test/System/index.md");
+        await Assert.That(ns.Types[0].Path).IsEqualTo("Test/System/Index-type.md");
+    }
+
     /// <summary>Routed types are grouped under the matching package folder.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]

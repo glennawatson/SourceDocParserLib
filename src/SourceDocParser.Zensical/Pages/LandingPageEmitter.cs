@@ -127,7 +127,7 @@ internal static class LandingPageEmitter
             options.PackageRouting,
             type => new TypeEntry(
                 Title: ZensicalEmitterHelpers.FormatDisplayTypeName(type.Name, type.Arity),
-                FileName: ZensicalEmitterHelpers.FormatPathTypeName(type.Name, type.Arity) + TypePageEmitter.FileExtension,
+                FileName: Path.GetFileName(TypePageEmitter.PathFor(type, options)),
                 KindLabel: KindLabelFor(type),
                 Summary: OneLineSummary(converter.Convert(type.Documentation.Summary))),
             static (a, b) => string.CompareOrdinal(a.Title, b.Title));

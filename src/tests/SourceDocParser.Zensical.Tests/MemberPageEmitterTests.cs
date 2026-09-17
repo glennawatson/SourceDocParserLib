@@ -18,6 +18,21 @@ public class MemberPageEmitterTests
     /// <summary>Fixture value for RunSignature.</summary>
     private const string RunSignature = "void Run()";
 
+    /// <summary>Index members link to their type page while retaining their member folder.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task RenderLinksIndexMembersToDistinctTypePage()
+    {
+        var member = NewMember("Run", RunSignature);
+        var type = TestData.ObjectType("Index") with { Namespace = "System", Members = [member] };
+
+        var page = MemberPageEmitter.Render(type, "Run", [member]);
+
+        await Assert.That(page).Contains("Type: [Index](../Index-type.md)");
+        await Assert.That(MemberPageEmitter.PathFor(type, "Run")).IsEqualTo("Test/System/Index/Run.md");
+        await Assert.That(TypePageEmitter.Render(type)).Contains("Index/Run.md");
+    }
+
     /// <summary>A single-overload bucket renders as a member page with the member name in the heading and the signature inline.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]

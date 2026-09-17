@@ -34,6 +34,26 @@ public class ZensicalEmitterHelpersTests
         await Assert.That(path).IsEqualTo("My/Library/Result{T1,T2}.md");
     }
 
+    /// <summary>Type filenames cannot collide with namespace landing pages on case-insensitive filesystems.</summary>
+    /// <param name="namespaceName">Namespace containing the type.</param>
+    /// <param name="typeName">Type name to route.</param>
+    /// <param name="arity">Number of generic parameters.</param>
+    /// <param name="expected">Expected relative type-page path.</param>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    [Arguments("System", "Index", 0, "System/Index-type.md")]
+    [Arguments("System", "index", 0, "System/index-type.md")]
+    [Arguments("System", "INDEX", 0, "System/INDEX-type.md")]
+    [Arguments("", "Index", 0, "_global/Index-type.md")]
+    [Arguments("System", "Index", 1, "System/Index{T}.md")]
+    [Arguments("System", "Indexer", 0, "System/Indexer.md")]
+    public async Task BuildTypePathAvoidsLandingPageCollision(string namespaceName, string typeName, int arity, string expected)
+    {
+        var path = ZensicalEmitterHelpers.BuildTypePath(namespaceName, typeName, arity, ".md");
+
+        await Assert.That(path).IsEqualTo(expected);
+    }
+
     /// <summary>Member paths keep the global-namespace folder and place the member stem under the type folder.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
