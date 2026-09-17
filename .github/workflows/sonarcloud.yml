@@ -36,6 +36,7 @@ jobs:
           python-version: '3.x'
 
       - name: Begin Sonar analysis
+        id: sonar-begin
         uses: ./.github/actions/sonarcloud
         with:
           mode: begin
@@ -59,7 +60,7 @@ jobs:
           solution-file: SourceDocParserLib.slnx
 
       - name: End Sonar analysis
-        if: always()
+        if: always() && steps.sonar-begin.outcome == 'success'
         uses: ./.github/actions/sonarcloud
         with:
           mode: end

@@ -65,6 +65,8 @@
 
   <PropertyGroup Condition="'$(IsTestProject)' != 'true'">
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <!-- The net11.0 dependency group intentionally uses .NET 11 prerelease packages. -->
+    <NoWarn>$(NoWarn);NU5104</NoWarn>
     <PackageOutputPath>$(MSBuildThisFileDirectory)..\artifacts\packages</PackageOutputPath>
     <!-- PDBs are embedded directly into the assembly (DebugType=Embedded above)
          so the .nupkg ships with full symbols without a sidecar .snupkg —
