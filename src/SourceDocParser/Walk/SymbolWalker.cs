@@ -37,10 +37,7 @@ public sealed class SymbolWalker : ISymbolWalker
     public SymbolWalker(Func<Compilation, IDocResolver>? docResolverFactory) =>
         _docResolverFactory = docResolverFactory ?? (static c => new DocResolver(c));
 
-    /// <summary>
-    /// Walks through symbols in the provided compilation, resolving documentation and source links
-    /// to construct an API catalog.
-    /// </summary>
+    /// <summary>Builds a catalog from types declared in the selected assembly; referenced and forwarded definitions remain reference-only.</summary>
     /// <param name="tfm">The target framework moniker (TFM) of the assembly being analyzed.</param>
     /// <param name="assembly">The assembly symbol representing the assembly to be walked.</param>
     /// <param name="compilation">The compilation object containing the assembly's symbols and references.</param>
@@ -102,26 +99,11 @@ public sealed class SymbolWalker : ISymbolWalker
             DrainPendingTypes(pendingTypes, types, seenTypeUids, context);
         }
 
-        // Type forwards: an umbrella assembly (e.g. Splat.dll) may
-        // declare [TypeForwardedTo(typeof(Foo))] for types whose real
-        // definition lives in a sibling assembly (Splat.Core.dll).
-        // Seed the same pending stack so DrainPendingTypes surfaces
-        // them through the existing visibility / dedupe filtering.
-        _ = TypeForwardingHelpers.SeedPending(assembly, pendingTypes);
-        DrainPendingTypes(pendingTypes, types, seenTypeUids, context);
-
         types.Sort(static (a, b) => string.CompareOrdinal(a.FullName, b.FullName));
         return new(tfm, [.. types]);
     }
 
-    /// <summary>
-    /// Pops every type off <paramref name="pendingTypes"/>, runs the
-    /// shared visibility / build-or-skip / nested-push pipeline, and
-    /// records each successfully built type's UID in
-    /// <paramref name="seenTypeUids"/> so a later forwarded-type pass
-    /// can skip duplicates. Internal so tests can drive the drain
-    /// loop directly with synthesised symbols.
-    /// </summary>
+    /// <summary>Adds visible declared types and their nested types to the catalog, excluding duplicate UIDs.</summary>
     /// <param name="pendingTypes">Stack of types to drain.</param>
     /// <param name="types">Catalog list to append into.</param>
     /// <param name="seenTypeUids">UIDs already produced -- used for dedupe.</param>

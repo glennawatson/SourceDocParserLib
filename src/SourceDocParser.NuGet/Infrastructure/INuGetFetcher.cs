@@ -4,29 +4,25 @@
 
 namespace SourceDocParser.NuGet.Infrastructure;
 
-/// <summary>
-/// Fetches the NuGet packages described by a configuration file and
-/// extracts their managed assemblies into TFM-bucketed directories so
-/// the parser can walk them.
-/// </summary>
+/// <summary>Acquires the packages and compile references required by the documentation manifest.</summary>
 public interface INuGetFetcher
 {
-    /// <summary>Reads <c>nuget-packages.json</c> and orchestrates the full fetch + extraction using default options.</summary>
+    /// <summary>Restores the documentation roots declared in <c>nuget-packages.json</c>.</summary>
     /// <param name="rootDirectory">Repository root containing <c>nuget-packages.json</c>.</param>
-    /// <param name="apiPath">Destination root for extracted package assemblies and the local cache.</param>
+    /// <param name="apiPath">Destination for per-root restore graphs; packages use NuGet's configured global cache.</param>
     /// <returns>A task representing the asynchronous fetch.</returns>
     Task FetchPackagesAsync(string rootDirectory, string apiPath);
 
-    /// <summary>Reads <c>nuget-packages.json</c> and orchestrates the full fetch + extraction using the supplied logger.</summary>
+    /// <summary>Restores the documentation roots and reports NuGet diagnostics to the supplied logger.</summary>
     /// <param name="rootDirectory">Repository root containing <c>nuget-packages.json</c>.</param>
-    /// <param name="apiPath">Destination root for extracted package assemblies and the local cache.</param>
+    /// <param name="apiPath">Destination for per-root restore graphs; packages use NuGet's configured global cache.</param>
     /// <param name="logger">Optional logger; defaults to a no-op logger.</param>
     /// <returns>A task representing the asynchronous fetch.</returns>
     Task FetchPackagesAsync(string rootDirectory, string apiPath, ILogger? logger);
 
-    /// <summary>Reads <c>nuget-packages.json</c> at <paramref name="rootDirectory"/> and orchestrates the full fetch + extraction into <paramref name="apiPath"/>.</summary>
+    /// <summary>Restores the documentation roots with cancellation support.</summary>
     /// <param name="rootDirectory">Repository root containing <c>nuget-packages.json</c>.</param>
-    /// <param name="apiPath">Destination root for extracted package assemblies and the local cache.</param>
+    /// <param name="apiPath">Destination for per-root restore graphs; packages use NuGet's configured global cache.</param>
     /// <param name="logger">Optional logger; defaults to a no-op logger.</param>
     /// <param name="cancellationToken">Cancellation token honoured by every HTTP and parallel-walk leg.</param>
     /// <returns>A task representing the asynchronous fetch.</returns>

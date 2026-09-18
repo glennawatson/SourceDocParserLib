@@ -95,53 +95,49 @@ public sealed partial class CompilationLoader : ICompilationLoader
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Dispose() => _referenceCache.Dispose();
 
-    /// <summary>Resolves the closure of assembly references for a DLL.</summary>
+    /// <summary>Includes selected compile assets and resolves any remaining assembly references for a DLL.</summary>
     /// <param name="assemblyPath">The absolute path to the primary DLL.</param>
-    /// <param name="fallbackIndex">The fallback map for resolver misses.</param>
+    /// <param name="fallbackIndex">The selected compile assets, which take precedence over automatic resolution.</param>
     /// <param name="logger">Logger for resolver progress and unresolved-reference warnings.</param>
     /// <returns>A list of absolute paths to resolved transitive references.</returns>
-    /// <remarks>
-    /// Uses an iterative stack-based walk to avoid recursion overhead. PEFile
-    /// instances are disposed immediately after processing. Skips 0.0.0.0
-    /// version references as they typically represent compiler stubs.
-    /// </remarks>
     internal static List<string> ResolveTransitiveReferences(
         string assemblyPath,
         Dictionary<string, string> fallbackIndex,
         ILogger logger)
     {
         using var primary = new PEFile(assemblyPath);
+        var targetFramework = primary.DetectTargetFrameworkId();
+        var primaryName = primary.Metadata.GetString(primary.Metadata.GetAssemblyDefinition().Name);
         var context = new ResolutionContext
         {
-            Resolver = new(assemblyPath, throwOnError: false, primary.DetectTargetFrameworkId()),
-            FallbackIndex = fallbackIndex,
-            ResolvedNames = [with(StringComparer.Ordinal)],
-            ResolvedPaths = [],
+            Resolver = new(assemblyPath, throwOnError: false, targetFramework),
+            SelectedReferences = [with(fallbackIndex.Count, StringComparer.OrdinalIgnoreCase)],
+            VisitedNames = [with(StringComparer.OrdinalIgnoreCase), primaryName],
+            ResolvedPaths = [with(fallbackIndex.Count)],
             Pending = new(),
             Logger = logger,
-            AssemblyName = Path.GetFileName(assemblyPath),
+            AssemblyPath = assemblyPath,
+            TargetFramework = targetFramework,
         };
 
-        context.Pending.Push(new(assemblyPath));
-
-        try
+        foreach (var file in fallbackIndex.Values)
         {
-            while (context.Pending.TryPop(out var current))
+            using var selected = new PEFile(file);
+            var name = selected.Metadata.GetString(selected.Metadata.GetAssemblyDefinition().Name);
+            if (name.Equals(primaryName, StringComparison.OrdinalIgnoreCase) || !context.SelectedReferences.TryAdd(name, file))
             {
-                try
-                {
-                    ProcessReferences(current, ref context);
-                }
-                finally
-                {
-                    current.Dispose();
-                }
+                continue;
             }
+
+            LogResolvedReference(logger, name, file);
+            context.ResolvedPaths.Add(file);
         }
-        catch
+
+        context.Pending.Push(assemblyPath);
+        while (context.Pending.TryPop(out var currentPath))
         {
-            DisposePending(context.Pending);
-            throw;
+            using var current = new PEFile(currentPath);
+            ProcessReferences(current, ref context);
         }
 
         return context.ResolvedPaths;
@@ -154,39 +150,25 @@ public sealed partial class CompilationLoader : ICompilationLoader
     {
         foreach (var reference in current.AssemblyReferences)
         {
-            var file = context.Resolver.FindAssemblyFile(reference);
-            if (file is null && !context.FallbackIndex.TryGetValue(reference.Name, out file))
+            if (!context.VisitedNames.Add(reference.Name))
             {
-                // Only log when this isn't a known platform/SDK/stub
-                // ref -- those are guaranteed-unresolvable through the
-                // NuGet + ref-pack fallback chain so logging them just
-                // produces noise (thousands of warnings per real run).
-                if (!UnresolvableReferenceFilter.IsKnownUnresolvable(reference))
+                continue;
+            }
+
+            if (!context.SelectedReferences.TryGetValue(reference.Name, out var file))
+            {
+                file = context.Resolver.FindAssemblyFile(reference);
+                if (file is null)
                 {
-                    LogUnresolvedReference(context.Logger, reference.ToString(), context.AssemblyName);
+                    LogUnresolvedReference(context.Logger, reference.ToString(), current.FileName, context.AssemblyPath, context.TargetFramework);
+                    continue;
                 }
 
-                continue;
+                LogResolvedReference(context.Logger, reference.Name, file);
+                context.ResolvedPaths.Add(file);
             }
 
-            if (!context.ResolvedNames.Add(reference.Name))
-            {
-                continue;
-            }
-
-            LogResolvedReference(context.Logger, reference.Name, file);
-            context.ResolvedPaths.Add(file);
-            context.Pending.Push(new(file));
-        }
-    }
-
-    /// <summary>Disposes all PE files remaining in the pending stack.</summary>
-    /// <param name="pending">The stack of pending PE files.</param>
-    private static void DisposePending(Stack<PEFile> pending)
-    {
-        while (pending.TryPop(out var p))
-        {
-            p.Dispose();
+            context.Pending.Push(file);
         }
     }
 
@@ -197,12 +179,17 @@ public sealed partial class CompilationLoader : ICompilationLoader
     [LoggerMessage(Level = LogLevel.Trace, Message = "  resolved {Reference} -> {File}")]
     private static partial void LogResolvedReference(ILogger logger, string reference, string file);
 
-    /// <summary>Logs an assembly reference the resolver and fallback index could not locate.</summary>
+    /// <summary>Logs an assembly reference missing from both the selected assets and automatic resolution.</summary>
     /// <param name="logger">Target logger.</param>
     /// <param name="reference">Reference identity (name + version).</param>
-    /// <param name="assembly">Filename of the assembly that requested it.</param>
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Unable to resolve assembly reference '{Reference}' for {Assembly}")]
-    private static partial void LogUnresolvedReference(ILogger logger, string reference, string assembly);
+    /// <param name="assembly">Path of the assembly that requested it.</param>
+    /// <param name="root">Path of the documentation root assembly.</param>
+    /// <param name="targetFramework">The root assembly's target framework.</param>
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Unable to resolve assembly reference '{Reference}' required by '{Assembly}' while documenting '{Root}' ({TargetFramework}). " +
+                  "Check the restored compile assets and installed framework reference packs.")]
+    private static partial void LogUnresolvedReference(ILogger logger, string reference, string assembly, string root, string targetFramework);
 
     /// <summary>Context for transitive assembly reference resolution.</summary>
     private readonly ref struct ResolutionContext
@@ -210,22 +197,25 @@ public sealed partial class CompilationLoader : ICompilationLoader
         /// <summary>Gets the assembly resolver.</summary>
         public required UniversalAssemblyResolver Resolver { get; init; }
 
-        /// <summary>Gets the fallback index for assembly resolution.</summary>
-        public required Dictionary<string, string> FallbackIndex { get; init; }
+        /// <summary>Gets the selected compile assets by simple assembly name.</summary>
+        public required Dictionary<string, string> SelectedReferences { get; init; }
 
-        /// <summary>Gets the set of already resolved assembly names.</summary>
-        public required HashSet<string> ResolvedNames { get; init; }
+        /// <summary>Gets the assembly names visited through the root's dependency closure.</summary>
+        public required HashSet<string> VisitedNames { get; init; }
 
         /// <summary>Gets the list of resolved assembly file paths.</summary>
         public required List<string> ResolvedPaths { get; init; }
 
-        /// <summary>Gets the stack of PE files pending processing.</summary>
-        public required Stack<PEFile> Pending { get; init; }
+        /// <summary>Gets the assembly paths pending reference resolution.</summary>
+        public required Stack<string> Pending { get; init; }
 
         /// <summary>Gets the logger for resolution progress.</summary>
         public required ILogger Logger { get; init; }
 
-        /// <summary>Gets the name of the primary assembly being processed.</summary>
-        public required string AssemblyName { get; init; }
+        /// <summary>Gets the path of the primary assembly being documented.</summary>
+        public required string AssemblyPath { get; init; }
+
+        /// <summary>Gets the primary assembly's target framework.</summary>
+        public required string TargetFramework { get; init; }
     }
 }

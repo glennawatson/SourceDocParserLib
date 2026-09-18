@@ -7,16 +7,7 @@ using Microsoft.CodeAnalysis;
 
 namespace SourceDocParser.Walk;
 
-/// <summary>
-/// Small composable helpers for walking type-forwarding metadata on
-/// an <see cref="IAssemblySymbol"/>. Roslyn surfaces forwards via
-/// <see cref="IAssemblySymbol.GetForwardedTypes"/> -- the targets
-/// resolve to their real definitions when the destination assembly
-/// is in the compilation references, or to error symbols when it
-/// isn't. Each helper here does one thing so the SymbolWalker can
-/// compose them into its existing iteration shape and the tests can
-/// pin each filter in isolation.
-/// </summary>
+/// <summary>Inspects forwarded and nested type metadata for symbol resolution.</summary>
 internal static class TypeForwardingHelpers
 {
     /// <summary>
@@ -33,15 +24,7 @@ internal static class TypeForwardingHelpers
         return forwarded.IsDefault ? [] : forwarded;
     }
 
-    /// <summary>
-    /// Returns true when <paramref name="forwarded"/> resolves to a
-    /// real type definition -- i.e. the destination assembly is loaded
-    /// and Roslyn handed back something other than an error symbol. A
-    /// false return means the metadata says "this type lives in
-    /// assembly X" but X isn't in the compilation references; the
-    /// best-effort path is to skip it (a follow-up that walks
-    /// transitive package deps will resolve it later).
-    /// </summary>
+    /// <summary>Returns whether a type has a resolved definition.</summary>
     /// <param name="forwarded">Forwarded target symbol.</param>
     /// <returns>True when the target resolves to a non-error definition.</returns>
     internal static bool IsResolvable(INamedTypeSymbol forwarded)
@@ -50,13 +33,7 @@ internal static class TypeForwardingHelpers
         return forwarded.TypeKind != TypeKind.Error;
     }
 
-    /// <summary>
-    /// Returns true when <paramref name="forwarded"/> would already be
-    /// represented in the catalog by its UID. Callers maintain the
-    /// hash set as they walk the namespace tree and pass it in here
-    /// to avoid emitting duplicate entries when an umbrella assembly
-    /// forwards a type that another walked sibling already produced.
-    /// </summary>
+    /// <summary>Returns whether a type's UID is represented in the catalog.</summary>
     /// <param name="forwarded">Forwarded type to check.</param>
     /// <param name="seenTypeUids">UIDs already collected by the walker.</param>
     /// <returns>True when the type is already represented.</returns>
@@ -68,13 +45,7 @@ internal static class TypeForwardingHelpers
         return uid is { Length: > 0 } && seenTypeUids.Contains(uid);
     }
 
-    /// <summary>
-    /// Pushes every forwarded type onto <paramref name="pending"/>.
-    /// Lets the SymbolWalker reuse its existing
-    /// <see cref="Stack{T}"/> instead of allocating a new one per
-    /// assembly walk. Caller is responsible for filtering as items
-    /// pop -- this overload is the cheapest seed.
-    /// </summary>
+    /// <summary>Enqueues forwarded targets for metadata inspection.</summary>
     /// <param name="assembly">Assembly whose forwards to seed from.</param>
     /// <param name="pending">Pre-allocated stack to push into.</param>
     /// <returns>The number of types pushed.</returns>
@@ -91,13 +62,7 @@ internal static class TypeForwardingHelpers
         return forwarded.Length;
     }
 
-    /// <summary>
-    /// Pushes every nested type of <paramref name="parent"/> onto
-    /// <paramref name="pending"/> so the SymbolWalker's main loop
-    /// surfaces them for visibility filtering on the next pop.
-    /// Mirrors the namespace-walk shape; kept here so the forwarding
-    /// path stays a one-line composition with the seed call.
-    /// </summary>
+    /// <summary>Enqueues nested declared types for visibility checks.</summary>
     /// <param name="parent">Type whose nested types to enqueue.</param>
     /// <param name="pending">Pre-allocated stack to push into.</param>
     /// <returns>The number of nested types pushed.</returns>

@@ -9,13 +9,7 @@ using SourceDocParser.NuGet.Models;
 
 namespace SourceDocParser.NuGet.Readers;
 
-/// <summary>
-/// Hand-rolled XmlReader scanner for <c>nuget.config</c> files --
-/// extracts only the values we need (today: the
-/// <c>globalPackagesFolder</c> setting). Same shape as
-/// <see cref="NuspecDependencyReader"/>: small composable helpers,
-/// no XDocument materialisation, no LINQ-to-XML.
-/// </summary>
+/// <summary>Reads the global package directory setting from a NuGet configuration file.</summary>
 internal static class NuGetConfigReader
 {
     /// <summary>The XML element NuGet wraps every per-key setting in (e.g. <c>add key="..." value="..."/</c>).</summary>

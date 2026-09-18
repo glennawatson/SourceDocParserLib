@@ -25,12 +25,10 @@ namespace SourceDocParser.NuGet.Models;
 /// packages owned by third parties.
 /// </param>
 /// <param name="ExcludePackages">
-/// Exact package identifiers to exclude from fetching, regardless of how
-/// they were discovered.
+/// Exact package identifiers to exclude from documentation. Required references remain eligible for restore.
 /// </param>
 /// <param name="ExcludePackagePrefixes">
-/// Package identifier prefixes to exclude from fetching. Matches
-/// case-insensitively.
+/// Package identifier prefixes to exclude from documentation, matched case-insensitively.
 /// </param>
 /// <param name="ReferencePackages">
 /// Reference-only packages whose assemblies are extracted for the docfx
@@ -48,4 +46,11 @@ internal sealed record PackageConfig(
     string[] ExcludePackages,
     string[] ExcludePackagePrefixes,
     ReferencePackage[] ReferencePackages,
-    Dictionary<string, string> TfmOverrides);
+    Dictionary<string, string> TfmOverrides)
+{
+    /// <summary>Gets explicit direct dependency constraints applied to each documentation graph.</summary>
+    public Dictionary<string, string> DependencyPins { get; init; } = [with(StringComparer.OrdinalIgnoreCase)];
+
+    /// <summary>Gets the runtime identifier for runtime-specific restore graphs.</summary>
+    public string? RuntimeIdentifier { get; init; }
+}

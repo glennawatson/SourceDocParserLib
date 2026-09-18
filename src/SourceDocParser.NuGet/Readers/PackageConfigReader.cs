@@ -45,7 +45,11 @@ internal static class PackageConfigReader
             ExcludePackages: ReadStringArray(root, "excludePackages"u8),
             ExcludePackagePrefixes: ReadStringArray(root, "excludePackagePrefixes"u8),
             ReferencePackages: ReadReferencePackages(root),
-            TfmOverrides: ReadStringDictionary(root, "tfmOverrides"u8));
+            TfmOverrides: ReadStringDictionary(root, "tfmOverrides"u8))
+        {
+            DependencyPins = ReadStringDictionary(root, "dependencyPins"u8),
+            RuntimeIdentifier = GetOptionalString(root, "runtimeIdentifier"u8),
+        };
     }
 
     /// <summary>
@@ -133,10 +137,10 @@ internal static class PackageConfigReader
     {
         if (!root.TryGetProperty(propertyName, out var element) || element is not { ValueKind: JsonValueKind.Object })
         {
-            return [with(StringComparer.Ordinal)];
+            return [with(StringComparer.OrdinalIgnoreCase)];
         }
 
-        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var entry in element.EnumerateObject())
         {
             result[entry.Name] = entry.Value.GetString() ?? string.Empty;

@@ -12,25 +12,7 @@ using SourceDocParser.LibCompilation;
 
 namespace SourceDocParser.Tests;
 
-/// <summary>
-/// Pins the fallback-by-name behaviour inside
-/// <see cref="CompilationLoader.ResolveTransitiveReferences(string, Dictionary{string, string}, ILogger)"/>.
-/// The downstream complaint we're chasing is the long tail of
-/// <c>Unable to resolve assembly reference 'Splat, Version=15.3.0.0'</c>
-/// warnings on real-world ReactiveUI / Akavache / CrissCross walks.
-/// The resolver's contract is:
-/// <list type="number">
-///   <item><description>Try ICSharpCode's <c>UniversalAssemblyResolver</c> first.</description></item>
-///   <item><description>If that returns null, fall through to the user-supplied
-///     fallback dictionary keyed on the simple assembly name (so a
-///     newer-version DLL still satisfies the older-version reference).</description></item>
-///   <item><description>If neither path finds the file, log an unresolved warning --
-///     unless the reference matches the platform/SDK/stub filter,
-///     in which case the skip stays silent.</description></item>
-/// </list>
-/// Each scenario is built from synthetic Roslyn-emitted DLLs so the
-/// test stays self-contained and deterministic.
-/// </summary>
+/// <summary>Verifies that selected compile assets reach API parsing and unresolved references identify their dependency context.</summary>
 public class CompilationLoaderResolverFallbackTests
 {
     /// <summary>Fixture value for FakeSplat.</summary>
@@ -41,6 +23,148 @@ public class CompilationLoaderResolverFallbackTests
 
     /// <summary>Fixture value for Primary2.</summary>
     private const string Primary2 = "Primary";
+
+    /// <summary>The earlier dependency assembly version.</summary>
+    private const string EarlierVersion = "15.3.0.0";
+
+    /// <summary>The later dependency assembly version.</summary>
+    private const string LaterVersion = "19.0.0.0";
+
+    /// <summary>The dependency type exposed to API parsing.</summary>
+    private const string DependencyTypeName = "FakeSplat.Marker";
+
+    /// <summary>Explicit compile assets take precedence over a different version beside the root assembly.</summary>
+    /// <param name="key">The supplied assembly-name or filename key.</param>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    [Arguments("FakeSplat")]
+    [Arguments("FakeSplat.dll")]
+    public async Task LoadPrefersSelectedCompileAssetToAdjacentAssembly(string key)
+    {
+        using var temp = new TempDirectory();
+        var primaryDir = MakeSubDir(temp.Path, Primary);
+        var adjacent = EmitSyntheticDependency(FakeSplat, primaryDir, EarlierVersion);
+        var primary = EmitPrimaryReferencingDependency(Primary2, adjacent, primaryDir);
+        var selected = EmitSyntheticDependency(FakeSplat, MakeSubDir(temp.Path, "selected"), LaterVersion);
+        using var loader = new CompilationLoader();
+
+        var (compilation, _) = loader.Load(primary, SelectedReferences(key, selected));
+        var dependency = compilation.GetTypeByMetadataName(DependencyTypeName);
+
+        await Assert.That(dependency).IsNotNull();
+        await Assert.That(dependency!.ContainingAssembly.Identity.Version).IsEqualTo(new(19, 0, 0, 0));
+    }
+
+    /// <summary>Compile assets participate in parsing even when the root has no direct metadata reference to them.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task LoadIncludesAllSelectedCompileAssets()
+    {
+        using var temp = new TempDirectory();
+        var primary = EmitSyntheticDependency(Primary2, MakeSubDir(temp.Path, Primary));
+        var selected = EmitSyntheticDependency(FakeSplat, MakeSubDir(temp.Path, "selected"));
+        using var loader = new CompilationLoader();
+
+        var (compilation, _) = loader.Load(primary, SelectedReferences(FakeSplat, selected));
+
+        await Assert.That(compilation.GetTypeByMetadataName(DependencyTypeName)).IsNotNull();
+    }
+
+    /// <summary>Unreferenced compile assets remain available without reporting their optional dependency closures as root requirements.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task LoadDoesNotTraverseUnreferencedCompileAssets()
+    {
+        using var temp = new TempDirectory();
+        var primary = EmitSyntheticDependency(Primary2, MakeSubDir(temp.Path, Primary));
+        var optional = EmitSyntheticDependency("OptionalDependency", MakeSubDir(temp.Path, "optional"));
+        var facade = EmitDependencyReferencing("OptionalFacade", optional, MakeSubDir(temp.Path, "facade"));
+        File.Delete(optional);
+        var logger = new RecordingLogger();
+        using var loader = new CompilationLoader(logger);
+
+        var (compilation, _) = loader.Load(primary, SelectedReferences("OptionalFacade", facade));
+
+        await Assert.That(compilation.GetTypeByMetadataName("OptionalFacade.Marker")).IsNotNull();
+        await Assert.That(logger.HasWarningContaining("OptionalDependency")).IsFalse();
+    }
+
+    /// <summary>Different roots retain independent dependency generations when sharing a metadata cache.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task LoadKeepsSelectedDependencyVersionsIsolated()
+    {
+        using var temp = new TempDirectory();
+        var first = EmitSyntheticDependency(FakeSplat, MakeSubDir(temp.Path, "first"), EarlierVersion);
+        var second = EmitSyntheticDependency(FakeSplat, MakeSubDir(temp.Path, "second"), LaterVersion);
+        var firstRoot = EmitPrimaryReferencingDependency("FirstRoot", first, MakeSubDir(temp.Path, "firstRoot"));
+        var secondRoot = EmitPrimaryReferencingDependency("SecondRoot", second, MakeSubDir(temp.Path, "secondRoot"));
+        using var loader = new CompilationLoader();
+
+        var (firstCompilation, _) = loader.Load(firstRoot, SelectedReferences(FakeSplat, first));
+        var (secondCompilation, _) = loader.Load(secondRoot, SelectedReferences(FakeSplat, second));
+        var (cachedCompilation, _) = loader.Load(firstRoot, SelectedReferences(FakeSplat, first));
+
+        await Assert.That(firstCompilation.GetTypeByMetadataName(DependencyTypeName)?.ContainingAssembly.Identity.Version).IsEqualTo(new(15, 3, 0, 0));
+        await Assert.That(secondCompilation.GetTypeByMetadataName(DependencyTypeName)?.ContainingAssembly.Identity.Version).IsEqualTo(new(19, 0, 0, 0));
+        await Assert.That(cachedCompilation.GetTypeByMetadataName(DependencyTypeName)?.ContainingAssembly.Identity.Version).IsEqualTo(new(15, 3, 0, 0));
+    }
+
+    /// <summary>A cyclic dependency does not add a duplicate metadata reference for the documentation root.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task LoadExcludesPrimaryFromDependencyCycle()
+    {
+        using var temp = new TempDirectory();
+        var primaryDir = MakeSubDir(temp.Path, Primary);
+        var primary = EmitSyntheticDependency(Primary2, primaryDir, "0.0.0.0");
+        var dependency = EmitDependencyReferencing("CycleDependency", primary, MakeSubDir(temp.Path, "dependency"));
+        _ = EmitDependencyReferencing(Primary2, dependency, primaryDir);
+        var selected = SelectedReferences("CycleDependency", dependency);
+        selected.Add(Primary2, primary);
+        using var loader = new CompilationLoader();
+
+        var (compilation, assembly) = loader.Load(primary, selected);
+
+        _ = await Assert.That(compilation.References).HasSingleItem(reference => reference is PortableExecutableReference metadata
+            && string.Equals(metadata.FilePath, primary, StringComparison.Ordinal));
+        await Assert.That(assembly.Name).IsEqualTo(Primary2);
+        await Assert.That(compilation.GetTypeByMetadataName("CycleDependency.Marker")).IsNotNull();
+    }
+
+    /// <summary>Automatic framework resolution remains available when callers provide no selected compile assets.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task LoadResolvesFrameworkForStandaloneAssembly()
+    {
+        using var temp = new TempDirectory();
+        var primary = EmitSyntheticDependency(Primary2, temp.Path);
+        using var loader = new CompilationLoader();
+
+        var (compilation, _) = loader.Load(primary, []);
+
+        await Assert.That(compilation.GetSpecialType(SpecialType.System_Object).TypeKind).IsEqualTo(TypeKind.Class);
+    }
+
+    /// <summary>Warnings identify the missing identity, the referring dependency, and the documentation root.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ResolveTransitiveReferencesLogsDependencyAndRootContext()
+    {
+        using var temp = new TempDirectory();
+        var missing = EmitSyntheticDependency("MissingDependency", MakeSubDir(temp.Path, "missing"), "9.8.7.6");
+        var intermediate = EmitDependencyReferencing("Intermediate", missing, MakeSubDir(temp.Path, "intermediate"));
+        var primary = EmitPrimaryReferencingDependency(Primary2, intermediate, MakeSubDir(temp.Path, Primary));
+        File.Delete(missing);
+        var logger = new RecordingLogger();
+
+        _ = CompilationLoader.ResolveTransitiveReferences(primary, SelectedReferences("Intermediate", intermediate), logger);
+
+        var warning = await Assert.That(logger.Warnings).HasSingleItem(static message => message.Contains("MissingDependency", StringComparison.Ordinal));
+        await Assert.That(warning).Contains("Version=9.8.7.6");
+        await Assert.That(warning).Contains(intermediate);
+        await Assert.That(warning).Contains(primary);
+    }
 
     /// <summary>
     /// Standalone-DLL scenario: the primary lives in a directory
@@ -132,23 +256,13 @@ public class CompilationLoaderResolverFallbackTests
             .Because($"expected an unresolved-reference warning for the missing dep, got [{string.Join(" | ", spy.Warnings)}]");
     }
 
-    /// <summary>
-    /// Platform-filter scenario: a reference whose simple name lives
-    /// in <see cref="UnresolvableReferenceFilter"/>'s exact-match set
-    /// (e.g. <c>Java.Interop</c>) is silently skipped instead of
-    /// logged. Otherwise every Android-workload walk drowns in
-    /// thousands of identical warnings.
-    /// </summary>
+    /// <summary>Missing platform references produce diagnostics because they can prevent API symbols from binding.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task ResolveTransitiveReferencesSuppressesWarningForFilteredPlatformRef()
+    public async Task ResolveTransitiveReferencesLogsWarningForMissingPlatformRef()
     {
         using var temp = new TempDirectory();
 
-        // We emit Java.Interop ourselves so the primary has a real
-        // metadata reference to it, then drop it from disk so the
-        // resolver path returns null. The filter must keep the warning
-        // off the logger regardless.
         var compileDir = MakeSubDir(temp.Path, "ct");
         var compileDep = EmitSyntheticDependency("Java.Interop", compileDir);
         var primaryDir = MakeSubDir(temp.Path, Primary);
@@ -159,8 +273,7 @@ public class CompilationLoaderResolverFallbackTests
         _ = CompilationLoader.ResolveTransitiveReferences(primaryPath, [], spy);
 
         await Assert.That(spy.HasWarningContaining("Java.Interop"))
-            .IsFalse()
-            .Because($"filter should have suppressed the warning, got [{string.Join(" | ", spy.Warnings)}]");
+            .IsTrue();
     }
 
     /// <summary>
@@ -202,6 +315,17 @@ public class CompilationLoaderResolverFallbackTests
         }
 
         await Assert.That(sharedHits).IsEqualTo(1);
+    }
+
+    /// <summary>Provides the selected dependency asset for a compilation.</summary>
+    /// <param name="key">The assembly name or filename.</param>
+    /// <param name="path">The selected compile asset.</param>
+    /// <returns>The reference selection.</returns>
+    private static Dictionary<string, string> SelectedReferences(string key, string path)
+    {
+        Dictionary<string, string> references = [with(StringComparer.Ordinal)];
+        references.Add(key, path);
+        return references;
     }
 
     /// <summary>Builds <paramref name="parent"/>/<paramref name="name"/> as a fresh subdirectory.</summary>
@@ -362,11 +486,7 @@ public class CompilationLoaderResolverFallbackTests
     private static MetadataReference[] BclReferences() =>
         WalkerTestFixtures.GetRuntimeReferences();
 
-    /// <summary>
-    /// Test-only logger that records every warning message so the
-    /// test can assert on whether a specific reference name appeared.
-    /// Used by the filter-suppression and genuine-miss scenarios.
-    /// </summary>
+    /// <summary>Records unresolved-reference warnings for diagnostic assertions.</summary>
     private sealed class RecordingLogger : ILogger
     {
         /// <summary>Gets the captured warning messages, in arrival order.</summary>

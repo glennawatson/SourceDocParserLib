@@ -3,8 +3,13 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using SourceDocParser.LibCompilation;
 using SourceDocParser.Model;
+using SourceDocParser.SourceLink;
 using SourceDocParser.TestHelpers;
+using SourceDocParser.Walk;
 using SourceDocParser.Zensical.Options;
 using SourceDocParser.Zensical.Routing;
 
@@ -27,6 +32,92 @@ public class ZensicalDocumentationEmitterTests
 
     /// <summary>Fixture value for UnionName.</summary>
     private const string UnionName = "DemoUnion";
+
+    /// <summary>The reference-only dependency assembly and namespace.</summary>
+    private const string ReferenceLibrary = "ReferenceLibrary";
+
+    /// <summary>Only types included in the documentation catalog receive pages and local links from signatures or XML documentation.</summary>
+    /// <param name="includeDependencyRoot">Whether the dependency is explicitly included as a documentation root.</param>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task ReferenceOnlyTypesDoNotReceivePagesOrLocalLinks(bool includeDependencyRoot)
+    {
+        const string DependencyUid = "T:ReferenceLibrary.ReferenceType";
+        const string DependencyName = "ReferenceType";
+        using var scratch = new ScratchDirectory();
+        var reference = new ApiTypeReference(DependencyName, DependencyUid);
+        var root = ObjectTypeWithMembers("Consumer", "Use");
+        root = root with
+        {
+            BaseType = reference,
+            Documentation = ApiDocumentation.Empty with { Summary = $"Accepts <see cref=\"{DependencyUid}\"/>." },
+            Members =
+            [
+                root.Members[0] with
+                {
+                    ReturnType = reference,
+                    Parameters = [new("value", reference, false, false, false, false, false, null)],
+                },
+            ],
+        };
+        var dependency = TestData.ObjectType(DependencyUid, ReferenceLibrary) with { Name = DependencyName, Namespace = ReferenceLibrary };
+        ApiType[] types = includeDependencyRoot ? [root, dependency] : [root];
+
+        await new ZensicalDocumentationEmitter().EmitAsync(types, new FilePageSink(scratch.Path));
+
+        var rootPage = await Assert.That(Directory.GetFiles(scratch.Path, "Consumer.md", SearchOption.AllDirectories)).HasSingleItem();
+        var memberPage = await Assert.That(Directory.GetFiles(scratch.Path, "Use.md", SearchOption.AllDirectories)).HasSingleItem();
+        var rootMarkdown = await File.ReadAllTextAsync(rootPage);
+        var memberMarkdown = await File.ReadAllTextAsync(memberPage);
+        var expectedReference = includeDependencyRoot ? $"[{DependencyName}][{DependencyUid}]" : $"`{DependencyName}`";
+        await Assert.That(rootMarkdown).Contains(expectedReference);
+        await Assert.That(rootMarkdown).Contains($"Accepts {expectedReference}.");
+        await Assert.That(memberMarkdown).Contains(expectedReference);
+        await Assert.That(rootMarkdown.Contains($"][{DependencyUid}]", StringComparison.Ordinal)).IsEqualTo(includeDependencyRoot);
+        await Assert.That(memberMarkdown.Contains($"][{DependencyUid}]", StringComparison.Ordinal)).IsEqualTo(includeDependencyRoot);
+        await Assert.That(Directory.GetFiles(scratch.Path, "ReferenceType.md", SearchOption.AllDirectories).Length).IsEqualTo(includeDependencyRoot ? 1 : 0);
+    }
+
+    /// <summary>A restored forwarding target resolves root API types without producing dependency pages or local links.</summary>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    public async Task ResolvedForwardingTargetsRemainReferenceOnlyThroughoutEmission()
+    {
+        using var scratch = new ScratchDirectory();
+        var dependencyPath = Path.Combine(scratch.Path, "ReferenceLibrary.dll");
+        var rootPath = Path.Combine(scratch.Path, "DocumentationRoot.dll");
+        var outputPath = Path.Combine(scratch.Path, "pages");
+        var framework = MetadataReference.CreateFromFile(typeof(object).Assembly.Location);
+        EmitAssembly(ReferenceLibrary, "namespace ReferenceLibrary; public class ReferenceType { }", dependencyPath, [framework]);
+        const string RootSource = """
+            using System.Runtime.CompilerServices;
+            [assembly: TypeForwardedTo(typeof(ReferenceLibrary.ReferenceType))]
+            namespace RootLibrary;
+            public class Root : ReferenceLibrary.ReferenceType { }
+            """;
+        EmitAssembly("DocumentationRoot", RootSource, rootPath, [framework, MetadataReference.CreateFromFile(dependencyPath)]);
+        Dictionary<string, string> references = [with(StringComparer.Ordinal)];
+        references.Add(ReferenceLibrary, dependencyPath);
+        using var loader = new CompilationLoader();
+        var (compilation, assembly) = loader.Load(rootPath, references);
+        var rootSymbol = compilation.GetTypeByMetadataName("RootLibrary.Root");
+        await Assert.That(rootSymbol?.BaseType?.TypeKind).IsEqualTo(TypeKind.Class);
+        await Assert.That(rootSymbol?.BaseType?.ContainingAssembly.Name).IsEqualTo(ReferenceLibrary);
+        using var sourceLinks = new SourceLinkResolver(rootPath);
+
+        var catalog = new SymbolWalker().Walk("net10.0", assembly, compilation, sourceLinks);
+        await new ZensicalDocumentationEmitter().EmitAsync(catalog.Types, new FilePageSink(outputPath));
+
+        var root = await Assert.That(catalog.Types).HasSingleItem();
+        await Assert.That(root.Name).IsEqualTo("Root");
+        await Assert.That(Directory.GetFiles(outputPath, "ReferenceType.md", SearchOption.AllDirectories)).IsEmpty();
+        var rootPage = await Assert.That(Directory.GetFiles(outputPath, "Root.md", SearchOption.AllDirectories)).HasSingleItem();
+        var markdown = await File.ReadAllTextAsync(rootPage);
+        await Assert.That(markdown).Contains("`ReferenceType`");
+        await Assert.That(markdown).DoesNotContain("][T:ReferenceLibrary.ReferenceType]");
+    }
 
     /// <summary>
     /// A class with three distinct member names produces one type page
@@ -355,6 +446,22 @@ public class ZensicalDocumentationEmitterTests
 
         const int MinimumPages = 2;
         await Assert.That(pages).IsGreaterThanOrEqualTo(MinimumPages);
+    }
+
+    /// <summary>Compiles an assembly for an end-to-end documentation test.</summary>
+    /// <param name="name">The assembly identity.</param>
+    /// <param name="source">The API declarations.</param>
+    /// <param name="path">The destination assembly path.</param>
+    /// <param name="references">The references required by the declarations.</param>
+    /// <exception cref="InvalidOperationException">The fixture source does not compile.</exception>
+    private static void EmitAssembly(string name, string source, string path, MetadataReference[] references)
+    {
+        var compilation = CSharpCompilation.Create(name, [CSharpSyntaxTree.ParseText(source)], references, new(OutputKind.DynamicallyLinkedLibrary));
+        var result = compilation.Emit(path);
+        if (!result.Success)
+        {
+            throw new InvalidOperationException(string.Join(Environment.NewLine, result.Diagnostics));
+        }
     }
 
     /// <summary>Builds an <see cref="ApiObjectType"/> with one synthetic <see cref="ApiMember"/> per name in <paramref name="memberNames"/>.</summary>

@@ -5,6 +5,7 @@
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using SourceDocParser.Model;
 using SourceDocParser.SourceLink;
 using SourceDocParser.Walk;
 
@@ -131,15 +132,10 @@ public class TypeForwardingHelpersTests
         await Assert.That(pending.Pop().MetadataName).IsEqualTo("Nested");
     }
 
-    /// <summary>
-    /// End-to-end: the walker produces type pages for forwarded
-    /// targets when the destination assembly is referenced. Pins the
-    /// composition: helpers + walker plumbing land the type in the
-    /// catalog under the umbrella's assembly name.
-    /// </summary>
+    /// <summary>Forwarded dependencies resolve root signatures without contributing types to the root's documentation catalog.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task SymbolWalkerEmitsForwardedTypeUnderUmbrellaAssembly()
+    public async Task SymbolWalkerKeepsForwardedDefinitionsReferenceOnly()
     {
         var (umbrella, umbrellaCompilation) = BuildUmbrellaWithTarget();
         var walker = new SymbolWalker();
@@ -147,9 +143,11 @@ public class TypeForwardingHelpersTests
 
         var catalog = walker.Walk("net10.0", umbrella, umbrellaCompilation, resolver);
 
-        var forwardedType = Array.Find(catalog.Types, static t => t.Name == PublicForwarded);
-        await Assert.That(forwardedType).IsNotNull();
-        await Assert.That(forwardedType!.AssemblyName).IsEqualTo("Umbrella");
+        var root = (ApiObjectType)await Assert.That(catalog.Types).HasSingleItem();
+        var property = await Assert.That(root.Members).HasSingleItem(static member => member.Name == "Value");
+        await Assert.That(root.Name).IsEqualTo("Root");
+        await Assert.That(root.AssemblyName).IsEqualTo("Umbrella");
+        await Assert.That(property.ReturnType?.Uid).IsEqualTo("T:My.Pkg.Core.PublicForwarded");
     }
 
     /// <summary>
@@ -196,6 +194,12 @@ public class TypeForwardingHelpersTests
 
             [assembly: TypeForwardedTo(typeof(My.Pkg.Core.PublicForwarded))]
             [assembly: TypeForwardedTo(typeof(My.Pkg.Core.OtherForwarded))]
+
+            namespace My.Pkg;
+            public class Root
+            {
+                public My.Pkg.Core.PublicForwarded Value { get; set; }
+            }
             """;
 
         List<MetadataReference> umbrellaRefs = [.. BclReferences(), targetReference];

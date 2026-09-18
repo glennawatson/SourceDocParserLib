@@ -17,7 +17,7 @@ public interface ICompilationLoader : IDisposable
 {
     /// <summary>Loads <paramref name="assemblyPath"/> and its transitive references into a Roslyn compilation using the default metadata-import mode.</summary>
     /// <param name="assemblyPath">Absolute path to the .dll to load.</param>
-    /// <param name="fallbackReferences">Map from simple assembly name to absolute path used when the resolver cannot locate a reference on its own.</param>
+    /// <param name="fallbackReferences">Selected compile assets by assembly name or filename. These assets take precedence over automatic resolution.</param>
     /// <returns>The compilation and the primary assembly symbol.</returns>
     (CSharpCompilation Compilation, IAssemblySymbol Assembly) Load(
         string assemblyPath,
@@ -25,7 +25,7 @@ public interface ICompilationLoader : IDisposable
 
     /// <summary>Loads <paramref name="assemblyPath"/> and its transitive references into a Roslyn compilation.</summary>
     /// <param name="assemblyPath">Absolute path to the .dll to load.</param>
-    /// <param name="fallbackReferences">Map from simple assembly name to absolute path used when the resolver cannot locate a reference on its own.</param>
+    /// <param name="fallbackReferences">Selected compile assets by assembly name or filename. These assets take precedence over automatic resolution.</param>
     /// <param name="includePrivateMembers">When true, the compilation imports non-public members.</param>
     /// <returns>The compilation and the primary assembly symbol.</returns>
     (CSharpCompilation Compilation, IAssemblySymbol Assembly) Load(

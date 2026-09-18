@@ -51,7 +51,7 @@ published version.
 
 | Package | NuGet | What |
 |---|---|---|
-| [`SourceDocParser.NuGet`][Pkg] | [![ver][PkgV]][Pkg] | `IAssemblySource` that fetches packages from `nuget.org` by owner / explicit list (`nuget-packages.json`) and exposes the per-TFM `lib/` + `refs/` trees. Shares one tuned `HttpClient` across the fetch; disposes alongside the source. |
+| [`SourceDocParser.NuGet`][Pkg] | [![ver][PkgV]][Pkg] | `IAssemblySource` that discovers documentation roots by NuGet owner or explicit manifest entries and restores an independent dependency graph for each root and target framework. |
 
 ### Emitters
 
@@ -74,7 +74,7 @@ var loggerFactory = LoggerFactory.Create(b => b.AddConsole());
 
 using var source = new NuGetAssemblySource(
     rootDirectory: "/path/to/repo",   // contains nuget-packages.json
-    apiPath:       "/path/to/api",    // where lib/ + refs/ get extracted
+    apiPath:       "/path/to/api",    // stores per-root restore graphs
     logger:        loggerFactory.CreateLogger<NuGetAssemblySource>());
 
 var emitter = new ZensicalDocumentationEmitter();
@@ -108,6 +108,49 @@ await new MetadataExtractor().RunAsync(source, sink, emitter, logger);
 
 The bytes are encoded once into a freshly-allocated `byte[]` so the callback
 owns them outright — safe to retain, no array-pool ties.
+
+### Package roots and references
+
+`NuGetAssemblySource` uses NuGet.Client PackageReference restore. Dependency
+ranges, framework groups, source mappings, transitive conflicts, and compile
+assets come from NuGet's resolved graph. Each root and selected TFM has its
+own `project.assets.json` under `apiPath/restore/`; packages use the normal
+NuGet global cache. Restore inputs, pins, runtime identifiers, and effective
+NuGet configuration distinguish graph directories.
+
+Only assemblies supplied by declared documentation roots produce pages and
+local API links. Transitive packages provide metadata for signatures and type
+resolution. Forwarded types are documented when their defining package is
+selected. `excludePackages` and `excludePackagePrefixes` exclude documentation
+roots, while required dependencies remain available as references. Exclusions
+match package IDs: `Reactive.Wasm`, for example, ships `System.Reactive.Wasm.dll`.
+
+For repeatable inputs, specify an optional root version:
+
+```json
+{
+  "additionalPackages": [{ "id": "Refit", "version": "15.2.0" }],
+  "tfmPreference": ["net10.0"],
+  "tfmOverrides": { "Refit": "net10.0" }
+}
+```
+
+An omitted version selects the latest stable root. An explicit version takes
+precedence over owner discovery. `dependencyPins` is an optional object mapping
+package IDs to exact versions or NuGet ranges; those constraints participate as
+direct references in each graph. `runtimeIdentifier` selects an optional RID.
+Use `referencePackages` for explicit references and targeting packs, scoped by
+`targetTfm`.
+
+SDK evaluation supplies framework policy and references added by package build
+targets. Apple reference packs use the exact versions declared in installed
+workload manifests; reading those assemblies does not require Xcode or an Apple
+runtime. Reference packs are acquired through the configured NuGet feeds.
+
+Restore failures report the root, TFM, RID, NuGet diagnostic code, and dependency
+chain. Missing assembly diagnostics identify the referring assembly and root.
+Missing workload-manifest declarations identify the reference pack that needs
+an explicit version in `referencePackages`.
 
 ---
 
@@ -151,6 +194,31 @@ during a build.
 ---
 
 ## Performance
+
+### Package fetching
+
+The fetch benchmark pins Refit 15.2.0 to `net10.0`, runs on .NET 11 in
+Release mode, and retains downloaded package caches. Fresh-source runs include
+SDK evaluation and regenerated graph output. Every operation verifies one
+documentation root; selected reference entries are 314 for 2.2.0 and 171 for
+the NuGet restore pipeline.
+
+| Scenario | Published 2.2.0 | NuGet restore pipeline | Managed allocations (2.2.0 → restore) |
+|---|---:|---:|---:|
+| Warm source and graph | 559.1 ± 50.54 ms | 20.62 ± 0.317 ms | 30.46 → 4.88 MB |
+| Fresh source and graph | 807.1 ± 13.33 ms | 633.02 ± 5.488 ms | 75.80 → 6.23 MB |
+
+Intervals are BenchmarkDotNet's 99.9% confidence intervals. Allocation counts
+cover the benchmark process; fresh-source counts exclude SDK child-process
+allocations. Allocation profiling runs separately from timing.
+
+```bash
+cd src
+dotnet run --project benchmarks/SourceDocParser.Benchmarks --framework net11.0 \
+  --configuration Release -- --filter '*NuGetFetchBenchmarks*'
+```
+
+### Pipeline workload
 
 **Benchmark workload.** Numbers below are from the BenchmarkDotNet suite
 under `src/benchmarks/SourceDocParser.Benchmarks/`, run on a Ryzen 7 5800X /

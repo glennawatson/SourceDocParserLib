@@ -36,6 +36,7 @@
   </Choose>
 
   <ItemGroup>
+    <PackageVersion Include="NuGet.Commands" Version="7.9.0" />
     <PackageVersion Include="NuGet.Frameworks" Version="7.9.0" />
     <PackageVersion Include="NuGet.Versioning" Version="7.9.0" />
   </ItemGroup>

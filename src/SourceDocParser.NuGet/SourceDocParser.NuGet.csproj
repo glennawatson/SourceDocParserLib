@@ -17,6 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="NuGet.Commands" />
     <PackageReference Include="NuGet.Versioning" />
   </ItemGroup>
 

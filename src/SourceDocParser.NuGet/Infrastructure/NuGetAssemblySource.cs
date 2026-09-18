@@ -13,9 +13,8 @@ using SourceDocParser.Tfm;
 namespace SourceDocParser.NuGet.Infrastructure;
 
 /// <summary>
-/// <see cref="IAssemblySource"/> that fetches NuGet packages described
-/// by <c>nuget-packages.json</c> into <c>apiPath/lib</c> + <c>apiPath/refs</c>
-/// and exposes the extracted assemblies, grouped by TFM, to the parser.
+/// Supplies each declared NuGet package's documentation assemblies with an independent
+/// dependency graph for each selected target framework.
 /// </summary>
 [System.Diagnostics.DebuggerDisplay("NuGetAssemblySource: {_rootDirectory}")]
 public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
@@ -120,8 +119,26 @@ public sealed class NuGetAssemblySource : IAssemblySource, IDisposable
     /// <inheritdoc />
     public async IAsyncEnumerable<AssemblyGroup> DiscoverAsync([EnumeratorCancellation] CancellationToken cancellationToken)
     {
+        var inputPath = await RestoredAssemblyManifest.GetPathAsync(_rootDirectory, _apiPath, cancellationToken).ConfigureAwait(false);
         await _fetcher.FetchPackagesAsync(_rootDirectory, _apiPath, _logger, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
+        var manifest = await RestoredAssemblyManifest.GetPathAsync(_rootDirectory, _apiPath, cancellationToken).ConfigureAwait(false);
+        if (inputPath is not null && !string.Equals(inputPath, manifest, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("Package declarations changed during documentation discovery. Repeat discovery with stable inputs.");
+        }
+
+        var restored = await RestoredAssemblyManifest.ReadAsync(manifest, cancellationToken).ConfigureAwait(false);
+        if (restored is not null)
+        {
+            for (var i = 0; i < restored.Length; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                yield return restored[i];
+            }
+
+            yield break;
+        }
 
         var libDir = Path.Combine(_apiPath, LibDirName);
         var refsDir = Path.Combine(_apiPath, RefsDirName);

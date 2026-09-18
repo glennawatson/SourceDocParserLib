@@ -13,8 +13,7 @@ namespace SourceDocParser.NuGet.Readers;
 /// Hand-rolled XmlReader scanner for the
 /// <c>packageSources</c> section of a <c>nuget.config</c>
 /// -- same composable shape as
-/// <see cref="NuGetConfigReader"/> and
-/// <see cref="NuspecDependencyReader"/>. Returns the per-file
+/// <see cref="NuGetConfigReader"/>. Returns the per-file
 /// view (the ordered list of <c>add</c> entries plus
 /// whether a <c>clear/</c> wiped the accumulator) so the
 /// discovery walk can layer cross-file merge semantics on top.
