@@ -51,7 +51,7 @@
          its own benchmark assembly so docfx's transitive Roslyn /
          Decompiler pins stay isolated and can be VersionOverride'd
          locally if a future docfx release drops back to older deps. -->
-    <PackageVersion Include="Docfx.Dotnet" Version="2.78.5" />
+    <PackageVersion Include="Docfx.Dotnet" Version="2.80.1" />
   </ItemGroup>
 
   <ItemGroup>
