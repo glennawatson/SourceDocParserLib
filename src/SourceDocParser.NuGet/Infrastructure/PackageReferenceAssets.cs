@@ -259,7 +259,7 @@ internal static class PackageReferenceAssets
                 continue;
             }
 
-            var path = Path.Combine(directory, file);
+            var path = Path.GetFullPath(Path.Combine(directory, file));
             if (!File.Exists(path))
             {
                 throw new FileNotFoundException($"Targeting-pack assembly '{file}' from '{identity}' is absent from the NuGet package installation.", path);
@@ -673,6 +673,7 @@ internal static class PackageReferenceAssets
     /// <param name="references">Resolved assembly references.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task representing reference acquisition.</returns>
+    /// <exception cref="InvalidOperationException">The required .NET Standard reference package is absent.</exception>
     private static async Task AddImplicitFrameworkAssetsAsync(
         PackageRestoreSession session,
         PackageConfig config,
@@ -683,7 +684,8 @@ internal static class PackageReferenceAssets
     {
         if (framework.Framework is FrameworkConstants.FrameworkIdentifiers.NetStandard && framework.Version < new Version(2, 1))
         {
-            var version = FindResolvedVersion(assets, framework, config.RuntimeIdentifier, StandardLibrary);
+            var version = FindResolvedVersion(assets, framework, config.RuntimeIdentifier, StandardLibrary)
+                ?? throw new InvalidOperationException($"NuGet target '{framework}' does not contain required framework reference package '{StandardLibrary}'.");
             using var download = await session.DownloadAsync(StandardLibrary, version, cancellationToken).ConfigureAwait(false);
             AddPackagePrefix(session.PackagesPath, download.PackageReader!, "build/netstandard2.0/ref", references);
         }
@@ -691,6 +693,11 @@ internal static class PackageReferenceAssets
         {
             var id = $"{FrameworkReferences}.{framework.GetShortFolderName()}";
             var version = FindResolvedVersion(assets, framework, config.RuntimeIdentifier, id);
+            if (version is null)
+            {
+                return;
+            }
+
             using var download = await session.DownloadAsync(id, version, cancellationToken).ConfigureAwait(false);
             AddPackagePrefix(session.PackagesPath, download.PackageReader!, "build/.NETFramework", references);
         }
@@ -701,9 +708,8 @@ internal static class PackageReferenceAssets
     /// <param name="framework">Documentation target framework.</param>
     /// <param name="runtimeIdentifier">Optional runtime target.</param>
     /// <param name="id">Framework package identifier.</param>
-    /// <returns>The exact version selected by restore.</returns>
-    /// <exception cref="InvalidOperationException">The required framework package is absent from the graph.</exception>
-    private static string FindResolvedVersion(LockFile assets, NuGetFramework framework, string? runtimeIdentifier, string id)
+    /// <returns>The exact package version, or null when the framework is supplied by the SDK installation.</returns>
+    private static string? FindResolvedVersion(LockFile assets, NuGetFramework framework, string? runtimeIdentifier, string id)
     {
         var target = assets.GetTarget(framework, runtimeIdentifier ?? string.Empty);
         if (target is not null)
@@ -718,7 +724,7 @@ internal static class PackageReferenceAssets
             }
         }
 
-        throw new InvalidOperationException($"NuGet target '{framework}' does not contain required framework reference package '{id}'.");
+        return null;
     }
 
     /// <summary>Adds assemblies from an explicit framework-pack prefix.</summary>

@@ -9,6 +9,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Xml.Linq;
+using NuGet.Frameworks;
 using NuGet.ProjectModel;
 
 namespace SourceDocParser.NuGet.Infrastructure;
@@ -47,7 +48,7 @@ internal static class PackageBuildReferences
         var framework = project.TargetFrameworks[0].FrameworkName;
         var runtimeIdentifier = GetRuntimeIdentifier(project);
         var target = assets.GetTarget(framework, runtimeIdentifier);
-        if (target is null || !HasBuildAssets(target))
+        if (target is null || (framework.Framework is not FrameworkConstants.FrameworkIdentifiers.Net && !HasBuildAssets(target)))
         {
             return;
         }
