@@ -103,7 +103,7 @@ public sealed class PackageMetadataReferencesTests
 
         fixture.Complete();
 
-        await Assert.That(fixture.References[Needed]).EndsWith("/ref/netstandard2.0/Needed.dll");
+        await Assert.That(fixture.References[Needed].Replace(Path.DirectorySeparatorChar, '/')).EndsWith("/ref/netstandard2.0/Needed.dll");
     }
 
     /// <summary>Declared NuGet asset fallbacks permit compatible desktop assets without changing the root framework.</summary>
@@ -125,7 +125,7 @@ public sealed class PackageMetadataReferencesTests
 
         fixture.Complete();
 
-        await Assert.That(fixture.References[Needed]).EndsWith("/lib/net462/Needed.dll");
+        await Assert.That(fixture.References[Needed].Replace(Path.DirectorySeparatorChar, '/')).EndsWith("/lib/net462/Needed.dll");
         await Assert.That(fixture.Target.TargetFramework).IsSameReferenceAs(fixture.Framework);
     }
 
@@ -165,7 +165,7 @@ public sealed class PackageMetadataReferencesTests
 
         fixture.Complete();
 
-        await Assert.That(fixture.References[Needed]).EndsWith($"/{ManualAsset}");
+        await Assert.That(fixture.References[Needed].Replace(Path.DirectorySeparatorChar, '/')).EndsWith($"/{ManualAsset}");
         await Assert.That(fixture.References.ContainsKey("Unused")).IsFalse();
     }
 
