@@ -22,7 +22,7 @@ namespace SourceDocParser.Zensical;
 /// over ~30k small files is plenty fast.
 /// </summary>
 [System.Diagnostics.DebuggerDisplay("ZensicalDocumentationEmitter: {_options}")]
-public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
+public sealed class ZensicalDocumentationEmitter : IPackageDocumentationEmitter
 {
     /// <summary>Emitter tunables (per-package routing, BCL link base URL).</summary>
     private readonly ZensicalEmitterOptions _options;
@@ -47,9 +47,15 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
         EmitAsync(types, sink, CancellationToken.None);
 
     /// <inheritdoc />
-    public Task<int> EmitAsync(ApiType[] types, IPageSink sink, CancellationToken cancellationToken)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task<int> EmitAsync(ApiType[] types, IPageSink sink, CancellationToken cancellationToken) =>
+        EmitAsync(types, [], sink, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<int> EmitAsync(ApiType[] types, ApiPackageGraph[] packages, IPageSink sink, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(types);
+        ArgumentNullException.ThrowIfNull(packages);
         ArgumentNullException.ThrowIfNull(sink);
 
         var indexes = ZensicalCatalogIndexes.Build(types);
@@ -60,7 +66,7 @@ public sealed class ZensicalDocumentationEmitter : IDocumentationEmitter
         var context = new ZensicalEmitContext(runOptions, indexes, emittedUids, converter, sink);
 
         var pages = WriteTypeAndMemberPages(types, context, cancellationToken);
-        pages += LandingPageEmitter.EmitAll(types, context);
+        pages += LandingPageEmitter.EmitAll(types, context, packages);
         return Task.FromResult(pages);
     }
 

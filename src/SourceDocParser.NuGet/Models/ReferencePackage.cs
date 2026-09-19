@@ -5,24 +5,19 @@
 namespace SourceDocParser.NuGet.Models;
 
 /// <summary>
-/// Describes a NuGet package whose assemblies are extracted purely as
-/// reference assemblies for the docfx <c>UniversalAssemblyResolver</c>. These
-/// are not documented themselves; they exist solely so that types referenced
-/// by the documented packages can be resolved during metadata generation.
+/// Selects framework reference packs or additional assets from packages in a
+/// documentation root's dependency graph. These declarations do not create API pages.
 /// </summary>
 /// <param name="Id">
 /// The NuGet package identifier (for example
 /// <c>Microsoft.NETCore.App.Ref</c>).
 /// </param>
 /// <param name="Version">
-/// Optional pinned package version. When <see langword="null"/> the latest
-/// stable version is resolved at fetch time.
+/// Optional framework-pack version. Ordinary dependencies use the version
+/// resolved for their documentation root; use dependencyPins to override that graph explicitly.
 /// </param>
 /// <param name="TargetTfm">
-/// The TFM directory under <c>refs/</c> to drop the extracted assemblies
-/// into (for example <c>net10.0</c>). This is intentionally explicit because
-/// reference packages often ship a single canonical set of assemblies
-/// regardless of the package's own TFM layout.
+/// Framework to which the reference-asset selection applies.
 /// </param>
 /// <param name="PathPrefix">
 /// Path prefix inside the <c>.nupkg</c> archive to extract from. Defaults

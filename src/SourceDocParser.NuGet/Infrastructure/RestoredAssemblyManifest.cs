@@ -24,6 +24,15 @@ internal static class RestoredAssemblyManifest
     /// <summary>The serialized assembly reference map.</summary>
     private const string ReferencesProperty = "references";
 
+    /// <summary>Package metadata accompanying a restored group.</summary>
+    private const string PackageProperty = "package";
+
+    /// <summary>NuGet identity name in package metadata.</summary>
+    private const string PackageIdProperty = "id";
+
+    /// <summary>Resolved NuGet version in package metadata.</summary>
+    private const string PackageVersionProperty = "version";
+
     /// <summary>Rejects duplicate JSON properties instead of silently replacing reference selections.</summary>
     private static readonly JsonDocumentOptions _readOptions = new() { AllowDuplicateProperties = false };
 
@@ -164,6 +173,34 @@ internal static class RestoredAssemblyManifest
         }
 
         writer.WriteEndObject();
+        if (group.PackageGraph is { } package)
+        {
+            WritePackage(writer, package);
+        }
+
+        writer.WriteEndObject();
+    }
+
+    /// <summary>Writes package versions used by the generated website.</summary>
+    /// <param name="writer">Destination writer.</param>
+    /// <param name="package">The documentation root's dependency graph.</param>
+    private static void WritePackage(Utf8JsonWriter writer, ApiPackageGraph package)
+    {
+        writer.WriteStartObject(PackageProperty);
+        writer.WriteString(PackageIdProperty, package.Id);
+        writer.WriteString(PackageVersionProperty, package.Version);
+        writer.WriteString("runtimeIdentifier", package.RuntimeIdentifier);
+        WriteStrings(writer, "assemblyNames", package.AssemblyNames, paths: false);
+        writer.WriteStartArray("dependencies");
+        for (var i = 0; i < package.Dependencies.Length; i++)
+        {
+            writer.WriteStartObject();
+            writer.WriteString(PackageIdProperty, package.Dependencies[i].Id);
+            writer.WriteString(PackageVersionProperty, package.Dependencies[i].Version);
+            writer.WriteEndObject();
+        }
+
+        writer.WriteEndArray();
         writer.WriteEndObject();
     }
 
@@ -188,7 +225,31 @@ internal static class RestoredAssemblyManifest
         }
 
         var suppliedOnly = !item.TryGetProperty("useOnlySuppliedReferences", out var policy) || policy.GetBoolean();
-        return new(tfm, assemblies, references, broadcast) { UseOnlySuppliedReferences = suppliedOnly };
+        var package = item.TryGetProperty(PackageProperty, out var packageItem) ? ReadPackage(packageItem, tfm) : null;
+        return new(tfm, assemblies, references, broadcast) { UseOnlySuppliedReferences = suppliedOnly, PackageGraph = package };
+    }
+
+    /// <summary>Reads package versions for one restored documentation target.</summary>
+    /// <param name="item">Serialized package metadata.</param>
+    /// <param name="tfm">Documentation target framework.</param>
+    /// <returns>The independent package graph.</returns>
+    private static ApiPackageGraph ReadPackage(JsonElement item, string tfm)
+    {
+        var entries = item.GetProperty("dependencies");
+        var dependencies = new ApiPackageDependency[entries.GetArrayLength()];
+        var index = 0;
+        foreach (var entry in entries.EnumerateArray())
+        {
+            dependencies[index] = new(ReadString(entry.GetProperty(PackageIdProperty)), ReadString(entry.GetProperty(PackageVersionProperty)));
+            index++;
+        }
+
+        return new(
+            ReadString(item.GetProperty(PackageIdProperty)),
+            ReadString(item.GetProperty(PackageVersionProperty)),
+            tfm,
+            ReadStrings(item.GetProperty("assemblyNames"), paths: false),
+            dependencies) { RuntimeIdentifier = item.GetProperty("runtimeIdentifier").GetString() };
     }
 
     /// <summary>Writes a group's assembly paths or target frameworks.</summary>

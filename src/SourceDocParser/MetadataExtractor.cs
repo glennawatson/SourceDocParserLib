@@ -203,10 +203,12 @@ public sealed class MetadataExtractor : IMetadataExtractor
         ILogger logger,
         CancellationToken cancellationToken)
     {
-        var (merged, loadFailures) = await WalkAndMergeAsync(source, logger, cancellationToken).ConfigureAwait(false);
+        var (merged, loadFailures, packages) = await WalkAndMergeAsync(source, logger, cancellationToken).ConfigureAwait(false);
 
         MetadataLoggingHelper.LogEmitting(logger, merged.Length, sink.GetType().Name, emitter.GetType().Name);
-        var pagesEmitted = await emitter.EmitAsync(merged, sink, cancellationToken).ConfigureAwait(false);
+        var pagesEmitted = emitter is IPackageDocumentationEmitter packageEmitter
+            ? await packageEmitter.EmitAsync(merged, packages, sink, cancellationToken).ConfigureAwait(false)
+            : await emitter.EmitAsync(merged, sink, cancellationToken).ConfigureAwait(false);
 
         var sourceLinks = MetadataSourceLinkHelper.CollectSourceLinks(merged);
         MetadataLoggingHelper.LogEmitComplete(logger, merged.Length, pagesEmitted, sourceLinks.Length, loadFailures);
@@ -228,18 +230,18 @@ public sealed class MetadataExtractor : IMetadataExtractor
         ILogger logger,
         CancellationToken cancellationToken)
     {
-        var (merged, loadFailures) = await WalkAndMergeAsync(source, logger, cancellationToken).ConfigureAwait(false);
+        var (merged, loadFailures, packages) = await WalkAndMergeAsync(source, logger, cancellationToken).ConfigureAwait(false);
         var sourceLinks = MetadataSourceLinkHelper.CollectSourceLinks(merged);
         MetadataLoggingHelper.LogDirectExtractComplete(logger, merged.Length, sourceLinks.Length, loadFailures);
-        return new(merged, loadFailures, sourceLinks);
+        return new(merged, loadFailures, sourceLinks) { Packages = packages };
     }
 
     /// <summary>Shared walk-and-merge phase used by both emit-mode and direct-mode extraction.</summary>
     /// <param name="source">Assembly source.</param>
     /// <param name="logger">Resolved logger.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The merged canonical type array and the load-failure count.</returns>
-    private async Task<(ApiType[] Merged, int LoadFailures)> WalkAndMergeAsync(
+    /// <returns>The merged types, load-failure count, and independent package graphs.</returns>
+    private async Task<(ApiType[] Merged, int LoadFailures, ApiPackageGraph[] Packages)> WalkAndMergeAsync(
         IAssemblySource source,
         ILogger logger,
         CancellationToken cancellationToken)
@@ -268,6 +270,15 @@ public sealed class MetadataExtractor : IMetadataExtractor
         BroadcastCanonicalTypes(merger, typesByTfm, groups);
 
         MetadataWalkerHelper.LogWalkComplete(logger, catalogCount.Value);
-        return (merger.Build(), loadFailureBox.Value);
+        var packages = new List<ApiPackageGraph>(groups.Count);
+        for (var i = 0; i < groups.Count; i++)
+        {
+            if (groups[i].Group.PackageGraph is { } package)
+            {
+                packages.Add(package);
+            }
+        }
+
+        return (merger.Build(), loadFailureBox.Value, [.. packages]);
     }
 }

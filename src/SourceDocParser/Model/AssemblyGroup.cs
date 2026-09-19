@@ -36,4 +36,7 @@ public sealed record AssemblyGroup(
 
     /// <summary>Gets a value indicating whether API parsing must use only this group's supplied references.</summary>
     public bool UseOnlySuppliedReferences { get; init; }
+
+    /// <summary>Gets the package versions resolved for this documentation root and target.</summary>
+    public ApiPackageGraph? PackageGraph { get; init; }
 }

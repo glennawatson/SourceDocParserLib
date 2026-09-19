@@ -38,4 +38,8 @@ namespace SourceDocParser.Model;
 public sealed record DirectExtractionResult(
     ApiType[] CanonicalTypes,
     int LoadFailures,
-    SourceLinkEntry[] SourceLinks);
+    SourceLinkEntry[] SourceLinks)
+{
+    /// <summary>Gets the independent package graphs used to resolve the documented APIs.</summary>
+    public ApiPackageGraph[] Packages { get; init; } = [];
+}

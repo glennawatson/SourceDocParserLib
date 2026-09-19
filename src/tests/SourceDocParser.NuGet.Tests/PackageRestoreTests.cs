@@ -14,6 +14,7 @@ using SourceDocParser.LibCompilation;
 using SourceDocParser.Model;
 using SourceDocParser.NuGet.Infrastructure;
 using SourceDocParser.TestHelpers;
+using SourceDocParser.Zensical;
 
 namespace SourceDocParser.NuGet.Tests;
 
@@ -508,6 +509,60 @@ public sealed class PackageRestoreTests
             var version = Path.GetFileNameWithoutExtension(group.AssemblyPaths[0]) is Left ? InitialVersion : SecondVersion;
             await Assert.That(ReferencePath(group, Shared)).Contains($"/{version}/ref/net10.0/Shared.dll");
         }
+    }
+
+    /// <summary>Package pages display isolated dependency versions without generating dependency API pages.</summary>
+    /// <param name="reverseRoots">Whether the newer dependency generation is documented first.</param>
+    /// <param name="useManifest">Whether acquisition transfers the graph through its serialized manifest.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments(false, false)]
+    [Arguments(true, false)]
+    [Arguments(false, true)]
+    [Arguments(true, true)]
+    public async Task PackagePagesShowTheirOwnResolvedDependencyVersions(bool reverseRoots, bool useManifest)
+    {
+        using var fixture = new PackageFeed { DecorateFetcher = useManifest };
+        fixture.Add(Shared, InitialVersion, string.Empty, SharedRef);
+        fixture.Add(Shared, SecondVersion, string.Empty, SharedRef);
+        fixture.Add(Left, InitialVersion, fixture.Dependency(Shared, FirstRange), LeftLib);
+        fixture.Add(Right, InitialVersion, fixture.Dependency(Shared, SecondRange), RightLib);
+        fixture.ReferencePackages.Add(Shared);
+        fixture.Manifest(reverseRoots ? [Right, Left] : [Left, Right], []);
+
+        var groups = await fixture.DiscoverAsync();
+        foreach (var group in groups)
+        {
+            var expectedVersion = Path.GetFileNameWithoutExtension(group.AssemblyPaths[0]) is Left ? InitialVersion : SecondVersion;
+            await Assert.That(ReferencePath(group, Shared)).Contains($"/{expectedVersion}/ref/net10.0/Shared.dll");
+        }
+
+        var pages = await fixture.RenderAsync();
+
+        await Assert.That(pages[$"{Left}/index.md"]).Contains($"**Version:** `{InitialVersion}`");
+        await Assert.That(pages[$"{Left}/index.md"]).Contains($"<code>{fixture.PackageId(Shared)}</code></td><td><code>{InitialVersion}</code>");
+        await Assert.That(pages[$"{Right}/index.md"]).Contains($"<code>{fixture.PackageId(Shared)}</code></td><td><code>{SecondVersion}</code>");
+        await Assert.That(pages[$"{Right}/index.md"]).DoesNotContain($"<code>{fixture.PackageId(Shared)}</code></td><td><code>{InitialVersion}</code>");
+        await Assert.That(pages.ContainsKey($"{Shared}/index.md")).IsFalse();
+        var cached = await fixture.RenderAsync();
+        await Assert.That(cached[$"{Right}/index.md"]).IsEqualTo(pages[$"{Right}/index.md"]);
+    }
+
+    /// <summary>Unrelated reference declarations do not acquire packages or add metadata to a root.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task UnrelatedReferenceDeclarationsAreNotAcquiredOrSupplied()
+    {
+        using var fixture = new PackageFeed();
+        fixture.Add(Root, InitialVersion, string.Empty, RootLib);
+        fixture.ReferencePackages.Add(Shared);
+        fixture.Manifest([Root], []);
+
+        var groups = await fixture.DiscoverAsync();
+
+        await Assert.That(groups[0].FallbackIndex.ContainsKey(Shared)).IsFalse();
+        await Assert.That(groups[0].PackageGraph).IsNotNull();
+        await Assert.That(groups[0].PackageGraph!.Dependencies).IsEmpty();
     }
 
     /// <summary>Warm cache discovery produces the same graph as the first restore.</summary>
@@ -1107,6 +1162,25 @@ public sealed class PackageRestoreTests
             }
 
             writer.WriteEndObject();
+        }
+
+        /// <summary>Resolves a fixture name to its unique NuGet identity.</summary>
+        /// <param name="name">Fixture package name.</param>
+        /// <returns>The unique NuGet package identifier.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public string PackageId(string name) => _prefix + name;
+
+        /// <summary>Renders package documentation from the fixture's independently restored roots.</summary>
+        /// <returns>Generated Markdown indexed by relative path.</returns>
+        public async Task<Dictionary<string, string>> RenderAsync()
+        {
+            using var fetcher = DecorateFetcher ? new NuGetFetcher() : null;
+            var wrapped = fetcher is null ? null : new DelegatingFetcher(fetcher);
+            using var source = new NuGetAssemblySource(_directory.Path, Path.Combine(_directory.Path, ApiDirectory), null, wrapped);
+            var pages = new Dictionary<string, string>(StringComparer.Ordinal);
+            var sink = new CallbackPageSink((path, bytes) => pages.Add(path, System.Text.Encoding.UTF8.GetString(bytes)));
+            _ = await new MetadataExtractor().RunAsync(source, sink, new ZensicalDocumentationEmitter());
+            return pages;
         }
 
         /// <summary>Discovers documentation inputs from the feed.</summary>

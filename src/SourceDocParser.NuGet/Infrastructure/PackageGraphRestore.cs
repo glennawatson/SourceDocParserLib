@@ -80,7 +80,7 @@ internal static class PackageGraphRestore
         await PackageReferenceAssets.AddFrameworkAssetsAsync(session, config, framework, root.Id, group.FallbackIndex, assets, cancellationToken).ConfigureAwait(false);
         await FrameworkCompatibilityReferences.AddAsync(session, framework, group.FallbackIndex, cancellationToken).ConfigureAwait(false);
         PackageMetadataReferences.Add(assets, root.Id, framework, config.RuntimeIdentifier, group.FallbackIndex);
-        return group;
+        return group with { PackageGraph = ReadPackageGraph(assets, root, framework, config.RuntimeIdentifier, group.AssemblyPaths) };
     }
 
     /// <summary>Creates a direct package constraint.</summary>
@@ -95,6 +95,42 @@ internal static class PackageGraphRestore
     internal static VersionRange ParsePin(string version) => NuGetVersion.TryParse(version, out var exact)
         ? new(exact, true, exact, true)
         : VersionRange.Parse(version);
+
+    /// <summary>Preserves the package versions selected for one documentation root.</summary>
+    /// <param name="assets">NuGet's resolved assets.</param>
+    /// <param name="root">Documentation package identity.</param>
+    /// <param name="framework">Selected documentation framework.</param>
+    /// <param name="runtimeIdentifier">Optional runtime identifier.</param>
+    /// <param name="assemblies">Documented root assemblies.</param>
+    /// <returns>The root's package and dependency version metadata.</returns>
+    /// <exception cref="InvalidDataException">NuGet supplied an incomplete package identity.</exception>
+    private static ApiPackageGraph ReadPackageGraph(LockFile assets, PackageIdentity root, NuGetFramework framework, string? runtimeIdentifier, string[] assemblies)
+    {
+        var target = assets.GetTarget(framework, runtimeIdentifier ?? string.Empty);
+        var dependencies = new List<ApiPackageDependency>(target?.Libraries.Count ?? 0);
+        if (target is not null)
+        {
+            for (var i = 0; i < target.Libraries.Count; i++)
+            {
+                var library = target.Libraries[i];
+                var name = library.Name ?? throw new InvalidDataException("NuGet resolved a package without an identifier.");
+                var version = library.Version ?? throw new InvalidDataException("NuGet resolved a package without a version.");
+                if (!name.Equals(root.Id, StringComparison.OrdinalIgnoreCase))
+                {
+                    dependencies.Add(new(name, version.ToNormalizedString()));
+                }
+            }
+        }
+
+        var names = new string[assemblies.Length];
+        for (var i = 0; i < assemblies.Length; i++)
+        {
+            names[i] = Path.GetFileNameWithoutExtension(assemblies[i]);
+        }
+
+        dependencies.Sort(static (left, right) => StringComparer.OrdinalIgnoreCase.Compare(left.Id, right.Id));
+        return new(root.Id, root.Version.ToNormalizedString(), framework.GetShortFolderName(), names, [.. dependencies]) { RuntimeIdentifier = runtimeIdentifier };
+    }
 
     /// <summary>Creates a NuGet target with the PackageReference framework compatibility policy.</summary>
     /// <param name="framework">The documentation framework.</param>

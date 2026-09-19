@@ -35,7 +35,15 @@ internal static class LandingPageEmitter
     /// <param name="types">All types that received a type page -- raw walker output.</param>
     /// <param name="context">Render context built once per emit run; carries the destination sink.</param>
     /// <returns>The number of landing pages written.</returns>
-    internal static int EmitAll(ApiType[] types, ZensicalEmitContext context)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int EmitAll(ApiType[] types, ZensicalEmitContext context) => EmitAll(types, context, []);
+
+    /// <summary>Writes landing pages with the package versions used for each documentation target.</summary>
+    /// <param name="types">Documented types.</param>
+    /// <param name="context">Page rendering context.</param>
+    /// <param name="packages">Independent resolved package graphs.</param>
+    /// <returns>The number of landing pages written.</returns>
+    internal static int EmitAll(ApiType[] types, ZensicalEmitContext context, ApiPackageGraph[] packages)
     {
         ArgumentNullException.ThrowIfNull(types);
         ArgumentNullException.ThrowIfNull(context);
@@ -44,7 +52,7 @@ internal static class LandingPageEmitter
         var written = 0;
         foreach (var package in tree)
         {
-            WritePackageIndex(context.Sink, package.Key, package.Value);
+            WritePackageIndex(context.Sink, package.Key, package.Value, PackageVersionSection.ForFolder(package.Key, packages, context.Options.PackageRouting));
             written++;
             foreach (var ns in package.Value)
             {
@@ -60,12 +68,15 @@ internal static class LandingPageEmitter
     /// <param name="sink">Destination sink.</param>
     /// <param name="packageFolder">Package folder name.</param>
     /// <param name="namespaces">Namespace buckets.</param>
-    private static void WritePackageIndex(IPageSink sink, string packageFolder, SortedDictionary<string, List<TypeEntry>> namespaces)
+    /// <param name="packages">Resolved metadata for this package folder.</param>
+    private static void WritePackageIndex(IPageSink sink, string packageFolder, SortedDictionary<string, List<TypeEntry>> namespaces, ApiPackageGraph[] packages)
     {
         using var rental = PageBuilderPool.Rent(InitialPageCapacity);
         var sb = rental.Builder
             .Append("# ").Append(packageFolder).AppendLine(" package")
-            .AppendLine()
+            .AppendLine();
+        PackageVersionSection.AppendIdentity(sb, packages);
+        _ = sb
             .AppendLine("Namespaces in this package:")
             .AppendLine();
 
@@ -76,6 +87,7 @@ internal static class LandingPageEmitter
               .Append(ns.Value.Count).AppendLine(" types");
         }
 
+        PackageVersionSection.AppendDependencies(sb, packages);
         sink.WritePage($"{packageFolder}/{IndexFileName}", sb);
     }
 

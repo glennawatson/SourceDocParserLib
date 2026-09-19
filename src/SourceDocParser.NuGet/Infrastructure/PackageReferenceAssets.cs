@@ -23,7 +23,7 @@ internal static class PackageReferenceAssets
     /// <summary>The package supplying the base .NET reference assemblies.</summary>
     private const string CoreReferencePack = "Microsoft.NETCore.App.Ref";
 
-    /// <summary>Adds applicable explicit references as package constraints or targeting-pack downloads.</summary>
+    /// <summary>Adds targeting-pack downloads while preserving the root's package dependency constraints.</summary>
     /// <param name="session">Configured package acquisition session.</param>
     /// <param name="config">Reference declarations and dependency pins.</param>
     /// <param name="framework">Documentation target framework.</param>
@@ -42,7 +42,7 @@ internal static class PackageReferenceAssets
         for (var i = 0; i < selected.Length; i++)
         {
             var reference = selected[i];
-            if (ContainsDependency(dependencies, reference.Id))
+            if (!IsFrameworkPackReference(reference) || ContainsDependency(dependencies, reference.Id))
             {
                 continue;
             }
@@ -50,14 +50,7 @@ internal static class PackageReferenceAssets
             using var download = await session.DownloadAsync(reference.Id, reference.Version, cancellationToken).ConfigureAwait(false);
             var reader = download.PackageReader!;
             var identity = reader.GetIdentity();
-            if (IsFrameworkPackage(reference, reader.NuspecReader))
-            {
-                downloads.Add(new(identity.Id, ExactVersion(identity.Version)));
-                continue;
-            }
-
-            var range = reference.Version is null ? ExactVersion(identity.Version) : PackageGraphRestore.ParsePin(reference.Version);
-            dependencies.Add(PackageGraphRestore.Dependency(reference.Id, range));
+            downloads.Add(new(identity.Id, ExactVersion(identity.Version)));
         }
 
         await FrameworkReferencePackages.AddDownloadsAsync(session, framework, dependencies, downloads, cancellationToken).ConfigureAwait(false);
@@ -222,7 +215,13 @@ internal static class PackageReferenceAssets
                 continue;
             }
 
-            var version = GetSelectedPackageVersion(assets, reference.Id) ?? reference.Version;
+            var version = GetSelectedPackageVersion(assets, reference.Id);
+            if (version is null && !IsFrameworkPackReference(reference))
+            {
+                continue;
+            }
+
+            version ??= reference.Version;
             using var download = await session.DownloadAsync(reference.Id, version, cancellationToken).ConfigureAwait(false);
             var reader = download.PackageReader!;
             if (reference.PathPrefix is [_, ..])
