@@ -152,6 +152,7 @@ internal static class RestoredAssemblyManifest
         ArgumentException.ThrowIfNullOrWhiteSpace(group.Tfm);
         writer.WriteStartObject();
         writer.WriteString("tfm", group.Tfm);
+        writer.WriteBoolean("useOnlySuppliedReferences", group.UseOnlySuppliedReferences);
         WriteStrings(writer, "assemblies", group.AssemblyPaths, paths: true);
         WriteStrings(writer, "broadcastTfms", group.BroadcastTfms, paths: false);
         writer.WriteStartObject(ReferencesProperty);
@@ -186,7 +187,8 @@ internal static class RestoredAssemblyManifest
             }
         }
 
-        return new(tfm, assemblies, references, broadcast);
+        var suppliedOnly = !item.TryGetProperty("useOnlySuppliedReferences", out var policy) || policy.GetBoolean();
+        return new(tfm, assemblies, references, broadcast) { UseOnlySuppliedReferences = suppliedOnly };
     }
 
     /// <summary>Writes a group's assembly paths or target frameworks.</summary>

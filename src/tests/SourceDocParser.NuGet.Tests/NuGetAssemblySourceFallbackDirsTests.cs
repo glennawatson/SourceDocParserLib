@@ -33,8 +33,8 @@ public class NuGetAssemblySourceFallbackDirsTests
     /// <summary>Fixture value for NugetRefs.</summary>
     private const string NugetRefs = "nuget/refs";
 
-    /// <summary>Expected fixture value used by BuildFallbackDirListPlacesSdkRefPackDirsLast.</summary>
-    private const int BuildFallbackDirListPlacesSdkRefPackDirsLastThat = 2;
+    /// <summary>Number of directories in the ordering fixtures.</summary>
+    private const int DirectoryPairSize = 2;
 
     /// <summary>
     /// Net 8.0 consumer pulls in a package shipped under
@@ -56,7 +56,7 @@ public class NuGetAssemblySourceFallbackDirsTests
             libTfmDir: libTfmDir,
             refsDir: NugetRefs,
             bestRefTfm: null,
-            sdkRefPackDirs: []);
+            referenceDirectories: []);
 
         await Assert.That(dirs).Contains(libTfmDir);
         await Assert.That(dirs).Contains(Path.Combine(libDir, Net60));
@@ -83,7 +83,7 @@ public class NuGetAssemblySourceFallbackDirsTests
             libTfmDir: libTfmDir,
             refsDir: NugetRefs,
             bestRefTfm: null,
-            sdkRefPackDirs: []);
+            referenceDirectories: []);
 
         var targetIndex = dirs.IndexOf(libTfmDir);
         var net6Index = dirs.IndexOf(Path.Combine(libDir, Net60));
@@ -115,7 +115,7 @@ public class NuGetAssemblySourceFallbackDirsTests
             libTfmDir: libTfmDir,
             refsDir: refsDir,
             bestRefTfm: Net80,
-            sdkRefPackDirs: []);
+            referenceDirectories: []);
 
         await Assert.That(dirs[0]).IsEqualTo(Path.Combine(refsDir, Net80));
         await Assert.That(dirs[1]).IsEqualTo(libTfmDir);
@@ -141,7 +141,7 @@ public class NuGetAssemblySourceFallbackDirsTests
             libTfmDir: libTfmDir,
             refsDir: NugetRefs,
             bestRefTfm: null,
-            sdkRefPackDirs: []);
+            referenceDirectories: []);
 
         var targetMatches = 0;
         for (var i = 0; i < dirs.Count; i++)
@@ -175,7 +175,7 @@ public class NuGetAssemblySourceFallbackDirsTests
             libTfmDir: libTfmDir,
             refsDir: NugetRefs,
             bestRefTfm: null,
-            sdkRefPackDirs: []);
+            referenceDirectories: []);
 
         await Assert.That(dirs).DoesNotContain(Path.Combine(libDir, "net48"));
     }
@@ -200,26 +200,22 @@ public class NuGetAssemblySourceFallbackDirsTests
             libTfmDir: libTfmDir,
             refsDir: NugetRefs,
             bestRefTfm: null,
-            sdkRefPackDirs: []);
+            referenceDirectories: []);
 
         await Assert.That(dirs.Count).IsEqualTo(1);
         await Assert.That(dirs[0]).IsEqualTo(libTfmDir);
     }
 
-    /// <summary>
-    /// SDK ref-pack dirs are appended at the END of the fallback list
-    /// so DLLs shipped with the consumer's lib/ always win duplicate
-    /// names against the platform refs.
-    /// </summary>
+    /// <summary>Explicit reference directories follow package directories in the fallback order.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task BuildFallbackDirListPlacesSdkRefPackDirsLast()
+    public async Task BuildFallbackDirListPlacesExplicitReferenceDirectoriesLast()
     {
         var libDir = Path.Combine(Nuget, "lib");
         var libTfms = new List<string> { Net80, Net60 };
         var libTfmDir = Path.Combine(libDir, Net80);
-        var sdkPack1 = Path.Combine("dotnet", "packs", "Microsoft.WindowsDesktop.App.Ref", "8.0.10", "ref", Net80);
-        var sdkPack2 = Path.Combine("dotnet", "packs", "Microsoft.NETCore.App.Ref", "8.0.10", "ref", Net80);
+        var firstReference = Path.Combine("references", "windows");
+        var secondReference = Path.Combine("references", "core");
 
         var dirs = NuGetAssemblySource.BuildFallbackDirList(
             libDir,
@@ -228,21 +224,17 @@ public class NuGetAssemblySourceFallbackDirsTests
             libTfmDir: libTfmDir,
             refsDir: NugetRefs,
             bestRefTfm: null,
-            sdkRefPackDirs: [sdkPack1, sdkPack2]);
+            referenceDirectories: [firstReference, secondReference]);
 
         await Assert.That(dirs[0]).IsEqualTo(libTfmDir);
-        await Assert.That(dirs[^BuildFallbackDirListPlacesSdkRefPackDirsLastThat]).IsEqualTo(sdkPack1);
-        await Assert.That(dirs[^1]).IsEqualTo(sdkPack2);
+        await Assert.That(dirs[^DirectoryPairSize]).IsEqualTo(firstReference);
+        await Assert.That(dirs[^1]).IsEqualTo(secondReference);
     }
 
-    /// <summary>
-    /// Empty <c>sdkRefPackDirs</c> -- the standard input on machines
-    /// without any SDK installed -- doesn't change the rest of the
-    /// fallback ordering.
-    /// </summary>
+    /// <summary>An empty explicit reference list preserves the package-directory ordering.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task BuildFallbackDirListWorksWithEmptySdkRefPackDirs()
+    public async Task BuildFallbackDirListWorksWithEmptyReferenceDirectories()
     {
         var libDir = Path.Combine(Nuget, "lib");
         var libTfms = new List<string> { Net80, Netstandard20 };
@@ -255,25 +247,22 @@ public class NuGetAssemblySourceFallbackDirsTests
             libTfmDir: libTfmDir,
             refsDir: NugetRefs,
             bestRefTfm: null,
-            sdkRefPackDirs: []);
+            referenceDirectories: []);
 
-        // Without SDK packs the list is exactly: target + compatible
-        // libs (which here means just netstandard2.0) -- no trailing
-        // pack dirs.
-        await Assert.That(dirs.Count).IsEqualTo(BuildFallbackDirListPlacesSdkRefPackDirsLastThat);
+        await Assert.That(dirs.Count).IsEqualTo(DirectoryPairSize);
         await Assert.That(dirs[0]).IsEqualTo(libTfmDir);
         await Assert.That(dirs[1]).IsEqualTo(Path.Combine(libDir, Netstandard20));
     }
 
-    /// <summary>Null <c>sdkRefPackDirs</c> is rejected with the standard guard.</summary>
+    /// <summary>Null <c>referenceDirectories</c> is rejected with the standard guard.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
-    public async Task BuildFallbackDirListRejectsNullSdkRefPackDirs() => await Assert.That(static () => NuGetAssemblySource.BuildFallbackDirList(
+    public async Task BuildFallbackDirListRejectsNullReferenceDirectories() => await Assert.That(static () => NuGetAssemblySource.BuildFallbackDirList(
             "nuget/lib",
             [Net80],
             targetTfm: Net80,
             libTfmDir: "nuget/lib/net8.0",
             refsDir: NugetRefs,
             bestRefTfm: null,
-            sdkRefPackDirs: null!)).Throws<ArgumentNullException>();
+            referenceDirectories: null!)).Throws<ArgumentNullException>();
 }

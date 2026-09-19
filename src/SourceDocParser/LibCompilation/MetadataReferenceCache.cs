@@ -28,9 +28,24 @@ internal sealed class MetadataReferenceCache : IDisposable
     /// <summary>Logger for XML doc load progress and parse failures.</summary>
     private readonly ILogger _logger;
 
+    /// <summary>Whether consumers need the supplied assemblies' XML documentation.</summary>
+    private readonly bool _includeXmlDocumentation;
+
     /// <summary>Initializes a new instance of the <see cref="MetadataReferenceCache"/> class.</summary>
     /// <param name="logger">Logger for XML doc load progress and parse failures.</param>
-    public MetadataReferenceCache(ILogger logger) => _logger = logger;
+    public MetadataReferenceCache(ILogger logger)
+        : this(logger, true)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="MetadataReferenceCache"/> class.</summary>
+    /// <param name="logger">Diagnostic destination.</param>
+    /// <param name="includeXmlDocumentation">Whether callers need XML documentation.</param>
+    public MetadataReferenceCache(ILogger logger, bool includeXmlDocumentation)
+    {
+        _logger = logger;
+        _includeXmlDocumentation = includeXmlDocumentation;
+    }
 
     /// <summary>
     /// Disposes every cached <see cref="MetadataReference"/>'s backing
@@ -61,14 +76,15 @@ internal sealed class MetadataReferenceCache : IDisposable
             assemblyPath,
             static (path, state) =>
             {
-                var documentation = XmlDocsLoader.TryLoad(path, state.Logger);
+                var documentation = state.IncludeXmlDocumentation ? XmlDocsLoader.TryLoad(path, state.Logger) : null;
                 return documentation is null
                     ? MetadataReference.CreateFromFile(path)
                     : MetadataReference.CreateFromFile(path, documentation: documentation);
             },
-            new FactoryState(_logger));
+            new FactoryState(_logger, _includeXmlDocumentation));
 
     /// <summary>The state of the Factory.</summary>
     /// <param name="Logger">Logger for XML doc load progress and parse failures.</param>
-    private readonly record struct FactoryState(ILogger Logger);
+    /// <param name="IncludeXmlDocumentation">Whether callers need XML documentation.</param>
+    private readonly record struct FactoryState(ILogger Logger, bool IncludeXmlDocumentation);
 }

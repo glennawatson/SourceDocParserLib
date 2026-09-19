@@ -2,13 +2,11 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Xml.Linq;
 using NuGet.Frameworks;
 using NuGet.LibraryModel;
 using NuGet.Packaging;
 using NuGet.ProjectModel;
 using NuGet.Versioning;
-using SourceDocParser.LibCompilation;
 using SourceDocParser.NuGet.Models;
 
 namespace SourceDocParser.NuGet.Infrastructure;
@@ -16,20 +14,14 @@ namespace SourceDocParser.NuGet.Infrastructure;
 /// <summary>Supplies explicit package constraints and target-framework reference assemblies.</summary>
 internal static class PackageReferenceAssets
 {
-    /// <summary>The .NET Standard compatibility package used by SDK projects.</summary>
+    /// <summary>The .NET Standard compatibility package.</summary>
     private const string StandardLibrary = "NETStandard.Library";
 
-    /// <summary>The reference package family for .NET Framework SDK projects.</summary>
+    /// <summary>The reference package family for .NET Framework.</summary>
     private const string FrameworkReferences = "Microsoft.NETFramework.ReferenceAssemblies";
 
-    /// <summary>The SDK pack supplying the base .NET reference assemblies.</summary>
+    /// <summary>The package supplying the base .NET reference assemblies.</summary>
     private const string CoreReferencePack = "Microsoft.NETCore.App.Ref";
-
-    /// <summary>The SDK pack supplying .NET Standard 2.1 reference assemblies.</summary>
-    private const string StandardReferencePack = "NETStandard.Library.Ref";
-
-    /// <summary>Platform pack names carry major and minor platform versions.</summary>
-    private const int PlatformVersionComponents = 2;
 
     /// <summary>Adds applicable explicit references as package constraints or targeting-pack downloads.</summary>
     /// <param name="session">Configured package acquisition session.</param>
@@ -68,7 +60,8 @@ internal static class PackageReferenceAssets
             dependencies.Add(PackageGraphRestore.Dependency(reference.Id, range));
         }
 
-        AppleReferencePacks.AddDownloads(session, framework, downloads);
+        await FrameworkReferencePackages.AddDownloadsAsync(session, framework, dependencies, downloads, cancellationToken).ConfigureAwait(false);
+        await PlatformReferencePackages.AddDownloadsAsync(session, framework, downloads, cancellationToken).ConfigureAwait(false);
         return downloads;
     }
 
@@ -76,6 +69,7 @@ internal static class PackageReferenceAssets
     /// <param name="session">Configured package acquisition session.</param>
     /// <param name="config">Reference declarations and dependency pins.</param>
     /// <param name="framework">Documentation target framework.</param>
+    /// <param name="rootId">The package whose APIs are documented.</param>
     /// <param name="references">References selected by restore.</param>
     /// <param name="assets">Resolved package and framework declarations.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -84,24 +78,24 @@ internal static class PackageReferenceAssets
         PackageRestoreSession session,
         PackageConfig config,
         NuGetFramework framework,
+        string rootId,
         Dictionary<string, string> references,
         LockFile assets,
         CancellationToken cancellationToken)
     {
         var selected = SelectReferences(config.ReferencePackages, framework);
-        var frameworkAssets = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var frameworkAssets = new FrameworkAssetSet([with(StringComparer.OrdinalIgnoreCase)], [with(StringComparer.OrdinalIgnoreCase)]);
         await AddExplicitFrameworkAssetsAsync(session, selected, assets, frameworkAssets, false, cancellationToken).ConfigureAwait(false);
         await AddDeclaredFrameworkPacksAsync(session, config, framework, assets, frameworkAssets, cancellationToken).ConfigureAwait(false);
         await AddExplicitFrameworkAssetsAsync(session, selected, assets, frameworkAssets, true, cancellationToken).ConfigureAwait(false);
-        await AddSdkDownloadsAsync(session, framework, assets, frameworkAssets, cancellationToken).ConfigureAwait(false);
-        var directories = FindInstalledReferenceDirectories(DotNetSdkLocator.EnumeratePackRoots(), framework);
-        for (var i = 0; i < directories.Length; i++)
+        await AddDownloadedPacksAsync(session, framework, assets, frameworkAssets, cancellationToken).ConfigureAwait(false);
+        await AddImplicitFrameworkAssetsAsync(session, config, framework, assets, frameworkAssets, cancellationToken).ConfigureAwait(false);
+        if (assets.GetTarget(framework, config.RuntimeIdentifier ?? string.Empty) is { } target)
         {
-            AddDirectory(directories[i], frameworkAssets);
+            ReferencePackageOverrides.Apply(target, rootId, frameworkAssets.References, frameworkAssets.Overrides, references);
         }
 
-        await AddImplicitFrameworkAssetsAsync(session, config, framework, assets, frameworkAssets, cancellationToken).ConfigureAwait(false);
-        foreach (var reference in frameworkAssets)
+        foreach (var reference in frameworkAssets.References)
         {
             _ = references.TryAdd(reference.Key, reference.Value);
         }
@@ -140,77 +134,6 @@ internal static class PackageReferenceAssets
         }
 
         return [.. result];
-    }
-
-    /// <summary>Finds installed targeting packs for the exact framework or its unqualified base framework.</summary>
-    /// <param name="packRoots">Installed SDK pack directories.</param>
-    /// <param name="framework">Documentation target framework.</param>
-    /// <returns>The matching reference directories, in SDK-root priority order.</returns>
-    internal static string[] FindInstalledReferenceDirectories(IReadOnlyList<string> packRoots, NuGetFramework framework)
-    {
-        var result = new List<string>(packRoots.Count);
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        for (var r = 0; r < packRoots.Count; r++)
-        {
-            if (!Directory.Exists(packRoots[r]))
-            {
-                continue;
-            }
-
-            var packs = Directory.GetDirectories(packRoots[r]);
-            for (var p = 0; p < packs.Length; p++)
-            {
-                var name = Path.GetFileName(packs[p]);
-                if (!IsApplicablePack(name, framework) || seen.Contains(name))
-                {
-                    continue;
-                }
-
-                var directory = FindPackDirectory(packs[p], framework);
-                if (directory is null)
-                {
-                    continue;
-                }
-
-                result.Add(directory);
-                _ = seen.Add(name);
-            }
-        }
-
-        return [.. result];
-    }
-
-    /// <summary>Reads the SDK's targeting-pack identities for declared framework references.</summary>
-    /// <param name="path">SDK bundled-versions props file.</param>
-    /// <param name="framework">Documentation target framework.</param>
-    /// <param name="names">Declared framework reference names.</param>
-    /// <returns>The SDK's targeting-pack version by package identifier.</returns>
-    internal static Dictionary<string, string> ReadSdkFrameworkPacks(string path, NuGetFramework framework, HashSet<string> names)
-    {
-        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (!File.Exists(path))
-        {
-            return result;
-        }
-
-        var baseFramework = new NuGetFramework(framework.Framework, framework.Version);
-        var document = XDocument.Load(path);
-        foreach (var element in document.Descendants("KnownFrameworkReference"))
-        {
-            if (!MatchesFrameworkReference(element, baseFramework, names))
-            {
-                continue;
-            }
-
-            var pack = element.Attribute("TargetingPackName")?.Value;
-            var version = element.Attribute("TargetingPackVersion")?.Value;
-            if (pack is not null && version is not null && NuGetVersion.TryParse(version, out _))
-            {
-                result[pack] = version;
-            }
-        }
-
-        return result;
     }
 
     /// <summary>Selects a targeting pack's compatible reference assets.</summary>
@@ -275,7 +198,7 @@ internal static class PackageReferenceAssets
         }
     }
 
-    /// <summary>Adds configured targeting packs at their framework priority.</summary>
+    /// <summary>Adds explicitly selected package assets at their framework priority.</summary>
     /// <param name="session">Configured package acquisition session.</param>
     /// <param name="selected">Applicable targeting-pack declarations.</param>
     /// <param name="assets">Resolved package graph.</param>
@@ -287,41 +210,48 @@ internal static class PackageReferenceAssets
         PackageRestoreSession session,
         ReferencePackage[] selected,
         LockFile assets,
-        Dictionary<string, string> references,
+        FrameworkAssetSet references,
         bool baseFrameworkOnly,
         CancellationToken cancellationToken)
     {
         for (var i = 0; i < selected.Length; i++)
         {
             var reference = selected[i];
-            if (ContainsPackage(assets, reference.Id) || reference.Id.Equals(CoreReferencePack, StringComparison.OrdinalIgnoreCase) != baseFrameworkOnly)
+            if (reference.Id.Equals(CoreReferencePack, StringComparison.OrdinalIgnoreCase) != baseFrameworkOnly)
             {
                 continue;
             }
 
-            using var download = await session.DownloadAsync(reference.Id, reference.Version, cancellationToken).ConfigureAwait(false);
-            if (IsFrameworkPackage(reference, download.PackageReader!.NuspecReader))
+            var version = GetSelectedPackageVersion(assets, reference.Id) ?? reference.Version;
+            using var download = await session.DownloadAsync(reference.Id, version, cancellationToken).ConfigureAwait(false);
+            var reader = download.PackageReader!;
+            if (reference.PathPrefix is [_, ..])
             {
-                AddPackagePrefix(session.PackagesPath, download.PackageReader, reference.PathPrefix, references);
+                AddPackagePrefix(session.PackagesPath, reader, reference.PathPrefix, references.References);
+            }
+
+            if (IsFrameworkPackage(reference, reader.NuspecReader))
+            {
+                ReferencePackageOverrides.Read(reader, references.Overrides);
             }
         }
     }
 
-    /// <summary>Checks whether restore supplies an ordinary reference package.</summary>
+    /// <summary>Finds the version selected by the dependency graph for an explicit reference.</summary>
     /// <param name="assets">Resolved dependency graph.</param>
     /// <param name="id">Reference package identifier.</param>
-    /// <returns>True when the package participates in the restored graph.</returns>
-    private static bool ContainsPackage(LockFile assets, string id)
+    /// <returns>The selected version, or null for a reference-only download.</returns>
+    private static string? GetSelectedPackageVersion(LockFile assets, string id)
     {
         for (var i = 0; i < assets.Libraries.Count; i++)
         {
             if (string.Equals(assets.Libraries[i].Name, id, StringComparison.OrdinalIgnoreCase))
             {
-                return true;
+                return assets.Libraries[i].Version.ToNormalizedString();
             }
         }
 
-        return false;
+        return null;
     }
 
     /// <summary>Identifies declarations that select alternative frameworks for the same reference family.</summary>
@@ -408,152 +338,72 @@ internal static class PackageReferenceAssets
     /// <returns>The exact version range.</returns>
     private static VersionRange ExactVersion(NuGetVersion version) => new(version, true, version, true);
 
-    /// <summary>Identifies SDK reference packs applicable to a target framework.</summary>
-    /// <param name="name">SDK pack name.</param>
-    /// <param name="framework">Documentation target framework.</param>
-    /// <returns>True when the pack can supply target framework references.</returns>
-    private static bool IsApplicablePack(string name, NuGetFramework framework)
-    {
-        if (framework.Framework is FrameworkConstants.FrameworkIdentifiers.NetStandard)
-        {
-            return name.Equals(StandardReferencePack, StringComparison.OrdinalIgnoreCase);
-        }
-
-        if (framework.Framework is not FrameworkConstants.FrameworkIdentifiers.NetCoreApp)
-        {
-            return false;
-        }
-
-        if (name.Equals(CoreReferencePack, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        if (!framework.HasPlatform)
-        {
-            return false;
-        }
-
-        if (framework.Platform.Equals("windows", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        var prefix = $"Microsoft.{framework.Platform}.Ref.";
-        if (!name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        var suffix = name[prefix.Length..];
-        if (framework.Platform.Equals("android", StringComparison.OrdinalIgnoreCase))
-        {
-            return NuGetVersion.TryParse(suffix, out var version)
-                && version.Major == framework.PlatformVersion.Major
-                && version.Minor == framework.PlatformVersion.Minor;
-        }
-
-        var baseFramework = new NuGetFramework(framework.Framework, framework.Version);
-        return suffix.StartsWith($"{baseFramework.GetShortFolderName()}_{framework.PlatformVersion.ToString(PlatformVersionComponents)}", StringComparison.OrdinalIgnoreCase);
-    }
-
-    /// <summary>Acquires targeting packs selected by the SDK for framework references in the resolved graph.</summary>
-    /// <param name="session">Configured package acquisition session.</param>
+    /// <summary>Acquires reference packs declared by the resolved packages.</summary>
+    /// <param name="session">Configured NuGet session.</param>
     /// <param name="config">Explicit framework pins.</param>
     /// <param name="framework">Documentation target framework.</param>
-    /// <param name="assets">Resolved package and framework declarations.</param>
+    /// <param name="assets">Resolved package declarations.</param>
     /// <param name="references">Resolved assembly references.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>A task representing targeting-pack acquisition.</returns>
+    /// <returns>A task representing reference-pack acquisition.</returns>
     private static async Task AddDeclaredFrameworkPacksAsync(
         PackageRestoreSession session,
         PackageConfig config,
         NuGetFramework framework,
         LockFile assets,
-        Dictionary<string, string> references,
+        FrameworkAssetSet references,
         CancellationToken cancellationToken)
     {
-        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (framework.Framework is FrameworkConstants.FrameworkIdentifiers.NetCoreApp)
-        {
-            _ = names.Add("Microsoft.NETCore.App");
-        }
-
         var target = assets.GetTarget(framework, config.RuntimeIdentifier ?? string.Empty);
-        if (target is not null)
-        {
-            for (var i = 0; i < target.Libraries.Count; i++)
-            {
-                names.UnionWith(target.Libraries[i].FrameworkReferences);
-            }
-        }
-
-        var sdk = FindSdkDirectory(assets, framework);
-        if (sdk is null)
+        if (target is null)
         {
             return;
         }
 
-        var path = Path.Combine(sdk, "Microsoft.NETCoreSdk.BundledVersions.props");
-        var packs = ReadSdkFrameworkPacks(path, framework, names);
-        var explicitReferences = SelectReferences(config.ReferencePackages, framework);
-        var orderedPacks = OrderFrameworkPacks(packs);
-        for (var i = 0; i < orderedPacks.Count; i++)
+        var packs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < target.Libraries.Count; i++)
         {
-            var pack = orderedPacks[i];
-            if (HasExplicitPack(explicitReferences, pack.Key))
+            var names = target.Libraries[i].FrameworkReferences;
+            for (var n = 0; n < names.Count; n++)
+            {
+                var name = names[n];
+                if (name.Equals("Microsoft.NETCore.App", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var id = name.StartsWith("Microsoft.WindowsDesktop.App", StringComparison.OrdinalIgnoreCase) ? "Microsoft.WindowsDesktop.App.Ref" : $"{name}.Ref";
+                _ = packs.Add(id);
+            }
+        }
+
+        var selected = SelectReferences(config.ReferencePackages, framework);
+        foreach (var id in packs)
+        {
+            if (HasExplicitPack(selected, id))
             {
                 continue;
             }
 
-            var baseTfm = new NuGetFramework(framework.Framework, framework.Version).GetShortFolderName();
-            var installation = Path.GetDirectoryName(Path.GetDirectoryName(sdk))!;
-            var installed = Path.Combine(installation, "packs", pack.Key, pack.Value, "ref", baseTfm);
-            if (Directory.Exists(installed))
-            {
-                AddDirectory(installed, references);
-                continue;
-            }
-
-            using var download = await session.DownloadAsync(pack.Key, pack.Value, cancellationToken).ConfigureAwait(false);
-            AddPackagePrefix(session.PackagesPath, download.PackageReader!, $"ref/{new NuGetFramework(framework.Framework, framework.Version).GetShortFolderName()}", references);
+            var version = await FrameworkReferencePackages.ResolveVersionAsync(session, id, framework.Version, cancellationToken).ConfigureAwait(false);
+            using var download = await session.DownloadAsync(id, version.ToNormalizedString(), cancellationToken).ConfigureAwait(false);
+            AddCompatiblePackReferences(session.PackagesPath, download.PackageReader!, framework, references.References);
+            ReferencePackageOverrides.Read(download.PackageReader!, references.Overrides);
         }
     }
 
-    /// <summary>Places specialized frameworks before base-framework compatibility facades.</summary>
-    /// <param name="packs">Targeting-pack identities selected by the SDK.</param>
-    /// <returns>Targeting packs in assembly-conflict priority order.</returns>
-    private static List<KeyValuePair<string, string>> OrderFrameworkPacks(Dictionary<string, string> packs)
-    {
-        var ordered = new List<KeyValuePair<string, string>>(packs.Count);
-        foreach (var pack in packs)
-        {
-            if (!pack.Key.Equals(CoreReferencePack, StringComparison.OrdinalIgnoreCase))
-            {
-                ordered.Add(pack);
-            }
-        }
-
-        if (packs.TryGetValue(CoreReferencePack, out var version))
-        {
-            ordered.Add(new(CoreReferencePack, version));
-        }
-
-        return ordered;
-    }
-
-    /// <summary>Adds the targeting-pack assets selected by SDK evaluation.</summary>
+    /// <summary>Adds the reference-pack assets acquired through NuGet.</summary>
     /// <param name="session">Configured package acquisition session.</param>
     /// <param name="framework">Documentation target framework.</param>
-    /// <param name="assets">Evaluated SDK download dependencies.</param>
+    /// <param name="assets">Resolved reference-pack downloads.</param>
     /// <param name="references">Framework reference assemblies.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>A task representing SDK targeting-pack acquisition.</returns>
-    private static async Task AddSdkDownloadsAsync(
+    /// <returns>A task representing reference-pack acquisition.</returns>
+    private static async Task AddDownloadedPacksAsync(
         PackageRestoreSession session,
         NuGetFramework framework,
         LockFile assets,
-        Dictionary<string, string> references,
+        FrameworkAssetSet references,
         CancellationToken cancellationToken)
     {
         var targets = assets.PackageSpec.TargetFrameworks;
@@ -568,21 +418,16 @@ internal static class PackageReferenceAssets
             for (var d = 0; d < downloads.Length; d++)
             {
                 using var download = await session.DownloadAsync(downloads[d].Name, downloads[d].VersionRange.ToNormalizedString(), cancellationToken).ConfigureAwait(false);
-                AddCompatiblePackReferences(session.PackagesPath, download.PackageReader!, framework, references);
+                ReferencePackageOverrides.Read(download.PackageReader!, references.Overrides);
+                if (downloads[d].Name.StartsWith(FrameworkReferences, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddPackagePrefix(session.PackagesPath, download.PackageReader!, "build/.NETFramework", references.References);
+                    continue;
+                }
+
+                AddCompatiblePackReferences(session.PackagesPath, download.PackageReader!, framework, references.References);
             }
         }
-    }
-
-    /// <summary>Matches SDK metadata to a declared framework reference.</summary>
-    /// <param name="element">SDK framework-reference metadata.</param>
-    /// <param name="framework">Target's unqualified base framework.</param>
-    /// <param name="names">Declared framework reference names.</param>
-    /// <returns>True when the metadata supplies a declared framework.</returns>
-    private static bool MatchesFrameworkReference(XElement element, NuGetFramework framework, HashSet<string> names)
-    {
-        var name = element.Attribute("Include")?.Value;
-        var tfm = element.Attribute("TargetFramework")?.Value;
-        return name is not null && names.Contains(name) && tfm is not null && framework.Equals(NuGetFramework.ParseFolder(tfm));
     }
 
     /// <summary>Checks for an explicitly configured targeting pack.</summary>
@@ -602,70 +447,7 @@ internal static class PackageReferenceAssets
         return false;
     }
 
-    /// <summary>Locates the SDK selected during project evaluation.</summary>
-    /// <param name="assets">Evaluated SDK metadata.</param>
-    /// <param name="framework">Documentation target framework.</param>
-    /// <returns>The selected SDK directory, or null when restore provides no SDK metadata.</returns>
-    private static string? FindSdkDirectory(LockFile assets, NuGetFramework framework)
-    {
-        var targets = assets.PackageSpec.TargetFrameworks;
-        for (var i = 0; i < targets.Count; i++)
-        {
-            if (targets[i].FrameworkName.Equals(framework) && targets[i].RuntimeIdentifierGraphPath is { Length: > 0 } path)
-            {
-                return Path.GetDirectoryName(path);
-            }
-        }
-
-        return null;
-    }
-
-    /// <summary>Chooses the installed pack version containing the requested reference framework.</summary>
-    /// <param name="pack">SDK pack directory.</param>
-    /// <param name="framework">Documentation target framework.</param>
-    /// <returns>The matching reference directory, or null when unavailable.</returns>
-    private static string? FindPackDirectory(string pack, NuGetFramework framework)
-    {
-        var versions = Directory.GetDirectories(pack);
-        var baseFramework = new NuGetFramework(framework.Framework, framework.Version);
-        string? selected = null;
-        NuGetVersion? selectedVersion = null;
-        for (var v = 0; v < versions.Length; v++)
-        {
-            if (!NuGetVersion.TryParse(Path.GetFileName(versions[v]), out var version))
-            {
-                continue;
-            }
-
-            var reference = Path.Combine(versions[v], "ref");
-            if (!Directory.Exists(reference))
-            {
-                continue;
-            }
-
-            var directories = Directory.GetDirectories(reference);
-            for (var d = 0; d < directories.Length; d++)
-            {
-                var candidate = NuGetFramework.ParseFolder(Path.GetFileName(directories[d]));
-                if (!candidate.Equals(framework) && !candidate.Equals(baseFramework))
-                {
-                    continue;
-                }
-
-                if (selectedVersion is not null && selectedVersion >= version)
-                {
-                    continue;
-                }
-
-                selected = directories[d];
-                selectedVersion = version;
-            }
-        }
-
-        return selected;
-    }
-
-    /// <summary>Supplies reference assemblies carried by implicit SDK package dependencies.</summary>
+    /// <summary>Supplies reference assemblies carried by framework package dependencies.</summary>
     /// <param name="session">Configured package acquisition session.</param>
     /// <param name="config">Explicit dependency pins.</param>
     /// <param name="framework">Documentation target framework.</param>
@@ -679,7 +461,7 @@ internal static class PackageReferenceAssets
         PackageConfig config,
         NuGetFramework framework,
         LockFile assets,
-        Dictionary<string, string> references,
+        FrameworkAssetSet references,
         CancellationToken cancellationToken)
     {
         if (framework.Framework is FrameworkConstants.FrameworkIdentifiers.NetStandard && framework.Version < new Version(2, 1))
@@ -687,7 +469,8 @@ internal static class PackageReferenceAssets
             var version = FindResolvedVersion(assets, framework, config.RuntimeIdentifier, StandardLibrary)
                 ?? throw new InvalidOperationException($"NuGet target '{framework}' does not contain required framework reference package '{StandardLibrary}'.");
             using var download = await session.DownloadAsync(StandardLibrary, version, cancellationToken).ConfigureAwait(false);
-            AddPackagePrefix(session.PackagesPath, download.PackageReader!, "build/netstandard2.0/ref", references);
+            AddPackagePrefix(session.PackagesPath, download.PackageReader!, "build/netstandard2.0/ref", references.References);
+            ReferencePackageOverrides.Read(download.PackageReader!, references.Overrides);
         }
         else if (framework.Framework is FrameworkConstants.FrameworkIdentifiers.Net)
         {
@@ -699,7 +482,8 @@ internal static class PackageReferenceAssets
             }
 
             using var download = await session.DownloadAsync(id, version, cancellationToken).ConfigureAwait(false);
-            AddPackagePrefix(session.PackagesPath, download.PackageReader!, "build/.NETFramework", references);
+            AddPackagePrefix(session.PackagesPath, download.PackageReader!, "build/.NETFramework", references.References);
+            ReferencePackageOverrides.Read(download.PackageReader!, references.Overrides);
         }
     }
 
@@ -708,7 +492,7 @@ internal static class PackageReferenceAssets
     /// <param name="framework">Documentation target framework.</param>
     /// <param name="runtimeIdentifier">Optional runtime target.</param>
     /// <param name="id">Framework package identifier.</param>
-    /// <returns>The exact package version, or null when the framework is supplied by the SDK installation.</returns>
+    /// <returns>The exact package version, or null when the package is absent from the graph.</returns>
     private static string? FindResolvedVersion(LockFile assets, NuGetFramework framework, string? runtimeIdentifier, string id)
     {
         var target = assets.GetTarget(framework, runtimeIdentifier ?? string.Empty);
@@ -748,15 +532,8 @@ internal static class PackageReferenceAssets
         AddPackageFiles(packagesPath, reader, files, references);
     }
 
-    /// <summary>Adds an installed framework's assembly references without replacing package assets.</summary>
-    /// <param name="directory">Framework reference directory.</param>
-    /// <param name="references">Resolved assembly references.</param>
-    private static void AddDirectory(string directory, Dictionary<string, string> references)
-    {
-        var files = Directory.GetFiles(directory, "*.dll");
-        for (var i = 0; i < files.Length; i++)
-        {
-            _ = references.TryAdd(Path.GetFileNameWithoutExtension(files[i]), files[i]);
-        }
-    }
+    /// <summary>Framework assemblies and the package contracts they supply.</summary>
+    /// <param name="References">Available framework reference assemblies.</param>
+    /// <param name="Overrides">Published package replacement versions.</param>
+    private readonly record struct FrameworkAssetSet(Dictionary<string, string> References, Dictionary<string, NuGetVersion> Overrides);
 }

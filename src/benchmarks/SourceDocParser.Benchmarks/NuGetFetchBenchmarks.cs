@@ -45,7 +45,7 @@ public class NuGetFetchBenchmarks
     /// <summary>The complete fixture workload expected in every measured operation.</summary>
     private DiscoveryCounts _expectedCounts;
 
-    /// <summary>Gets or sets whether each operation uses fresh source inputs, SDK evaluation, and graph output.</summary>
+    /// <summary>Gets or sets whether each operation uses fresh source inputs and graph output.</summary>
     [Params(false, true)]
     public bool FreshSource { get; set; }
 

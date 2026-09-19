@@ -33,4 +33,7 @@ public sealed record AssemblyGroup(
         : this(tfm, assemblyPaths, fallbackIndex, [])
     {
     }
+
+    /// <summary>Gets a value indicating whether API parsing must use only this group's supplied references.</summary>
+    public bool UseOnlySuppliedReferences { get; init; }
 }

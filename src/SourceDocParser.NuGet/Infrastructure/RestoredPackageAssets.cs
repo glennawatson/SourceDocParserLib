@@ -3,6 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Buffers;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using NuGet.Frameworks;
 using NuGet.ProjectModel;
 using SourceDocParser.Model;
@@ -30,7 +32,7 @@ internal static class RestoredPackageAssets
     {
         var target = assets.GetTarget(framework, runtimeIdentifier ?? string.Empty)
             ?? throw new InvalidOperationException($"NuGet assets '{assetsPath}' has no target '{framework}/{runtimeIdentifier}'.");
-        var references = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var selected = new Dictionary<string, CompileAsset>(StringComparer.OrdinalIgnoreCase);
         var roots = new List<string>(1);
         for (var i = 0; i < target.Libraries.Count; i++)
         {
@@ -52,7 +54,7 @@ internal static class RestoredPackageAssets
 
                 var path = FindAsset(assets, package.Path, asset, assetsPath);
                 var name = Path.GetFileNameWithoutExtension(path);
-                AddReference(references, name, path, assetsPath);
+                AddReference(selected, name, new(path, GetAssetFramework(asset)), framework, assetsPath);
                 if (string.Equals(library.Name, rootId, StringComparison.OrdinalIgnoreCase))
                 {
                     roots.Add(path);
@@ -60,29 +62,153 @@ internal static class RestoredPackageAssets
             }
         }
 
-        return new(framework.GetShortFolderName(), [.. roots], references);
+        var references = new Dictionary<string, string>(selected.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var reference in selected)
+        {
+            references.Add(reference.Key, reference.Value.Path);
+        }
+
+        return new(framework.GetShortFolderName(), [.. roots], references) { UseOnlySuppliedReferences = true };
     }
 
     /// <summary>Registers a compile asset without silently replacing another package's assembly.</summary>
     /// <param name="references">Resolved references.</param>
     /// <param name="name">Assembly filename without extension.</param>
-    /// <param name="path">Selected compile asset.</param>
+    /// <param name="candidate">Selected compile asset and its framework.</param>
+    /// <param name="framework">Documentation target framework.</param>
     /// <param name="assetsPath">Restore output for diagnostics.</param>
     /// <exception cref="InvalidOperationException">Different selected assets have the same assembly filename.</exception>
-    private static void AddReference(Dictionary<string, string> references, string name, string path, string assetsPath)
+    private static void AddReference(Dictionary<string, CompileAsset> references, string name, CompileAsset candidate, NuGetFramework framework, string assetsPath)
     {
         if (!references.TryGetValue(name, out var existing))
         {
-            references.Add(name, path);
+            references.Add(name, candidate);
             return;
         }
 
-        if (existing.Equals(path, StringComparison.Ordinal) || HaveIdenticalContents(existing, path))
+        if (existing.Path.Equals(candidate.Path, StringComparison.Ordinal))
         {
             return;
         }
 
-        throw new InvalidOperationException($"NuGet graph '{assetsPath}' contains ambiguous compile assembly '{name}': '{existing}' and '{path}'.");
+        var nearest = FindNearestAsset(existing, candidate, framework);
+        if (nearest is { } preferred)
+        {
+            references[name] = preferred;
+            return;
+        }
+
+        if (HaveIdenticalContents(existing.Path, candidate.Path) || HaveEquivalentMetadata(existing.Path, candidate.Path))
+        {
+            return;
+        }
+
+        throw new InvalidOperationException($"NuGet graph '{assetsPath}' contains ambiguous compile assembly '{name}': '{existing.Path}' and '{candidate.Path}'.");
+    }
+
+    /// <summary>Chooses a compatible framework variant of the same assembly identity.</summary>
+    /// <param name="existing">Previously selected compile asset.</param>
+    /// <param name="candidate">Another selected compile asset.</param>
+    /// <param name="framework">Documentation target framework.</param>
+    /// <returns>The nearer asset, or null when framework compatibility cannot distinguish them.</returns>
+    private static CompileAsset? FindNearestAsset(CompileAsset existing, CompileAsset candidate, NuGetFramework framework)
+    {
+        if (existing.Framework.Equals(candidate.Framework) || existing.Framework.IsUnsupported || candidate.Framework.IsUnsupported
+            || !HaveSameAssemblyIdentity(existing.Path, candidate.Path))
+        {
+            return null;
+        }
+
+        var nearest = new FrameworkReducer().GetNearest(framework, [existing.Framework, candidate.Framework]);
+        if (nearest is null)
+        {
+            return null;
+        }
+
+        return nearest.Equals(candidate.Framework) ? candidate : existing;
+    }
+
+    /// <summary>Reads the target framework declared by a NuGet compile-asset path.</summary>
+    /// <param name="asset">Package-relative compile asset.</param>
+    /// <returns>The asset framework, including unscoped legacy assets and unknown layouts.</returns>
+    private static NuGetFramework GetAssetFramework(string asset)
+    {
+        var separator = asset.IndexOf('/');
+        if (separator < 0)
+        {
+            return NuGetFramework.UnsupportedFramework;
+        }
+
+        var folder = asset.AsSpan(0, separator);
+        if (!folder.Equals("lib", StringComparison.OrdinalIgnoreCase) && !folder.Equals("ref", StringComparison.OrdinalIgnoreCase))
+        {
+            return NuGetFramework.UnsupportedFramework;
+        }
+
+        var start = separator + 1;
+        var end = asset.IndexOf('/', start);
+        return end < 0 ? NuGetFramework.AnyFramework : NuGetFramework.ParseFolder(asset[start..end]);
+    }
+
+    /// <summary>Prevents framework preference from masking distinct assembly identities.</summary>
+    /// <param name="firstPath">The first compile assembly.</param>
+    /// <param name="secondPath">The other compile assembly.</param>
+    /// <returns>True when names, versions, cultures, keys, and assembly flags agree.</returns>
+    private static bool HaveSameAssemblyIdentity(string firstPath, string secondPath)
+    {
+        using var firstStream = File.OpenRead(firstPath);
+        using var secondStream = File.OpenRead(secondPath);
+        try
+        {
+            using var first = new PEReader(firstStream);
+            using var second = new PEReader(secondStream);
+            return first.HasMetadata && second.HasMetadata && HaveSameAssemblyIdentity(first.GetMetadataReader(), second.GetMetadataReader());
+        }
+        catch (BadImageFormatException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Compares managed assembly identities without loading either assembly.</summary>
+    /// <param name="first">The first assembly's metadata.</param>
+    /// <param name="second">The other assembly's metadata.</param>
+    /// <returns>True when both metadata images define the same assembly identity.</returns>
+    private static bool HaveSameAssemblyIdentity(MetadataReader first, MetadataReader second)
+    {
+        if (!first.IsAssembly || !second.IsAssembly)
+        {
+            return false;
+        }
+
+        var left = first.GetAssemblyDefinition();
+        var right = second.GetAssemblyDefinition();
+        return left.Version.Equals(right.Version) && left.Flags == right.Flags
+            && first.GetString(left.Name).Equals(second.GetString(right.Name), StringComparison.OrdinalIgnoreCase)
+            && first.GetString(left.Culture).Equals(second.GetString(right.Culture), StringComparison.OrdinalIgnoreCase)
+            && first.GetBlobBytes(left.PublicKey).AsSpan().SequenceEqual(second.GetBlobBytes(right.PublicKey));
+    }
+
+    /// <summary>Identifies compile assemblies with identical metadata.</summary>
+    /// <param name="firstPath">The first compile assembly.</param>
+    /// <param name="secondPath">The other compile assembly.</param>
+    /// <returns>True when both files contain exactly the same managed metadata.</returns>
+    /// <remarks>Signing can alter PE checksums and certificates without changing the metadata used for documentation.</remarks>
+    private static bool HaveEquivalentMetadata(string firstPath, string secondPath)
+    {
+        using var firstStream = File.OpenRead(firstPath);
+        using var secondStream = File.OpenRead(secondPath);
+        try
+        {
+            using var first = new PEReader(firstStream);
+            using var second = new PEReader(secondStream);
+            return first.HasMetadata && second.HasMetadata
+                && first.GetMetadata().GetContent().AsSpan().SequenceEqual(second.GetMetadata().GetContent().AsSpan());
+        }
+        catch (BadImageFormatException)
+        {
+            return false;
+        }
     }
 
     /// <summary>Identifies an assembly copied unchanged into more than one package.</summary>
@@ -144,4 +270,9 @@ internal static class RestoredPackageAssets
 
         throw new FileNotFoundException($"Compile asset '{packagePath}/{asset}' selected by '{assetsPath}' is missing. Restore this documentation graph again.");
     }
+
+    /// <summary>A selected compile asset within one documentation dependency graph.</summary>
+    /// <param name="Path">The selected assembly path.</param>
+    /// <param name="Framework">The framework declared by its NuGet asset folder.</param>
+    private readonly record struct CompileAsset(string Path, NuGetFramework Framework);
 }

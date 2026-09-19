@@ -60,7 +60,7 @@ public sealed class RestoredAssemblyManifestTests
         Dictionary<string, string> secondReferences = [with(StringComparer.OrdinalIgnoreCase)];
         firstReferences.Add(Shared, first);
         secondReferences.Add(Shared, second);
-        AssemblyGroup[] groups = [new(Framework, [first], firstReferences, ["net9.0"]), new(Framework, [second], secondReferences)];
+        AssemblyGroup[] groups = [new(Framework, [first], firstReferences, ["net9.0"]) { UseOnlySuppliedReferences = true }, new(Framework, [second], secondReferences)];
         var path = Path.Combine(directory.Path, GroupManifest);
 
         await RestoredAssemblyManifest.WriteAsync(path, groups, CancellationToken.None);
@@ -73,7 +73,22 @@ public sealed class RestoredAssemblyManifestTests
             await Assert.That(restored[i].AssemblyPaths).IsEquivalentTo(groups[i].AssemblyPaths);
             await Assert.That(restored[i].FallbackIndex).IsEquivalentTo(groups[i].FallbackIndex);
             await Assert.That(restored[i].BroadcastTfms).IsEquivalentTo(groups[i].BroadcastTfms);
+            await Assert.That(restored[i].UseOnlySuppliedReferences).IsEqualTo(groups[i].UseOnlySuppliedReferences);
         }
+    }
+
+    /// <summary>Manifests without an explicit policy still keep restored references independent of the host.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task MissingPolicyUsesOnlyRestoredReferences()
+    {
+        using var directory = new ScratchDirectory();
+        var path = Path.Combine(directory.Path, GroupManifest);
+        await File.WriteAllTextAsync(path, """{"formatVersion":1,"groups":[{"tfm":"net10.0","assemblies":[],"broadcastTfms":[],"references":{}}]}""");
+
+        var restored = await RestoredAssemblyManifest.ReadAsync(path, CancellationToken.None);
+
+        await Assert.That(restored![0].UseOnlySuppliedReferences).IsTrue();
     }
 
     /// <summary>A validation failure discards the partial file and preserves the published groups.</summary>

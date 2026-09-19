@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using NuGet.Configuration;
+using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.Packaging.Signing;
 using NuGet.Protocol;
@@ -55,7 +56,7 @@ internal sealed class PackageRestoreSession : IDisposable
     /// <summary>Gets the effective restore settings.</summary>
     public ISettings Settings { get; }
 
-    /// <summary>Gets the directory that supplies NuGet and SDK configuration.</summary>
+    /// <summary>Gets the directory that supplies NuGet configuration.</summary>
     public string RootDirectory { get; }
 
     /// <summary>Gets the enabled package sources.</summary>
@@ -82,19 +83,7 @@ internal sealed class PackageRestoreSession : IDisposable
     /// <exception cref="InvalidOperationException">The package cannot be resolved from the configured sources.</exception>
     internal async Task<DownloadResourceResult> DownloadAsync(string id, string? version, CancellationToken cancellationToken)
     {
-        HashSet<string>? allowed = _mapping.IsEnabled ? new(_mapping.GetConfiguredPackageSources(id), StringComparer.OrdinalIgnoreCase) : null;
-        var repositories = new List<SourceRepository>(_repositories.Length);
-        for (var i = 0; i < _repositories.Length; i++)
-        {
-            var repository = _repositories[i];
-            if (allowed is not null && !allowed.Contains(repository.PackageSource.Name))
-            {
-                continue;
-            }
-
-            repositories.Add(repository);
-        }
-
+        var repositories = GetRepositories(id);
         var selected = await ResolveVersionAsync(repositories, id, version, cancellationToken).ConfigureAwait(false);
         var identity = new PackageIdentity(id, selected);
         if (GlobalPackagesFolderUtility.GetPackage(identity, PackagesPath) is { } cached)
@@ -120,6 +109,128 @@ internal sealed class PackageRestoreSession : IDisposable
         }
 
         throw new InvalidOperationException($"NuGet could not download documentation package '{identity}'. Check configured feeds and package source mappings.");
+    }
+
+    /// <summary>Finds available versions of a reference-pack or manifest package.</summary>
+    /// <param name="id">Package identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Available versions from mapped package sources.</returns>
+    internal async Task<NuGetVersion[]> GetVersionsAsync(string id, CancellationToken cancellationToken)
+    {
+        var versions = new HashSet<NuGetVersion>();
+        var repositories = GetRepositories(id);
+        for (var i = 0; i < repositories.Count; i++)
+        {
+            var resource = await repositories[i].GetResourceAsync<FindPackageByIdResource>(cancellationToken).ConfigureAwait(false);
+            if (resource is not null)
+            {
+                versions.UnionWith(await resource.GetAllVersionsAsync(id, Cache, Logger, cancellationToken).ConfigureAwait(false));
+            }
+        }
+
+        return [.. versions];
+    }
+
+    /// <summary>Discovers package identifiers within a reference-manifest family.</summary>
+    /// <param name="prefix">Package identifier prefix.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Matching package identifiers allowed by source mappings.</returns>
+    internal async Task<string[]> FindPackageIdsAsync(string prefix, CancellationToken cancellationToken)
+    {
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < _repositories.Length; i++)
+        {
+            var repository = _repositories[i];
+            var resource = await repository.GetResourceAsync<AutoCompleteResource>(cancellationToken).ConfigureAwait(false);
+            if (resource is null)
+            {
+                continue;
+            }
+
+            var matches = await resource.IdStartsWith(prefix, true, Logger, cancellationToken).ConfigureAwait(false);
+            foreach (var id in matches)
+            {
+                if (IsSourceAllowed(id, repository.PackageSource.Name))
+                {
+                    _ = ids.Add(id);
+                }
+            }
+        }
+
+        return [.. ids];
+    }
+
+    /// <summary>Reads framework compatibility metadata without downloading a targeting-pack archive.</summary>
+    /// <param name="id">Package identifier.</param>
+    /// <param name="version">Exact package version.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The package's declared dependency framework groups.</returns>
+    internal async Task<PackageDependencyGroup[]> GetDependencyGroupsAsync(string id, NuGetVersion version, CancellationToken cancellationToken)
+    {
+        var identity = new PackageIdentity(id, version);
+        using var cached = GlobalPackagesFolderUtility.GetPackage(identity, PackagesPath);
+        if (cached?.PackageReader is { } reader)
+        {
+            return [.. reader.GetPackageDependencies()];
+        }
+
+        var repositories = GetRepositories(id);
+        for (var i = 0; i < repositories.Count; i++)
+        {
+            var resource = await repositories[i].GetResourceAsync<PackageMetadataResource>(cancellationToken).ConfigureAwait(false);
+            if (resource is null)
+            {
+                continue;
+            }
+
+            var info = await resource.GetMetadataAsync(identity, Cache, Logger, cancellationToken).ConfigureAwait(false);
+            if (info is not null)
+            {
+                return [.. info.DependencySets];
+            }
+        }
+
+        return [];
+    }
+
+    /// <summary>Selects the configured sources permitted for a package.</summary>
+    /// <param name="id">Package identifier.</param>
+    /// <returns>Mapped repositories in configuration order.</returns>
+    private List<SourceRepository> GetRepositories(string id)
+    {
+        var repositories = new List<SourceRepository>(_repositories.Length);
+        for (var i = 0; i < _repositories.Length; i++)
+        {
+            if (IsSourceAllowed(id, _repositories[i].PackageSource.Name))
+            {
+                repositories.Add(_repositories[i]);
+            }
+        }
+
+        return repositories;
+    }
+
+    /// <summary>Checks package-source mapping for one feed.</summary>
+    /// <param name="id">Package identifier.</param>
+    /// <param name="source">Configured source name.</param>
+    /// <returns>True when the feed is permitted for the package.</returns>
+    private bool IsSourceAllowed(string id, string source)
+    {
+        if (!_mapping.IsEnabled)
+        {
+            return true;
+        }
+
+        var allowed = _mapping.GetConfiguredPackageSources(id);
+        for (var i = 0; i < allowed.Count; i++)
+        {
+            if (source.Equals(allowed[i], StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Installs an acquired archive into NuGet's global package directory.</summary>

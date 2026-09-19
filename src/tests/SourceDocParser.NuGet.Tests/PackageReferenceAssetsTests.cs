@@ -11,7 +11,7 @@ using SourceDocParser.NuGet.Models;
 
 namespace SourceDocParser.NuGet.Tests;
 
-/// <summary>Verifies target-specific explicit references and SDK targeting-pack selection.</summary>
+/// <summary>Verifies target-specific reference packages and managed asset selection.</summary>
 public sealed class PackageReferenceAssetsTests
 {
     /// <summary>The core targeting-pack fixture.</summary>
@@ -103,61 +103,6 @@ public sealed class PackageReferenceAssetsTests
         var result = PackageReferenceAssets.SelectReferences(references, NuGetFramework.ParseFolder("net11.0"));
 
         await Assert.That(result).IsEmpty();
-    }
-
-    /// <summary>A newer installed framework does not hide reference packs for the requested framework.</summary>
-    /// <returns>A task representing the asynchronous test.</returns>
-    [Test]
-    public async Task FindInstalledReferenceDirectoriesMatchesFrameworkBeforeVersion()
-    {
-        using var directory = new ScratchDirectory();
-        var expected = Directory.CreateDirectory(Path.Combine(directory.Path, CorePack, "10.0.12", "ref", Net10)).FullName;
-        _ = Directory.CreateDirectory(Path.Combine(directory.Path, CorePack, "10.0.11", "ref", Net10));
-        _ = Directory.CreateDirectory(Path.Combine(directory.Path, CorePack, "11.0.0", "ref", "net11.0"));
-        _ = Directory.CreateDirectory(Path.Combine(directory.Path, "Microsoft.macOS.Ref.net10.0_26.0", "26.0.1", "ref", Net10));
-
-        var result = PackageReferenceAssets.FindInstalledReferenceDirectories([directory.Path], NuGetFramework.ParseFolder(Net10));
-
-        await Assert.That(result).IsEquivalentTo([expected]);
-    }
-
-    /// <summary>Platform workloads supply only the references for the documented platform version.</summary>
-    /// <returns>A task representing the asynchronous test.</returns>
-    [Test]
-    public async Task FindInstalledReferenceDirectoriesIsolatesPlatformPacks()
-    {
-        using var directory = new ScratchDirectory();
-        var expected = Directory.CreateDirectory(Path.Combine(directory.Path, "Microsoft.Android.Ref.36", "36.1.53", "ref", Net10)).FullName;
-        _ = Directory.CreateDirectory(Path.Combine(directory.Path, "Microsoft.Android.Ref.37", "37.0.0", "ref", Net10));
-        _ = Directory.CreateDirectory(Path.Combine(directory.Path, "Microsoft.macOS.Ref.net10.0_26.0", "26.0.1", "ref", Net10));
-
-        var result = PackageReferenceAssets.FindInstalledReferenceDirectories([directory.Path], NuGetFramework.ParseFolder("net10.0-android36.0"));
-
-        await Assert.That(result).IsEquivalentTo([expected]);
-    }
-
-    /// <summary>Declared framework references use exact SDK targeting-pack metadata.</summary>
-    /// <returns>A task representing the asynchronous test.</returns>
-    [Test]
-    public async Task ReadSdkFrameworkPacksUsesDeclaredNamesAndTargetFramework()
-    {
-        using var directory = new ScratchDirectory();
-        var path = Path.Combine(directory.Path, "BundledVersions.props");
-        await File.WriteAllTextAsync(path, """
-            <Project>
-              <ItemGroup>
-                <KnownFrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" TargetFramework="net10.0" TargetingPackName="Microsoft.WindowsDesktop.App.Ref" TargetingPackVersion="10.0.12" />
-                <KnownFrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" TargetFramework="net11.0"
-                  TargetingPackName="Microsoft.WindowsDesktop.App.Ref" TargetingPackVersion="11.0.0-preview.1" />
-                <KnownFrameworkReference Include="Microsoft.AspNetCore.App" TargetFramework="net10.0" TargetingPackName="Microsoft.AspNetCore.App.Ref" TargetingPackVersion="10.0.12" />
-              </ItemGroup>
-            </Project>
-            """);
-
-        var result = PackageReferenceAssets.ReadSdkFrameworkPacks(path, NuGetFramework.ParseFolder("net10.0-windows10.0.19041.0"), ["Microsoft.WindowsDesktop.App.WPF"]);
-
-        await Assert.That(result.Count).IsEqualTo(1);
-        await Assert.That(result["Microsoft.WindowsDesktop.App.Ref"]).IsEqualTo("10.0.12");
     }
 
     /// <summary>Native framework payloads do not become Roslyn assembly references.</summary>

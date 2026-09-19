@@ -6,20 +6,7 @@ using System.Collections.Frozen;
 
 namespace SourceDocParser.NuGet.Infrastructure;
 
-/// <summary>
-/// Maps synthetic framework / projection assembly names that some
-/// packages declare as transitive references to the NuGet package
-/// IDs that ship the underlying types. This is the bridge for the
-/// handful of "framework" assemblies that DO live on NuGet.org
-/// (most don't -- WPF/WinForms/Android/iOS workload refs ship with
-/// the SDK and are caught by <c>RefPackProbe</c> instead).
-/// Surfaced as a static helper so the
-/// <see cref="NuGetFetcher"/>-driven walk can pre-populate
-/// <see cref="Models.PackageConfig.AdditionalPackages"/> with the
-/// IDs corresponding to references it just observed; consumers can
-/// also use it directly when assembling their own additional-packages
-/// list before calling the fetcher.
-/// </summary>
+/// <summary>Maps known projection assembly names to the NuGet packages that publish them.</summary>
 internal static class KnownFrameworkPackageMap
 {
     /// <summary>NuGet package ID for the Windows App SDK family.</summary>

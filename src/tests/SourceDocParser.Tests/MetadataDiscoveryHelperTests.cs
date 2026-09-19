@@ -63,6 +63,29 @@ public class MetadataDiscoveryHelperTests
         await Assert.That(loaders[1].DisposeCount).IsEqualTo(1);
     }
 
+    /// <summary>Each concrete loader receives the reference policy of its source group.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task DiscoverTfmGroupsAsyncPropagatesSuppliedReferencePolicy()
+    {
+        var source = new FakeAssemblySource(
+        [
+            new(Net100, ["/strict/A.dll"], []) { UseOnlySuppliedReferences = true },
+            new(Net100, ["/standalone/B.dll"], []),
+        ]);
+        using var registry = new LoaderRegistry();
+
+        var groups = await MetadataDiscoveryHelper.DiscoverTfmGroupsAsync(
+            source,
+            static logger => new CompilationLoader(logger),
+            registry,
+            NullLogger.Instance,
+            CancellationToken.None);
+
+        await Assert.That(((CompilationLoader)groups[0].Loader).UseOnlySuppliedReferences).IsTrue();
+        await Assert.That(((CompilationLoader)groups[1].Loader).UseOnlySuppliedReferences).IsFalse();
+    }
+
     /// <summary>An empty source surfaces an <see cref="InvalidOperationException"/>.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]

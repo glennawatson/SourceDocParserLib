@@ -27,6 +27,9 @@ internal static class PackageGraphRestore
     /// <summary>Initial space for a restore dependency-chain diagnostic.</summary>
     private const int DiagnosticCapacity = 256;
 
+    /// <summary>Framework generations that support the PackageReference compatibility fallback.</summary>
+    private const int CompatibilityFallbackMajorVersion = 2;
+
     /// <summary>Restores package dependencies and selects the graph's compile assets.</summary>
     /// <param name="session">Configured NuGet session.</param>
     /// <param name="root">Documentation package identity.</param>
@@ -54,8 +57,7 @@ internal static class PackageGraphRestore
         }
 
         var downloads = await PackageReferenceAssets.AddReferencesAsync(session, config, framework, dependencies, cancellationToken).ConfigureAwait(false);
-        var target = new TargetFrameworkInformation { FrameworkName = framework, TargetAlias = tfm, Dependencies = [.. dependencies], DownloadDependencies = [.. downloads], };
-        target = await SdkRestoreInputs.ApplyAsync(session, target, config.RuntimeIdentifier, cancellationToken).ConfigureAwait(false);
+        var target = CreateTarget(framework, tfm, dependencies, downloads);
         var spec = CreateSpec(session, target, config.RuntimeIdentifier, outputDirectory);
         var key = GetGraphKey(spec, session.Settings, config);
         var graphDirectory = Path.Combine(Path.GetFullPath(outputDirectory), "restore", root.Id.ToLowerInvariant(), root.Version.ToNormalizedString(), tfm, key);
@@ -75,8 +77,9 @@ internal static class PackageGraphRestore
         var assetsPath = Path.Combine(graphDirectory, AssetsFileName);
         var assets = new LockFileFormat().Read(assetsPath);
         var group = RestoredPackageAssets.Read(assets, root.Id, framework, config.RuntimeIdentifier, assetsPath);
-        await PackageReferenceAssets.AddFrameworkAssetsAsync(session, config, framework, group.FallbackIndex, assets, cancellationToken).ConfigureAwait(false);
-        await PackageBuildReferences.AddAsync(session, spec, assets, group.FallbackIndex, cancellationToken).ConfigureAwait(false);
+        await PackageReferenceAssets.AddFrameworkAssetsAsync(session, config, framework, root.Id, group.FallbackIndex, assets, cancellationToken).ConfigureAwait(false);
+        await FrameworkCompatibilityReferences.AddAsync(session, framework, group.FallbackIndex, cancellationToken).ConfigureAwait(false);
+        PackageMetadataReferences.Add(assets, root.Id, framework, config.RuntimeIdentifier, group.FallbackIndex);
         return group;
     }
 
@@ -92,6 +95,39 @@ internal static class PackageGraphRestore
     internal static VersionRange ParsePin(string version) => NuGetVersion.TryParse(version, out var exact)
         ? new(exact, true, exact, true)
         : VersionRange.Parse(version);
+
+    /// <summary>Creates a NuGet target with the PackageReference framework compatibility policy.</summary>
+    /// <param name="framework">The documentation framework.</param>
+    /// <param name="tfm">The original target name.</param>
+    /// <param name="dependencies">Direct package constraints.</param>
+    /// <param name="downloads">Reference-pack downloads.</param>
+    /// <returns>The target passed to NuGet dependency and asset resolution.</returns>
+    private static TargetFrameworkInformation CreateTarget(NuGetFramework framework, string tfm, List<LibraryDependency> dependencies, List<DownloadDependency> downloads)
+    {
+        var fallback = framework.Framework is FrameworkConstants.FrameworkIdentifiers.NetCoreApp or FrameworkConstants.FrameworkIdentifiers.NetStandard
+            && framework.Version.Major >= CompatibilityFallbackMajorVersion;
+        NuGetFramework[] imports = fallback
+            ? [
+                NuGetFramework.ParseFolder("net461"),
+                NuGetFramework.ParseFolder("net462"),
+                NuGetFramework.ParseFolder("net47"),
+                NuGetFramework.ParseFolder("net471"),
+                NuGetFramework.ParseFolder("net472"),
+                NuGetFramework.ParseFolder("net48"),
+                NuGetFramework.ParseFolder("net481"),
+            ]
+            : [];
+        return new()
+        {
+            FrameworkName = fallback ? new AssetTargetFallbackFramework(framework, imports) : framework,
+            TargetAlias = tfm,
+            Dependencies = [.. dependencies],
+            DownloadDependencies = [.. downloads],
+            Imports = [.. imports],
+            AssetTargetFallback = fallback,
+            Warn = true,
+        };
+    }
 
     /// <summary>Rejects incomplete restore results with their dependency-chain diagnostics.</summary>
     /// <param name="results">Restore outcomes.</param>

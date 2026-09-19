@@ -47,10 +47,21 @@ public sealed partial class CompilationLoader : ICompilationLoader
     /// <summary>Initializes a new instance of the <see cref="CompilationLoader"/> class.</summary>
     /// <param name="logger">Logger for resolver progress and reference-resolution warnings; <see cref="NullLogger.Instance"/> when null.</param>
     public CompilationLoader(ILogger? logger)
+        : this(logger, true)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="CompilationLoader"/> class.</summary>
+    /// <param name="logger">Reference and documentation diagnostics.</param>
+    /// <param name="includeXmlDocumentation">Whether to read XML documentation alongside assemblies.</param>
+    public CompilationLoader(ILogger? logger, bool includeXmlDocumentation)
     {
         _logger = logger ?? NullLogger.Instance;
-        _referenceCache = new(_logger);
+        _referenceCache = new(_logger, includeXmlDocumentation);
     }
+
+    /// <summary>Gets or sets a value indicating whether references must come entirely from the supplied index.</summary>
+    public bool UseOnlySuppliedReferences { get; set; }
 
     /// <inheritdoc />
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -68,7 +79,7 @@ public sealed partial class CompilationLoader : ICompilationLoader
         ArgumentException.ThrowIfNullOrWhiteSpace(assemblyPath);
         ArgumentNullException.ThrowIfNull(fallbackReferences);
 
-        var resolved = ResolveTransitiveReferences(assemblyPath, fallbackReferences, _logger);
+        var resolved = ResolveTransitiveReferences(assemblyPath, fallbackReferences, _logger, UseOnlySuppliedReferences);
 
         var references = new List<MetadataReference>(resolved.Count + 1);
         for (var i = 0; i < resolved.Count; i++)
@@ -88,6 +99,15 @@ public sealed partial class CompilationLoader : ICompilationLoader
                 metadataImportOptions: includePrivateMembers ? All : Public));
 
         var assembly = (IAssemblySymbol)compilation.GetAssemblyOrModuleSymbol(primary)!;
+        if (UseOnlySuppliedReferences && _logger.IsEnabled(LogLevel.Warning))
+        {
+            var missing = ApiReferenceInspector.GetMissingReferences(assembly, includePrivateMembers);
+            for (var i = 0; i < missing.Length; i++)
+            {
+                LogUnresolvedApiReference(_logger, missing[i].AssemblyIdentity.ToString(), missing[i].Member, assemblyPath);
+            }
+        }
+
         return (compilation, assembly);
     }
 
@@ -100,17 +120,30 @@ public sealed partial class CompilationLoader : ICompilationLoader
     /// <param name="fallbackIndex">The selected compile assets, which take precedence over automatic resolution.</param>
     /// <param name="logger">Logger for resolver progress and unresolved-reference warnings.</param>
     /// <returns>A list of absolute paths to resolved transitive references.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static List<string> ResolveTransitiveReferences(
         string assemblyPath,
         Dictionary<string, string> fallbackIndex,
-        ILogger logger)
+        ILogger logger) => ResolveTransitiveReferences(assemblyPath, fallbackIndex, logger, false);
+
+    /// <summary>Resolves references according to the source's supplied-reference policy.</summary>
+    /// <param name="assemblyPath">The primary assembly.</param>
+    /// <param name="fallbackIndex">The selected assembly references.</param>
+    /// <param name="logger">Reference diagnostics.</param>
+    /// <param name="useOnlySuppliedReferences">True to prevent automatic probing outside the supplied references.</param>
+    /// <returns>The assembly references used for API parsing.</returns>
+    private static List<string> ResolveTransitiveReferences(
+        string assemblyPath,
+        Dictionary<string, string> fallbackIndex,
+        ILogger logger,
+        bool useOnlySuppliedReferences)
     {
         using var primary = new PEFile(assemblyPath);
         var targetFramework = primary.DetectTargetFrameworkId();
         var primaryName = primary.Metadata.GetString(primary.Metadata.GetAssemblyDefinition().Name);
         var context = new ResolutionContext
         {
-            Resolver = new(assemblyPath, throwOnError: false, targetFramework),
+            Resolver = useOnlySuppliedReferences ? null : new(assemblyPath, throwOnError: false, targetFramework),
             SelectedReferences = [with(fallbackIndex.Count, StringComparer.OrdinalIgnoreCase)],
             VisitedNames = [with(StringComparer.OrdinalIgnoreCase), primaryName],
             ResolvedPaths = [with(fallbackIndex.Count)],
@@ -131,6 +164,11 @@ public sealed partial class CompilationLoader : ICompilationLoader
 
             LogResolvedReference(logger, name, file);
             context.ResolvedPaths.Add(file);
+        }
+
+        if (useOnlySuppliedReferences)
+        {
+            return context.ResolvedPaths;
         }
 
         context.Pending.Push(assemblyPath);
@@ -157,7 +195,7 @@ public sealed partial class CompilationLoader : ICompilationLoader
 
             if (!context.SelectedReferences.TryGetValue(reference.Name, out var file))
             {
-                file = context.Resolver.FindAssemblyFile(reference);
+                file = context.Resolver?.FindAssemblyFile(reference);
                 if (file is null)
                 {
                     LogUnresolvedReference(context.Logger, reference.ToString(), current.FileName, context.AssemblyPath, context.TargetFramework);
@@ -188,14 +226,24 @@ public sealed partial class CompilationLoader : ICompilationLoader
     [LoggerMessage(
         Level = LogLevel.Warning,
         Message = "Unable to resolve assembly reference '{Reference}' required by '{Assembly}' while documenting '{Root}' ({TargetFramework}). " +
-                  "Check the restored compile assets and installed framework reference packs.")]
+                  "Check the supplied compile assets and framework reference packages.")]
     private static partial void LogUnresolvedReference(ILogger logger, string reference, string assembly, string root, string targetFramework);
+
+    /// <summary>Reports an assembly required by a documented API signature.</summary>
+    /// <param name="logger">Diagnostic destination.</param>
+    /// <param name="reference">Required assembly identity.</param>
+    /// <param name="member">The API member requiring the reference.</param>
+    /// <param name="root">Documentation root assembly.</param>
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Unable to resolve assembly reference '{Reference}' used by API '{Member}' while documenting '{Root}'. Check declared dependencies and reference packages.")]
+    private static partial void LogUnresolvedApiReference(ILogger logger, string reference, string member, string root);
 
     /// <summary>Context for transitive assembly reference resolution.</summary>
     private readonly ref struct ResolutionContext
     {
         /// <summary>Gets the assembly resolver.</summary>
-        public required UniversalAssemblyResolver Resolver { get; init; }
+        public required UniversalAssemblyResolver? Resolver { get; init; }
 
         /// <summary>Gets the selected compile assets by simple assembly name.</summary>
         public required Dictionary<string, string> SelectedReferences { get; init; }

@@ -142,22 +142,32 @@ direct references in each graph. `runtimeIdentifier` selects an optional RID.
 Use `referencePackages` for explicit references and targeting packs, scoped by
 `targetTfm`.
 
-SDK evaluation supplies framework policy and references added by package build
-targets. Apple reference packs use the exact versions declared in installed
-workload manifests; reading those assemblies does not require Xcode or an Apple
-runtime. Reference packs are acquired through the configured NuGet feeds.
+Package documentation runs through NuGet APIs without MSBuild, an installed
+SDK, or installed workloads. Framework reference DLLs come from NuGet reference
+packs. Android and Apple pack identities and versions come from manifest
+packages downloaded through the configured feeds. Reading Apple reference DLLs
+works on any supported host operating system.
+
+Only compatible, required reference DLLs from the resolved package graph are
+added to the parser. Package build targets are not executed. Use an explicit
+`referencePackages` entry with `pathPrefix` for prebuilt assemblies in a
+nonstandard package directory.
 
 Restore failures report the root, TFM, RID, NuGet diagnostic code, and dependency
-chain. Missing assembly diagnostics identify the referring assembly and root.
-Missing workload-manifest declarations identify the reference pack that needs
+chain. Missing assembly diagnostics identify the documented API member requiring
+the reference and its root assembly. Private implementation references and unused
+dependency type forwarders do not produce documentation warnings. Reference
+completion inspects type metadata without loading XML documentation; page
+generation loads the requested XML documentation.
+Missing published manifest declarations identify the reference pack that needs
 an explicit version in `referencePackages`.
 
 ---
 
 ## Supported target frameworks
 
-The walker resolves NuGet packages against frameworks that the active .NET
-SDK still understands and that Microsoft is still shipping fixes for:
+Package metadata and available reference packs determine target-framework
+support independently of the host SDK and workload lifecycle:
 
 - **Modern .NET (5.0+)** — `net5.0`, `net6.0`, `net7.0`, `net8.0`, `net9.0`,
   `net10.0`, `net11.0`, plus the `net*-android`, `net*-ios`, `net*-maccatalyst`,
@@ -167,8 +177,8 @@ SDK still understands and that Microsoft is still shipping fixes for:
   because the BCL targets it, even though
   [no future netstandard releases are planned](https://learn.microsoft.com/en-us/dotnet/standard/net-standard).
 - **.NET Framework, net462 and newer** — `net462`, `net47`, `net471`,
-  `net472`, `net48`, `net481`. net462 is the floor that supports
-  `netstandard2.0` type forwards and ships ref packs in modern SDKs. See the
+  `net472`, `net48`, `net481`. Reference assemblies are available as NuGet
+  packages. See the
   [.NET Framework support policy](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-framework)
   for which of those are still in mainstream / extended support.
 
@@ -197,20 +207,24 @@ during a build.
 
 ### Package fetching
 
-The fetch benchmark pins Refit 15.2.0 to `net10.0`, runs on .NET 11 in
-Release mode, and retains downloaded package caches. Fresh-source runs include
-SDK evaluation and regenerated graph output. Every operation verifies one
-documentation root; selected reference entries are 314 for 2.2.0 and 171 for
-the NuGet restore pipeline.
+The fetch comparison pins Refit 15.2.0 to `net10.0` and
+Microsoft.NETCore.App.Ref to 10.0.0, runs on .NET 11 in Release mode, and retains
+downloaded package caches. Fresh-source runs regenerate graph output. Every
+operation verifies one documentation root; selected reference entries are 314
+for 2.2.0 and 171 for the NuGet restore pipeline. Cached and fresh discovery
+return identical graph and assembly hashes within each implementation.
 
 | Scenario | Published 2.2.0 | NuGet restore pipeline | Managed allocations (2.2.0 → restore) |
 |---|---:|---:|---:|
-| Warm source and graph | 559.1 ± 50.54 ms | 20.62 ± 0.317 ms | 30.46 → 4.88 MB |
-| Fresh source and graph | 807.1 ± 13.33 ms | 633.02 ± 5.488 ms | 75.80 → 6.23 MB |
+| Warm source and graph | 2,088 ± 8.4 ms | 31.56 ± 2.616 ms | 83.86 → 13.80 MB |
+| Fresh source and graph | 4,978 ± 35.5 ms | 25.83 ± 1.663 ms | 89.96 → 14.01 MB |
 
-Intervals are BenchmarkDotNet's 99.9% confidence intervals. Allocation counts
-cover the benchmark process; fresh-source counts exclude SDK child-process
-allocations. Allocation profiling runs separately from timing.
+Intervals are BenchmarkDotNet's 99.9% confidence intervals from five warmups and
+15 measurements on a Ryzen 7 5800X, pinned to seven physical cores with the
+performance governor. Allocation counts cover the benchmark process. Allocation
+profiling runs separately from timing. The repository harness uses automatic
+framework-pack selection; the comparison adds the same reference-pack pin to
+both implementations.
 
 ```bash
 cd src

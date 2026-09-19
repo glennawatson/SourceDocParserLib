@@ -41,6 +41,15 @@ public sealed class PackageRestoreTests
     /// <summary>The documentation root assembly name.</summary>
     private const string Root = "Root";
 
+    /// <summary>The root type used to verify metadata binding.</summary>
+    private const string RootApiTypeName = "RootApi";
+
+    /// <summary>The root API whose base type requires a resolved reference.</summary>
+    private const string DerivedRootSource = "public sealed class RootApi : SharedApi { }";
+
+    /// <summary>The reference-only fixture package.</summary>
+    private const string FrameworkReferencePackage = "Framework.Ref";
+
     /// <summary>The transitive dependency assembly name.</summary>
     private const string Middle = "Middle";
 
@@ -61,6 +70,9 @@ public sealed class PackageRestoreTests
 
     /// <summary>The documentation root's implementation assembly.</summary>
     private const string RootLib = "lib/net10.0/Root.dll";
+
+    /// <summary>The intermediate package's compile asset.</summary>
+    private const string MiddleLib = "lib/net10.0/Middle.dll";
 
     /// <summary>The first branch's compile asset.</summary>
     private const string LeftLib = "lib/net10.0/Left.dll";
@@ -115,7 +127,7 @@ public sealed class PackageRestoreTests
         fixture.Add(Shared, InitialVersion, string.Empty, SharedRef, "ref/netstandard2.1/Shared.dll");
         fixture.Add(Shared, SecondVersion, string.Empty, SharedRef, "ref/netstandard2.1/Shared.dll");
         var dependencies = PackageFeed.Group(Net10, fixture.Dependency(Shared, FirstRange)) + PackageFeed.Group(Standard21, fixture.Dependency(Shared, SecondRange));
-        fixture.Add(Middle, InitialVersion, dependencies, "lib/net10.0/Middle.dll", "lib/netstandard2.1/Middle.dll");
+        fixture.Add(Middle, InitialVersion, dependencies, MiddleLib, "lib/netstandard2.1/Middle.dll");
         fixture.Add(Root, InitialVersion, fixture.Dependency(Middle, InitialVersion), RootLib, "lib/netstandard2.1/Root.dll");
         fixture.Manifest([Root], []);
 
@@ -429,7 +441,7 @@ public sealed class PackageRestoreTests
     public async Task MissingTransitivePackageReportsActionableRestoreDiagnostic()
     {
         using var fixture = new PackageFeed();
-        fixture.Add(Middle, InitialVersion, fixture.Dependency("Missing", InitialVersion), "lib/net10.0/Middle.dll");
+        fixture.Add(Middle, InitialVersion, fixture.Dependency("Missing", InitialVersion), MiddleLib);
         fixture.Add(Root, InitialVersion, fixture.Dependency(Middle, InitialVersion), RootLib);
         fixture.Manifest([Root], []);
 
@@ -606,7 +618,6 @@ public sealed class PackageRestoreTests
     public async Task PlatformFrameworkSelectsApplicableDependencyGroup(string tfm)
     {
         using var fixture = new PackageFeed { TargetFramework = tfm };
-        fixture.ConfigurePlatformReferenceFeed();
         fixture.Add(Shared, InitialVersion, string.Empty, $"ref/{tfm}/Shared.dll");
         var dependencies = PackageFeed.Group(tfm, fixture.Dependency(Shared, InitialVersion)) + PackageFeed.Group(Net10, fixture.Dependency("Unrelated", InitialVersion));
         fixture.Add(Root, InitialVersion, dependencies, $"lib/{tfm}/Root.dll");
@@ -635,7 +646,7 @@ public sealed class PackageRestoreTests
 
         using var loader = new CompilationLoader();
         var loaded = loader.Load(groups[0].AssemblyPaths[0], groups[0].FallbackIndex);
-        var api = loaded.Assembly.GetTypeByMetadataName("RootApi");
+        var api = loaded.Assembly.GetTypeByMetadataName(RootApiTypeName);
 
         await Assert.That(api).IsNotNull();
         await Assert.That(api!.BaseType!.TypeKind).IsEqualTo(TypeKind.Class);
@@ -645,80 +656,142 @@ public sealed class PackageRestoreTests
         await Assert.That(property.Type.ContainingAssembly.Name).IsEqualTo(Shared);
     }
 
-    /// <summary>A package build target can supply an API dependency outside NuGet's compile asset directories.</summary>
+    /// <summary>Published package frameworks and configured reference packs resolve without consulting an installed SDK.</summary>
+    /// <param name="framework">The package framework to document.</param>
+    /// <param name="baseFramework">The BCL reference framework required by that package.</param>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public async Task PackageBuildTargetReferencesReachApiParsing()
+    [Arguments("net11.0", "net11.0")]
+    [Arguments("net8.0-android34.0", "net8.0")]
+    public async Task PackageOnlyRestoreUsesConfiguredReferencesForTargetFramework(string framework, string baseFramework)
     {
-        using var fixture = new PackageFeed();
+        using var fixture = new PackageFeed { TargetFramework = framework };
         var shared = PackageFeed.Compile(Shared, SharedSource);
-        var root = PackageFeed.Compile(Root, "public sealed class RootApi : SharedApi { }", shared);
-        fixture.AddAssembly(Root, InitialVersion, string.Empty, root, [RootLib]);
-        fixture.AddBuildReference(Root, shared);
-        fixture.Manifest([Root], []);
+        var root = PackageFeed.Compile(Root, DerivedRootSource, shared);
+        fixture.AddAssembly(FrameworkReferencePackage, InitialVersion, string.Empty, shared, [$"ref/{framework}/Shared.dll"]);
+        fixture.AddAssembly(Root, InitialVersion, string.Empty, root, [$"lib/{framework}/Root.dll"]);
+        fixture.ReferencePackages.Add(FrameworkReferencePackage);
+        fixture.Manifest([Root, FrameworkReferencePackage], [FrameworkReferencePackage]);
+        await fixture.AddIrrelevantSdkConfigurationAsync();
 
         var groups = await fixture.DiscoverAsync();
 
+        await Assert.That(groups.Count).IsEqualTo(1);
+        await Assert.That(groups[0].Tfm).IsEqualTo(framework);
         await Assert.That(groups[0].AssemblyPaths.Length).IsEqualTo(1);
-        await Assert.That(groups[0].FallbackIndex.ContainsKey(Shared)).IsTrue();
-        await Assert.That(ReferencePath(groups[0], Shared)).EndsWith("/manual/Shared.dll");
+        await Assert.That(ReferencePath(groups[0], Shared)).EndsWith($"/ref/{framework}/Shared.dll");
+        var runtime = ReferencePath(groups[0], "System.Runtime");
+        await Assert.That(runtime).Contains("/microsoft.netcore.app.ref/");
+        await Assert.That(runtime).EndsWith($"/ref/{baseFramework}/System.Runtime.dll");
+        if (framework.Contains("android", StringComparison.Ordinal))
+        {
+            await Assert.That(ReferencePath(groups[0], "Mono.Android")).Contains("/microsoft.android.ref.34/");
+        }
+
         using var loader = new CompilationLoader();
         var loaded = loader.Load(groups[0].AssemblyPaths[0], groups[0].FallbackIndex);
-        await Assert.That(loaded.Assembly.GetTypeByMetadataName("RootApi")!.BaseType!.TypeKind).IsEqualTo(TypeKind.Class);
-    }
-
-    /// <summary>Repeated discovery reuses the completed build-reference evaluation without rewriting its SDK project.</summary>
-    /// <returns>A task representing the asynchronous test.</returns>
-    [Test]
-    public async Task PackageBuildReferenceEvaluationIsCached()
-    {
-        using var fixture = new PackageFeed();
-        fixture.Add(Root, InitialVersion, string.Empty, RootLib);
-        fixture.AddBuildReference(Root, PackageFeed.Compile(Shared, SharedSource));
-        fixture.Manifest([Root], []);
-        var first = await fixture.DiscoverAsync();
-        var project = fixture.GetEvaluationProjectPath();
-        File.SetLastWriteTimeUtc(project, DateTime.UnixEpoch);
-
-        var second = await fixture.DiscoverAsync();
-
-        await Assert.That(second[0].FallbackIndex).IsEquivalentTo(first[0].FallbackIndex);
-        await Assert.That(File.GetLastWriteTimeUtc(project)).IsEqualTo(DateTime.UnixEpoch);
+        var api = loaded.Assembly.GetTypeByMetadataName(RootApiTypeName);
+        await Assert.That(api!.BaseType!.TypeKind).IsEqualTo(TypeKind.Class);
+        await Assert.That(api.BaseType.ContainingAssembly.Name).IsEqualTo(Shared);
     }
 
     /// <summary>A relative API output path remains valid when the package configuration lives outside the process directory.</summary>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public async Task PackageBuildReferencesSupportRelativeApiPath()
+    public async Task PackageOnlyRestoreSupportsRelativeApiPath()
     {
         using var fixture = new PackageFeed { UseRelativeApiPath = true };
-        fixture.Add(Root, InitialVersion, string.Empty, RootLib);
-        fixture.AddBuildReference(Root, PackageFeed.Compile(Shared, SharedSource));
+        fixture.Add(Shared, InitialVersion, string.Empty, SharedRef);
+        fixture.Add(Root, InitialVersion, fixture.Dependency(Shared, InitialVersion), RootLib);
         fixture.Manifest([Root], []);
 
         var groups = await fixture.DiscoverAsync();
 
         await Assert.That(groups.Count).IsEqualTo(1);
         await Assert.That(groups[0].FallbackIndex.ContainsKey(Shared)).IsTrue();
-        await Assert.That(Path.IsPathFullyQualified(fixture.GetEvaluationProjectPath())).IsTrue();
+        await Assert.That(Path.IsPathFullyQualified(groups[0].AssemblyPaths[0])).IsTrue();
     }
 
-    /// <summary>Package reference targets retain their platform conditions when only metadata is required from a workload framework.</summary>
+    /// <summary>Explicit paths supply managed references from a selected ordinary package without evaluating its targets.</summary>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public async Task PackageBuildReferencesPreservePlatformConditionsWithoutBuildTools()
+    public async Task ReferenceContractExplicitPrefixAddsAssetsFromSelectedPackage()
     {
-        using var fixture = new PackageFeed { TargetFramework = "net10.0-ios26.0" };
-        fixture.ConfigurePlatformReferenceFeed();
-        fixture.Add(Root, InitialVersion, string.Empty, $"lib/{fixture.TargetFramework}/Root.dll");
-        fixture.AddBuildReference(Root, PackageFeed.Compile(Shared, SharedSource));
+        using var fixture = new PackageFeed();
+        var shared = PackageFeed.Compile(Shared, SharedSource);
+        var root = PackageFeed.Compile(Root, DerivedRootSource, shared);
+        fixture.Add(Middle, InitialVersion, string.Empty, MiddleLib);
+        fixture.AddPackageFile(Middle, InitialVersion, "manual/Shared.dll", shared);
+        fixture.AddPackageFile(Middle, InitialVersion, "manual/Native.dll", []);
+        fixture.AddRejectingBuildTarget(Middle);
+        fixture.AddAssembly(Root, InitialVersion, fixture.Dependency(Middle, InitialVersion), root, [RootLib]);
+        fixture.ReferencePackages.Add(Middle);
+        fixture.ReferencePathPrefixes.Add(Middle, "manual");
         fixture.Manifest([Root], []);
 
         var groups = await fixture.DiscoverAsync();
 
-        await Assert.That(groups.Count).IsEqualTo(1);
-        await Assert.That(groups[0].Tfm).IsEqualTo(fixture.TargetFramework);
-        await Assert.That(groups[0].FallbackIndex.ContainsKey(Shared)).IsTrue();
+        await Assert.That(groups[0].AssemblyPaths.Length).IsEqualTo(1);
+        await Assert.That(groups[0].FallbackIndex.ContainsKey(Middle)).IsTrue();
+        await Assert.That(ReferencePath(groups[0], Shared)).EndsWith("/manual/Shared.dll");
+        await Assert.That(groups[0].FallbackIndex.ContainsKey("Native")).IsFalse();
+        using var loader = new CompilationLoader();
+        var loaded = loader.Load(groups[0].AssemblyPaths[0], groups[0].FallbackIndex);
+        await Assert.That(loaded.Assembly.GetTypeByMetadataName(RootApiTypeName)!.BaseType!.TypeKind).IsEqualTo(TypeKind.Class);
+    }
+
+    /// <summary>Published package override versions govern framework reference precedence independently of assembly versions.</summary>
+    /// <param name="packageVersion">The resolved dependency's NuGet version.</param>
+    /// <param name="frameworkWins">Whether the framework's published override includes that version.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("0.5.0", true)]
+    [Arguments(InitialVersion, true)]
+    [Arguments(SecondVersion, false)]
+    public async Task ReferenceContractPackageOverridesRespectVersionCeiling(string packageVersion, bool frameworkWins)
+    {
+        using var fixture = new PackageFeed();
+        var package = PackageFeed.Compile(Shared, "public class SharedApi { public int PackageMarker; }");
+        var framework = PackageFeed.Compile(Shared, "public class SharedApi { public int FrameworkMarker; }");
+        var root = PackageFeed.Compile(Root, DerivedRootSource, package);
+        fixture.AddAssembly(Shared, packageVersion, string.Empty, package, [SharedLib]);
+        fixture.AddAssembly(FrameworkReferencePackage, InitialVersion, string.Empty, framework, [SharedRef]);
+        fixture.AddPackageOverrides(FrameworkReferencePackage, [(Shared, InitialVersion)]);
+        fixture.AddAssembly(Root, InitialVersion, fixture.Dependency(Shared, $"[{packageVersion}]"), root, [RootLib]);
+        fixture.ReferencePackages.Add(FrameworkReferencePackage);
+        fixture.Manifest([Root], []);
+
+        var groups = await fixture.DiscoverAsync();
+
+        await Assert.That(ReferencePath(groups[0], Shared)).EndsWith($"/{(frameworkWins ? SharedRef : SharedLib)}");
+        using var loader = new CompilationLoader();
+        var loaded = loader.Load(groups[0].AssemblyPaths[0], groups[0].FallbackIndex);
+        var baseType = loaded.Assembly.GetTypeByMetadataName(RootApiTypeName)!.BaseType!;
+        await Assert.That(baseType.GetMembers("FrameworkMarker").Length).IsEqualTo(frameworkWins ? 1 : 0);
+    }
+
+    /// <summary>Framework override metadata cannot replace the assembly explicitly selected for documentation.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task ReferenceContractPackageOverridesPreserveDocumentationRoot()
+    {
+        using var fixture = new PackageFeed();
+        var root = PackageFeed.Compile(Shared, "public class RootApi { public int DocumentationMarker; }");
+        var framework = PackageFeed.Compile(Shared, "public class RootApi { public int FrameworkMarker; }");
+        fixture.AddAssembly(Root, InitialVersion, string.Empty, root, [SharedLib]);
+        fixture.AddAssembly(FrameworkReferencePackage, InitialVersion, string.Empty, framework, [SharedRef]);
+        fixture.AddPackageOverrides(FrameworkReferencePackage, [(Root, InitialVersion)]);
+        fixture.ReferencePackages.Add(FrameworkReferencePackage);
+        fixture.Manifest([Root], []);
+
+        var groups = await fixture.DiscoverAsync();
+
+        await Assert.That(groups[0].AssemblyPaths.Length).IsEqualTo(1);
+        await Assert.That(groups[0].FallbackIndex[Shared]).IsEqualTo(groups[0].AssemblyPaths[0]);
+        await Assert.That(ReferencePath(groups[0], Shared)).EndsWith($"/{SharedLib}");
+        using var loader = new CompilationLoader();
+        var loaded = loader.Load(groups[0].AssemblyPaths[0], groups[0].FallbackIndex);
+        await Assert.That(loaded.Assembly.GetTypeByMetadataName(RootApiTypeName)!.GetMembers("DocumentationMarker").Length).IsEqualTo(1);
     }
 
     /// <summary>Normalizes package paths for portable assertions.</summary>
@@ -739,6 +812,12 @@ public sealed class PackageRestoreTests
 
         /// <summary>The local feed's NuGet source name.</summary>
         private const string FixtureSource = "fixture";
+
+        /// <summary>The configured source for official framework-reference packages.</summary>
+        private const string FrameworkSource = "frameworks";
+
+        /// <summary>The public endpoint supplying framework-reference packages.</summary>
+        private const string FrameworkFeed = "https://api.nuget.org/v3/index.json";
 
         /// <summary>The configuration consumed by both restore implementations.</summary>
         private const string NuGetConfigFile = "nuget.config";
@@ -767,6 +846,9 @@ public sealed class PackageRestoreTests
         /// <summary>The XML attribute containing a package pattern.</summary>
         private const string PatternAttribute = "pattern";
 
+        /// <summary>The package version field shared by JSON declarations and nuspec dependencies.</summary>
+        private const string VersionProperty = "version";
+
         /// <summary>The fixture files.</summary>
         private readonly ScratchDirectory _directory = new("sdp-restore");
 
@@ -778,10 +860,7 @@ public sealed class PackageRestoreTests
         {
             var feed = Path.Combine(_directory.Path, FeedDirectory);
             _ = Directory.CreateDirectory(feed);
-            var source = new XElement(AddSourceElement, new XAttribute(SourceKeyAttribute, FixtureSource), new XAttribute(SourceValueAttribute, feed));
-            var sources = new XElement(PackageSourcesElement, new XElement("clear"), source);
-            new XDocument(new XElement("configuration", sources))
-                .Save(Path.Combine(_directory.Path, NuGetConfigFile));
+            WriteConfiguration(includeOtherFeed: false);
         }
 
         /// <summary>Gets or sets the selected documentation framework.</summary>
@@ -801,6 +880,12 @@ public sealed class PackageRestoreTests
 
         /// <summary>Gets the explicitly selected dependency versions.</summary>
         public Dictionary<string, string> DependencyPins { get; } = [with(StringComparer.Ordinal)];
+
+        /// <summary>Gets packages that supply framework references without documentation pages.</summary>
+        public List<string> ReferencePackages { get; } = [];
+
+        /// <summary>Gets explicit package paths used for reference-only assemblies.</summary>
+        public Dictionary<string, string> ReferencePathPrefixes { get; } = [with(StringComparer.Ordinal)];
 
         /// <summary>Gets the frameworks selected for individual documentation roots.</summary>
         public Dictionary<string, string> TfmOverrides { get; } = [with(StringComparer.Ordinal)];
@@ -870,36 +955,22 @@ public sealed class PackageRestoreTests
             File.Copy(source, Path.Combine(directory, Path.GetFileName(source)));
         }
 
-        /// <summary>Maps fixture package identities to one of two configured feeds.</summary>
-        public void ConfigureSourceMapping()
-        {
-            var primary = new XElement(AddSourceElement, new XAttribute(SourceKeyAttribute, FixtureSource), new XAttribute(SourceValueAttribute, Path.Combine(_directory.Path, FeedDirectory)));
-            var secondaryPath = Path.Combine(_directory.Path, OtherFeedDirectory);
-            var secondary = new XElement(AddSourceElement, new XAttribute(SourceKeyAttribute, OtherFeedDirectory), new XAttribute(SourceValueAttribute, secondaryPath));
-            var sources = new XElement(PackageSourcesElement, new XElement("clear"), primary, secondary);
-            var mapping = new XElement(PackageSourceElement, new XAttribute(SourceKeyAttribute, FixtureSource), new XElement(PackageElement, new XAttribute(PatternAttribute, $"{_prefix}*")));
-            new XDocument(new XElement("configuration", sources, new XElement("packageSourceMapping", mapping))).Save(Path.Combine(_directory.Path, NuGetConfigFile));
-        }
+        /// <summary>Supplies SDK configuration that package-only discovery must ignore.</summary>
+        /// <returns>A task representing the fixture configuration write.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public Task AddIrrelevantSdkConfigurationAsync() =>
+            File.WriteAllTextAsync(Path.Combine(_directory.Path, "global.json"), """{"sdk":{"version":"0.0.0","rollForward":"disable"}}""");
 
-        /// <summary>Allows framework targeting packs from NuGet.org while keeping fixture packages on their local feed.</summary>
-        public void ConfigurePlatformReferenceFeed()
-        {
-            var path = Path.Combine(_directory.Path, NuGetConfigFile);
-            var document = XDocument.Load(path);
-            var sources = document.Root!.Element(PackageSourcesElement)!;
-            sources.Add(new XElement(AddSourceElement, new XAttribute(SourceKeyAttribute, "frameworks"), new XAttribute(SourceValueAttribute, "https://api.nuget.org/v3/index.json")));
-            var fixtureMapping = new XElement(PackageSourceElement, new XAttribute(SourceKeyAttribute, FixtureSource), new XElement(PackageElement, new XAttribute(PatternAttribute, $"{_prefix}*")));
-            var frameworkMapping = new XElement(PackageSourceElement, new XAttribute(SourceKeyAttribute, "frameworks"), new XElement(PackageElement, new XAttribute(PatternAttribute, "*")));
-            document.Root.Add(new XElement("packageSourceMapping", fixtureMapping, frameworkMapping));
-            document.Save(path);
-        }
+        /// <summary>Maps fixture package identities to one of two configured feeds.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void ConfigureSourceMapping() => WriteConfiguration(includeOtherFeed: true);
 
         /// <summary>Declares a package dependency.</summary>
         /// <param name="id">Fixture package name.</param>
         /// <param name="range">NuGet version range.</param>
         /// <returns>The dependency element.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public string Dependency(string id, string range) => new XElement("dependency", new XAttribute(nameof(id), _prefix + id), new XAttribute("version", range)).ToString();
+        public string Dependency(string id, string range) => new XElement("dependency", new XAttribute(nameof(id), _prefix + id), new XAttribute(VersionProperty, range)).ToString();
 
         /// <summary>Creates a package in the local feed.</summary>
         /// <param name="id">Fixture package name.</param>
@@ -936,33 +1007,45 @@ public sealed class PackageRestoreTests
             }
         }
 
-        /// <summary>Adds a reference supplied by an evaluated package target.</summary>
-        /// <param name="id">The fixture package containing the target.</param>
-        /// <param name="assembly">The reference assembly bytes.</param>
-        public void AddBuildReference(string id, byte[] assembly)
+        /// <summary>Adds an explicit fixture asset to an existing package.</summary>
+        /// <param name="id">The fixture package name.</param>
+        /// <param name="version">The package version.</param>
+        /// <param name="path">The package-relative asset path.</param>
+        /// <param name="contents">The asset contents.</param>
+        public void AddPackageFile(string id, string version, string path, byte[] contents)
         {
-            var path = Path.Combine(_directory.Path, FeedDirectory, $"{_prefix}{id}.{InitialVersion}.nupkg");
-            using var archive = ZipFile.Open(path, ZipArchiveMode.Update);
-            using (var stream = archive.CreateEntry("manual/Shared.dll").Open())
-            {
-                stream.Write(assembly);
-            }
-
-            var reference = new XElement("Reference", new XAttribute("Include", Shared), new XElement("HintPath", "$(MSBuildThisFileDirectory)../manual/Shared.dll"));
-            var target = new XElement(
-                "Target",
-                new XAttribute("Name", "AddFixtureReference"),
-                new XAttribute("BeforeTargets", "ResolveAssemblyReferences"),
-                new XAttribute("Condition", $"'$(TargetFramework)' == '{TargetFramework}'"),
-                new XElement("ItemGroup", reference));
-            using var writer = new StreamWriter(archive.CreateEntry($"build/{_prefix}{id}.targets").Open());
-            writer.Write(new XDocument(new XElement("Project", target)));
+            using var archive = ZipFile.Open(Path.Combine(_directory.Path, FeedDirectory, $"{_prefix}{id}.{version}.nupkg"), ZipArchiveMode.Update);
+            using var stream = archive.CreateEntry(path).Open();
+            stream.Write(contents);
         }
 
-        /// <summary>Finds the synthetic SDK project for the fixture's single restored graph.</summary>
-        /// <returns>The evaluation project path.</returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public string GetEvaluationProjectPath() => Directory.GetFiles(Path.Combine(_directory.Path, ApiDirectory, "restore"), "documentation.csproj", SearchOption.AllDirectories)[0];
+        /// <summary>Adds a target that fails if documentation attempts to execute package build logic.</summary>
+        /// <param name="id">The fixture package name.</param>
+        public void AddRejectingBuildTarget(string id)
+        {
+            using var archive = ZipFile.Open(Path.Combine(_directory.Path, FeedDirectory, $"{_prefix}{id}.{InitialVersion}.nupkg"), ZipArchiveMode.Update);
+            using var writer = new StreamWriter(archive.CreateEntry($"build/{_prefix}{id}.targets").Open());
+            writer.Write("""
+                <Project>
+                  <Target Name="RejectDocumentationBuild" BeforeTargets="ResolveReferences;Build">
+                    <Error Text="Documentation must not execute package build targets." />
+                  </Target>
+                </Project>
+                """);
+        }
+
+        /// <summary>Publishes the package versions whose assemblies a reference pack supersedes.</summary>
+        /// <param name="referencePackage">The fixture reference-pack name.</param>
+        /// <param name="overrides">Package names and maximum overridden NuGet versions.</param>
+        public void AddPackageOverrides(string referencePackage, (string Id, string Version)[] overrides)
+        {
+            using var archive = ZipFile.Open(Path.Combine(_directory.Path, FeedDirectory, $"{_prefix}{referencePackage}.{InitialVersion}.nupkg"), ZipArchiveMode.Update);
+            using var writer = new StreamWriter(archive.CreateEntry("data/PackageOverrides.txt").Open());
+            foreach (var entry in overrides)
+            {
+                writer.WriteLine($"{_prefix}{entry.Id}|{entry.Version}");
+            }
+        }
 
         /// <summary>Sets the documentation roots and exclusions.</summary>
         /// <param name="roots">Root package names.</param>
@@ -977,7 +1060,7 @@ public sealed class PackageRestoreTests
             {
                 writer.WriteStartObject();
                 writer.WriteString("id", _prefix + root);
-                writer.WriteString("version", RootVersion);
+                writer.WriteString(VersionProperty, RootVersion);
                 writer.WriteEndObject();
             }
 
@@ -1006,6 +1089,18 @@ public sealed class PackageRestoreTests
             }
 
             writer.WriteEndObject();
+            writer.WriteStartArray("referencePackages");
+            foreach (var package in ReferencePackages)
+            {
+                writer.WriteStartObject();
+                writer.WriteString("id", _prefix + package);
+                writer.WriteString(VersionProperty, InitialVersion);
+                writer.WriteString("targetTfm", TargetFramework);
+                writer.WriteString("pathPrefix", ReferencePathPrefixes.TryGetValue(package, out var prefix) ? prefix : $"ref/{TargetFramework}");
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndArray();
             if (RuntimeIdentifier is not null)
             {
                 writer.WriteString("runtimeIdentifier", RuntimeIdentifier);
@@ -1080,6 +1175,30 @@ public sealed class PackageRestoreTests
         /// <inheritdoc />
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Dispose() => _directory.Dispose();
+
+        /// <summary>Restricts fixture identities to their local feed while allowing framework-reference acquisition.</summary>
+        /// <param name="includeOtherFeed">Whether the source-mapping fixture's denied feed is configured.</param>
+        private void WriteConfiguration(bool includeOtherFeed)
+        {
+            var primary = new XElement(AddSourceElement, new XAttribute(SourceKeyAttribute, FixtureSource), new XAttribute(SourceValueAttribute, Path.Combine(_directory.Path, FeedDirectory)));
+            var frameworks = new XElement(AddSourceElement, new XAttribute(SourceKeyAttribute, FrameworkSource), new XAttribute(SourceValueAttribute, FrameworkFeed));
+            var sources = new XElement(PackageSourcesElement, new XElement("clear"), primary, frameworks);
+            if (includeOtherFeed)
+            {
+                var otherPath = Path.Combine(_directory.Path, OtherFeedDirectory);
+                sources.Add(new XElement(AddSourceElement, new XAttribute(SourceKeyAttribute, OtherFeedDirectory), new XAttribute(SourceValueAttribute, otherPath)));
+            }
+
+            var mapping = new XElement(PackageSourceElement, new XAttribute(SourceKeyAttribute, FixtureSource), new XElement(PackageElement, new XAttribute(PatternAttribute, $"{_prefix}*")));
+            var frameworkMapping = new XElement(
+                PackageSourceElement,
+                new XAttribute(SourceKeyAttribute, FrameworkSource),
+                new XElement(PackageElement, new XAttribute(PatternAttribute, "Microsoft.*")),
+                new XElement(PackageElement, new XAttribute(PatternAttribute, "NETStandard.Library*")),
+                new XElement(PackageElement, new XAttribute(PatternAttribute, "System.*")),
+                new XElement(PackageElement, new XAttribute(PatternAttribute, "runtime.*")));
+            new XDocument(new XElement("configuration", sources, new XElement("packageSourceMapping", mapping, frameworkMapping))).Save(Path.Combine(_directory.Path, NuGetConfigFile));
+        }
     }
 
     /// <summary>Wraps package acquisition without changing its behavior.</summary>

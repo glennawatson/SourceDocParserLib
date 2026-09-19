@@ -70,6 +70,58 @@ public class CompilationLoaderResolverFallbackTests
         await Assert.That(compilation.GetTypeByMetadataName(DependencyTypeName)).IsNotNull();
     }
 
+    /// <summary>Supplied-only parsing resolves exactly the provided index even when another dependency is beside the root.</summary>
+    /// <param name="includeDependency">Whether the adjacent dependency is explicitly supplied.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task LoadOnlySuppliedReferencesUsesOnlyTheReferenceIndex(bool includeDependency)
+    {
+        using var directory = new TempDirectory();
+        var dependency = EmitSyntheticDependency(FakeSplat, directory.Path);
+        var primary = EmitPrimaryReferencingDependency(Primary2, dependency, directory.Path);
+        var core = typeof(object).Assembly;
+        var references = SelectedReferences(core.GetName().Name!, core.Location);
+        if (includeDependency)
+        {
+            references.Add(FakeSplat, dependency);
+        }
+
+        var logger = new RecordingLogger();
+        using var loader = new CompilationLoader(logger) { UseOnlySuppliedReferences = true };
+
+        var (compilation, _) = loader.Load(primary, references);
+
+        if (includeDependency)
+        {
+            await Assert.That(compilation.GetTypeByMetadataName(DependencyTypeName)).IsNotNull();
+            await Assert.That(logger.HasWarningContaining(FakeSplat)).IsFalse();
+            return;
+        }
+
+        await Assert.That(compilation.GetTypeByMetadataName(DependencyTypeName)).IsNull();
+        var warning = await Assert.That(logger.Warnings).HasSingleItem(static message => message.Contains(FakeSplat, StringComparison.Ordinal));
+        await Assert.That(warning).Contains(primary);
+    }
+
+    /// <summary>Standalone parsing discovers adjacent dependencies when supplied-only mode is not requested.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task LoadStandaloneResolvesDependencyOutsideSuppliedReferences()
+    {
+        using var directory = new TempDirectory();
+        var dependency = EmitSyntheticDependency(FakeSplat, directory.Path);
+        var primary = EmitPrimaryReferencingDependency(Primary2, dependency, directory.Path);
+        var core = typeof(object).Assembly;
+        using var loader = new CompilationLoader();
+
+        var (compilation, _) = loader.Load(primary, SelectedReferences(core.GetName().Name!, core.Location));
+
+        await Assert.That(loader.UseOnlySuppliedReferences).IsFalse();
+        await Assert.That(compilation.GetTypeByMetadataName(DependencyTypeName)).IsNotNull();
+    }
+
     /// <summary>Unreferenced compile assets remain available without reporting their optional dependency closures as root requirements.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]

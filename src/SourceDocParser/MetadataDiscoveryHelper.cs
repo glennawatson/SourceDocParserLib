@@ -28,6 +28,11 @@ internal static partial class MetadataDiscoveryHelper
         await foreach (var group in source.DiscoverAsync(cancellationToken).ConfigureAwait(false))
         {
             var loader = loaderRegistry.Track(loaderFactory(logger));
+            if (loader is CompilationLoader compilationLoader)
+            {
+                compilationLoader.UseOnlySuppliedReferences = group.UseOnlySuppliedReferences;
+            }
+
             groups.Add(new(group, loader, group.AssemblyPaths.Length));
         }
 
