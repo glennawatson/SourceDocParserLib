@@ -16,8 +16,10 @@
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" VersionOverride="0.15.8" />
     <PackageReference Include="Docfx.Dotnet" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" VersionOverride="5.0.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <!-- Docfx requires the PEFile constructor supplied by Decompiler 9. -->
     <PackageReference Include="ICSharpCode.Decompiler" VersionOverride="9.1.0.7988" />
+    <!-- Docfx implements the YamlDotNet 16 type-inspector interface. -->
     <PackageReference Include="YamlDotNet" VersionOverride="16.3.0" />
   </ItemGroup>
 
