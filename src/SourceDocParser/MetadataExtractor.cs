@@ -34,7 +34,7 @@ public sealed class MetadataExtractor : IMetadataExtractor
     private readonly ISymbolWalker _symbolWalker;
 
     /// <summary>Factory invoked once per TFM group to create the loader for that group.</summary>
-    private readonly Func<ILogger, ICompilationLoader> _loaderFactory;
+    private readonly Func<ILogger, ICompilationLoader>? _loaderFactory;
 
     /// <summary>Factory invoked once per assembly to create its scoped source-link resolver.</summary>
     private readonly Func<string, ISourceLinkResolver> _sourceLinkResolverFactory;
@@ -70,7 +70,7 @@ public sealed class MetadataExtractor : IMetadataExtractor
         Func<string, ISourceLinkResolver>? sourceLinkResolverFactory)
     {
         _symbolWalker = symbolWalker ?? new SymbolWalker();
-        _loaderFactory = loaderFactory ?? (static logger => new CompilationLoader(logger));
+        _loaderFactory = loaderFactory;
         _sourceLinkResolverFactory = sourceLinkResolverFactory ?? (static path => new SourceLinkResolver(path));
     }
 
@@ -246,8 +246,10 @@ public sealed class MetadataExtractor : IMetadataExtractor
         ILogger logger,
         CancellationToken cancellationToken)
     {
+        using var documentationCache = new XmlDocumentationCache();
         using var loaderRegistry = new LoaderRegistry();
-        var groups = await MetadataDiscoveryHelper.DiscoverTfmGroupsAsync(source, _loaderFactory, loaderRegistry, logger, cancellationToken).ConfigureAwait(false);
+        var loaderFactory = _loaderFactory ?? (log => new CompilationLoader(log, true, documentationCache.Get));
+        var groups = await MetadataDiscoveryHelper.DiscoverTfmGroupsAsync(source, loaderFactory, loaderRegistry, logger, cancellationToken).ConfigureAwait(false);
 
         var merger = new StreamingTypeMerger();
         var loadFailureBox = new StrongBox<int>();

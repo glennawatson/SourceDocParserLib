@@ -31,6 +31,9 @@ internal sealed class MetadataReferenceCache : IDisposable
     /// <summary>Whether consumers need the supplied assemblies' XML documentation.</summary>
     private readonly bool _includeXmlDocumentation;
 
+    /// <summary>Optional documentation loader supplied by a pipeline-scoped cache.</summary>
+    private readonly Func<string, ILogger, DocumentationProvider?>? _documentationLoader;
+
     /// <summary>Initializes a new instance of the <see cref="MetadataReferenceCache"/> class.</summary>
     /// <param name="logger">Logger for XML doc load progress and parse failures.</param>
     public MetadataReferenceCache(ILogger logger)
@@ -42,9 +45,19 @@ internal sealed class MetadataReferenceCache : IDisposable
     /// <param name="logger">Diagnostic destination.</param>
     /// <param name="includeXmlDocumentation">Whether callers need XML documentation.</param>
     public MetadataReferenceCache(ILogger logger, bool includeXmlDocumentation)
+        : this(logger, includeXmlDocumentation, null)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="MetadataReferenceCache"/> class.</summary>
+    /// <param name="logger">Diagnostic destination.</param>
+    /// <param name="includeXmlDocumentation">Whether XML documentation is required.</param>
+    /// <param name="documentationLoader">Optional pipeline-scoped documentation provider.</param>
+    internal MetadataReferenceCache(ILogger logger, bool includeXmlDocumentation, Func<string, ILogger, DocumentationProvider?>? documentationLoader)
     {
         _logger = logger;
         _includeXmlDocumentation = includeXmlDocumentation;
+        _documentationLoader = documentationLoader;
     }
 
     /// <summary>
@@ -76,15 +89,21 @@ internal sealed class MetadataReferenceCache : IDisposable
             assemblyPath,
             static (path, state) =>
             {
-                var documentation = state.IncludeXmlDocumentation ? XmlDocsLoader.TryLoad(path, state.Logger) : null;
+                DocumentationProvider? documentation = null;
+                if (state.IncludeXmlDocumentation)
+                {
+                    documentation = state.DocumentationLoader is { } loader ? loader(path, state.Logger) : XmlDocsLoader.TryLoad(path, state.Logger);
+                }
+
                 return documentation is null
                     ? MetadataReference.CreateFromFile(path)
                     : MetadataReference.CreateFromFile(path, documentation: documentation);
             },
-            new FactoryState(_logger, _includeXmlDocumentation));
+            new FactoryState(_logger, _includeXmlDocumentation, _documentationLoader));
 
     /// <summary>The state of the Factory.</summary>
     /// <param name="Logger">Logger for XML doc load progress and parse failures.</param>
     /// <param name="IncludeXmlDocumentation">Whether callers need XML documentation.</param>
-    private readonly record struct FactoryState(ILogger Logger, bool IncludeXmlDocumentation);
+    /// <param name="DocumentationLoader">Optional pipeline-scoped documentation provider.</param>
+    private readonly record struct FactoryState(ILogger Logger, bool IncludeXmlDocumentation, Func<string, ILogger, DocumentationProvider?>? DocumentationLoader);
 }

@@ -55,9 +55,18 @@ public sealed partial class CompilationLoader : ICompilationLoader
     /// <param name="logger">Reference and documentation diagnostics.</param>
     /// <param name="includeXmlDocumentation">Whether to read XML documentation alongside assemblies.</param>
     public CompilationLoader(ILogger? logger, bool includeXmlDocumentation)
+        : this(logger, includeXmlDocumentation, null)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="CompilationLoader"/> class.</summary>
+    /// <param name="logger">Reference diagnostics.</param>
+    /// <param name="includeXmlDocumentation">Whether XML documentation is required.</param>
+    /// <param name="documentationLoader">Optional shared documentation loader.</param>
+    internal CompilationLoader(ILogger? logger, bool includeXmlDocumentation, Func<string, ILogger, DocumentationProvider?>? documentationLoader)
     {
         _logger = logger ?? NullLogger.Instance;
-        _referenceCache = new(_logger, includeXmlDocumentation);
+        _referenceCache = new(_logger, includeXmlDocumentation, documentationLoader);
     }
 
     /// <summary>Gets or sets a value indicating whether references must come entirely from the supplied index.</summary>
