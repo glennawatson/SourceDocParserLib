@@ -32,7 +32,13 @@ internal static class YamlLiteralBlockFormatter
         var indentLength = ComputeIndentLength(prefix);
         var indent = new string(' ', indentLength + ContinuationIndent);
         var key = prefix.AsSpan(indentLength).TrimEnd();
-        _ = sb.Append(' ', indentLength).Append(key).Append(" |-\n");
+        _ = sb.Append(' ', indentLength).Append(key).Append(" |");
+        if (value is [' ' or '\t' or '\r' or '\n', ..])
+        {
+            _ = sb.Append(ContinuationIndent);
+        }
+
+        _ = sb.Append("-\n");
 
         foreach (var line in value.AsSpan().EnumerateLines())
         {

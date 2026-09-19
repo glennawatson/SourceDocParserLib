@@ -6,6 +6,7 @@ using System.Text;
 using SourceDocParser.Docfx.Yaml;
 using SourceDocParser.Model;
 using SourceDocParser.TestHelpers;
+using YamlDotNet.RepresentationModel;
 
 namespace SourceDocParser.Docfx.Tests.Yaml;
 
@@ -63,7 +64,34 @@ public class DocfxSyntaxContentTests
 
         _ = sb.AppendSyntaxContent(attrs, "public class Foo", indent: "    ");
 
-        await Assert.That(sb.ToString().Lf()).IsEqualTo("    content: >-\n    [Serializable]\n    \n    public class Foo\n");
+        await Assert.That(sb.ToString().Lf()).IsEqualTo("    content: >-\n      [Serializable]\n\n      public class Foo\n");
+    }
+
+    /// <summary>Attributed syntax remains a scalar at each nesting depth and preserves attribute line breaks.</summary>
+    /// <param name="indent">Indentation of the syntax content key.</param>
+    /// <returns>A task representing the test execution.</returns>
+    [Test]
+    [Arguments("")]
+    [Arguments("  ")]
+    [Arguments("    ")]
+    public async Task AttributedSyntaxRoundTripsAtEachIndent(string indent)
+    {
+        var sb = new StringBuilder();
+        ApiAttribute[] attributes =
+        [
+            new("Serializable", "T:System.SerializableAttribute", string.Empty, []),
+            new("Obsolete", "T:System.ObsoleteAttribute", string.Empty, []),
+        ];
+
+        _ = sb.AppendSyntaxContent(attributes, RunMethodSignature, indent)
+            .Append(indent).AppendLine("next: sibling");
+        var stream = new YamlStream();
+        using var reader = new StringReader(sb.ToString());
+        stream.Load(reader);
+        var root = (YamlMappingNode)stream.Documents[0].RootNode;
+
+        await Assert.That(((YamlScalarNode)root["content"]).Value).IsEqualTo("[Serializable]\n[Obsolete]\npublic void Run()");
+        await Assert.That(((YamlScalarNode)root["next"]).Value).IsEqualTo("sibling");
     }
 
     /// <summary>End-to-end: a member with a surviving attribute renders the folded syntax block in its YAML page.</summary>
@@ -100,5 +128,14 @@ public class DocfxSyntaxContentTests
         await Assert.That(yaml).Contains("    content: >-");
         await Assert.That(yaml).Contains("    [Obsolete]");
         await Assert.That(yaml).Contains("    public void Run()");
+
+        var stream = new YamlStream();
+        using var reader = new StringReader(yaml);
+        stream.Load(reader);
+        var root = (YamlMappingNode)stream.Documents[0].RootNode;
+        var items = (YamlSequenceNode)root["items"];
+        var memberItem = (YamlMappingNode)items.Children[1];
+        var syntax = (YamlMappingNode)memberItem["syntax"];
+        await Assert.That(((YamlScalarNode)syntax["content"]).Value).IsEqualTo("[Obsolete]\npublic void Run()");
     }
 }

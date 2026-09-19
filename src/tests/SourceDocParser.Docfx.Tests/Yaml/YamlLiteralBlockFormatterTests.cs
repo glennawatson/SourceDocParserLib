@@ -5,6 +5,7 @@
 using System.Text;
 using SourceDocParser.Docfx.Yaml;
 using SourceDocParser.TestHelpers;
+using YamlDotNet.RepresentationModel;
 
 namespace SourceDocParser.Docfx.Tests.Yaml;
 
@@ -18,6 +19,28 @@ namespace SourceDocParser.Docfx.Tests.Yaml;
 /// </summary>
 public class YamlLiteralBlockFormatterTests
 {
+    /// <summary>Leading whitespace remains content instead of changing the YAML block indentation.</summary>
+    /// <param name="value">Documentation text with significant whitespace.</param>
+    /// <returns>A task representing the assertions.</returns>
+    [Test]
+    [Arguments("  first\nsecond")]
+    [Arguments("\n first\nsecond")]
+    [Arguments(" \ncontent")]
+    [Arguments("  first\n    second")]
+    [Arguments("\tfirst\nsecond")]
+    public async Task LeadingWhitespaceRoundTrips(string value)
+    {
+        var builder = new StringBuilder();
+        _ = YamlLiteralBlockFormatter.Format(builder, "  summary: ", value);
+        using var reader = new StringReader(builder.ToString());
+        var yaml = new YamlStream();
+        yaml.Load(reader);
+        var mapping = (YamlMappingNode)yaml.Documents[0].RootNode;
+        var scalar = (YamlScalarNode)mapping.Children[new YamlScalarNode("summary")];
+
+        await Assert.That(scalar.Value).IsEqualTo(value);
+    }
+
     /// <summary>The body indent equals the key indent plus two spaces.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]

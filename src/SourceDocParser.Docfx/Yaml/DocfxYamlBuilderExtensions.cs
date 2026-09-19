@@ -29,6 +29,9 @@ internal static class DocfxYamlBuilderExtensions
     /// <summary>Shared header for a top-level syntax block.</summary>
     private const string SyntaxBlockHeader = "  syntax:\n";
 
+    /// <summary>Spaces added beneath the syntax content key for its folded scalar body.</summary>
+    private const string SyntaxContentIndent = "  ";
+
     /// <summary>Default converter -- shared instance for tests / callers that don't supply one.</summary>
     private static readonly XmlDocToMarkdown DefaultConverter = new(DefaultCrefResolver.Instance);
 
@@ -774,18 +777,10 @@ internal static class DocfxYamlBuilderExtensions
             .AppendParameters(member.Parameters, indent: "    ")
             .AppendReturnIfPresent(member.ReturnType, indent: "    ");
 
-        /// <summary>
-        /// Writes the <c>content:</c> line of a syntax block. When
-        /// <paramref name="attributes"/> survives the
-        /// <see cref="DocfxAttributeFilter"/> denylist, the attributes
-        /// render as <c>[Name(args)]</c> lines stacked above the signature
-        /// inside a folded <c>>-</c> block. The empty-attribute fast
-        /// path preserves the previous short-scalar behaviour exactly --
-        /// no extra allocation, no folded-block setup work.
-        /// </summary>
+        /// <summary>Writes the syntax content with visible attribute usages on separate lines above the signature.</summary>
         /// <param name="attributes">Walker-emitted attribute list (will be filtered).</param>
         /// <param name="signature">The C# source signature for the symbol.</param>
-        /// <param name="indent">Indent prefix for the value lines (e.g. <c>"    "</c>).</param>
+        /// <param name="indent">Indent prefix for the content key (e.g. <c>"    "</c>).</param>
         /// <returns>The same <paramref name="sb"/>, for chaining.</returns>
         internal StringBuilder AppendSyntaxContent(
             ApiAttribute[] attributes,
@@ -795,25 +790,18 @@ internal static class DocfxYamlBuilderExtensions
             var filtered = DocfxAttributeFilter.Filter(attributes);
             if (filtered is [])
             {
-                // Fast path: no surviving attributes -- keep the legacy
-                // single-line scalar form so output diffs against the
-                // pre-tier-1c baseline are zero on the dominant case.
                 return sb.Append(indent).Append("content: ").AppendScalar(signature).AppendLine();
             }
 
             _ = sb.Append(indent).AppendLine("content: >-");
             for (var i = 0; i < filtered.Length; i++)
             {
-                _ = sb.Append(indent).Append('[').Append(AttributeUsageFormatter.Render(filtered[i])).Append(']').AppendLine();
+                _ = sb.Append(indent).Append(SyntaxContentIndent).Append('[')
+                    .Append(AttributeUsageFormatter.Render(filtered[i])).Append(']').AppendLine().AppendLine();
             }
 
-            // Blank line between the attribute prefix and the signature so
-            // a YAML folded scalar reader keeps them on separate output
-            // lines (folded form joins adjacent lines with a space; an
-            // empty separator line preserves the linebreak).
-            return sb
-                .AppendLine(indent)
-                .Append(indent).AppendLine(signature);
+            // Empty separator lines keep each attribute on its own line when YAML unfolds the scalar.
+            return sb.Append(indent).Append(SyntaxContentIndent).AppendLine(signature);
         }
 
         /// <summary>Writes the parameters list under a syntax block at the supplied indent depth. No-op for parameter-less members.</summary>
