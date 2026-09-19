@@ -16,6 +16,9 @@ internal static class ZensicalEmitterHelpers
     /// <summary>Distinguishes a type page from a directory landing page.</summary>
     private const string TypePageSuffix = "-type";
 
+    /// <summary>Distinguishes a member page from a directory landing page.</summary>
+    private const string MemberPageSuffix = "-member";
+
     /// <summary>Markdown table cell pipe character.</summary>
     private const char MarkdownPipe = '|';
 
@@ -243,6 +246,25 @@ internal static class ZensicalEmitterHelpers
                         var c => c,
                     };
                 }
+            });
+    }
+
+    /// <summary>Formats a member filename without occupying a directory landing page.</summary>
+    /// <param name="name">Member name from metadata.</param>
+    /// <returns>The filename-safe member path stem.</returns>
+    internal static string MemberFileStem(string name)
+    {
+        var sanitized = SanitiseForFilename(name);
+        var lastSeparator = sanitized.AsSpan().LastIndexOfAny('/', '\\');
+        return !sanitized.AsSpan(lastSeparator + 1).Equals(LandingPageStem, StringComparison.OrdinalIgnoreCase)
+            ? sanitized
+            : string.Create(
+            sanitized.Length + MemberPageSuffix.Length,
+            sanitized,
+            static (span, value) =>
+            {
+                value.AsSpan().CopyTo(span);
+                MemberPageSuffix.AsSpan().CopyTo(span[value.Length..]);
             });
     }
 

@@ -742,7 +742,7 @@ internal static class TypePageEmitter
 
             var name = MarkdownEscape(member.Name);
             var staticPrefix = member.IsStatic ? "_static_ " : string.Empty;
-            var memberFile = SanitiseForFilename(member.Name) + FileExtension;
+            var memberFile = ZensicalEmitterHelpers.MemberFileStem(member.Name) + FileExtension;
             var summary = TableEscape(OneLineSummary(converter.Convert(member.Documentation.Summary)));
             _ = sb.Append("| ").Append(staticPrefix)
               .Append('[').Append(name).Append("](").Append(typeFolder).Append('/').Append(memberFile).Append(')')
@@ -756,12 +756,6 @@ internal static class TypePageEmitter
     private static string TypeFolderName(ApiType type) => type.Arity > 0
         ? ZensicalEmitterHelpers.FormatPathTypeName(type.Name, type.Arity)
         : type.Name;
-
-    /// <summary>Strips unsafe characters from a member name for use in a filename.</summary>
-    /// <param name="name">The raw member name.</param>
-    /// <returns>A sanitised filename-safe string.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string SanitiseForFilename(string name) => ZensicalEmitterHelpers.SanitiseForFilename(name);
 
     /// <summary>Joins type-level modifiers into a space-separated string.</summary>
     /// <param name="type">The type whose modifiers to format.</param>

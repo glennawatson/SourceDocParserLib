@@ -64,6 +64,19 @@ public class ZensicalEmitterHelpersTests
         await Assert.That(path).IsEqualTo("_global/Result{T}/Run{T}_Core_Impl.md");
     }
 
+    /// <summary>Member paths escape reserved leaf names while preserving other sanitized names.</summary>
+    /// <param name="name">Metadata member name.</param>
+    /// <param name="expected">Portable member path stem.</param>
+    /// <returns>The asynchronous assertions.</returns>
+    [Test]
+    [Arguments("Indexer", "Indexer")]
+    [Arguments("Index<T>", "Index{T}")]
+    [Arguments("Nested/Index", "Nested/Index-member")]
+    [Arguments("Nested\\INDEX", "Nested\\INDEX-member")]
+    [Arguments("Build_/Themes/Index.axaml", "Build_/Themes/Index_axaml")]
+    public async Task MemberFileStemPreservesNonReservedNames(string name, string expected) =>
+        await Assert.That(ZensicalEmitterHelpers.MemberFileStem(name)).IsEqualTo(expected);
+
     /// <summary>Filename sanitization only rewrites the small set of path-hostile characters.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]

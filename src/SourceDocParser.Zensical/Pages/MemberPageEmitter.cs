@@ -125,7 +125,7 @@ internal static class MemberPageEmitter
             containingType.Namespace,
             containingType.Name,
             containingType.Arity,
-            ZensicalEmitterHelpers.SanitiseForFilename(memberName),
+            ZensicalEmitterHelpers.MemberFileStem(memberName),
             TypePageEmitter.FileExtension);
 
         var packageFolder = PackageRouter.ResolveFolder(containingType.AssemblyName, options.PackageRouting);
@@ -594,7 +594,7 @@ internal static class MemberPageEmitter
     /// <returns>The relative href to the type page.</returns>
     private static string BuildTypeBackLink(string memberName, string typePagePath)
     {
-        var sanitised = ZensicalEmitterHelpers.SanitiseForFilename(memberName);
+        var sanitised = ZensicalEmitterHelpers.MemberFileStem(memberName);
         var depth = 1;
         for (var i = 0; i < sanitised.Length; i++)
         {

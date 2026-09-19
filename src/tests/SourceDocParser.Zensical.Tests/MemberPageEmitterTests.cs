@@ -18,6 +18,28 @@ public class MemberPageEmitterTests
     /// <summary>Fixture value for RunSignature.</summary>
     private const string RunSignature = "void Run()";
 
+    /// <summary>Index members keep their own page instead of occupying a directory landing page.</summary>
+    /// <param name="name">Member spelling.</param>
+    /// <returns>The asynchronous assertions.</returns>
+    [Test]
+    [Arguments("Index")]
+    [Arguments("index")]
+    [Arguments("INDEX")]
+    public async Task IndexMemberPathsDoNotAliasTypePages(string name)
+    {
+        var member = NewMember(name, $"int {name} {{ get; }}") with { Kind = ApiMemberKind.Property, Uid = $"P:Example.Foo.{name}" };
+        var type = TestData.ObjectType("Foo") with { Namespace = "Example", Members = [member] };
+
+        var path = MemberPageEmitter.PathFor(type, name);
+        var page = MemberPageEmitter.Render(type, name, [member]);
+        var typePage = TypePageEmitter.Render(type);
+
+        await Assert.That(path).IsEqualTo($"Test/Example/Foo/{name}-member.md");
+        await Assert.That(typePage).Contains($"](Foo/{name}-member.md)");
+        await Assert.That(page).Contains("Type: [Foo](../Foo.md)");
+        await Assert.That(page).Contains($"P:Example.Foo.{name}");
+    }
+
     /// <summary>Index members link to their type page while retaining their member folder.</summary>
     /// <returns>A task representing the test execution.</returns>
     [Test]
