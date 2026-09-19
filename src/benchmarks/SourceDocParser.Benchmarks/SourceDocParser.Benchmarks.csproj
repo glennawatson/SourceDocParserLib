@@ -25,7 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\tests\SourceDocParser.Tests\Fixtures\nuget-packages.json" Link="Fixtures\nuget-packages.json">
+    <None Update="Fixtures\nuget-packages.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

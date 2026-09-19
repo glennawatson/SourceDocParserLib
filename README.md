@@ -33,7 +33,7 @@ opinionated choices about page structure, cross-TFM merging, and the packages
 that receive pages. Our Docfx emitter adapts that catalog to ManagedReference
 YAML. Docfx itself provides a broader documentation and site-building toolchain,
 including conceptual content, templates, navigation, and cross-references.
-See the [approach and benchmark comparison](src/benchmarks/README.md) for the
+See the [performance overview and comparison](docs/performance.md) for the
 scope of each tool and the measured differences.
 
 Logging flows through `Microsoft.Extensions.Logging.Abstractions`
@@ -213,121 +213,10 @@ during a build.
 
 ## Performance
 
-### Comparison with Docfx 2.80.1
-
-For Refit 15.2.0 on `net10.0`, API extraction and YAML writing measured:
-
-| Generator | Mean ± 99.9% confidence interval | Managed allocation |
-|---|---:|---:|
-| SourceDocParser with its Docfx YAML emitter | 123.9 ± 6.70 ms | 128.22 MiB |
-| Docfx 2.80.1 | 564.1 ± 7.58 ms | 501.37 MiB |
-
-That is about **4.6× faster and 74% less allocation for this workload**. Both
-outputs parse as YAML and describe the same 490 API entries across 83 types.
-The comparison uses identical assembly inputs and matched visibility settings;
-it excludes package fetching and site rendering. Docfx does more out of the box,
-and these measurements cover only the API-generation stage shared by both tools.
-See the [benchmark notes](src/benchmarks/README.md) for methodology, output
-differences, and how the tools complement different documentation workflows.
-
-### Package fetching
-
-The fetch comparison pins Refit 15.2.0 to `net10.0` and
-Microsoft.NETCore.App.Ref to 10.0.0, runs on .NET 11 in Release mode, and retains
-downloaded package caches. Fresh-source runs regenerate graph output. Every
-operation verifies one documentation root; selected reference entries are 314
-for 2.2.0 and 171 for the NuGet restore pipeline. Cached and fresh discovery
-return identical graph and assembly hashes within each implementation.
-
-| Scenario | Published 2.2.0 | NuGet restore pipeline | Managed allocations (2.2.0 → restore) |
-|---|---:|---:|---:|
-| Warm source and graph | 2,088 ± 8.4 ms | 31.56 ± 2.616 ms | 83.86 → 13.80 MB |
-| Fresh source and graph | 4,978 ± 35.5 ms | 25.83 ± 1.663 ms | 89.96 → 14.01 MB |
-
-Intervals are BenchmarkDotNet's 99.9% confidence intervals from five warmups and
-15 measurements on a Ryzen 7 5800X, pinned to seven physical cores with the
-performance governor. Allocation counts cover the benchmark process. Allocation
-profiling runs separately from timing. The repository harness uses automatic
-framework-pack selection; the comparison adds the same reference-pack pin to
-both implementations.
-
-```bash
-cd src
-dotnet run --project benchmarks/SourceDocParser.Benchmarks --framework net11.0 \
-  --configuration Release -- --filter '*NuGetFetchBenchmarks*'
-```
-
-### Pipeline workload
-
-**Benchmark workload.** Numbers below are from the BenchmarkDotNet suite
-under `src/benchmarks/SourceDocParser.Benchmarks/`, run on a Ryzen 7 5800X /
-.NET 10. The workload extracts three NuGet packages from `nuget.org`
-— pulling each package's `lib/` and `ref/` trees and the matching reference
-assemblies, walking every public symbol across ~19 target-framework groups,
-parsing the shipped XML doc files, resolving `<inheritdoc/>` chains, and
-emitting roughly 600 canonical type pages after cross-TFM merge. The local
-NuGet cache is warmed once during global setup so per-iteration timings
-measure the walk + merge + emit pipeline, not the network leg.
-
-**End-to-end (`MetadataExtractor.RunAsync`):**
-
-| Phase                                | Wall time | Allocated |
-|--------------------------------------|----------:|----------:|
-| Full pipeline (`RunAsync`)           |   ~1.5 s  |  ~525 MB  |
-| Discover (NuGet config + cache scan) |  ~990 ms  |  ~258 MB  |
-| Load + walk (parallel, all groups)   |  ~509 ms  |  ~236 MB  |
-| Merge (cross-TFM dedup)              |   ~1 ms   |  ~380 KB  |
-| Emit (Zensical Markdown)             |  ~139 ms  |   ~39 MB  |
-
-The walk phase walks one Roslyn compilation per package — one canonical TFM
-per equivalence class. Other TFMs whose public-API surface is a subset of
-the canonical's are folded in via a `MetadataReader` probe that only
-enumerates type tokens, no symbol tree, no constructed types. The merger
-then broadcasts the canonical's walked types into each subset TFM so
-`ApiType.AppliesTo` still records every TFM the type applies to.
-
-**Per-call hotspots:**
-
-| Operation                                                                |    Time | Allocated |
-|--------------------------------------------------------------------------|--------:|----------:|
-| `XmlDocToMarkdown.Convert` — plain summary                               |  ~24 ns |     176 B |
-| `XmlDocToMarkdown.Convert` — tagged with `<see>` / `<c>` / `<paramref>`  | ~916 ns |     456 B |
-| `XmlDocToMarkdown.Convert` — code block + bullet list                    | ~1.2 µs |     440 B |
-| `TfmResolver.FindBestRefsTfm` — exact match                              |   ~3 ns |       0 B |
-| `TfmResolver.FindBestRefsTfm` — platform-suffix strip                    |  ~11 ns |       0 B |
-| `TfmResolver.FindBestRefsTfm` — netstandard fallback                     | ~496 ns |     1 KB  |
-| `TypeMerger.Merge` — 600 types × 3 TFMs                                  | ~115 µs |    358 KB |
-
-**Our emitter cost per type page** (no I/O, just markup formatting; baseline =
-our Zensical Markdown emitter). Both columns use SourceDocParser; this table
-does not measure the Docfx application:
-
-| Workload (types × members/type) | Our Zensical Markdown emitter | Our Docfx YAML emitter | Time | Alloc |
-|---------------------------------|--------------------:|----------------------:|------:|------:|
-| 100 × 5                         |   72 µs / 288 KB    |   618 µs / 1,366 KB   |  8.6× |  4.7× |
-| 100 × 30                        |  263 µs / 763 KB    | 5,432 µs / 6,338 KB   | 20.7× |  8.3× |
-| 600 × 5                         |  437 µs / 1,730 KB  | 3,605 µs / 8,198 KB   |  8.3× |  4.7× |
-| 600 × 30                        | 1,505 µs / 4,580 KB | 17,122 µs / 38,025 KB | 11.4× |  8.3× |
-
-ManagedReference YAML carries explicit member metadata and cross-reference
-records used by Docfx's documentation pipeline. Our YAML emitter serializes
-those additional fields; our Markdown emitter produces the page content chosen
-for MkDocs / Zensical. The formats serve different consumers, so their formatting
-costs are not a measure of equivalent site-building capabilities.
-
-### How perf and allocations stay low
-
-- **MetadataReader probe + canonical-only Roslyn walk.** The walker only spins up one Roslyn compilation per package — the canonical TFM picked by descending rank. Other TFMs whose public type set is a subset of the canonical's are detected via a `System.Reflection.Metadata.MetadataReader` probe (no symbol binding, no constructed-type allocation) and folded into `ApiType.AppliesTo` via a synthetic broadcast catalog that reuses the canonical's already-walked types. TFMs whose surface is *not* a subset still get a full Roslyn walk so removed-in-newer-TFM types stay in the catalog.
-- **Custom span-based XML scanner.** A `ref struct DocXmlScanner` walks `///` doc fragments directly over `ReadOnlySpan<char>`, implementing just the XML grammar doc comments use. `XmlReader`'s `XmlTextReaderImpl` allocates multi-KB internal buffers (`NodeData[]`, `NamespaceManager`, char buffers) per construction; the scanner avoids that. Both the per-symbol parser and the Markdown renderer drive it, so per-element XML processing is allocation-free apart from the result string.
-- **Build-once-then-read-many `XmlDocSource`.** Each `.xml` doc file is read once via `File.ReadAllBytes` + `Encoding.UTF8.GetString` and indexed by per-member `(offset, length)` ranges; substrings materialise only when a consumer calls `Get(memberId)`. Safe for concurrent reads from the parallel walker.
-- **Eager per-group loader disposal.** Each TFM group's `CompilationLoader` holds memory-mapped views of every reference DLL. An interlocked counter retires the loader as soon as its last assembly finishes; peak working set scales with the slowest-finishing group, not the total number of groups times their references.
-- **Streaming type merger.** The parallel walk feeds `ApiCatalog`s into `StreamingTypeMerger` one at a time and immediately drops the reference. Catalogs don't accumulate in a `ConcurrentBag` waiting for the walk phase to finish.
-- **Streaming page sink.** `IPageSink` lets the emitter hand each page off as bytes the moment it's rendered — `FilePageSink` flushes through `PageWriter` (chunked UTF-8 via `ArrayPool<byte>` into an unbuffered `FileStream`); `CallbackPageSink` invokes a delegate so callers can pipe into a `Channel`, an HTTP body, or another in-process pipeline without ever staging files on disk.
-- **Capture-free parallel dispatch.** The `Parallel.ForEachAsync` lambda is `static`; every dependency it touches is bundled into a `WalkContext` record attached to each work item, so dispatch never allocates a closure object per assembly.
-- **Lazy `RenderedDoc` facade for emit-time conversion.** Walker output carries raw inner-XML fragments. Each emitter constructs an `XmlDocToMarkdown(ICrefResolver)` and wraps each symbol's documentation in a `RenderedDoc` that converts each text-shaped field on first read, caches the result, and skips fields the page doesn't consume. Zensical and docfx pick their own cref form (`[name][uid]` autoref vs `<xref:uid>` / Microsoft Learn URL) without the walker baking either in.
-- **Thread-static `PageBuilderPool`.** Each emit thread reuses one `StringBuilder` across page composition calls via a `using`-scoped rental; pages clear the builder between uses instead of allocating fresh.
-- **Shared `CatalogIndexes` rollup.** Derived-class lookup, reverse extension-method lookup, and per-type inherited-member uid lists are built once per emit run in a single O(N) sweep and frozen via `FrozenDictionary`. Each emitter passes its own `System.Object` baseline UIDs (docfx bare names, Zensical `M:`-prefixed commentIds) so the algorithm stays shared while the wire format stays per-emitter.
-- **Pre-sized buffers and stackalloc paths.** nupkg zip entries size their backing `byte[]` to the known uncompressed length up front. SourceLink URL rewriting and `ZensicalCrefResolver`'s Microsoft Learn link composer build their result strings via `stackalloc` + `new string(span)` so the only heap allocation is the returned string itself.
+SourceDocParser focuses on fast API generation, with package, framework, and
+output choices determining the work required. See the
+[performance overview](docs/performance.md) for measurements, tradeoffs, and
+comparisons.
 
 ---
 

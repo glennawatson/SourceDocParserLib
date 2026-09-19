@@ -5,8 +5,8 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Diagnosers;
 using BenchmarkDotNet.Jobs;
+using BenchmarkDotNet.Loggers;
 using SourceDocParser.LibCompilation;
 using SourceDocParser.Merge;
 using SourceDocParser.Model;
@@ -26,7 +26,6 @@ namespace SourceDocParser.Benchmarks;
 [ShortRunJob(RuntimeMoniker.Net10_0)]
 [ShortRunJob(RuntimeMoniker.Net11_0)]
 [MemoryDiagnoser]
-[EventPipeProfiler(EventPipeProfile.GcVerbose)]
 [SuppressMessage(
     "Design",
     "CA1001:Types that own disposable fields should be disposable",
@@ -71,6 +70,7 @@ public class PipelinePhaseBenchmarks
     /// to ensure accurate benchmarking of the pipeline phases.
     /// </summary>
     /// <returns>A task that represents the asynchronous operation of the setup process.</returns>
+    /// <exception cref="InvalidOperationException">The fixture does not produce a complete API catalog.</exception>
     [GlobalSetup]
     public async Task GlobalSetupAsync()
     {
@@ -89,7 +89,11 @@ public class PipelinePhaseBenchmarks
 
         // Warm NuGet cache so per-iteration timings exclude the network leg.
         var warmer = new MetadataExtractor();
-        await warmer.RunAsync(_source, new FilePageSink(Path.Combine(_scratchRoot, "warmup")), _emitter).ConfigureAwait(false);
+        var warmup = await warmer.RunAsync(_source, new FilePageSink(Path.Combine(_scratchRoot, "warmup")), _emitter).ConfigureAwait(false);
+        if (warmup.LoadFailures is not 0 || warmup.CanonicalTypes is 0)
+        {
+            throw new InvalidOperationException("The benchmark fixture did not produce a complete API catalog.");
+        }
 
         // Capture discovered groups for every phase to reuse.
         _groups = [];
@@ -111,7 +115,7 @@ public class PipelinePhaseBenchmarks
         for (var groupIndex = 0; groupIndex < _groups.Count; groupIndex++)
         {
             var group = _groups[groupIndex];
-            var loader = new CompilationLoader();
+            var loader = new CompilationLoader { UseOnlySuppliedReferences = group.UseOnlySuppliedReferences };
             _preLoadedLoaders.Add(loader);
             for (var pathIndex = 0; pathIndex < group.AssemblyPaths.Length; pathIndex++)
             {
@@ -128,6 +132,8 @@ public class PipelinePhaseBenchmarks
                 }
             }
         }
+
+        ValidateWorkload(warmup);
     }
 
     /// <summary>Allocates a fresh output directory per iteration so the emit phase isn't measuring directory-clear cost.</summary>
@@ -203,7 +209,7 @@ public class PipelinePhaseBenchmarks
         for (var groupIndex = 0; groupIndex < _groups.Count; groupIndex++)
         {
             var group = _groups[groupIndex];
-            using var loader = new CompilationLoader();
+            using var loader = new CompilationLoader { UseOnlySuppliedReferences = group.UseOnlySuppliedReferences };
             for (var pathIndex = 0; pathIndex < group.AssemblyPaths.Length; pathIndex++)
             {
                 var path = group.AssemblyPaths[pathIndex];
@@ -245,7 +251,7 @@ public class PipelinePhaseBenchmarks
         for (var groupIndex = 0; groupIndex < _groups.Count; groupIndex++)
         {
             var group = _groups[groupIndex];
-            using var loader = new CompilationLoader();
+            using var loader = new CompilationLoader { UseOnlySuppliedReferences = group.UseOnlySuppliedReferences };
             for (var pathIndex = 0; pathIndex < group.AssemblyPaths.Length; pathIndex++)
             {
                 var path = group.AssemblyPaths[pathIndex];
@@ -309,7 +315,7 @@ public class PipelinePhaseBenchmarks
         for (var groupIndex = 0; groupIndex < groups.Count; groupIndex++)
         {
             var group = groups[groupIndex];
-            using var loader = new CompilationLoader();
+            using var loader = new CompilationLoader { UseOnlySuppliedReferences = group.UseOnlySuppliedReferences };
             for (var pathIndex = 0; pathIndex < group.AssemblyPaths.Length; pathIndex++)
             {
                 var path = group.AssemblyPaths[pathIndex];
@@ -327,6 +333,29 @@ public class PipelinePhaseBenchmarks
         }
 
         return catalogs;
+    }
+
+    /// <summary>Ensures phase measurements cover the same assemblies and API types as the full pipeline.</summary>
+    /// <param name="warmup">The production pipeline's fixture result.</param>
+    /// <exception cref="InvalidOperationException">A phase setup omitted part of the workload.</exception>
+    private void ValidateWorkload(ExtractionResult warmup)
+    {
+        var expectedAssemblies = 0;
+        var referenceEntries = 0;
+        for (var i = 0; i < _groups.Count; i++)
+        {
+            expectedAssemblies += _groups[i].AssemblyPaths.Length;
+            referenceEntries += _groups[i].FallbackIndex.Count;
+        }
+
+        if (_preLoaded.Count != expectedAssemblies || _walkedCatalogs.Count != expectedAssemblies || _mergedTypes.Length != warmup.CanonicalTypes)
+        {
+            throw new InvalidOperationException("The phase benchmark did not preserve the production workload.");
+        }
+
+        ConsoleLogger.Default.WriteLine(
+            LogKind.Info,
+            $"Pipeline fixture: groups={_groups.Count}; assemblies={expectedAssemblies}; references={referenceEntries}; types={_mergedTypes.Length}; pages={warmup.PagesEmitted}.");
     }
 
     /// <summary>One pre-loaded assembly held alive across the benchmark series so <see cref="WalkOnlyBench"/> doesn't pay the load cost per iteration.</summary>

@@ -6,6 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
+using BenchmarkDotNet.Loggers;
 using SourceDocParser.Model;
 using SourceDocParser.NuGet.Infrastructure;
 using SourceDocParser.Zensical;
@@ -48,6 +49,7 @@ public class MetadataExtractorBenchmarks
     /// NuGet cache so per-iteration timings exclude the network leg.
     /// </summary>
     /// <returns>A task representing the asynchronous setup.</returns>
+    /// <exception cref="InvalidOperationException">The fixture does not produce a complete API catalog.</exception>
     [GlobalSetup]
     public async Task GlobalSetupAsync()
     {
@@ -67,7 +69,13 @@ public class MetadataExtractorBenchmarks
 
         // Warm the local cache so [Benchmark] iterations don't re-fetch.
         var warmupOutput = Path.Combine(_scratchRoot, "warmup");
-        await _extractor.RunAsync(_source, new FilePageSink(warmupOutput), _emitter).ConfigureAwait(false);
+        var warmup = await _extractor.RunAsync(_source, new FilePageSink(warmupOutput), _emitter).ConfigureAwait(false);
+        if (warmup.LoadFailures is not 0 || warmup.CanonicalTypes is 0)
+        {
+            throw new InvalidOperationException("The benchmark fixture did not produce a complete API catalog.");
+        }
+
+        ConsoleLogger.Default.WriteLine(LogKind.Info, $"Pipeline fixture: types={warmup.CanonicalTypes}; pages={warmup.PagesEmitted}; load failures={warmup.LoadFailures}.");
     }
 
     /// <summary>Per-iteration setup. Allocates a fresh output directory so each run starts clean.</summary>
