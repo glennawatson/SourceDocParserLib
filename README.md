@@ -28,6 +28,14 @@ for other targets. Pages flow through an `IPageSink` so callers can write to
 disk (`FilePageSink`) or pipe straight into another async pipeline
 (`CallbackPageSink`) without staging files on disk.
 
+Our primary target is API documentation in MkDocs / Zensical sites. We make
+opinionated choices about page structure, cross-TFM merging, and the packages
+that receive pages. Our Docfx emitter adapts that catalog to ManagedReference
+YAML. Docfx itself provides a broader documentation and site-building toolchain,
+including conceptual content, templates, navigation, and cross-references.
+See the [approach and benchmark comparison](src/benchmarks/README.md) for the
+scope of each tool and the measured differences.
+
 Logging flows through `Microsoft.Extensions.Logging.Abstractions`
 source-generated `[LoggerMessage]` partials, so any host (Serilog, Console,
 NLog, …) plugs in without the libraries taking a dependency on a specific
@@ -58,7 +66,7 @@ published version.
 | Package | NuGet | Builder | What |
 |---|---|---|---|
 | [`SourceDocParser.Zensical`][Zen] | [![ver][ZenV]][Zen] | `new ZensicalDocumentationEmitter()` | Writes Markdown tuned for Zensical / mkdocs Material — admonitions, content tabs, mermaid, MD-style cross-links via the autoref UID convention. |
-| [`SourceDocParser.Docfx`][Docfx] | [![ver][DocfxV]][Docfx] | `new DocfxYamlEmitter()` | Writes docfx ManagedReference YAML pages (drop-in replacement for `dotnet docfx metadata` output) plus the `docfx.json` config-file shim that lets an existing docfx site drive the parser pipeline. |
+| [`SourceDocParser.Docfx`][Docfx] | [![ver][DocfxV]][Docfx] | `new DocfxYamlEmitter()` | Provides ManagedReference YAML from our API catalog and a `docfx.json` configuration bridge for Docfx integrations. |
 
 ---
 
@@ -205,6 +213,23 @@ during a build.
 
 ## Performance
 
+### Comparison with Docfx 2.80.1
+
+For Refit 15.2.0 on `net10.0`, API extraction and YAML writing measured:
+
+| Generator | Mean ± 99.9% confidence interval | Managed allocation |
+|---|---:|---:|
+| SourceDocParser with its Docfx YAML emitter | 123.9 ± 6.70 ms | 128.22 MiB |
+| Docfx 2.80.1 | 564.1 ± 7.58 ms | 501.37 MiB |
+
+That is about **4.6× faster and 74% less allocation for this workload**. Both
+outputs parse as YAML and describe the same 490 API entries across 83 types.
+The comparison uses identical assembly inputs and matched visibility settings;
+it excludes package fetching and site rendering. Docfx does more out of the box,
+and these measurements cover only the API-generation stage shared by both tools.
+See the [benchmark notes](src/benchmarks/README.md) for methodology, output
+differences, and how the tools complement different documentation workflows.
+
 ### Package fetching
 
 The fetch comparison pins Refit 15.2.0 to `net10.0` and
@@ -273,22 +298,22 @@ then broadcasts the canonical's walked types into each subset TFM so
 | `TfmResolver.FindBestRefsTfm` — netstandard fallback                     | ~496 ns |     1 KB  |
 | `TypeMerger.Merge` — 600 types × 3 TFMs                                  | ~115 µs |    358 KB |
 
-**Emitter cost per type page** (no I/O, just markup formatting; baseline =
-Zensical Markdown):
+**Our emitter cost per type page** (no I/O, just markup formatting; baseline =
+our Zensical Markdown emitter). Both columns use SourceDocParser; this table
+does not measure the Docfx application:
 
-| Workload (types × members/type) | Zensical Markdown   | DocFx YAML            | Time  | Alloc |
+| Workload (types × members/type) | Our Zensical Markdown emitter | Our Docfx YAML emitter | Time | Alloc |
 |---------------------------------|--------------------:|----------------------:|------:|------:|
 | 100 × 5                         |   72 µs / 288 KB    |   618 µs / 1,366 KB   |  8.6× |  4.7× |
 | 100 × 30                        |  263 µs / 763 KB    | 5,432 µs / 6,338 KB   | 20.7× |  8.3× |
 | 600 × 5                         |  437 µs / 1,730 KB  | 3,605 µs / 8,198 KB   |  8.3× |  4.7× |
 | 600 × 30                        | 1,505 µs / 4,580 KB | 17,122 µs / 38,025 KB | 11.4× |  8.3× |
 
-DocFx YAML is heavier by design — every member duplicates uid / commentId /
-parent / name / nameWithType / fullName, and the page-level `references:`
-list adds another mapping per cross-referenced type. The emitter hand-writes
-YAML through `StringBuilder` (no YamlDotNet runtime dependency), with a
-single-allocation fast path for qualified-name composites that round-trip
-identifiers as plain scalars when escape-safe.
+ManagedReference YAML carries explicit member metadata and cross-reference
+records used by Docfx's documentation pipeline. Our YAML emitter serializes
+those additional fields; our Markdown emitter produces the page content chosen
+for MkDocs / Zensical. The formats serve different consumers, so their formatting
+costs are not a measure of equivalent site-building capabilities.
 
 ### How perf and allocations stay low
 
