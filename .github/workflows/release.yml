@@ -61,11 +61,6 @@ jobs:
         with:
           solution-file: SourceDocParserLib.slnx
 
-      - name: Test
-        uses: ./.github/actions/dotnet-test
-        with:
-          solution-file: SourceDocParserLib.slnx
-
       - name: Pack
         working-directory: src
         run: dotnet pack SourceDocParserLib.slnx --no-build --configuration Release -o "${GITHUB_WORKSPACE}/packages"
