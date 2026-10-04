@@ -1,19 +1,15 @@
 name: "CodeQL Advanced"
-
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
   schedule:
-    - cron: '50 17 * * 2'
-
+  - cron: '50 17 * * 2'
 permissions: {}
-
 concurrency:
   group: codeql-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
 jobs:
   analyze-csharp:
     name: Analyze C#
@@ -25,34 +21,32 @@ jobs:
       actions: read
     env:
       DOTNET_CLI_WORKLOAD_UPDATE_NOTIFY_DISABLE: 1
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-
-      - name: Setup .NET Environment
-        uses: ./.github/actions/dotnet-environment
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
-        with:
-          languages: csharp
-          build-mode: manual
-          queries: security-extended
-
-      - name: Build
-        uses: ./.github/actions/dotnet-build
-        with:
-          solution-file: SourceDocParserLib.slnx
-
-      - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
-        with:
-          category: "/language:csharp"
-
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        fetch-depth: 0
+        fetch-tags: true
+    - name: Setup .NET Environment
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@main
+      with:
+        minver-tag-prefix: 'v'
+        minver-minimum-major-minor: '1.4'
+        minver-auto-increment: 'minor'
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d
+      with:
+        languages: csharp
+        build-mode: manual
+        queries: security-extended
+    - name: Build
+      uses: glennawatson/actions-common/.github/actions/dotnet-build@main
+      with:
+        solution-file: SourceDocParserLib.slnx
+    - name: Perform CodeQL analysis
+      uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d
+      with:
+        category: "/language:csharp"
   analyze-actions:
     name: Analyze GitHub Actions
     runs-on: ubuntu-latest
@@ -60,18 +54,15 @@ jobs:
       security-events: write
       contents: read
       actions: read
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
-        with:
-          languages: actions
-          queries: security-extended
-
-      - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
-        with:
-          category: "/language:actions"
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d
+      with:
+        languages: actions
+        queries: security-extended
+    - name: Perform CodeQL analysis
+      uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d
+      with:
+        category: "/language:actions"

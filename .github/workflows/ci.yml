@@ -1,18 +1,14 @@
 name: CI Build
-
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-
 permissions:
   contents: read
-
 concurrency:
   group: build-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
 jobs:
   build:
     name: Build and test (${{ matrix.os }})
@@ -22,25 +18,25 @@ jobs:
         os: [windows-latest, ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
-
-      - name: Setup .NET Environment
-        uses: ./.github/actions/dotnet-environment
-
-      - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
-        with:
-          python-version: '3.x'
-
-      - name: Build
-        uses: ./.github/actions/dotnet-build
-        with:
-          solution-file: SourceDocParserLib.slnx
-
-      - name: Test
-        uses: ./.github/actions/dotnet-test
-        with:
-          solution-file: SourceDocParserLib.slnx
+    - name: Checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        fetch-depth: 0
+    - name: Setup Python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      with:
+        python-version: '3.x'
+    - name: Setup .NET Environment
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@main
+      with:
+        minver-tag-prefix: v
+        minver-minimum-major-minor: 1.4
+        minver-auto-increment: minor
+    - name: Build
+      uses: glennawatson/actions-common/.github/actions/dotnet-build@main
+      with:
+        solution-file: SourceDocParserLib.slnx
+    - name: Test
+      uses: glennawatson/actions-common/.github/actions/dotnet-test@main
+      with:
+        solution-file: SourceDocParserLib.slnx

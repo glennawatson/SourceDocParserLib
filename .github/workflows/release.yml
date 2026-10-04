@@ -1,5 +1,4 @@
 name: Release
-
 on:
   workflow_dispatch:
     inputs:
@@ -8,18 +7,15 @@ on:
         required: true
         type: choice
         options:
-          - "(pick one)"
-          - major
-          - minor
-          - patch
-
+        - "(pick one)"
+        - major
+        - minor
+        - patch
 permissions:
   contents: read
-
 concurrency:
   group: release
   cancel-in-progress: false
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -28,66 +24,87 @@ jobs:
       tag: ${{ steps.ver.outputs.tag }}
       source-sha: ${{ github.sha }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
-
-      - name: Setup .NET Environment
-        uses: ./.github/actions/dotnet-environment
-        with:
-          stamp-version: 'false'
-
-      - name: Compute release version
-        id: ver
-        uses: ./.github/actions/compute-version-and-tag
-        with:
-          bump: ${{ inputs.bump }}
-          tag-prefix: 'v'
-          push-tag: 'false'
-
-      - name: Stamp release version
-        uses: ./.github/actions/minver
-        with:
-          version-override: ${{ steps.ver.outputs.version }}
-
-      - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
-        with:
-          python-version: '3.x'
-
-      - name: Build
-        uses: ./.github/actions/dotnet-build
-        with:
-          solution-file: SourceDocParserLib.slnx
-
-      - name: Pack
+    - name: Checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        fetch-depth: 0
+    - name: Setup .NET Environment
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@main
+      with:
+        minver-tag-prefix: 'v'
+        minver-minimum-major-minor: '1.4'
+        minver-auto-increment: 'minor'
+        stamp-version: 'false'
+    - name: Compute release version
+      id: ver
+      uses: glennawatson/actions-common/.github/actions/compute-version-and-tag@main
+      with:
+        bump: ${{ inputs.bump }}
+        tag-prefix: 'v'
+        push-tag: 'false'
+    - name: Stamp release version
+      uses: glennawatson/actions-common/.github/actions/minver@main
+      with:
+        tag-prefix: 'v'
+        minimum-major-minor: '1.4'
+        auto-increment: 'minor'
+        version-override: ${{ steps.ver.outputs.version }}
+    - name: Setup Python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      with:
+        python-version: '3.x'
+    - name: Build
+      uses: glennawatson/actions-common/.github/actions/dotnet-build@main
+      with:
+        solution-file: SourceDocParserLib.slnx
+    - name: Pack
+      uses: glennawatson/actions-common/.github/actions/run-command@main
+      with:
+        command: dotnet
+        arguments: |-
+          pack
+          SourceDocParserLib.slnx
+          --no-build
+          --configuration
+          Release
+          -o
+          ${GITHUB_WORKSPACE}/packages
         working-directory: src
-        run: dotnet pack SourceDocParserLib.slnx --no-build --configuration Release -o "${GITHUB_WORKSPACE}/packages"
-
-      - name: Install GitReleaseNoteGenerator
-        run: dotnet tool install -g GitReleaseNoteGenerator
-
-      - name: Generate release notes
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          RELEASE_VERSION: ${{ steps.ver.outputs.version }}
-        run: git-release-notes --release-version "$RELEASE_VERSION" --output-file release-notes.md
-
-      - name: Upload unsigned packages
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: unsigned-nuget
-          path: packages/*.nupkg
-          if-no-files-found: error
-
-      - name: Upload release notes
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: release-notes
-          path: release-notes.md
-          if-no-files-found: error
-
+    - name: Install GitReleaseNoteGenerator
+      uses: glennawatson/actions-common/.github/actions/run-command@main
+      with:
+        command: dotnet
+        arguments: |-
+          tool
+          install
+          -g
+          GitReleaseNoteGenerator
+        working-directory: .
+    - name: Generate release notes
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        RELEASE_VERSION: ${{ steps.ver.outputs.version }}
+      uses: glennawatson/actions-common/.github/actions/run-command@main
+      with:
+        command: git-release-notes
+        arguments: |-
+          --release-version
+          $RELEASE_VERSION
+          --output-file
+          release-notes.md
+        working-directory: .
+    - name: Upload unsigned packages
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: unsigned-nuget
+        path: packages/*.nupkg
+        if-no-files-found: error
+    - name: Upload release notes
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: release-notes
+        path: release-notes.md
+        if-no-files-found: error
   sign:
     needs: build
     runs-on: ubuntu-latest
@@ -103,29 +120,21 @@ jobs:
       CERTUM_OTP_URI: ${{ secrets.CERTUM_OTP_URI }}
       CERTUM_CERT_FINGERPRINT: ${{ secrets.CERTUM_CERT_FINGERPRINT }}
     steps:
-      - name: Checkout release actions
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          sparse-checkout: .github/actions
-
-      - name: Download unsigned packages
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
-        with:
-          name: unsigned-nuget
-          path: signed
-
-      - name: Sign packages with Certum SimplySign
-        uses: ./.github/actions/certum-sign
-        with:
-          packages-glob: 'signed/*.nupkg'
-
-      - name: Upload signed packages
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: signed-nuget
-          path: signed/*.nupkg
-          if-no-files-found: error
-
+    - name: Download unsigned packages
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+      with:
+        name: unsigned-nuget
+        path: signed
+    - name: Sign packages with Certum SimplySign
+      uses: glennawatson/actions-common/.github/actions/certum-sign@main
+      with:
+        packages-glob: 'signed/*.nupkg'
+    - name: Upload signed packages
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: signed-nuget
+        path: signed/*.nupkg
+        if-no-files-found: error
   publish:
     needs: [build, sign]
     runs-on: ubuntu-latest
@@ -135,77 +144,38 @@ jobs:
       contents: write
       id-token: write
     steps:
-      - name: Setup .NET
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          dotnet-version: 11.0.x
-
-      - name: Download signed packages
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
-        with:
-          name: signed-nuget
-          path: signed
-
-      - name: Download release notes
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
-        with:
-          name: release-notes
-          path: .
-
-      - name: NuGet login (OIDC trusted publishing)
-        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
-        id: nuget-login
-        with:
-          user: ${{ secrets.NUGET_USER }}
-
-      - name: Push to NuGet
-        shell: bash
-        env:
-          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
-        run: |
-          cd "$RUNNER_TEMP" && dotnet run - <<'CS'
-          using System.Diagnostics;
-          using static System.Environment;
-
-          var packages = Directory.GetFiles(Path.Combine(GetEnvironmentVariable("GITHUB_WORKSPACE")!, "signed"), "*.nupkg");
-          if (packages is [])
-          {
-              Console.WriteLine("::error::No signed packages were downloaded.");
-              return 1;
-          }
-
-          foreach (var package in packages.Order(StringComparer.Ordinal))
-          {
-              if (Process.Run("dotnet", ["nuget", "push", package, "--source", "https://api.nuget.org/v3/index.json", "--api-key", GetEnvironmentVariable("NUGET_API_KEY")!]) is { ExitCode: not 0 } push)
-              {
-                  return push.ExitCode;
-              }
-          }
-
-          return 0;
-          CS
-
-      - name: Create GitHub Release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          TAG: ${{ needs.build.outputs.tag }}
-          TARGET: ${{ needs.build.outputs.source-sha }}
-          VERSION: ${{ needs.build.outputs.version }}
-        run: |
-          cd "$RUNNER_TEMP" && dotnet run - <<'CS'
-          using System.Diagnostics;
-          using static System.Environment;
-
-          Directory.SetCurrentDirectory(GetEnvironmentVariable("GITHUB_WORKSPACE")!);
-          return Process.Run("gh",
-          [
-              "release", "create", GetEnvironmentVariable("TAG")!,
-              "--repo", GetEnvironmentVariable("REPOSITORY")!,
-              "--target", GetEnvironmentVariable("TARGET")!,
-              "--title", GetEnvironmentVariable("VERSION")!,
-              "--notes-file", "release-notes.md",
-              .. Directory.GetFiles("signed", "*.nupkg"),
-          ]).ExitCode;
-          CS
+    - name: Setup .NET
+      uses: glennawatson/actions-common/.github/actions/setup-sdk@main
+      with:
+        dotnet-version: 11.0.x
+    - name: Download signed packages
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+      with:
+        name: signed-nuget
+        path: signed
+    - name: Download release notes
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+      with:
+        name: release-notes
+        path: .
+    - name: NuGet login (OIDC trusted publishing)
+      uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841
+      id: nuget-login
+      with:
+        user: ${{ secrets.NUGET_USER }}
+    - name: Push to NuGet
+      env:
+        NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+      uses: glennawatson/actions-common/.github/actions/run-csharp@main
+      with:
+        shared-script: push-to-nuget-d58e357f8c.cs
+    - name: Create GitHub Release
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPOSITORY: ${{ github.repository }}
+        TAG: ${{ needs.build.outputs.tag }}
+        TARGET: ${{ needs.build.outputs.source-sha }}
+        VERSION: ${{ needs.build.outputs.version }}
+      uses: glennawatson/actions-common/.github/actions/run-csharp@main
+      with:
+        shared-script: create-github-release-ced406cb4e.cs

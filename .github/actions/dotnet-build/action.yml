@@ -1,6 +1,5 @@
 name: .NET Build
 description: Standard dotnet CLI restore, build, and optional pack
-
 inputs:
   configuration:
     description: 'Build configuration'
@@ -18,22 +17,13 @@ inputs:
     description: 'Run dotnet pack after build'
     required: false
     default: 'false'
-
 runs:
   using: composite
   steps:
-    - name: Restore NuGet packages
-      shell: bash
-      run: dotnet restore ${{ inputs.solution-file }}
-      working-directory: ${{ inputs.src-folder }}
-
-    - name: Build solution with dotnet CLI
-      shell: bash
-      run: dotnet build --no-restore --configuration ${{ inputs.configuration }} ${{ inputs.solution-file }}
-      working-directory: ${{ inputs.src-folder }}
-
-    - name: Pack NuGet packages
-      if: inputs.create-packages == 'true'
-      shell: bash
-      run: dotnet pack --no-restore --configuration ${{ inputs.configuration }} ${{ inputs.solution-file }} --m:1
-      working-directory: ${{ inputs.src-folder }}
+  - id: shared
+    uses: glennawatson/actions-common/.github/actions/dotnet-build@main
+    with:
+      configuration: ${{ inputs.configuration }}
+      src-folder: ${{ inputs.src-folder }}
+      solution-file: ${{ inputs.solution-file }}
+      create-packages: ${{ inputs.create-packages }}

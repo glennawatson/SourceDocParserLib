@@ -1,18 +1,14 @@
 name: SonarCloud
-
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-
 permissions:
   contents: read
-
 concurrency:
   group: sonarcloud-${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
 jobs:
   analyze:
     name: Build, test, and analyze
@@ -21,48 +17,58 @@ jobs:
     env:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          fetch-depth: 0
-
-      - name: Setup .NET Environment
-        id: environment
-        uses: ./.github/actions/dotnet-environment
-
-      - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
-        with:
-          python-version: '3.x'
-
-      - name: Begin Sonar analysis
-        id: sonar-begin
-        uses: ./.github/actions/sonarcloud
-        with:
-          mode: begin
-          project-key: glennawatson_SourceDocParserLib
-          organization: glennawatson
-          version: ${{ steps.environment.outputs.version-semver2 }}
-          exclusions: '**/tests/**,**/benchmarks/**,**/tools/**'
-          coverage-exclusions: '**/tests/**,**/benchmarks/**,**/tools/**'
-          cpd-exclusions: '**/tests/**,**/benchmarks/**,**/tools/**'
-          test-exclusions: '**/tests/**,**/benchmarks/**,**/tools/**'
-          working-directory: src
-
-      - name: Build
-        uses: ./.github/actions/dotnet-build
-        with:
-          solution-file: SourceDocParserLib.slnx
-
-      - name: Test
-        uses: ./.github/actions/dotnet-test
-        with:
-          solution-file: SourceDocParserLib.slnx
-
-      - name: End Sonar analysis
-        if: always() && steps.sonar-begin.outcome == 'success'
-        uses: ./.github/actions/sonarcloud
-        with:
-          mode: end
-          project-key: glennawatson_SourceDocParserLib
-          working-directory: src
+    - name: Checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        fetch-depth: 0
+    - name: Setup .NET Environment
+      id: environment
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@main
+      with:
+        minver-tag-prefix: 'v'
+        minver-minimum-major-minor: '1.4'
+        minver-auto-increment: 'minor'
+    - name: Setup Python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+      with:
+        python-version: '3.x'
+    - name: Begin Sonar analysis
+      id: sonar-begin
+      uses: glennawatson/actions-common/.github/actions/sonarcloud@main
+      with:
+        extra-begin-args: |
+          /d:sonar.issue.ignore.multicriteria=nullForgiving,nullChecks,linqLoops
+          /d:sonar.issue.ignore.multicriteria.nullForgiving.ruleKey=csharpsquid:S8969
+          /d:sonar.issue.ignore.multicriteria.nullForgiving.resourceKey=**/*.cs
+          /d:sonar.issue.ignore.multicriteria.nullChecks.ruleKey=csharpsquid:S2589
+          /d:sonar.issue.ignore.multicriteria.nullChecks.resourceKey=**/*.cs
+        mode: begin
+        project-key: glennawatson_SourceDocParserLib
+        organization: glennawatson
+        version: ${{ steps.environment.outputs.version-semver2 }}
+        exclusions: '**/tests/**,**/benchmarks/**,**/tools/**'
+        coverage-exclusions: '**/tests/**,**/benchmarks/**,**/tools/**'
+        cpd-exclusions: '**/tests/**,**/benchmarks/**,**/tools/**'
+        test-exclusions: '**/tests/**,**/benchmarks/**,**/tools/**'
+        working-directory: src
+    - name: Build
+      uses: glennawatson/actions-common/.github/actions/dotnet-build@main
+      with:
+        solution-file: SourceDocParserLib.slnx
+    - name: Test
+      uses: glennawatson/actions-common/.github/actions/dotnet-test@main
+      with:
+        solution-file: SourceDocParserLib.slnx
+    - name: End Sonar analysis
+      if: always() && steps.sonar-begin.outcome == 'success'
+      uses: glennawatson/actions-common/.github/actions/sonarcloud@main
+      with:
+        extra-begin-args: |
+          /d:sonar.issue.ignore.multicriteria=nullForgiving,nullChecks,linqLoops
+          /d:sonar.issue.ignore.multicriteria.nullForgiving.ruleKey=csharpsquid:S8969
+          /d:sonar.issue.ignore.multicriteria.nullForgiving.resourceKey=**/*.cs
+          /d:sonar.issue.ignore.multicriteria.nullChecks.ruleKey=csharpsquid:S2589
+          /d:sonar.issue.ignore.multicriteria.nullChecks.resourceKey=**/*.cs
+        mode: end
+        project-key: glennawatson_SourceDocParserLib
+        working-directory: src
