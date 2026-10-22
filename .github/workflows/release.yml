@@ -52,7 +52,7 @@ jobs:
           version-override: ${{ steps.ver.outputs.version }}
 
       - name: Setup Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: '3.x'
 
@@ -97,7 +97,7 @@ jobs:
       contents: read
       packages: read
     container:
-      image: ghcr.io/reactiveui/certum-signer:latest@sha256:ee5d4af12d51a9bd75e7008df78880cb7d352a841573647674f70cb587809554
+      image: ghcr.io/reactiveui/certum-signer:latest@sha256:f15c2913f472c60b314b6487829dd559b5eea8fa92ae2add895ba1b0e183380b
     env:
       CERTUM_USER_ID: ${{ secrets.CERTUM_USER_ID }}
       CERTUM_OTP_URI: ${{ secrets.CERTUM_OTP_URI }}
