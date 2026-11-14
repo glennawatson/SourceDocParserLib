@@ -48,21 +48,6 @@
     },
     {
       "matchManagers": ["nuget"],
-      "matchPackageNames": ["System.Threading.RateLimiting", "Microsoft.Extensions.Logging.Abstractions", "System.Security.Cryptography.Xml"],
-      "matchCurrentVersion": ">=10.0.0 <11.0.0-0",
-      "allowedVersions": ">=10.0.0 <11.0.0-0",
-      "groupName": ".NET 10 libraries"
-    },
-    {
-      "matchManagers": ["nuget"],
-      "matchPackageNames": ["System.Threading.RateLimiting", "Microsoft.Extensions.Logging.Abstractions", "System.Security.Cryptography.Xml"],
-      "matchCurrentVersion": ">=11.0.0-0 <12.0.0-0",
-      "allowedVersions": ">=11.0.0-0 <12.0.0-0",
-      "ignoreUnstable": false,
-      "groupName": ".NET 11 libraries"
-    },
-    {
-      "matchManagers": ["nuget"],
       "matchPackageNames": ["BenchmarkDotNet"],
       "ignoreUnstable": false
     },
@@ -96,6 +81,40 @@
     {
       "matchManagers": ["pip_requirements"],
       "groupName": "documentation tools"
+    },
+    {
+      "description": "Keep .NET 10 package entries on 10.x.",
+      "matchDatasources": ["nuget"],
+      "matchPackageNames": [
+        "/^Microsoft\\.Extensions\\./",
+        "/^Microsoft\\.AspNetCore\\./",
+        "/^Microsoft\\.NETCore\\./",
+        "/^Microsoft\\.SourceLink\\./",
+        "Microsoft.Build.Tasks.Git",
+        "/^System\\./"
+      ],
+      "matchCurrentValue": "/^10\\./",
+      "allowedVersions": "/^10\\./",
+      "ignoreUnstable": true,
+      "groupName": ".NET 10 packages",
+      "groupSlug": "dotnet-10"
+    },
+    {
+      "description": "Keep .NET 11 package entries on 11.x.",
+      "matchDatasources": ["nuget"],
+      "matchPackageNames": [
+        "/^Microsoft\\.Extensions\\./",
+        "/^Microsoft\\.AspNetCore\\./",
+        "/^Microsoft\\.NETCore\\./",
+        "/^Microsoft\\.SourceLink\\./",
+        "Microsoft.Build.Tasks.Git",
+        "/^System\\./"
+      ],
+      "matchCurrentValue": "/^11\\./",
+      "allowedVersions": "/^11\\./",
+      "ignoreUnstable": false,
+      "groupName": ".NET 11 packages",
+      "groupSlug": "dotnet-11"
     }
   ]
 }
