@@ -37,7 +37,7 @@ jobs:
       uses: glennawatson/actions-common/.github/actions/sonarcloud@main
       with:
         extra-begin-args: |
-          /d:sonar.issue.ignore.multicriteria=nullForgiving,nullChecks,linqLoops
+          /d:sonar.issue.ignore.multicriteria=nullForgiving,nullChecks
           /d:sonar.issue.ignore.multicriteria.nullForgiving.ruleKey=csharpsquid:S8969
           /d:sonar.issue.ignore.multicriteria.nullForgiving.resourceKey=**/*.cs
           /d:sonar.issue.ignore.multicriteria.nullChecks.ruleKey=csharpsquid:S2589
@@ -64,7 +64,7 @@ jobs:
       uses: glennawatson/actions-common/.github/actions/sonarcloud@main
       with:
         extra-begin-args: |
-          /d:sonar.issue.ignore.multicriteria=nullForgiving,nullChecks,linqLoops
+          /d:sonar.issue.ignore.multicriteria=nullForgiving,nullChecks
           /d:sonar.issue.ignore.multicriteria.nullForgiving.ruleKey=csharpsquid:S8969
           /d:sonar.issue.ignore.multicriteria.nullForgiving.resourceKey=**/*.cs
           /d:sonar.issue.ignore.multicriteria.nullChecks.ruleKey=csharpsquid:S2589
