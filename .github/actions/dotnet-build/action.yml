@@ -21,7 +21,7 @@ runs:
   using: composite
   steps:
   - id: shared
-    uses: glennawatson/actions-common/.github/actions/dotnet-build@main
+    uses: glennawatson/actions-common/.github/actions/dotnet-build@d1a1652f1d0e4ad7d2f77bda30b58f4b42ab0748 # main
     with:
       configuration: ${{ inputs.configuration }}
       src-folder: ${{ inputs.src-folder }}

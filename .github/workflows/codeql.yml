@@ -28,7 +28,7 @@ jobs:
         fetch-depth: 0
         fetch-tags: true
     - name: Setup .NET Environment
-      uses: glennawatson/actions-common/.github/actions/dotnet-environment@main
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@d1a1652f1d0e4ad7d2f77bda30b58f4b42ab0748 # main
       with:
         minver-tag-prefix: 'v'
         minver-minimum-major-minor: '1.4'
@@ -40,7 +40,7 @@ jobs:
         build-mode: manual
         queries: security-extended
     - name: Build
-      uses: glennawatson/actions-common/.github/actions/dotnet-build@main
+      uses: glennawatson/actions-common/.github/actions/dotnet-build@d1a1652f1d0e4ad7d2f77bda30b58f4b42ab0748 # main
       with:
         solution-file: SourceDocParserLib.slnx
     - name: Perform CodeQL analysis
