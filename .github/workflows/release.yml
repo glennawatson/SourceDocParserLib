@@ -29,7 +29,7 @@ jobs:
       with:
         fetch-depth: 0
     - name: Setup .NET Environment
-      uses: glennawatson/actions-common/.github/actions/dotnet-environment@main
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@381282a6137c4f3c099ff80d9ee909e5d262998a
       with:
         minver-tag-prefix: 'v'
         minver-minimum-major-minor: '1.4'
@@ -37,13 +37,13 @@ jobs:
         stamp-version: 'false'
     - name: Compute release version
       id: ver
-      uses: glennawatson/actions-common/.github/actions/compute-version-and-tag@main
+      uses: glennawatson/actions-common/.github/actions/compute-version-and-tag@381282a6137c4f3c099ff80d9ee909e5d262998a
       with:
         bump: ${{ inputs.bump }}
         tag-prefix: 'v'
         push-tag: 'false'
     - name: Stamp release version
-      uses: glennawatson/actions-common/.github/actions/minver@main
+      uses: glennawatson/actions-common/.github/actions/minver@381282a6137c4f3c099ff80d9ee909e5d262998a
       with:
         tag-prefix: 'v'
         minimum-major-minor: '1.4'
@@ -54,56 +54,18 @@ jobs:
       with:
         python-version: '3.x'
     - name: Build
-      uses: glennawatson/actions-common/.github/actions/dotnet-build@main
+      uses: glennawatson/actions-common/.github/actions/dotnet-build@381282a6137c4f3c099ff80d9ee909e5d262998a
       with:
         solution-file: SourceDocParserLib.slnx
     - name: Pack
-      uses: glennawatson/actions-common/.github/actions/run-command@main
-      with:
-        command: dotnet
-        arguments: |-
-          pack
-          SourceDocParserLib.slnx
-          --no-build
-          --configuration
-          Release
-          -o
-          ${GITHUB_WORKSPACE}/packages
-        working-directory: src
-    - name: Install GitReleaseNoteGenerator
-      uses: glennawatson/actions-common/.github/actions/run-command@main
-      with:
-        command: dotnet
-        arguments: |-
-          tool
-          install
-          -g
-          GitReleaseNoteGenerator
-        working-directory: .
-    - name: Generate release notes
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
-        RELEASE_VERSION: ${{ steps.ver.outputs.version }}
-      uses: glennawatson/actions-common/.github/actions/run-command@main
-      with:
-        command: git-release-notes
-        arguments: |-
-          --release-version
-          $RELEASE_VERSION
-          --output-file
-          release-notes.md
-        working-directory: .
+      shell: bash
+      run: dotnet "pack" "SourceDocParserLib.slnx" "--no-build" "--configuration" "Release" "-o" "${GITHUB_WORKSPACE}/packages"
+      working-directory: src
     - name: Upload unsigned packages
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
       with:
         name: unsigned-nuget
         path: packages/*.nupkg
-        if-no-files-found: error
-    - name: Upload release notes
-      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-      with:
-        name: release-notes
-        path: release-notes.md
         if-no-files-found: error
   sign:
     needs: build
@@ -113,20 +75,23 @@ jobs:
     permissions:
       contents: read
       packages: read
-    container:
-      image: ghcr.io/reactiveui/certum-signer:latest@sha256:ee5d4af12d51a9bd75e7008df78880cb7d352a841573647674f70cb587809554
     env:
       CERTUM_USER_ID: ${{ secrets.CERTUM_USER_ID }}
       CERTUM_OTP_URI: ${{ secrets.CERTUM_OTP_URI }}
       CERTUM_CERT_FINGERPRINT: ${{ secrets.CERTUM_CERT_FINGERPRINT }}
     steps:
+    - name: Setup .NET Environment
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@381282a6137c4f3c099ff80d9ee909e5d262998a
+      with:
+        stamp-version: false
+        dotnet-versions: 11.0.x
     - name: Download unsigned packages
       uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
       with:
         name: unsigned-nuget
         path: signed
     - name: Sign packages with Certum SimplySign
-      uses: glennawatson/actions-common/.github/actions/certum-sign@main
+      uses: glennawatson/actions-common/.github/actions/certum-sign@381282a6137c4f3c099ff80d9ee909e5d262998a
       with:
         packages-glob: 'signed/*.nupkg'
     - name: Upload signed packages
@@ -145,19 +110,15 @@ jobs:
       id-token: write
     steps:
     - name: Setup .NET
-      uses: glennawatson/actions-common/.github/actions/setup-sdk@main
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@381282a6137c4f3c099ff80d9ee909e5d262998a
       with:
-        dotnet-version: 11.0.x
+        stamp-version: false
+        dotnet-versions: 11.0.x
     - name: Download signed packages
       uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
       with:
         name: signed-nuget
         path: signed
-    - name: Download release notes
-      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
-      with:
-        name: release-notes
-        path: .
     - name: NuGet login (OIDC trusted publishing)
       uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841
       id: nuget-login
@@ -166,16 +127,18 @@ jobs:
     - name: Push to NuGet
       env:
         NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
-      uses: glennawatson/actions-common/.github/actions/run-csharp@main
-      with:
-        shared-script: push-to-nuget-d58e357f8c.cs
-    - name: Create GitHub Release
-      env:
-        GH_TOKEN: ${{ github.token }}
-        REPOSITORY: ${{ github.repository }}
-        TAG: ${{ needs.build.outputs.tag }}
-        TARGET: ${{ needs.build.outputs.source-sha }}
-        VERSION: ${{ needs.build.outputs.version }}
-      uses: glennawatson/actions-common/.github/actions/run-csharp@main
-      with:
-        shared-script: create-github-release-ced406cb4e.cs
+      shell: bash
+      run: dotnet nuget push "signed/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY" --skip-duplicate
+  create-release:
+    needs:
+    - build
+    - publish
+    permissions:
+      contents: write
+    uses: glennawatson/actions-common/.github/workflows/workflow-common-create-release.yml@381282a6137c4f3c099ff80d9ee909e5d262998a
+    with:
+      version: ${{ needs.build.outputs.version }}
+      tag: ${{ needs.build.outputs.tag }}
+      target: ${{ needs.build.outputs.source-sha }}
+      prerelease: false
+...
