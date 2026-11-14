@@ -36,7 +36,7 @@ jobs:
       id: sonar-begin
       uses: glennawatson/actions-common/.github/actions/sonarcloud@main
       with:
-        extra-begin-args: |
+        extra-begin-args: >-
           /d:sonar.issue.ignore.multicriteria=nullForgiving,nullChecks
           /d:sonar.issue.ignore.multicriteria.nullForgiving.ruleKey=csharpsquid:S8969
           /d:sonar.issue.ignore.multicriteria.nullForgiving.resourceKey=**/*.cs
@@ -63,7 +63,7 @@ jobs:
       if: always() && steps.sonar-begin.outcome == 'success'
       uses: glennawatson/actions-common/.github/actions/sonarcloud@main
       with:
-        extra-begin-args: |
+        extra-begin-args: >-
           /d:sonar.issue.ignore.multicriteria=nullForgiving,nullChecks
           /d:sonar.issue.ignore.multicriteria.nullForgiving.ruleKey=csharpsquid:S8969
           /d:sonar.issue.ignore.multicriteria.nullForgiving.resourceKey=**/*.cs
