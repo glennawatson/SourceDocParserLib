@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Microsoft.Diagnostics.Tracing.Etlx;
+using Microsoft.Extensions.Logging;
 
 namespace SourceDocParser.AllocReport;
 
@@ -17,7 +18,7 @@ namespace SourceDocParser.AllocReport;
 /// top-N types and call stacks by sampled bytes. The output is meant to
 /// be greppable / pastable so a profile can be evaluated without a GUI.
 /// </summary>
-internal static class Program
+internal static partial class Program
 {
     /// <summary>Default number of rows to surface in each table.</summary>
     private const int DefaultTopN = 25;
@@ -55,16 +56,19 @@ internal static class Program
     /// </returns>
     internal static int Main(string[] args)
     {
+        using var loggerFactory = LoggerFactory.Create(static builder =>
+            builder.AddConsole(static options => options.LogToStandardErrorThreshold = LogLevel.Trace));
+        var logger = loggerFactory.CreateLogger("SourceDocParser.AllocReport");
         if (args.Length == 0)
         {
-            Console.Error.WriteLine("usage: SourceDocParser.AllocReport <path-to-trace.nettrace> [topN]");
+            LogUsage(logger);
             return ExitCodeUsageError;
         }
 
         var tracePath = args[0];
         if (!File.Exists(tracePath))
         {
-            Console.Error.WriteLine($"trace file not found: {tracePath}");
+            LogTraceFileNotFound(logger, tracePath);
             return ExitCodeTraceFileNotFound;
         }
 
@@ -73,9 +77,7 @@ internal static class Program
         var stats = AggregateAllocations(tracePath);
         if (stats.TotalSamples == 0)
         {
-            Console.Error.WriteLine(
-                "trace contained no GC allocation tick events. Make sure the benchmark was instrumented with "
-                + "[EventPipeProfiler(EventPipeProfile.GcVerbose)].");
+            LogNoAllocationSamples(logger);
             return ExitCodeNoAllocationSamples;
         }
 
@@ -84,6 +86,23 @@ internal static class Program
         WriteStackTable(Console.Out, stats, topN);
         return 0;
     }
+
+    /// <summary>Reports the required command-line arguments.</summary>
+    /// <param name="logger">Diagnostic destination.</param>
+    [LoggerMessage(EventId = 1, Level = LogLevel.Error, Message = "usage: SourceDocParser.AllocReport <path-to-trace.nettrace> [topN]")]
+    private static partial void LogUsage(ILogger logger);
+
+    /// <summary>Reports a missing trace input.</summary>
+    /// <param name="logger">Diagnostic destination.</param>
+    /// <param name="tracePath">Requested trace path.</param>
+    [LoggerMessage(EventId = 2, Level = LogLevel.Error, Message = "trace file not found: {TracePath}")]
+    private static partial void LogTraceFileNotFound(ILogger logger, string tracePath);
+
+    /// <summary>Reports a trace without allocation samples.</summary>
+    /// <param name="logger">Diagnostic destination.</param>
+    [LoggerMessage(EventId = 3, Level = LogLevel.Error,
+        Message = "trace contained no GC allocation tick events. Make sure the benchmark was instrumented with [EventPipeProfiler(EventPipeProfile.GcVerbose)].")]
+    private static partial void LogNoAllocationSamples(ILogger logger);
 
     /// <summary>Walks the trace, aggregating every <c>GCAllocationTick</c> by type name and by managed call-stack key.</summary>
     /// <param name="tracePath">Absolute path to the <c>.nettrace</c> file.</param>
