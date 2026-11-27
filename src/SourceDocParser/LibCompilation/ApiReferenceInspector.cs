@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using SourceDocParser.Walk;
 
@@ -11,6 +12,9 @@ namespace SourceDocParser.LibCompilation;
 /// <summary>Finds unavailable assemblies required by a documentation root's API.</summary>
 public static class ApiReferenceInspector
 {
+    /// <summary>The assembly each Android app's build generates for its resources.</summary>
+    private const string AndroidResourceDesigner = "_Microsoft.Android.Resource.Designer";
+
     /// <summary>Returns unavailable references used by the assembly's documented signatures.</summary>
     /// <param name="assembly">The assembly being documented.</param>
     /// <param name="includePrivateMembers">Whether to inspect nonpublic declarations in the documentation root.</param>
@@ -210,6 +214,17 @@ public static class ApiReferenceInspector
         }
     }
 
+    /// <summary>Checks whether an assembly is one no package or reference pack ever contains, so no restore can supply it.</summary>
+    /// <param name="identity">The unavailable assembly.</param>
+    /// <returns><see langword="true"/> for the Android resource designer, which each Android app's own build generates.</returns>
+    /// <remarks>
+    /// An Android library's public <c>Resource</c> class references the designer, so every such library would otherwise
+    /// report it, although nothing a consumer supplies could resolve it.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsNeverPublished(AssemblyIdentity identity) =>
+        string.Equals(identity.Name, AndroidResourceDesigner, StringComparison.Ordinal);
+
     /// <summary>Inspects a signature type without enumerating the type's members.</summary>
     /// <param name="type">The referenced type, if available.</param>
     /// <param name="member">The API member requiring the type.</param>
@@ -221,7 +236,7 @@ public static class ApiReferenceInspector
             return;
         }
 
-        if (type is IErrorTypeSymbol { ContainingAssembly.Identity: { } identity })
+        if (type is IErrorTypeSymbol { ContainingAssembly.Identity: { } identity } && !IsNeverPublished(identity))
         {
             _ = context.Missing.TryAdd(identity, new(identity, member.ToDisplayString()));
         }
