@@ -14,6 +14,9 @@ public sealed class ApiReferenceInspectorTests
     /// <summary>The unavailable assembly used by the fixtures.</summary>
     private const string MissingAssembly = "MissingApiDependency";
 
+    /// <summary>The assembly each Android app's build generates for its resources.</summary>
+    private const string AndroidResourceDesigner = "_Microsoft.Android.Resource.Designer";
+
     /// <summary>The referenced package assembly.</summary>
     private const string DependencyAssembly = "Dependency";
 
@@ -164,6 +167,24 @@ public sealed class ApiReferenceInspectorTests
         var assembly = Load(root);
 
         await Assert.That(ApiReferenceInspector.GetMissingReferences(assembly, false)).IsEmpty();
+    }
+
+    /// <summary>
+    /// The resource designer each Android app's build generates is never reported, as an Android library's public
+    /// <c>Resource</c> class references it, while another missing assembly in the same API still is.
+    /// </summary>
+    /// <returns>A task representing the assertions.</returns>
+    [Test]
+    public async Task AndroidResourceDesignerIsNeverReported()
+    {
+        var designer = Emit(AndroidResourceDesigner, "namespace _Microsoft.Android.Resource.Designer { public class ResourceConstant { } }");
+        var missing = Emit(MissingAssembly, MissingSource);
+        var designerOnly = Load(Emit("Api", "public class Resource : _Microsoft.Android.Resource.Designer.ResourceConstant { }", designer));
+        var both = Load(Emit("Api", "public class Resource : _Microsoft.Android.Resource.Designer.ResourceConstant { public Missing.Marker Value; }", designer, missing));
+
+        await Assert.That(ApiReferenceInspector.GetMissingReferences(designerOnly, false)).IsEmpty();
+        var reference = await Assert.That(ApiReferenceInspector.GetMissingReferences(both, false)).HasSingleItem();
+        await Assert.That(reference.AssemblyIdentity.Name).IsEqualTo(MissingAssembly);
     }
 
     /// <summary>Loads a root without the missing assembly used to compile it.</summary>
