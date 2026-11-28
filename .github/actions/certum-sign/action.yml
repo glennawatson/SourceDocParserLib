@@ -33,7 +33,7 @@ runs:
   using: composite
   steps:
   - id: shared
-    uses: glennawatson/actions-common/.github/actions/certum-sign@main
+    uses: glennawatson/actions-common/.github/actions/certum-sign@d1a1652f1d0e4ad7d2f77bda30b58f4b42ab0748 # main
     with:
       packages-glob: ${{ inputs.packages-glob }}
       timestamp-url: ${{ inputs.timestamp-url }}
