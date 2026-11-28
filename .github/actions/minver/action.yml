@@ -45,7 +45,7 @@ runs:
   using: composite
   steps:
   - id: shared
-    uses: glennawatson/actions-common/.github/actions/minver@e793ab9257b1b034ed5cb9695609338317ea1221 # main
+    uses: glennawatson/actions-common/.github/actions/minver@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
     with:
       tag-prefix: ${{ inputs.tag-prefix }}
       minimum-major-minor: ${{ inputs.minimum-major-minor }}
