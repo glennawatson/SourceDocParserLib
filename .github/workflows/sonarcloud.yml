@@ -18,23 +18,23 @@ jobs:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
     - name: Checkout
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
     - name: Setup .NET Environment
       id: environment
-      uses: glennawatson/actions-common/.github/actions/dotnet-environment@main
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
       with:
         minver-tag-prefix: 'v'
         minver-minimum-major-minor: '1.4'
         minver-auto-increment: 'minor'
     - name: Setup Python
-      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
       with:
         python-version: '3.x'
     - name: Begin Sonar analysis
       id: sonar-begin
-      uses: glennawatson/actions-common/.github/actions/sonarcloud@main
+      uses: glennawatson/actions-common/.github/actions/sonarcloud@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
       with:
         extra-begin-args: >-
           /d:sonar.issue.ignore.multicriteria=nullForgiving,nullChecks
@@ -52,16 +52,16 @@ jobs:
         test-exclusions: '**/tests/**,**/benchmarks/**,**/tools/**'
         working-directory: src
     - name: Build
-      uses: glennawatson/actions-common/.github/actions/dotnet-build@main
+      uses: glennawatson/actions-common/.github/actions/dotnet-build@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
       with:
         solution-file: SourceDocParserLib.slnx
     - name: Test
-      uses: glennawatson/actions-common/.github/actions/dotnet-test@main
+      uses: glennawatson/actions-common/.github/actions/dotnet-test@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
       with:
         solution-file: SourceDocParserLib.slnx
     - name: End Sonar analysis
       if: always() && steps.sonar-begin.outcome == 'success'
-      uses: glennawatson/actions-common/.github/actions/sonarcloud@main
+      uses: glennawatson/actions-common/.github/actions/sonarcloud@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
       with:
         extra-begin-args: >-
           /d:sonar.issue.ignore.multicriteria=nullForgiving,nullChecks

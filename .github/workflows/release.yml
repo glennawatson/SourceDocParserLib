@@ -25,11 +25,11 @@ jobs:
       source-sha: ${{ github.sha }}
     steps:
     - name: Checkout
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
     - name: Setup .NET Environment
-      uses: glennawatson/actions-common/.github/actions/dotnet-environment@3b31df642f2c2d4ebeeb770b3b5d715f3a324bcc
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
       with:
         minver-tag-prefix: 'v'
         minver-minimum-major-minor: '1.4'
@@ -37,24 +37,24 @@ jobs:
         stamp-version: 'false'
     - name: Compute release version
       id: ver
-      uses: glennawatson/actions-common/.github/actions/compute-version-and-tag@3b31df642f2c2d4ebeeb770b3b5d715f3a324bcc
+      uses: glennawatson/actions-common/.github/actions/compute-version-and-tag@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
       with:
         bump: ${{ inputs.bump }}
         tag-prefix: 'v'
         push-tag: 'false'
     - name: Stamp release version
-      uses: glennawatson/actions-common/.github/actions/minver@3b31df642f2c2d4ebeeb770b3b5d715f3a324bcc
+      uses: glennawatson/actions-common/.github/actions/minver@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
       with:
         tag-prefix: 'v'
         minimum-major-minor: '1.4'
         auto-increment: 'minor'
         version-override: ${{ steps.ver.outputs.version }}
     - name: Setup Python
-      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
       with:
         python-version: '3.x'
     - name: Build
-      uses: glennawatson/actions-common/.github/actions/dotnet-build@3b31df642f2c2d4ebeeb770b3b5d715f3a324bcc
+      uses: glennawatson/actions-common/.github/actions/dotnet-build@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
       with:
         solution-file: SourceDocParserLib.slnx
     - name: Pack
@@ -62,7 +62,7 @@ jobs:
       run: dotnet "pack" "SourceDocParserLib.slnx" "--no-build" "--configuration" "Release" "-o" "${GITHUB_WORKSPACE}/packages"
       working-directory: src
     - name: Upload unsigned packages
-      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: unsigned-nuget
         path: packages/*.nupkg
@@ -81,21 +81,21 @@ jobs:
       CERTUM_CERT_FINGERPRINT: ${{ secrets.CERTUM_CERT_FINGERPRINT }}
     steps:
     - name: Setup .NET Environment
-      uses: glennawatson/actions-common/.github/actions/dotnet-environment@3b31df642f2c2d4ebeeb770b3b5d715f3a324bcc
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
       with:
         stamp-version: false
         dotnet-versions: 11.0.x
     - name: Download unsigned packages
-      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
       with:
         name: unsigned-nuget
         path: signed
     - name: Sign packages with Certum SimplySign
-      uses: glennawatson/actions-common/.github/actions/certum-sign@3b31df642f2c2d4ebeeb770b3b5d715f3a324bcc
+      uses: glennawatson/actions-common/.github/actions/certum-sign@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
       with:
         packages-glob: 'signed/*.nupkg'
     - name: Upload signed packages
-      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: signed-nuget
         path: signed/*.nupkg
@@ -110,17 +110,17 @@ jobs:
       id-token: write
     steps:
     - name: Setup .NET
-      uses: glennawatson/actions-common/.github/actions/dotnet-environment@3b31df642f2c2d4ebeeb770b3b5d715f3a324bcc
+      uses: glennawatson/actions-common/.github/actions/dotnet-environment@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
       with:
         stamp-version: false
         dotnet-versions: 11.0.x
     - name: Download signed packages
-      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
       with:
         name: signed-nuget
         path: signed
     - name: NuGet login (OIDC trusted publishing)
-      uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841
+      uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
       id: nuget-login
       with:
         user: ${{ secrets.NUGET_USER }}
@@ -135,7 +135,7 @@ jobs:
     - publish
     permissions:
       contents: write
-    uses: glennawatson/actions-common/.github/workflows/workflow-common-create-release.yml@3b31df642f2c2d4ebeeb770b3b5d715f3a324bcc
+    uses: glennawatson/actions-common/.github/workflows/workflow-common-create-release.yml@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
     with:
       version: ${{ needs.build.outputs.version }}
       tag: ${{ needs.build.outputs.tag }}

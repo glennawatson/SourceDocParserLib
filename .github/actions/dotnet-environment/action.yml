@@ -41,7 +41,7 @@ runs:
   using: composite
   steps:
   - id: shared
-    uses: glennawatson/actions-common/.github/actions/dotnet-environment@main
+    uses: glennawatson/actions-common/.github/actions/dotnet-environment@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
     with:
       dotnet-versions: ${{ inputs.dotnet-versions }}
       stamp-version: ${{ inputs.stamp-version }}

@@ -56,7 +56,7 @@ runs:
   using: composite
   steps:
   - id: shared
-    uses: glennawatson/actions-common/.github/actions/sonarcloud@main
+    uses: glennawatson/actions-common/.github/actions/sonarcloud@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
     with:
       mode: ${{ inputs.mode }}
       project-key: ${{ inputs.project-key }}
