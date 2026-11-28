@@ -26,15 +26,14 @@ inputs:
     required: false
     default: 'http://time.certum.pl'
   launch-seconds:
-    description: 'Seconds to wait after launching SimplySign before driving the UI.'
+    description: 'Compatibility input for callers of the former SimplySign GUI action.'
     required: false
     default: '20'
 runs:
   using: composite
   steps:
   - id: shared
-    uses: glennawatson/actions-common/.github/actions/certum-sign@ead59b84e2a4a83b6d1c94d1a8f4985bca437f95 # main
+    uses: glennawatson/actions-common/.github/actions/certum-sign@e793ab9257b1b034ed5cb9695609338317ea1221 # main
     with:
       packages-glob: ${{ inputs.packages-glob }}
       timestamp-url: ${{ inputs.timestamp-url }}
-      launch-seconds: ${{ inputs.launch-seconds }}
